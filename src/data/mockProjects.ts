@@ -254,7 +254,7 @@ function workflowFor(stage: ClientLifecycleStage, overrides: Partial<ProjectWork
   };
 
   const byStage: Record<ClientLifecycleStage, ProjectWorkflow> = {
-    "cocoon-audit": {
+    "cocoon-consult": {
       stage,
       planLabel: "Cocoon Consult",
       planDescription: "Audit-first consult that turns the landing-page lead into a client-safe website diagnosis.",
@@ -375,7 +375,7 @@ function workflowLeadForProject(project: Project): ProjectWorkflow["lead"] {
 
 function planForStage(stage: ClientLifecycleStage): ProjectPlan {
   const plans: Record<ClientLifecycleStage, ProjectPlan> = {
-    "cocoon-audit": {
+    "cocoon-consult": {
       name: "Cocoon Consult",
       description: "Audit-first consult before the guided call and dashboard unlock.",
       status: "active",
@@ -550,9 +550,37 @@ export const INITIAL_PROJECT: Project = {
   ],
 };
 
+export const HOUSE_COCOON_PROJECT: Project = {
+  ...INITIAL_PROJECT,
+  id: "house-of-hazel",
+  clientName: "House of Hazel",
+  clientEmail: "hazel@houseofhazel.co",
+  clientInitials: "HH",
+  platform: "Webflow",
+  startDate: "Jun 4, 2026",
+  status: "on_hold",
+  notes: [],
+  assets: [],
+  plan: {
+    name: "Cocoon Consult",
+    description: "Audit-first consult before the guided call and dashboard unlock.",
+    status: "active",
+    invoices: [],
+  },
+  workflow: workflowFor("cocoon-consult", {
+    lead: {
+      name: "Hazel Nguyen",
+      email: "hazel@houseofhazel.co",
+      phone: "+1 555 014 1182",
+      businessName: "House of Hazel",
+      website: "https://houseofhazel.co",
+    },
+  }),
+};
+
 export const SECOND_PROJECT: Project = {
   ...INITIAL_PROJECT,
-  id: "flora-cocoon-audit",
+  id: "flora-cocoon-consult",
   clientName: "Flora & Co.",
   clientEmail: "team@floraandco.com",
   clientInitials: "FC",
@@ -565,7 +593,7 @@ export const SECOND_PROJECT: Project = {
     status: "active",
     invoices: [],
   },
-  workflow: workflowFor("cocoon-audit", {
+  workflow: workflowFor("cocoon-consult", {
     lead: {
       name: "Flora Chen",
       email: "team@floraandco.com",
@@ -713,12 +741,12 @@ export const DELETED_PROJECT: Project = {
 };
 
 export const LIFECYCLE_PROJECTS: Project[] = [
-  PAID_COCOON_PROJECT,
-  INITIAL_PROJECT,
+  SECOND_PROJECT,
+  HOUSE_COCOON_PROJECT,
 ];
 
 export const PROJECT_BY_LIFECYCLE: Record<ClientLifecycleStage, Project> = {
-  "cocoon-audit": SECOND_PROJECT,
+  "cocoon-consult": SECOND_PROJECT,
   "paid-cocoon": PAID_COCOON_PROJECT,
   "wiaw-active": WIAW_PROJECT,
   "in-full-flight": IN_FULL_FLIGHT_PROJECT,

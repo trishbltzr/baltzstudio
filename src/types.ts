@@ -85,7 +85,7 @@ export interface ProjectPlan {
   invoices?: Array<{ label: string; amount: string; date: string; paid: boolean }>;
 }
 
-export type ClientLifecycleStage = "cocoon-audit" | "paid-cocoon" | "wiaw-active" | "in-full-flight" | "deleted";
+export type ClientLifecycleStage = "cocoon-consult" | "paid-cocoon" | "wiaw-active" | "in-full-flight" | "deleted";
 export type WisePaymentStatus = "not_sent" | "email_sent" | "pending_confirmation" | "confirmed" | "not_required";
 export type DashboardAccessKind = "locked" | "three_month" | "unlimited" | "deleted";
 export type AuditPriority = "low" | "urgent-important" | "urgent" | "important";

@@ -45,17 +45,17 @@ export function lifecycleStage(project: Project): ClientLifecycleStage {
 }
 
 export function isCocoonIntakeStage(project: Project) {
-  return lifecycleStage(project) === "cocoon-audit";
+  return lifecycleStage(project) === "cocoon-consult";
 }
 
 export function isBuildLockedStage(project: Project) {
   const stage = lifecycleStage(project);
-  return stage === "cocoon-audit" || stage === "paid-cocoon" || stage === "deleted";
+  return stage === "cocoon-consult" || stage === "paid-cocoon" || stage === "deleted";
 }
 
 export function isAuditMilestoneStage(project: Project) {
   const stage = lifecycleStage(project);
-  return stage === "cocoon-audit" || stage === "paid-cocoon" || stage === "deleted";
+  return stage === "cocoon-consult" || stage === "paid-cocoon" || stage === "deleted";
 }
 
 export function isActiveBuildStage(project: Project) {
@@ -65,7 +65,7 @@ export function isActiveBuildStage(project: Project) {
 
 export function planAccess(project: Project) {
   const stage = lifecycleStage(project);
-  const isPreCocoon = stage === "cocoon-audit";
+  const isPreCocoon = stage === "cocoon-consult";
   const isPremiumCocoon = stage === "paid-cocoon";
   const isBuildStage = stage === "wiaw-active" || stage === "in-full-flight";
   const isDeleted = stage === "deleted";

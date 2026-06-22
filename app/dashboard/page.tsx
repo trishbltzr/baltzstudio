@@ -3,20 +3,13 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { ClientLifecycleStage, Project, ClientNav } from "@/types";
-import { INITIAL_PROJECT, LIFECYCLE_PROJECTS, applyLifecycleStageToProject } from "@/data/mockProjects";
+import { LIFECYCLE_PROJECTS, applyLifecycleStageToProject } from "@/data/mockProjects";
 import { updateTask, sendGate, approveGate, submitFeedback, finishMilestone } from "@/lib/projectMutations";
 import { Toast } from "@/components/shared";
 import { AdminView } from "@/admin/AdminView";
 import { ClientView, buildOnboardingSeed, type OnboardingStorageMode } from "@/client/ClientTabs";
 
 const PROJECTS = LIFECYCLE_PROJECTS;
-type DevClientView = "cocoon" | "paid-cocoon" | "wiaw";
-
-const DEV_VIEW_TO_STAGE: Record<DevClientView, ClientLifecycleStage> = {
-  cocoon: "cocoon-audit",
-  "paid-cocoon": "paid-cocoon",
-  wiaw: "wiaw-active",
-};
 
 type WorkflowNudge = {
   eyebrow: string;
@@ -24,10 +17,6 @@ type WorkflowNudge = {
   body: string;
   actionLabel: string;
 };
-
-function isDevClientView(value: string | null | undefined): value is DevClientView {
-  return value === "cocoon" || value === "paid-cocoon" || value === "wiaw";
-}
 
 export default function Dashboard() {
   const router = useRouter();
@@ -54,17 +43,10 @@ export default function Dashboard() {
 
   const devParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
   const devNav = devParams?.get("nav");
-  const devView = devParams?.get("view");
   const devSeed = devParams?.get("seed");
-  const hasDevOverrides = Boolean(devNav || devView || devSeed);
 
-  const initialClientView: DevClientView = isDevClientView(devView) ? devView : "paid-cocoon";
-  const initialStage = DEV_VIEW_TO_STAGE[initialClientView];
-  const initialProjects = PROJECTS.map((project, index) =>
-    index === 0 ? applyLifecycleStageToProject(project, initialStage) : project,
-  );
-  const [selectedProjectId, setSelectedProjectId] = useState(initialProjects[0]?.id ?? INITIAL_PROJECT.id);
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [selectedProjectId, setSelectedProjectId] = useState(PROJECTS[0]?.id ?? "");
+  const [projects, setProjects] = useState<Project[]>(PROJECTS);
   const [dashboardStateLoaded, setDashboardStateLoaded] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [workflowNudge, setWorkflowNudge] = useState<WorkflowNudge | null>(null);
@@ -101,10 +83,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!userLoaded || !currentUser) return;
-    if (hasDevOverrides) {
-      setDashboardStateLoaded(true);
-      return;
-    }
 
     let cancelled = false;
 
@@ -135,10 +113,10 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [currentUser, hasDevOverrides, userLoaded]);
+  }, [currentUser, userLoaded]);
 
   useEffect(() => {
-    if (!currentUser || !dashboardStateLoaded || hasDevOverrides) return;
+    if (!currentUser || !dashboardStateLoaded) return;
 
     const saveTimer = setTimeout(() => {
       void fetch("/api/dashboard-state", {
@@ -151,7 +129,7 @@ export default function Dashboard() {
     }, 700);
 
     return () => clearTimeout(saveTimer);
-  }, [currentUser, dashboardStateLoaded, hasDevOverrides, projects, selectedProjectId]);
+  }, [currentUser, dashboardStateLoaded, projects, selectedProjectId]);
 
   useEffect(() => {
     if (currentUser?.role !== "client") return;
@@ -165,8 +143,8 @@ export default function Dashboard() {
     setSelectedProjectId(id);
   }
 
-  function setClientLifecycleMode(mode: DevClientView) {
-    updateProject(p => applyLifecycleStageToProject(p, DEV_VIEW_TO_STAGE[mode]));
+  function setClientLifecycleMode(stage: ClientLifecycleStage) {
+    updateProject(p => applyLifecycleStageToProject(p, stage));
   }
 
   function changeProjectLifecycleStage(stage: ClientLifecycleStage) {
@@ -180,7 +158,7 @@ export default function Dashboard() {
     router.push("/login");
   }
 
-  if (!userLoaded || !currentUser || (!hasDevOverrides && !dashboardStateLoaded)) return null;
+  if (!userLoaded || !currentUser || !dashboardStateLoaded) return null;
 
   return (
     <div className="bs-app">
@@ -227,7 +205,7 @@ export default function Dashboard() {
             showToast("Task updated.");
           }}
           onFinishMilestone={milestoneId => {
-            if (project.workflow?.stage === "paid-cocoon" && milestoneId === "cocoon-audit") {
+            if (project.workflow?.stage === "paid-cocoon" && milestoneId === "cocoon-consult") {
               showWorkflowNudge({
                 eyebrow: "Foundation complete",
                 title: "Your Cocoon Consult foundation is ready.",
@@ -259,7 +237,7 @@ export default function Dashboard() {
           <div className="workflow-nudge-eyebrow">{workflowNudge.eyebrow}</div>
           <strong>{workflowNudge.title}</strong>
           <p>{workflowNudge.body}</p>
-          <button type="button" onClick={() => setClientLifecycleMode("wiaw")}>{workflowNudge.actionLabel}</button>
+          <button type="button" onClick={() => setClientLifecycleMode("wiaw-active")}>{workflowNudge.actionLabel}</button>
         </div>
       )}
     </div>

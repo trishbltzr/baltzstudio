@@ -45,7 +45,7 @@ export type OnboardingStep = {
 };
 
 function cocoonTierForStage(stage?: string) {
-  if (stage === "cocoon-audit") return "Free";
+  if (stage === "cocoon-consult") return "Free";
   if (stage === "paid-cocoon") return "Premium";
   return null;
 }
@@ -434,7 +434,7 @@ export function ClientOverviewTab({ project, onNavChange, role = "client" }: { p
                 {(showAuditOverview
                   ? [
                       { id: "audit", number: 1, clientLabel: "Audit", status: "complete" as const },
-                      { id: "review", number: 2, clientLabel: "Guided Call", status: stage === "cocoon-audit" ? "active" as const : "complete" as const },
+                      { id: "review", number: 2, clientLabel: "Guided Call", status: stage === "cocoon-consult" ? "active" as const : "complete" as const },
                       { id: "path", number: 3, clientLabel: "Build Path", status: stage === "paid-cocoon" ? "active" as const : stage === "deleted" ? "locked" as const : "complete" as const },
                     ]
                   : project.milestones
@@ -457,7 +457,7 @@ export function ClientOverviewTab({ project, onNavChange, role = "client" }: { p
           {(showAuditOverview
             ? [
                 { id: "audit-intake", title: "Cocoon Consult audit", status: "complete" as const, dateNum: "3", dateMon: "Jun", detail: "Inputs received · audit generated" },
-                { id: "audit-review", title: "Guided Cocoon Consult call", status: stage === "cocoon-audit" ? "active" as const : "complete" as const, dateNum: "5", dateMon: "Jun", detail: workflow?.booking.label ?? "Findings reviewed with next-step recommendations" },
+                { id: "audit-review", title: "Guided Cocoon Consult call", status: stage === "cocoon-consult" ? "active" as const : "complete" as const, dateNum: "5", dateMon: "Jun", detail: workflow?.booking.label ?? "Findings reviewed with next-step recommendations" },
                 { id: "audit-path", title: workflow?.nextStepLabel ?? "Choose next path", status: stage === "paid-cocoon" ? "active" as const : stage === "deleted" ? "locked" as const : "complete" as const, dateNum: "10", dateMon: "Jun", detail: workflow?.nextStepDetail ?? "Paid Cocoon · Winged in a Week · In Full Flight" },
               ]
             : [
@@ -543,7 +543,7 @@ function initialAuditTaskStatuses(project: Project) {
 
 export function ClientMilestonesTab({ project, auditMode = false, onTaskStatusChange, onFinishMilestone }: { project: Project; auditMode?: boolean; onTaskStatusChange?: (taskId: string, status: Task["status"]) => void; onFinishMilestone?: (milestoneId: string) => void }) {
   const [expandedMilestoneId, setExpandedMilestoneId] = useState<string | null>(() => {
-    if (auditMode) return "cocoon-audit";
+    if (auditMode) return "cocoon-consult";
     const active = project.milestones.find(m => m.status === "active");
     return active?.id ?? null;
   });
@@ -551,7 +551,7 @@ export function ClientMilestonesTab({ project, auditMode = false, onTaskStatusCh
   const [phaseFiles, setPhaseFiles] = useState<Record<string, string[]>>({});
   const [auditTaskStatuses, setAuditTaskStatuses] = useState<Record<string, Task["status"]>>(() => initialAuditTaskStatuses(project));
   const [auditMilestoneStatuses, setAuditMilestoneStatuses] = useState<Record<string, MilestoneStatus>>({
-    "cocoon-audit": "active",
+    "cocoon-consult": "active",
     "cocoon-next-build": "locked",
     "cocoon-next-launch": "locked",
   });
@@ -559,11 +559,11 @@ export function ClientMilestonesTab({ project, auditMode = false, onTaskStatusCh
   useEffect(() => {
     if (!auditMode) return;
     setAuditMilestoneStatuses({
-      "cocoon-audit": "active",
+      "cocoon-consult": "active",
       "cocoon-next-build": "locked",
       "cocoon-next-launch": "locked",
     });
-    setExpandedMilestoneId("cocoon-audit");
+    setExpandedMilestoneId("cocoon-consult");
     setAuditTaskStatuses(initialAuditTaskStatuses(project));
   }, [auditMode, project.id, project.workflow?.stage]);
 
@@ -583,7 +583,7 @@ export function ClientMilestonesTab({ project, auditMode = false, onTaskStatusCh
   }
 
   function finishAuditMilestone(milestone: Milestone) {
-    const paidCocoonPaywall = project.workflow?.stage === "paid-cocoon" && milestone.id === "cocoon-audit";
+    const paidCocoonPaywall = project.workflow?.stage === "paid-cocoon" && milestone.id === "cocoon-consult";
 
     setAuditTaskStatuses(prev => {
       const next = { ...prev };
@@ -594,7 +594,7 @@ export function ClientMilestonesTab({ project, auditMode = false, onTaskStatusCh
       });
       return next;
     });
-    const milestoneOrder = ["cocoon-audit", "cocoon-next-build", "cocoon-next-launch"];
+    const milestoneOrder = ["cocoon-consult", "cocoon-next-build", "cocoon-next-launch"];
     const currentIndex = milestoneOrder.indexOf(milestone.id);
     const nextMilestoneId = milestoneOrder[currentIndex + 1];
     setAuditMilestoneStatuses(prev => ({
@@ -622,9 +622,9 @@ export function ClientMilestonesTab({ project, auditMode = false, onTaskStatusCh
 
     const auditMilestones: Milestone[] = [
       {
-        id: "cocoon-audit", number: 1, title: "Foundation", clientLabel: "Foundation", status: auditMilestoneStatuses["cocoon-audit"] ?? "active",
+        id: "cocoon-consult", number: 1, title: "Foundation", clientLabel: "Foundation", status: auditMilestoneStatuses["cocoon-consult"] ?? "active",
         phases: auditCategories.map((category, index) =>
-          auditPhase(`cocoon-audit-${auditCategoryLabel(category.title).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`, category.title, index, category.items.map(item => item.label))
+          auditPhase(`cocoon-consult-${auditCategoryLabel(category.title).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`, category.title, index, category.items.map(item => item.label))
         ),
       },
       {
@@ -2219,9 +2219,9 @@ export function ClientCocoonEmbedTab({ onComplete, onConfirmCocoonPayment, devSe
     const percent = total ? Math.round((complete / total) * 100) : 0;
     return { title: auditCategoryLabel(category.title), total, complete, toFix, percent };
   });
-  const auditPhaseId = (title: string) => `cocoon-audit-${auditCategoryLabel(title).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+  const auditPhaseId = (title: string) => `cocoon-consult-${auditCategoryLabel(title).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
   const cocoonAuditProject: Project = {
-    id: "cocoon-audit-preview",
+    id: "cocoon-consult-preview",
     clientName: "House of Hazel",
     clientEmail: "hazel@houseofhazel.co",
     clientInitials: "HH",
@@ -2230,7 +2230,7 @@ export function ClientCocoonEmbedTab({ onComplete, onConfirmCocoonPayment, devSe
     platform: "Website",
     milestones: [
       {
-        id: "cocoon-audit",
+        id: "cocoon-consult",
         number: 1,
         title: "Foundation",
         clientLabel: "Foundation",
@@ -2268,7 +2268,7 @@ export function ClientCocoonEmbedTab({ onComplete, onConfirmCocoonPayment, devSe
       {selectedAuditPhaseId && (
         <PhaseDetailModal
           phaseId={selectedAuditPhaseId}
-          milestoneId="cocoon-audit"
+          milestoneId="cocoon-consult"
           project={cocoonAuditProject}
           onClose={() => setSelectedAuditPhaseId(null)}
           auditCategories={SHARED_AUDIT_CATEGORIES}
