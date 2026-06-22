@@ -1,0 +1,13 @@
+/* ─── Dashboard shell ────────────────────────────────────────── */
+.client-dashboard-shell {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--bg);
+  transition: grid-template-columns 0.2s ease;
+  position: relative; /* anchor for the overflow collapse button */
+}
+.client-dashboard-shell.is-collapsed {
+  grid-template-columns: 80px minmax(0, 1fr);
+}

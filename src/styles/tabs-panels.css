@@ -1,0 +1,510 @@
+/* Tab bar */
+.dashboard-tabbar {
+  display: flex;
+  gap: 0;
+  padding: 0 1.5rem;
+  border-bottom: 1px solid var(--border-soft);
+  background: oklch(0.99 0.004 55 / 0.6);
+  flex-shrink: 0;
+  /* Project-detail views can carry 5+ tabs, so the row scrolls horizontally
+     when the viewport cannot fit every tab. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+  scrollbar-width: none;
+}
+.dashboard-tabbar::-webkit-scrollbar { display: none; }
+
+.settings-tabbar {
+  width: 100%;
+}
+.settings-tabbar .dashboard-tab {
+  flex: 1 1 0;
+  justify-content: center;
+}
+
+.dashboard-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.65rem 0.85rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.dashboard-tab svg { width: 0.82rem; height: 0.82rem; }
+.dashboard-tab:hover { color: var(--fg); }
+.dashboard-tab.is-active { color: var(--fg); border-bottom-color: var(--accent); }
+
+/* Main content — full width, responsive */
+.dashboard-main {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  width: 100%;
+  box-sizing: border-box;
+  background: oklch(0.99 0.004 55);
+}
+.dashboard-main > * {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* ─── Panels ─────────────────────────────────────────────────── */
+.dashboard-panel {
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  overflow: clip;
+  transition: box-shadow 0.15s, border-color 0.15s, background 0.15s;
+  box-shadow: none;
+}
+/* Gates awaiting the studio's send-to-client action — give them a touch more
+   presence in the admin reviews list so the actionable item stands out from
+   the rest of the roadmap at a glance. */
+.dashboard-panel.is-action-needed {
+  border-color: oklch(0.85 0.06 20 / 0.75);
+  background: var(--accent-soft);
+}
+
+/* Admin reviews list rows — subtle hover lift to reinforce that each gate
+   is tappable (opens the detail modal), aiding scannability. */
+.admin-review-row .dashboard-panel:hover {
+  border-color: oklch(0.86 0.05 20 / 0.7);
+  background: oklch(0.992 0.006 55);
+  box-shadow: var(--shadow-soft);
+}
+
+.dashboard-panel-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.1rem;
+  background: oklch(0.97 0.004 50);
+}
+.dashboard-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--fg);
+  min-width: 0;
+}
+.dashboard-panel-title svg { color: var(--fg-faint); width: 0.88rem; height: 0.88rem; }
+.dashboard-panel-title h2 { font-size: 0.88rem; font-weight: 500; }
+
+/* ─── Status badges ──────────────────────────────────────────── */
+.dashboard-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: 1.6rem;
+  padding: 0 0.65rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  line-height: 1;
+  position: relative;
+  cursor: default;
+  user-select: none;
+}
+.dashboard-status svg { width: 1rem; height: 1rem; margin-right: 0.15rem; }
+.dashboard-status.is-waiting svg,
+.dashboard-status.is-pending svg {
+  width: 0.82rem;
+  height: 0.82rem;
+}
+.dashboard-status.is-compact {
+  height: 1.35rem;
+  padding: 0 0.55rem;
+  font-size: var(--text-xs);
+}
+.dashboard-status.is-compact svg {
+  width: 0.82rem;
+  height: 0.82rem;
+}
+.dashboard-status.is-shrink-0 {
+  flex-shrink: 0;
+}
+.dashboard-status-label { display: inline; }
+/* Rendered through a portal to <body> with `position: fixed` coords computed
+   from the badge's live rect (see StatusBadge) — badges often sit inside
+   `overflow: hidden` cards, so an absolutely-positioned child would get
+   visually clipped. Fixed-position + portal escapes that reliably. */
+.dashboard-status-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--radius);
+  background: var(--fg);
+  color: var(--surface);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: normal;
+  text-align: left;
+  width: max-content;
+  max-width: 13rem;
+  box-shadow: var(--shadow-soft);
+  z-index: 300;
+  pointer-events: none;
+}
+.dashboard-status-popover strong { font-weight: 500; }
+.dashboard-status-popover-detail { color: oklch(1 0 0 / 0.7); font-weight: 400; }
+.dashboard-status-popover::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 6px;
+  height: 6px;
+  background: var(--fg);
+}
+
+/* On phones the label is hidden — the icon stands in. Tap reveals a
+   small popover with the full label so context is never lost. */
+@media (max-width: 640px) {
+  /* `!important` here is deliberate: several call sites pass their own inline
+     `padding`/`fontSize` to size the badge for its desktop context (e.g. the
+     phase-card header). Icon-only mode is a global responsive override that
+     must win regardless — otherwise the leftover horizontal text-padding
+     survives without the label to fill it, producing a stretched oval instead
+     of a clean circle. Forcing equal width/height + zero padding guarantees a
+     true circle for every badge, every context. */
+  .dashboard-status {
+    width: 1.6rem !important;
+    height: 1.6rem !important;
+    padding: 0 !important;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .dashboard-status-label { display: none; }
+  .dashboard-status svg { margin-right: 0; }
+}
+
+/* Status pill colours moved to src/styles/status.css (single source of truth). */
+
+.assignee-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 340px;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: var(--surface);
+}
+.assignee-editor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.22rem 0.4rem 0.22rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-alt);
+  color: var(--fg);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.assignee-editor-chip > svg {
+  color: var(--fg-muted);
+}
+.assignee-editor-chip button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.1rem;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--fg-muted);
+  line-height: 0;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.assignee-editor-chip button:hover {
+  background: var(--surface);
+  color: var(--accent);
+}
+.assignee-editor input {
+  flex: 1 1 96px;
+  min-width: 96px;
+  padding: 0.25rem 0.1rem;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: var(--text-base);
+}
+
+/* ─── Brand asset editing ───────────────────────────────────── */
+.brand-swatch-popover {
+  position: fixed;
+  z-index: 200;
+  width: min(12rem, calc(100vw - 3rem));
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.6rem;
+  border: 1px solid oklch(0.9 0.012 35);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: 0 4px 20px oklch(0.2 0.01 30 / 0.1);
+}
+.brand-swatch-popover::before {
+  content: "";
+  position: absolute;
+  left: -0.42rem;
+  top: 50%;
+  transform: translateY(-50%) rotate(45deg);
+  width: 0.75rem;
+  height: 0.75rem;
+  border-left: 1px solid oklch(0.9 0.012 35);
+  border-bottom: 1px solid oklch(0.9 0.012 35);
+  background: var(--surface);
+}
+.brand-swatch-popover-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.brand-swatch-popover-head strong {
+  color: var(--fg);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.brand-swatch-popover-head button {
+  width: 1.55rem;
+  height: 1.55rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.brand-swatch-presets {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 0.3rem;
+}
+.brand-swatch-presets button {
+  aspect-ratio: 1;
+  border: 1px solid oklch(0.72 0.01 50);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+}
+.brand-swatch-presets button:hover,
+.brand-swatch-presets button:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+  transform: translateY(-1px);
+}
+.brand-swatch-popover label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+.brand-swatch-popover input[type="text"],
+.brand-swatch-popover label input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.4rem 0.5rem;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-family: monospace;
+  font-size: var(--text-sm);
+  outline: none;
+}
+.brand-swatch-button {
+  width: 1.6rem;
+  height: 1.6rem;
+  display: block;
+  border: 1.5px solid oklch(0.72 0.01 50);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.brand-swatch-button:hover {
+  border-color: var(--accent);
+}
+.brand-swatch-contrast {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.brand-swatch-contrast span {
+  padding: 0.45rem 0.5rem;
+  background: var(--surface);
+}
+.brand-swatch-contrast .is-active {
+  background: oklch(0.9 0.006 50);
+  color: var(--fg);
+}
+
+/* Color picker */
+.color-picker {
+  display: grid;
+  gap: 0.5rem;
+}
+.color-picker-area {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-sm);
+  cursor: crosshair;
+  touch-action: none;
+}
+.color-picker-thumb {
+  position: absolute;
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px oklch(0.3 0 0 / 0.25), 0 1px 3px oklch(0.2 0 0 / 0.3);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.color-picker-hue {
+  position: relative;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+  cursor: pointer;
+  touch-action: none;
+}
+.color-picker-hue-thumb {
+  position: absolute;
+  top: 50%;
+  width: 0.6rem;
+  height: 0.6rem;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px oklch(0.3 0 0 / 0.25), 0 1px 3px oklch(0.2 0 0 / 0.3);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.brand-style-summary {
+  display: grid;
+  gap: 0.65rem;
+  padding-top: 0.15rem;
+}
+.brand-style-summary div {
+  display: grid;
+  gap: 0.18rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+.brand-style-summary div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.brand-style-summary span {
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.brand-style-summary strong {
+  color: var(--fg);
+  font-size: var(--text-base);
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+/* Assignee badges — all one neutral tone */
+.assignee-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 1.4rem;
+  padding: 0 0.5rem;
+  border-radius: var(--radius-pill);
+  background: oklch(0.94 0.005 50);
+  color: var(--fg-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.assignee-badge svg { width: 0.6rem; height: 0.6rem; }
+
+/* ─── Buttons ────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 2.1rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+.btn svg { width: 0.82rem; height: 0.82rem; }
+.btn:disabled { opacity: 0.38; cursor: not-allowed; }
+.btn:not(:disabled):hover { background: var(--surface-alt); }
+
+.btn-sm { height: 1.75rem; padding: 0 0.65rem; font-size: 0.75rem; }
+.btn-primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--surface);
+}
+.btn-primary:not(:disabled):hover { background: var(--accent); filter: brightness(0.95); }
+.btn-ghost { border-color: transparent; background: transparent; color: var(--fg-muted); }
+.btn-ghost:not(:disabled):hover { background: var(--surface-alt); color: var(--fg); }
+
+.btn-deny {
+  background: oklch(0.965 0.008 45);
+  border-color: oklch(0.88 0.018 35);
+  color: oklch(0.48 0.035 25);
+}
+.btn-deny:hover {
+  background: oklch(0.94 0.018 35);
+  border-color: oklch(0.82 0.035 25);
+  color: var(--fg);
+}

@@ -1,0 +1,125 @@
+/* ─── Shared primitives ─────────────────────────────────────── */
+.dashboard-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.dashboard-modal-card {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 1001;
+  width: 90%;
+  max-height: 88vh;
+  overflow: auto;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--surface);
+}
+
+.dashboard-modal-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.dashboard-modal-close {
+  display: flex;
+  padding: 0.3rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.dashboard-modal-close:hover {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.dashboard-modal-head-end {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.cocoon-popup-backdrop,
+.file-hub-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: oklch(0.18 0.01 50 / 0.42);
+}
+
+.cocoon-popup-head span,
+.file-hub-modal-head span,
+.account-setup-head span {
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cocoon-popup-head button,
+.cocoon-payment-close,
+.file-hub-modal-head button,
+.account-setup-head button {
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.cocoon-popup-head h3,
+.account-setup-head h3 {
+  margin: 0.1rem 0 0;
+  color: var(--fg);
+  font-size: var(--text-lg);
+  font-weight: 500;
+}
+
+.audit-category-item::before,
+.audit-passed-toggle::before {
+  content: "";
+  position: absolute;
+  left: -1.5rem;
+  top: 50%;
+  width: 1.5rem;
+  height: 1.5px;
+  background: var(--border);
+}
+
+.dashboard-more-sheet-item svg,
+.dashboard-nav-item svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex-shrink: 0;
+  stroke-width: 1.9;
+  color: var(--fg);
+}
+
+.dashboard-more-sheet-item.is-active,
+.sidebar-child-popover-item.is-active {
+  background: linear-gradient(90deg, oklch(0.78 0.11 22), oklch(0.7 0.13 18));
+  color: white;
+}
+
+/* Status pill colours moved to src/styles/status.css (single source of truth). */

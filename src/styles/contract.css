@@ -1,0 +1,135 @@
+/* ─── Contract modal ─── */
+.contract-modal {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--surface);
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  width: 90%; max-width: 580px;
+  max-height: 88vh;
+  overflow: hidden;
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+}
+.contract-modal-head {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1.25rem;
+  flex-shrink: 0;
+}
+.contract-modal-body {
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  font-size: var(--text-sm);
+  color: var(--fg);
+  line-height: 1.65;
+}
+.contract-parties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  margin-bottom: 1.15rem;
+}
+.contract-party {
+  padding: 0.7rem 0.85rem;
+  background: var(--bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-soft);
+}
+.contract-eyebrow {
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  color: var(--fg-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.2rem;
+}
+.contract-intro {
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 0.25rem;
+}
+.contract-intro p {
+  margin: 0 0 0.5rem;
+  color: var(--fg-muted);
+}
+.contract-intro p:last-child { margin-bottom: 0; }
+
+/* Collapsible sections */
+.contract-section {
+  border-bottom: 1px solid var(--border-soft);
+}
+.contract-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.85rem 0;
+  border: none;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+.contract-section-toggle:hover {
+  color: var(--accent);
+}
+.contract-section-toggle svg {
+  color: var(--fg-faint);
+  flex-shrink: 0;
+}
+.contract-section-body {
+  padding: 0 0 1rem;
+  color: var(--fg-muted);
+}
+.contract-section-body p {
+  margin: 0 0 0.5rem;
+}
+.contract-section-body p:last-child { margin-bottom: 0; }
+.contract-section-body ul,
+.contract-section-body ol {
+  margin: 0.35rem 0 0.65rem;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 0.25rem;
+}
+.contract-section-body li {
+  color: var(--fg);
+}
+.contract-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.contract-detail-grid > div {
+  padding: 0.55rem 0.7rem;
+  background: var(--bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-soft);
+}
+.contract-detail-grid strong {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--fg);
+}
+.contract-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 1rem;
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--border-soft);
+}

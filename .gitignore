@@ -1,0 +1,25 @@
+node_modules/
+dist/
+.next/
+**/.next/
+out/
+build/
+coverage/
+.turbo/
+.cache/
+.vite/
+.pnpm-store/
+.eslintcache
+playwright-report/
+test-results/
+.DS_Store
+*.log
+.env
+.env.local
+.env.*.local
+.vercel
+*.tsbuildinfo
+The Baltazar Studio/
+
+# Local Claude Code overrides (machine-specific; keep out of git)
+.claude/settings.local.json

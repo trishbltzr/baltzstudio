@@ -1,0 +1,7 @@
+/* ─── App shell ─────────────────────────────────────────────── */
+.bs-app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}

@@ -1,0 +1,283 @@
+/* ─── Client review card ─────────────────────────────────────── */
+/* ── Reviews roadmap summary ─── */
+.client-reviews-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+.client-reviews-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+.client-reviews-summary-item.is-priority {
+  background: oklch(0.982 0.014 72);
+  border-color: oklch(0.86 0.055 70);
+}
+.client-reviews-summary-item.is-priority .client-reviews-summary-num { color: oklch(0.5 0.095 60); }
+.client-reviews-summary-item.is-muted { opacity: 0.6; }
+.client-reviews-summary-num {
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: var(--fg);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.client-reviews-summary-label {
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+  font-weight: 500;
+}
+@media (max-width: 640px) {
+  .client-reviews-summary { grid-template-columns: repeat(2, 1fr); }
+}
+
+.client-reviews-group { display: grid; gap: 0.5rem; }
+.client-reviews-group-header {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0 0.15rem;
+}
+.client-reviews-group-label {
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  min-width: 1.8rem;
+  height: 1.25rem;
+  padding: 0 0.4rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.client-reviews-group-title {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--fg-muted);
+}
+.client-reviews-group-progress {
+  margin-left: auto;
+  font-size: var(--text-2xs);
+  color: var(--fg-faint);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.client-review-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  overflow: hidden;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+/* Compact "preview" cards (locked / ready) — deliberately quieter so the eye
+   is drawn to the card that actually needs action. */
+.client-review-card.is-compact .client-review-header { border-bottom: none; padding: 0.8rem 1.1rem; }
+.client-review-card.is-compact .client-review-header h3 { font-size: 0.85rem; }
+.client-review-card.is-compact .client-review-header p { font-size: 0.7rem; }
+.client-review-card.is-locked {
+  background: oklch(0.985 0.002 50);
+  border-style: dashed;
+  opacity: 0.78;
+}
+.client-review-card.is-locked .client-review-header h3 { color: var(--fg-muted); font-weight: 450; }
+.client-review-card.is-ready {
+  border-color: oklch(0.91 0.025 20 / 0.72);
+  background: oklch(0.99 0.006 55);
+}
+.client-review-card.is-ready .client-review-header h3 { color: var(--fg); }
+/* The actionable "sent" card — needs to read as the most important thing on
+   the page, so it gets real elevation and an accent edge. */
+.client-review-card.is-open {
+  border-color: oklch(0.84 0.05 68 / 0.78);
+  box-shadow: var(--shadow-soft), var(--ring-soft) inset;
+}
+.client-review-card.is-open .client-review-header {
+  background: oklch(0.982 0.012 66);
+}
+.client-review-card.is-resolved {
+  opacity: 0.92;
+}
+.client-review-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+.client-review-header h3 { font-size: 0.9rem; font-weight: 500; line-height: 1.2; }
+.client-review-header p  { color: var(--fg-muted); font-size: 0.75rem; margin-top: 0.15rem; }
+
+.client-review-body { padding: 1.1rem; display: flex; flex-direction: column; gap: 1.1rem; }
+.client-review-body > .btn { align-self: flex-start; }
+.client-review-message { font-size: 0.85rem; color: var(--fg); line-height: 1.55; }
+
+.review-steps-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.55rem;
+}
+.review-step {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.6rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius);
+  background: oklch(0.985 0.003 50);
+  border: 1px solid oklch(0.94 0.008 50 / 0.6);
+  align-content: start;
+}
+.review-step-num {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 500;
+  color: var(--fg-faint);
+  background: transparent;
+  border: 1.5px solid var(--border);
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+.review-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.review-step-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--fg);
+  line-height: 1.35;
+}
+.review-step-optional {
+  font-size: 0.55rem;
+  font-weight: 500;
+  color: var(--fg-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-left: 0.3rem;
+}
+.review-step-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: fit-content;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--fg);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  text-decoration: none;
+  transition: border-color 0.12s, background 0.12s;
+}
+.review-step-link:hover {
+  border-color: var(--fg-faint);
+  background: oklch(0.97 0.005 50);
+}
+.review-step-link.is-primary {
+  border-color: oklch(0.9 0.025 155 / 0.5);
+  background: oklch(0.97 0.012 155 / 0.4);
+  color: oklch(0.4 0.04 155);
+}
+.review-step-link.is-primary:hover {
+  border-color: oklch(0.82 0.04 155 / 0.6);
+  background: oklch(0.95 0.02 155 / 0.45);
+}
+.review-step-link svg { flex-shrink: 0; }
+.review-step-link svg:last-child { color: var(--fg-faint); margin-left: 0.05rem; }
+
+.review-step.is-gated {
+  opacity: 0.35;
+  pointer-events: none;
+  user-select: none;
+  filter: grayscale(0.4);
+}
+@media (max-width: 480px) {
+  .review-steps-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.client-field label { display: block; font-size: 0.72rem; font-weight: 500; color: var(--fg-muted); margin-bottom: 0.35rem; }
+.client-field textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.8rem;
+  background: oklch(0.99 0.004 55);
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--fg);
+  resize: none;
+  transition: border-color 0.12s;
+}
+.client-field textarea:focus {
+  outline: 0;
+  border-color: var(--accent);
+}
+
+.cocoon-answer-field {
+  width: 100%;
+  min-height: 7.5rem;
+  box-sizing: border-box;
+  padding: 0.2rem 0 0.85rem;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: var(--text-lg);
+  line-height: 1.6;
+  resize: vertical;
+  transition: border-color 0.15s;
+}
+.cocoon-answer-field:focus {
+  border-bottom-color: var(--accent);
+}
+
+.approval-choice-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.approval-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 2.1rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+.approval-choice svg { width: 0.82rem; height: 0.82rem; }
+.approval-choice:hover { border-color: var(--fg-muted); background: var(--bg); }
+.approval-choice.is-yes:hover { border-color: var(--success); color: var(--success); background: var(--success-soft); }
+.approval-choice.is-no:hover  { border-color: var(--warn);    color: var(--warn);    background: var(--warn-soft); }
+.approval-choice.is-yes.is-selected { border-color: oklch(0.82 0.045 155); background: var(--success-soft); color: var(--success); box-shadow: 0 0 0 1px oklch(0.82 0.045 155 / 0.55) inset; font-weight: 500; }
+.approval-choice.is-no.is-selected  { border-color: oklch(0.84 0.055 68);    background: oklch(0.982 0.014 72);    color: oklch(0.5 0.095 60);    box-shadow: 0 0 0 1px oklch(0.84 0.055 68 / 0.55) inset;    font-weight: 500; }
+
+@media (max-width: 640px) {
+  /* Review decision + submit row: the base .btn/.approval-choice height
+     (2.1rem ≈ 34px) is fine for dense desktop rows of inline actions, but
+     these are the primary "make a call on this gate" controls — bump them
+     to a stacked, full-width ≥44px tap target on touch screens. */
+  .approval-choice-row { flex-direction: column; align-items: stretch; }
+  .approval-choice, .client-review-body > .btn { min-height: 44px; height: auto; }
+}

@@ -1,0 +1,52 @@
+/* ─────────────────────────────────────────────
+   STATUS DESIGN SYSTEM — single source of truth
+   for every status pill's colour across the app
+   (phase cards, gates, milestones, tasks).
+
+   Semantic state      class                       colour token
+   ──────────────────  ──────────────────────────  ─────────────
+   Done / Complete     .is-success / .is-complete   --success
+   In progress         .is-progress / .is-active    --accent (rose)
+   Awaiting / Review    .is-review                   --warn (amber)
+   Soon / Upcoming     .is-waiting / .is-pending     neutral grey
+   Locked              .is-locked                    faint grey
+   Blocked             .is-blocked                   --danger (red)
+
+   Structural rules for .dashboard-status (layout, icon,
+   label, popover, mobile collapse) live in tabs-panels.css.
+   Only the semantic COLOURS belong here.
+   ───────────────────────────────────────────── */
+
+.dashboard-status.is-success,
+.dashboard-status.is-complete {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.dashboard-status.is-progress,
+.dashboard-status.is-active,
+.dashboard-status.is-rose {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.dashboard-status.is-review {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.dashboard-status.is-waiting,
+.dashboard-status.is-pending {
+  background: oklch(0.94 0.004 50);
+  color: var(--fg-muted);
+}
+
+.dashboard-status.is-locked {
+  background: oklch(0.94 0.004 50);
+  color: var(--fg-faint);
+}
+
+.dashboard-status.is-blocked {
+  background: var(--danger-soft);
+  color: var(--danger);
+}

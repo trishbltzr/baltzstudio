@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard Workflow Map</title>
+  <style>
+    @font-face {
+      font-family: "Mallory";
+      src: url("public/fonts/Mallory Book.ttf") format("truetype");
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: "Mallory";
+      src: url("public/fonts/Mallory Medium.ttf") format("truetype");
+      font-weight: 600;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: "Mallory";
+      src: url("public/fonts/Mallory Bold.ttf") format("truetype");
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --bg: #f5f0ea;
+      --surface: #ffffff;
+      --surface-muted: #faf7f4;
+      --ink: #2d2926;
+      --muted: #7c6f64;
+      --line: #e8ded6;
+      --studio: #df7480;
+      --studio-soft: #fbe4e6;
+      --ai: #c9a96e;
+      --ai-soft: #f8eed6;
+      --client: #73b68b;
+      --client-soft: #def3e5;
+      --gate: #e5a257;
+      --gate-soft: #fff0dc;
+      --system: #8b8178;
+      --system-soft: #efebe7;
+      --shadow: 0 18px 50px rgba(45, 41, 38, 0.06);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Mallory", "Mallory Sans", Arial, sans-serif;
+      letter-spacing: 0;
+    }
+
+    main {
+      width: min(1120px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 42px 0 64px;
+    }
+
+    header {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 30px;
+    }
+
+    .eyebrow,
+    .legend-label,
+    .owner {
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 760px;
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 4.25rem);
+      line-height: 0.95;
+    }
+
+    .intro {
+      max-width: 700px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.03rem;
+      line-height: 1.55;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+
+    .studio { color: var(--studio); }
+    .ai { color: var(--ai); }
+    .client { color: var(--client); }
+    .gate { color: var(--gate); }
+    .system { color: var(--system); }
+
+    .flow-shell {
+      overflow-x: auto;
+      padding: 26px;
+      border-radius: 24px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .flowchart {
+      min-width: 860px;
+      display: grid;
+      grid-template-columns: 1fr 160px 1fr;
+      gap: 0 22px;
+      align-items: start;
+    }
+
+    .main-flow,
+    .branch-flow {
+      display: grid;
+      justify-items: center;
+    }
+
+    .main-flow {
+      grid-column: 2;
+    }
+
+    .branch-flow {
+      gap: 0;
+    }
+
+    .branch-flow.left {
+      grid-column: 1;
+      grid-row: 8 / 13;
+      padding-top: 4px;
+    }
+
+    .branch-flow.right {
+      grid-column: 3;
+      grid-row: 15 / 20;
+      padding-top: 4px;
+    }
+
+    .node {
+      position: relative;
+      display: grid;
+      gap: 6px;
+      width: 100%;
+      min-height: 84px;
+      padding: 15px 16px;
+      border-radius: 16px;
+      background: var(--system-soft);
+      text-align: center;
+    }
+
+    .node h2,
+    .node h3 {
+      margin: 0;
+      font-size: 1.02rem;
+      line-height: 1.2;
+    }
+
+    .node p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.35;
+    }
+
+    .node.is-studio { background: var(--studio-soft); }
+    .node.is-ai { background: var(--ai-soft); }
+    .node.is-client { background: var(--client-soft); }
+    .node.is-gate { background: var(--gate-soft); }
+    .node.is-system { background: var(--system-soft); }
+
+    .node.is-decision {
+      width: 132px;
+      min-height: 132px;
+      align-content: center;
+      border-radius: 28px;
+      transform: rotate(45deg);
+      background: var(--client-soft);
+    }
+
+    .node.is-decision > * {
+      transform: rotate(-45deg);
+    }
+
+    .node.is-decision h3 {
+      font-size: 0.95rem;
+    }
+
+    .connector {
+      width: 2px;
+      height: 34px;
+      background: var(--line);
+      position: relative;
+    }
+
+    .connector::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -1px;
+      width: 8px;
+      height: 8px;
+      border-right: 2px solid var(--line);
+      border-bottom: 2px solid var(--line);
+      transform: translateX(-50%) rotate(45deg);
+    }
+
+    .branch-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 30px;
+      margin-bottom: 10px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--surface-muted);
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .branch-line {
+      display: grid;
+      grid-template-columns: 1fr 2px 1fr;
+      width: 100%;
+      height: 34px;
+      align-items: end;
+    }
+
+    .branch-line::before,
+    .branch-line::after {
+      content: "";
+      height: 2px;
+      background: var(--line);
+      align-self: center;
+    }
+
+    .branch-line span {
+      width: 2px;
+      height: 34px;
+      background: var(--line);
+    }
+
+    .note {
+      margin-top: 24px;
+      padding: 18px;
+      border-radius: 18px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .note h2 {
+      margin: 0 0 10px;
+      font-size: 1.05rem;
+    }
+
+    .note-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .note-card {
+      padding: 14px;
+      border-radius: 14px;
+      background: var(--surface-muted);
+    }
+
+    .note-card strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.95rem;
+    }
+
+    .note-card span {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.35;
+    }
+
+    @media (max-width: 760px) {
+      main {
+        width: min(100% - 22px, 1120px);
+        padding-top: 28px;
+      }
+
+      .flow-shell {
+        padding: 16px;
+      }
+
+      .note-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="eyebrow">Baltazar Studio Project Flow</div>
+      <h1>Development Workflow</h1>
+      <p class="intro">
+        A simple view of how a project moves from foundation work into design, build, review,
+        launch, and handoff. Colors show who owns each kind of work.
+      </p>
+      <div class="legend" aria-label="Owner legend">
+        <span class="legend-item system"><span class="dot"></span><span class="legend-label">System / Dashboard</span></span>
+        <span class="legend-item studio"><span class="dot"></span><span class="legend-label">Studio / Human</span></span>
+        <span class="legend-item ai"><span class="dot"></span><span class="legend-label">AI Assisted</span></span>
+        <span class="legend-item client"><span class="dot"></span><span class="legend-label">Client Decision</span></span>
+        <span class="legend-item gate"><span class="dot"></span><span class="legend-label">Approval Gate</span></span>
+      </div>
+    </header>
+
+    <section class="flow-shell" aria-label="Top-down project workflow">
+      <div class="flowchart">
+        <div class="main-flow">
+          <div class="node is-system">
+            <span class="owner">System</span>
+            <h2>Project Starts</h2>
+            <p>Client workspace opens.</p>
+          </div>
+          <div class="connector"></div>
+
+          <div class="node is-system">
+            <span class="owner">Milestone</span>
+            <h3>Foundation</h3>
+            <p>Prepare the build.</p>
+          </div>
+          <div class="connector"></div>
+
+          <div class="node is-client">
+            <span class="owner">Client + Studio</span>
+            <h3>Collect Access, Assets, Audit Notes</h3>
+            <p>Gather the inputs.</p>
+          </div>
+          <div class="connector"></div>
+
+          <div class="node is-ai">
+            <span class="owner">AI + Studio</span>
+            <h3>Strategy, Sitemap, Copy</h3>
+            <p>Shape the website plan.</p>
+          </div>
+          <div class="connector"></div>
+
+          <div class="node is-system">
+            <span class="owner">Milestone</span>
+            <h3>Design & Build</h3>
+            <p>Move into production.</p>
+          </div>
+          <div class="connector"></div>
+
+          <div class="node is-studio">
+            <span class="owner">Studio</span>
+            <h3>Design Phase</h3>
+            <p>Create the first preview.</p>
+          </div>
+          <div class="connector"></div>
+
+          <div class="node is-studio">
+            <span class="owner">Studio</span>
+            <h3>Studio Completes Design Tasks</h3>
+            <p>Prepare client review.</p>
+          </div>
+          <div class="connector"></div>
+
+          <div class="node is-gate">
+            <span class="owner">Gate 1</span>
+            <h3>Design Preview Sent</h3>
+            <p>Client review begins.</p>
+          </div>
+          <div class="connector"></div>
+
+          <div class="node is-decision">
+            <span class="owner">Client</span>
+            <h3>Client Decision</h3>
+          </div>
+          <div class="branch-line" aria-hidden="true"><span></span></div>
+          <div class="connector"></div>
+
+          <div class="node is-studio">
+            <span class="owner">Studio</span>
+            <h3>Build Phase Starts</h3>
+            <p>Approved design moves forward.</p>
+          </div>
+          <div class="connector"></div>
+
+          <div class="node is-studio">
+            <span class="owner">Studio</span>
+            <h3>Build Pages, CMS, Preview Links</h3>
+            <p>Develop the working site.</p>
+          </div>
+          <div class="connector"></div>
+
+          <div class="node is-studio">
+            <span class="owner">Studio</span>
+            <h3>QA & Polish</h3>
+            <p>Check quality before launch review.</p>
+          </div>
+          <div class="connector"></div>
+
+          <div class="node is-gate">
+            <span class="owner">Gate 2</span>
+            <h3>Full Site Preview Sent</h3>
+            <p>Client reviews the full site.</p>
+          </div>
+          <div class="connector"></div>
+
+          <div class="node is-decision">
+            <span class="owner">Client</span>
+            <h3>Client Decision</h3>
+          </div>
+          <div class="branch-line" aria-hidden="true"><span></span></div>
+          <div class="connector"></div>
+
+          <div class="node is-studio">
+            <span class="owner">Studio</span>
+            <h3>Launch Prep</h3>
+            <p>Ready the site for production.</p>
+          </div>
+          <div class="connector"></div>
+
+          <div class="node is-studio">
+            <span class="owner">Studio</span>
+            <h3>DNS, SSL, Analytics, Production Launch</h3>
+            <p>Publish the live site.</p>
+          </div>
+          <div class="connector"></div>
+
+          <div class="node is-gate">
+            <span class="owner">Gate 3</span>
+            <h3>Handoff Package</h3>
+            <p>Training and final files.</p>
+          </div>
+          <div class="connector"></div>
+
+          <div class="node is-system">
+            <span class="owner">System</span>
+            <h3>Project Complete</h3>
+            <p>Archive decisions and assets.</p>
+          </div>
+        </div>
+
+        <div class="branch-flow left">
+          <span class="branch-label">Notes Needed</span>
+          <div class="node is-studio">
+            <span class="owner">Studio</span>
+            <h3>Studio Revises Design</h3>
+            <p>Return to Gate 1.</p>
+          </div>
+        </div>
+
+        <div class="branch-flow right">
+          <span class="branch-label">Notes Needed</span>
+          <div class="node is-studio">
+            <span class="owner">Studio</span>
+            <h3>Studio Revises Build</h3>
+            <p>Return to Gate 2.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="note" aria-label="Dashboard interpretation">
+      <h2>How This Connects To The Dashboard</h2>
+      <div class="note-grid">
+        <div class="note-card">
+          <strong>Overview</strong>
+          <span>Shows the current stage and next action.</span>
+        </div>
+        <div class="note-card">
+          <strong>Tasks</strong>
+          <span>Shows the work queue and client approvals.</span>
+        </div>
+        <div class="note-card">
+          <strong>Files</strong>
+          <span>Collects inputs, previews, and handoff materials.</span>
+        </div>
+        <div class="note-card">
+          <strong>Notifications</strong>
+          <span>Surfaces gates, uploads, and important changes.</span>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

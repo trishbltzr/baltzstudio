@@ -1,0 +1,71 @@
+/* ─── Mallory ───────────────────────────────────────────────── */
+@font-face {
+  font-family: "Mallory";
+  src: url("/fonts/Mallory Book.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Mallory";
+  src: url("/fonts/Mallory Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+/* ─── Design tokens ─────────────────────────────────────────── */
+:root {
+  --font-sans: "Mallory", system-ui, -apple-system, sans-serif;
+
+  /* Geometry */
+  --radius: 0.55rem;
+  --radius-sm: 0.3rem;
+  --radius-pill: 999px;
+  --radius-panel: 0.875rem;
+
+  /* Palette — warm neutral with a single rose accent */
+  --bg:          oklch(0.935 0.008 50);
+  --surface:     #ffffff;
+  --surface-alt: oklch(0.985 0.006 55);
+  --border:      oklch(0.89 0.008 50 / 0.58);
+  --border-soft: oklch(0.91 0.006 50 / 0.36);
+
+  --fg:          oklch(0.28 0.03 25);
+  --fg-muted:    oklch(0.55 0.025 30);
+  --fg-faint:    oklch(0.72 0.015 35);
+
+  /* Single accent — dusty rose */
+  --accent:      oklch(0.66 0.13 18);
+  --accent-soft: oklch(0.94 0.025 20);
+  --accent-dim:  oklch(0.88 0.05 20);
+
+  /* Semantic colours — minimal, only where meaning matters */
+  --success:     oklch(0.72 0.09 155);
+  --success-soft:oklch(0.94 0.04 155);
+  --warn:        oklch(0.72 0.1 68);
+  --warn-soft:   oklch(0.95 0.04 68);
+  --danger:      oklch(0.55 0.2 20);
+  --danger-soft: oklch(0.97 0.03 20);
+  --danger-border: oklch(0.88 0.06 20);
+
+  /* Type scale — collapses ~27 scattered inline sizes onto 10 steps.
+     Each step is centered on the most-common existing value so the bulk of
+     instances render pixel-identical; only a few rare sizes shift <1.5px. */
+  --text-2xs:  0.66rem;   /* micro-labels, smallest badges */
+  --text-xs:   0.72rem;   /* captions, meta, status pills */
+  --text-sm:   0.75rem;   /* secondary body, button text */
+  --text-base: 0.82rem;   /* primary body */
+  --text-md:   0.88rem;   /* emphasized body / inline titles */
+  --text-lg:   0.95rem;   /* card titles */
+  --text-xl:   1.1rem;    /* panel / modal titles */
+  --text-2xl:  1.3rem;    /* large headings */
+  --text-3xl:  1.5rem;    /* stat figures */
+  --text-4xl:  2rem;      /* page hero figures */
+
+  /* Elevation — soft, low-contrast, used sparingly */
+  --shadow-xs: none;
+  --shadow-soft: none;
+  --shadow-popover: none;
+  --shadow-modal: none;
+  --ring-soft: 0 0 0 1px oklch(0.9 0.02 20 / 0.55);
+}

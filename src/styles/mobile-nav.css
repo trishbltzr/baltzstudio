@@ -1,0 +1,209 @@
+/* ─────────────────────────────────────────────
+   Dashboard — mobile-first nav (<768px)
+   The fixed sidebar gives way to a bottom tab bar
+   + "More" overflow sheet; shell collapses to a
+   single column. Additive only — desktop rules
+   above are untouched.
+   NOTE: 767px (not 768px) — must exactly mirror
+   useIsMobile()'s `window.innerWidth < 768` check
+   (src/hooks/use-mobile.ts). A mismatched boundary
+   would create a dead zone at exactly 768px where
+   JS renders the desktop sidebar (not the mobile
+   tab bar) while this query simultaneously hides
+   it — leaving the dashboard with no nav at all.
+   ───────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .client-dashboard-shell,
+  .client-dashboard-shell.is-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dashboard-sidebar {
+    display: none;
+  }
+  .dashboard-topbar {
+    padding: 0.6rem 1rem;
+    min-height: 3.75rem;
+  }
+  .dashboard-main {
+    padding: 1rem;
+    /* keep content clear of the fixed bottom tab bar + safe area */
+    padding-bottom: calc(1rem + 4.85rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* Bottom tab bar — fixed, icon + micro-label buttons, ~3 primary items + More */
+/* ── Mobile bottom tab bar ─────────────────────────────────────────────────── */
+.dashboard-tabbar-mobile {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;   /* buttons sit on the floor; active bubble pops above */
+  overflow: visible;       /* allow the active bubble to bleed above the bar */
+  border-top: 1px solid var(--border-soft);
+  background: var(--surface);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  padding: 0 0.25rem calc(0.45rem + env(safe-area-inset-bottom));
+}
+
+/* Each slot — equal width, flex column, centred */
+.dashboard-tabbar-mobile-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;  /* pin label to the bottom of each slot */
+  gap: 0.18rem;
+  padding: 0.3rem 0.15rem 0.1rem;
+  border: 0;
+  background: transparent;
+  color: oklch(0.62 0.04 50);
+  font: inherit;
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.05px;
+  cursor: pointer;
+  transition: color 0.15s;
+  /* No border-radius flash on tap — we handle active state differently */
+}
+
+/* Labels — truncate so a long label never reflows neighbouring slots */
+.dashboard-tabbar-mobile-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1;
+  padding-bottom: 0.1rem;
+}
+
+/* Inactive icon wrapper */
+.dashboard-tabbar-mobile-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+}
+.dashboard-tabbar-mobile-icon svg,
+.dashboard-tabbar-mobile-bubble-inner svg { width: 1.25rem; height: 1.25rem; stroke-width: 1.85; }
+
+/* Active label — gradient text on all active items */
+.dashboard-tabbar-mobile-btn.is-active .dashboard-tabbar-mobile-label {
+  background: linear-gradient(90deg, oklch(0.78 0.11 22), oklch(0.7 0.13 18));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 500;
+}
+
+/* Non-center active items: small gradient dot below the icon */
+.dashboard-tabbar-mobile-btn.is-active:not(.is-center) .dashboard-tabbar-mobile-icon {
+  padding-bottom: 6px; /* room for the dot without shifting the label */
+}
+.dashboard-tabbar-mobile-btn.is-active:not(.is-center) .dashboard-tabbar-mobile-icon::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, oklch(0.78 0.11 22), oklch(0.7 0.13 18));
+}
+
+/* ── Active bubble — gradient circle that floats above the bar ─────────────── */
+.dashboard-tabbar-mobile-bubble {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Negative margin pulls the bubble above the bar's top edge */
+  margin-top: -0.75rem;
+  margin-bottom: 0.25rem;
+}
+.dashboard-tabbar-mobile-bubble-inner {
+  position: relative;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* White ring so the bubble looks lifted off the bar */
+  box-shadow: 0 0 0 3px oklch(1 0 0 / 0.78);
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.dashboard-tabbar-mobile-btn.is-active:active .dashboard-tabbar-mobile-bubble-inner {
+  transform: scale(0.92);
+}
+
+/* Badge on the bubble sits top-right of the circle */
+.dashboard-tabbar-mobile-badge--bubble {
+  top: -0.1rem;
+  right: -0.1rem;
+}
+
+/* Locked */
+.dashboard-tabbar-mobile-btn.is-locked { opacity: 0.42; cursor: default; }
+.dashboard-tabbar-mobile-btn:not(.is-locked):not(.is-active):active .dashboard-tabbar-mobile-icon {
+  opacity: 0.7;
+}
+
+/* Unread count badge on inactive icons */
+.dashboard-tabbar-mobile-badge {
+  position: absolute;
+  top: -0.3rem;
+  right: -0.55rem;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.25rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(90deg, oklch(0.78 0.11 22), oklch(0.7 0.13 18));
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 500;
+  line-height: 1;
+}
+/* "More" sheet — slide-up overlay listing overflow nav items + account */
+.dashboard-more-sheet-list {
+  display: flex;
+  flex-direction: column;
+  padding: 0 0.6rem 0.4rem;
+}
+.dashboard-more-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  min-height: 2.9rem;
+  padding: 0.5rem 0.7rem;
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.dashboard-more-sheet-item:hover { background: oklch(0.96 0.008 50); }
+.dashboard-more-sheet-item.is-active svg { color: white; }
+.dashboard-more-sheet-footer {
+  padding: 0.5rem 0.6rem calc(0.6rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border-soft);
+  margin-top: 0.2rem;
+}
+/* Inside the sheet, the account trigger needs a plain (non-sidebar) surface */
+.dashboard-more-sheet-footer .dashboard-account-trigger {
+  background: oklch(1 0 0 / 0.5);
+  border-color: var(--border-soft);
+}

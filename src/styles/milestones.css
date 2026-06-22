@@ -1,0 +1,834 @@
+/* ─── Milestone cards ────────────────────────────────────────── */
+.milestone-card {
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  overflow: hidden;
+}
+.milestone-card.is-complete { background: var(--surface); opacity: 0.5; }
+.milestone-card.is-locked { opacity: 0.5; cursor: not-allowed; }
+
+.milestone-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.9rem 1.1rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.milestone-header:hover { background: oklch(0.97 0.005 50 / 0.5); }
+.milestone-header.is-locked { cursor: default; }
+.milestone-header.is-locked:hover { background: transparent; }
+
+.milestone-title { flex: 1; font-size: 0.88rem; font-weight: 500; }
+
+.milestone-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-shrink: 0;
+}
+.milestone-count { font-size: 0.72rem; color: var(--fg-faint); }
+
+.milestone-bar {
+  width: 4.5rem;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+.milestone-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  transition: width 0.4s ease;
+}
+.milestone-bar-fill.is-complete { background: var(--success); }
+.milestone-bar-fill.is-locked   { background: var(--border); }
+
+.milestone-dot {
+  width: 1.35rem;
+  height: 1.35rem;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  flex-shrink: 0;
+}
+.milestone-dot.is-complete {
+  border-radius: 50%;
+  background: var(--success);
+  color: white;
+}
+.milestone-dot.is-active   { color: var(--accent); border-radius: 50%; border: 1.25px dashed oklch(0.72 0.09 18 / 0.78); }
+.milestone-dot.is-locked   { background: oklch(0.93 0.004 50); color: var(--fg-faint); border-radius: 50%; }
+.milestone-dot svg { width: 0.68rem; height: 0.68rem; }
+
+.milestone-body { border-top: 1px solid var(--border-soft); }
+
+.milestone-dev-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem 0;
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+
+.milestone-dev-actions button {
+  border: 1px solid oklch(0.78 0.11 22 / 0.36);
+  border-radius: var(--radius-pill);
+  background: oklch(0.985 0.018 24);
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  padding: 0.38rem 0.7rem;
+}
+
+.milestone-dev-actions button:hover {
+  background: oklch(0.96 0.034 24);
+}
+
+/* ─── Phase card grid ────────────────────────────────────────── */
+.phase-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.65rem;
+  padding: 0.75rem;
+  align-items: start;
+}
+/* Step down through 2 columns in the 641-900px gap before collapsing to a
+   single column on phones — three columns get cramped well before 640px. */
+@media (max-width: 900px) {
+  .phase-cards-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .phase-cards-grid { grid-template-columns: 1fr; }
+}
+
+.audit-thematic-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: stretch;
+}
+@media (max-width: 900px) {
+  .audit-thematic-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .audit-thematic-grid { grid-template-columns: 1fr; }
+}
+
+.phase-grid-cell {
+  min-width: 0;
+}
+
+/* ─── Phase card ─────────────────────────────────────────────── */
+.phase-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid oklch(0.87 0.012 50);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.phase-card:not(.is-locked):hover {
+  border-color: oklch(0.9 0.025 20 / 0.8);
+  box-shadow: var(--ring-soft);
+}
+.phase-card.is-complete {
+  background: var(--surface);
+  border-color: oklch(0.89 0.03 155 / 0.72);
+  opacity: 0.82;
+}
+.phase-card.is-locked { opacity: 0.45; pointer-events: none; }
+.phase-card.phase-gate-card {
+  border-color: oklch(0.84 0.055 42 / 0.72);
+  background: oklch(0.985 0.018 42);
+}
+.phase-card.phase-gate-card .phase-card-header {
+  background: oklch(0.965 0.018 42);
+}
+.phase-card.phase-gate-card .phase-tag {
+  background: oklch(0.92 0.024 42);
+  color: oklch(0.42 0.055 35);
+}
+.phase-card.phase-gate-card.is-locked {
+  opacity: 0.68;
+  pointer-events: none;
+}
+.phase-card.phase-gate-card.is-locked .phase-dot.is-empty {
+  background: oklch(0.88 0.018 42);
+}
+.phase-gate-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.phase-gate-title-row .phase-card-title {
+  min-width: 0;
+}
+
+/* Header — grey background tint to match milestone row */
+.phase-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.65rem 0.85rem;
+  cursor: pointer;
+  background: oklch(0.97 0.004 50);
+  border-bottom: 1px solid var(--border-soft);
+  transition: background 0.1s;
+}
+.phase-card-header:hover { background: oklch(0.955 0.006 50); }
+
+.phase-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.5rem;
+  border-radius: var(--radius-pill);
+  background: oklch(0.92 0.006 50);
+  border: 1px solid var(--border);
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--fg-muted);
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.phase-card-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phase-card-percentage {
+  flex-shrink: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+/* Body — task list grows to fill */
+.phase-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem 0;
+}
+
+/* Footer — flush to the bottom, no extra gap */
+.phase-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: 0.5rem 0.85rem;
+  border-top: 1px solid var(--border-soft);
+  background: oklch(0.97 0.004 50);
+}
+.phase-detail-heading-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.phase-detail-percentage {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+.phase-detail-task-list {
+  display: grid;
+  gap: 0.28rem;
+  padding: 0 1.5rem 0.75rem;
+}
+.phase-detail-task-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2rem;
+  padding: 0.34rem 0.5rem;
+  border: 0;
+  border-radius: 20px;
+  color: var(--fg);
+  font-size: var(--text-base);
+  line-height: 1.35;
+}
+.phase-detail-task-row .phase-detail-task-title {
+  min-width: 0;
+  flex: 1;
+}
+.phase-detail-task-row .assignee-badge {
+  flex: 0 0 auto;
+}
+.phase-detail-task-row.is-complete {
+  color: var(--fg-muted);
+  opacity: 0.84;
+}
+.phase-detail-task-row.is-complete .phase-detail-task-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: line-through;
+  white-space: nowrap;
+}
+.phase-detail-task-row.is-in_progress {
+  background: oklch(0.985 0.006 55);
+}
+.phase-detail-task-check {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1.5px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.phase-detail-task-check:disabled {
+  cursor: default;
+}
+.phase-detail-task-row.is-in_progress .phase-detail-task-check {
+  border-color: var(--accent);
+  border-style: dashed;
+}
+.phase-detail-task-row.is-complete .phase-detail-task-check {
+  border-color: var(--success);
+  background: var(--success);
+}
+.phase-detail-task-row:not(.is-complete) .phase-detail-task-check:not(:disabled):hover {
+  border-color: var(--success);
+}
+.phase-detail-completed-group {
+  display: grid;
+  gap: 0.24rem;
+  margin-top: 0.18rem;
+}
+.phase-detail-completed-toggle {
+  width: 100%;
+  min-height: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.48rem;
+  padding: 0.36rem 0.5rem;
+  border: 0;
+  border-radius: 20px;
+  background: oklch(0.975 0.004 50);
+  color: var(--fg-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-base);
+  font-weight: 500;
+  text-align: left;
+}
+.phase-detail-task-branches {
+  display: grid;
+  gap: 0.32rem;
+}
+.phase-detail-task-branch {
+  position: relative;
+}
+.phase-detail-task-branch-heading {
+  width: 100%;
+  min-height: 2rem;
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.5rem;
+  border: 0;
+  border-radius: 20px;
+  background: oklch(0.975 0.004 50);
+  color: var(--fg);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-base);
+  font-weight: 500;
+  text-align: left;
+}
+.phase-detail-task-branch-heading svg {
+  color: var(--fg-muted);
+}
+.phase-detail-task-branch-heading small {
+  min-width: 1.4rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  text-align: center;
+}
+.phase-detail-task-branch-items {
+  position: relative;
+  display: grid;
+  gap: 0.16rem;
+  margin-left: 0.9rem;
+  padding: 0.16rem 0 0.24rem 1rem;
+}
+.phase-detail-task-branch-items::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55rem;
+  bottom: 0.72rem;
+  width: 1px;
+  border-radius: var(--radius-pill);
+  background: var(--border-soft);
+  pointer-events: none;
+}
+.phase-detail-task-branch-items .phase-detail-task-row {
+  min-height: 1.95rem;
+}
+.phase-detail-task-row .audit-item-flag {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex-shrink: 0;
+  margin-left: 0.35rem;
+}
+.phase-detail-task-row .audit-item-flag.is-red {
+  color: var(--accent);
+}
+.phase-detail-task-row .audit-item-flag.is-yellow {
+  color: oklch(0.68 0.14 65);
+}
+.phase-detail-completed-toggle > span:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+}
+.phase-detail-completed-toggle > svg {
+  color: var(--fg-muted);
+}
+.phase-detail-completed-check {
+  width: 1rem;
+  height: 1rem;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--success);
+  color: white;
+}
+.phase-detail-completed-check svg {
+  stroke-width: 3;
+}
+.phase-detail-completed-items {
+  position: relative;
+  display: grid;
+  gap: 0.16rem;
+  margin-left: 0.9rem;
+  padding: 0.16rem 0 0.24rem 1rem;
+}
+.phase-detail-completed-items::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55rem;
+  bottom: 0.72rem;
+  width: 1px;
+  border-radius: var(--radius-pill);
+  background: var(--border-soft);
+  pointer-events: none;
+}
+
+.phase-dot-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 0;
+  overflow: hidden;
+}
+.phase-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: var(--radius-pill);
+}
+.phase-dot.is-done   { background: var(--success); }
+.phase-dot.is-active {
+  width: 0.52rem;
+  height: 0.52rem;
+  border: 1.5px dashed var(--accent);
+  border-radius: 50%;
+  background: transparent;
+}
+.phase-dot.is-empty  { background: var(--border); }
+
+.phase-detail-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.phase-detail-progress-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border: 1.5px solid transparent;
+  border-radius: 50%;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+.phase-detail-progress-dot.is-done {
+  background: var(--success);
+}
+.phase-detail-progress-dot.is-active {
+  background: transparent;
+  border-color: var(--accent);
+  border-style: dashed;
+}
+.phase-detail-progress-dot.is-empty {
+  background: var(--border);
+}
+
+.phase-meta-row { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+.phase-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.68rem;
+  color: var(--fg-muted);
+  line-height: 1;
+}
+.phase-meta-item svg { width: 0.65rem; height: 0.65rem; }
+
+.audit-milestone-row {
+  display: grid;
+  grid-template-columns: 4rem minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem;
+  border-top: 1px solid var(--border-soft);
+}
+.audit-milestone-row > span {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+.audit-milestone-row strong {
+  min-width: 0;
+  color: var(--fg);
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+
+/* Hide native browser date-picker calendar icon — we supply our own */
+input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0; width: 0; padding: 0; margin: 0; }
+
+/* Gates below phase grid */
+.milestone-gates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  padding: 0 0.75rem 0.75rem;
+}
+
+/* ─── Approval gate ──────────────────────────────────────────── */
+.gate-block {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  background: var(--surface-alt);
+  min-width: 0;
+  overflow: hidden;
+}
+.gate-block.is-locked  { border-color: var(--border); background: oklch(0.97 0.003 50); }
+.gate-block.is-ready   { border-color: var(--accent-dim); background: var(--accent-soft); animation: gate-pulse 2.5s ease-in-out infinite; }
+.gate-block.is-sent    { border-color: oklch(0.84 0.07 68); background: var(--warn-soft); }
+.gate-block.is-approved{ border-color: oklch(0.84 0.06 155); background: var(--success-soft); }
+.gate-block.is-revision{ border-color: oklch(0.84 0.07 68); background: var(--warn-soft); }
+
+.gate-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 0.35rem 0.65rem;
+  min-width: 0;
+}
+.gate-label-row { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.gate-label-row svg { width: 0.82rem; height: 0.82rem; flex-shrink: 0; }
+@media (max-width: 640px) {
+  .milestone-gates { grid-template-columns: 1fr; }
+
+  /* Label row + approve/deny actions stack instead of squeezing onto one
+     line — and the action buttons go full-width for an easy ≥44px tap target. */
+  .gate-admin-actions {
+    justify-content: stretch;
+  }
+  .gate-admin-actions .btn { flex: 1; }
+}
+
+@media (max-width: 640px) {
+  /* Inline Deny/Approve row on the Notifications page: stack full-width and
+     grow past the default btn-sm 28px so each button clears the ≥44px
+     tap-target minimum on touch screens. */
+  .notif-gate-actions { flex-direction: row; }
+  .notif-gate-actions .btn { flex: 1; min-height: 44px; }
+}
+.gate-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg);
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gate-admin-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.45rem;
+  min-width: 0;
+  overflow: hidden;
+}
+.gate-admin-note,
+.gate-meta,
+.gate-note-preview,
+.gate-link-preview {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gate-admin-note {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+.gate-admin-note.is-approved {
+  color: oklch(0.38 0.09 160);
+  font-weight: 500;
+}
+.gate-status-badge {
+  flex-shrink: 0;
+  padding: 0.15rem 0.55rem;
+  font-size: var(--text-xs);
+}
+.gate-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: oklch(0.975 0.003 50);
+}
+.gate-builder-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.gate-builder-field {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  outline: none;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: var(--text-base);
+}
+.gate-builder-field:focus {
+  border-color: var(--accent);
+}
+.gate-builder-textarea {
+  resize: none;
+}
+.gate-builder-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.gate-builder-link-copy {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-base);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gate-builder-remove {
+  display: flex;
+  flex-shrink: 0;
+  padding: 0.1rem;
+  border: 0;
+  background: transparent;
+  color: var(--fg-faint);
+  cursor: pointer;
+}
+.gate-builder-fields {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr auto;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+}
+.gate-meta {
+  color: var(--fg-muted);
+  font-size: 0.72rem;
+}
+.gate-supporting {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  overflow: hidden;
+}
+.gate-note-preview {
+  flex: 1;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius);
+  background: oklch(0.96 0.002 50);
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  line-height: 1.35;
+}
+.gate-link-preview {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 0.35rem;
+  max-width: min(12rem, 46%);
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-decoration: none;
+}
+.gate-link-preview svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex-shrink: 0;
+}
+
+.gate-feedback-box {
+  margin-top: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid oklch(0.88 0.05 68);
+  background: oklch(1 0 0 / 0.55);
+}
+.gate-feedback-box p { font-size: 0.78rem; line-height: 1.45; }
+.gate-feedback-box strong { font-size: 0.72rem; font-weight: 500; color: var(--fg-muted); display: block; margin-bottom: 0.4rem; }
+.gate-feedback-adjustments {
+  margin-top: 0.35rem;
+}
+.gate-feedback-meta {
+  margin-top: 0.45rem;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+.gate-feedback-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+}
+
+@media (max-width: 640px) {
+  .gate-builder-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+.gate-locked-hint {
+  margin-top: 0.3rem;
+  font-size: 0.72rem;
+  color: var(--fg-faint);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gate-locked-hint svg { width: 0.65rem; height: 0.65rem; flex-shrink: 0; }
+
+.audit-urgent-panel .dashboard-panel-header {
+  border-bottom: 1px solid oklch(0.86 0.06 68 / 0.45);
+  background: linear-gradient(90deg, oklch(0.985 0.026 68), oklch(0.98 0.014 40));
+}
+.audit-urgent-panel .dashboard-panel-title svg {
+  color: var(--warn);
+}
+.audit-urgent-count {
+  flex-shrink: 0;
+  padding: 0.18rem 0.55rem;
+  border-radius: var(--radius-pill);
+  background: var(--warn-soft);
+  color: oklch(0.5 0.095 60);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.audit-urgent-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.7rem 1.25rem 0.7rem 1.4rem;
+  border-top: 1px solid var(--border);
+}
+.audit-urgent-row::before {
+  content: "";
+  position: absolute;
+  left: 0.75rem;
+  top: 0.85rem;
+  bottom: 0.85rem;
+  width: 0.16rem;
+  border-radius: var(--radius-pill);
+  background: var(--warn);
+  opacity: 0.42;
+}
+.audit-urgent-row.is-critical::before {
+  opacity: 1;
+}
+.audit-urgent-row > svg {
+  margin-top: 0.1rem;
+}
+
+@keyframes gate-pulse {
+  0%, 100% { border-color: var(--accent-dim); }
+}
+
+/* ─── Progress bar ───────────────────────────────────────────── */
+.progress-row { display: flex; align-items: center; gap: 0.6rem; }
+.progress-track { flex: 1; height: 3px; border-radius: var(--radius-pill); background: var(--border); overflow: hidden; }
+.progress-fill  { height: 100%; border-radius: var(--radius-pill); background: var(--success); transition: width 0.3s; }
+.progress-label { font-size: var(--text-md); color: var(--fg-faint); width: 4.5rem; text-align: right; white-space: nowrap; }

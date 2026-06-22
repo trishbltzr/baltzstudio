@@ -1,0 +1,142 @@
+/* ─── Base ──────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  /* Mallory ships only 400 + 500 — never synthesize a heavier (faux-bold) face */
+  font-synthesis-weight: none;
+}
+
+button,
+input,
+textarea,
+select,
+optgroup,
+option {
+  font-family: var(--font-sans);
+}
+
+code,
+kbd,
+samp,
+pre,
+.mono,
+[class*="hex" i],
+[aria-label*="hex" i] {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+/* Branded tooltip */
+[data-tooltip] {
+  position: relative;
+}
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 0.4rem);
+  left: 0;
+  max-width: min(18rem, calc(100vw - 2rem));
+  width: max-content;
+  padding: 0.35rem 0.6rem;
+  border-radius: var(--radius);
+  background: oklch(0.22 0.02 30);
+  color: oklch(0.95 0.005 50);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: normal;
+  text-align: left;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s;
+  z-index: 9999;
+}
+[data-tooltip]:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+[data-tooltip=""]::after {
+  display: none;
+}
+.overview-next-summary > div[data-tooltip],
+.milestone-progress-row[data-tooltip] {
+  overflow: visible;
+}
+
+select,
+.dashboard-select,
+.dashboard-dropdown-control {
+  --dropdown-background: var(--surface);
+  --dropdown-border: var(--border);
+  --dropdown-foreground: var(--fg);
+  height: 2.15rem;
+  min-height: 2.15rem;
+  padding: 0.38rem 1.9rem 0.38rem 0.65rem;
+  border: 1px solid var(--dropdown-border);
+  border-radius: var(--radius);
+  background-color: var(--dropdown-background);
+  color: var(--dropdown-foreground);
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: 1.2;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 0.8rem) 50%, calc(100% - 0.55rem) 50%;
+  background-size: 0.25rem 0.25rem, 0.25rem 0.25rem;
+  background-repeat: no-repeat;
+}
+
+select:focus,
+.dashboard-select:focus,
+.dashboard-dropdown-control:focus-visible {
+  border-color: var(--accent);
+  box-shadow: var(--ring-soft);
+}
+select:hover:not(:disabled),
+.dashboard-select:hover:not(:disabled),
+.dashboard-dropdown-control:hover {
+  border-color: var(--accent-dim);
+}
+select:disabled,
+.dashboard-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.dashboard-select-field {
+  width: 100%;
+  min-width: 0;
+}
+.dashboard-select-compact {
+  width: auto;
+  height: 1.8rem;
+  min-height: 1.8rem;
+  padding-block: 0.2rem;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-2xs);
+}
+.dashboard-select-priority {
+  width: auto;
+  min-width: 8rem;
+}
+
+/* Scrollbar — thin, unobtrusive, only on hover */
+* { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+*:hover { scrollbar-color: var(--border) transparent; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: transparent; border-radius: 2px; transition: background 0.2s; }
+*:hover::-webkit-scrollbar-thumb { background: var(--border); }
