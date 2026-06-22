@@ -56,6 +56,7 @@ export default function Dashboard() {
   const devNav = devParams?.get("nav");
   const devView = devParams?.get("view");
   const devSeed = devParams?.get("seed");
+  const hasDevOverrides = Boolean(devNav || devView || devSeed);
 
   const initialClientView: DevClientView = isDevClientView(devView) ? devView : "paid-cocoon";
   const initialStage = DEV_VIEW_TO_STAGE[initialClientView];
@@ -64,6 +65,7 @@ export default function Dashboard() {
   );
   const [selectedProjectId, setSelectedProjectId] = useState(initialProjects[0]?.id ?? INITIAL_PROJECT.id);
   const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [dashboardStateLoaded, setDashboardStateLoaded] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [workflowNudge, setWorkflowNudge] = useState<WorkflowNudge | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -98,6 +100,60 @@ export default function Dashboard() {
   const project = projects.find(p => p.id === selectedProjectId) ?? projects[0]!;
 
   useEffect(() => {
+    if (!userLoaded || !currentUser) return;
+    if (hasDevOverrides) {
+      setDashboardStateLoaded(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadDashboardState() {
+      try {
+        const response = await fetch("/api/dashboard-state", { cache: "no-store" });
+        if (!response.ok) throw new Error(`Dashboard state load failed: ${response.status}`);
+        const data = await response.json() as { projects?: unknown; selectedProjectId?: unknown };
+        if (cancelled) return;
+        if (Array.isArray(data.projects) && data.projects.length > 0) {
+          const persistedProjects = data.projects as Project[];
+          const persistedProjectId = typeof data.selectedProjectId === "string" ? data.selectedProjectId : null;
+          const nextSelectedProjectId = persistedProjectId && persistedProjects.some(p => p.id === persistedProjectId)
+            ? persistedProjectId
+            : persistedProjects[0]?.id;
+          setProjects(persistedProjects);
+          if (nextSelectedProjectId) setSelectedProjectId(nextSelectedProjectId);
+        }
+      } catch (error) {
+        console.error("Unable to load dashboard state from Supabase.", error);
+      } finally {
+        if (!cancelled) setDashboardStateLoaded(true);
+      }
+    }
+
+    void loadDashboardState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser, hasDevOverrides, userLoaded]);
+
+  useEffect(() => {
+    if (!currentUser || !dashboardStateLoaded || hasDevOverrides) return;
+
+    const saveTimer = setTimeout(() => {
+      void fetch("/api/dashboard-state", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projects, selectedProjectId }),
+      }).catch(error => {
+        console.error("Unable to save dashboard state to Supabase.", error);
+      });
+    }, 700);
+
+    return () => clearTimeout(saveTimer);
+  }, [currentUser, dashboardStateLoaded, hasDevOverrides, projects, selectedProjectId]);
+
+  useEffect(() => {
     if (currentUser?.role !== "client") return;
     const matchingProject = projects.find(p => p.clientEmail === currentUser.email);
     if (matchingProject && matchingProject.id !== selectedProjectId) {
@@ -124,7 +180,7 @@ export default function Dashboard() {
     router.push("/login");
   }
 
-  if (!userLoaded || !currentUser) return null;
+  if (!userLoaded || !currentUser || (!hasDevOverrides && !dashboardStateLoaded)) return null;
 
   return (
     <div className="bs-app">
