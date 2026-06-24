@@ -1,6 +1,7 @@
 import { CheckCircle2, ClipboardList, Clock, FileText, MessageSquare, Send, Upload, type LucideIcon } from "lucide-react";
-import type { AssetFile, Project } from "../types";
-import { allGates, gateStatusLabel } from "../lib/projectUtils";
+import type { AssetFile, Project, Task } from "../types";
+import { allGates, allTasksComplete, gateStatusLabel } from "../lib/projectUtils";
+import { formatDashboardDate, sortDashboardDate } from "../lib/dateDisplay";
 import { Panel, PanelHeader, StatusBadge } from "./shared";
 
 type HistoryRole = "admin" | "client";
@@ -28,6 +29,18 @@ type DecisionItem = {
 };
 
 type AssetStatus = NonNullable<AssetFile["status"]>;
+type TodoTone = "neutral" | "attention" | "good";
+
+type TodoItem = {
+  id: string;
+  title: string;
+  detail: string;
+  date: string;
+  sort: number;
+  priority: number;
+  icon: LucideIcon;
+  tone: TodoTone;
+};
 
 function assetStatus(asset: AssetFile): AssetStatus {
   if (asset.status) return asset.status;
@@ -35,44 +48,87 @@ function assetStatus(asset: AssetFile): AssetStatus {
 }
 
 function readableDate(raw?: string) {
-  if (!raw) return "No date";
-  const cleaned = raw.replace(/^Requested\s+/, "");
-  const parsed = new Date(cleaned.replace(" at ", " "));
-  if (isNaN(parsed.getTime())) return cleaned.replace(/,\s*\d{4}/g, "").replace(/\s+at\s+.+$/, "");
-  const now = new Date();
-  const isToday = parsed.toDateString() === now.toDateString();
-  if (isToday) {
-    const timeMatch = cleaned.match(/at\s+(.+)$/);
-    return timeMatch ? `Today at ${timeMatch[1]}` : "Today";
-  }
-  return cleaned.replace(/,\s*\d{4}/g, "").replace(/\s+at\s+.+$/, "");
+  return formatDashboardDate(raw, "No date");
 }
 
 function sortDate(raw?: string) {
-  if (!raw) return 0;
-  const cleaned = raw.replace(/^Requested\s+/, "").replace(" at ", " ");
-  const parsed = Date.parse(cleaned);
-  return Number.isNaN(parsed) ? 0 : parsed;
+  return sortDashboardDate(raw);
 }
 
 function phaseShortTitle(title: string) {
   return title.replace(/^\d+\.\d+\s+/, "");
 }
 
+function latestPhaseTaskDate(phase: Project["milestones"][number]["phases"][number]) {
+  if (phase.completedAt) return phase.completedAt;
+  for (let index = phase.tasks.length - 1; index >= 0; index -= 1) {
+    const updatedAt = phase.tasks[index]?.updatedAt;
+    if (updatedAt) return updatedAt;
+  }
+  for (let index = phase.tasks.length - 1; index >= 0; index -= 1) {
+    const dueDate = phase.tasks[index]?.dueDate;
+    if (dueDate) return dueDate;
+  }
+  return "";
+}
+
+function workflowActivityTitle(type: string, target: string) {
+  const labels: Record<string, string> = {
+    cocoon_link_sent: "Cocoon Consult link sent",
+    audit_generated: "Cocoon report generated",
+    wise_payment_sent: "Wise payment email sent",
+    wise_payment_confirmed: "Wise payment confirmed",
+    booking_unlocked: "Booking link unlocked",
+    access_updated: "Dashboard access updated",
+    wiaw_unlocked: "WIAW workspace opened",
+    in_full_flight: "In Full Flight opened",
+    dashboard_deleted: "Dashboard access ended",
+  };
+  return labels[type] ?? target;
+}
+
 function buildActivity(project: Project, role: HistoryRole): ActivityItem[] {
   const items: ActivityItem[] = [];
 
+  project.workflow?.notifications
+    .filter(item => role === "admin" || item.clientVisible)
+    .forEach(item => {
+      items.push({
+        id: `workflow-${item.id}`,
+        title: workflowActivityTitle(item.type, item.target),
+        detail: role === "admin" ? `${project.clientName} - ${item.target}` : item.target,
+        date: readableDate(item.date),
+        sort: sortDate(item.date),
+        icon: item.type.includes("payment") || item.type === "booking_unlocked" ? Send : Clock,
+        tone: item.type.includes("confirmed") || item.type === "access_updated" || item.type === "wiaw_unlocked" ? "good" : "neutral",
+      });
+    });
+
   project.milestones.forEach(milestone => {
     milestone.phases.forEach(phase => {
-      if (phase.completedAt) {
+      if (phase.completedAt || allTasksComplete(phase.tasks)) {
+        const completedDate = latestPhaseTaskDate(phase);
         items.push({
           id: `phase-${phase.id}`,
           title: `Completed ${phaseShortTitle(phase.title)}`,
           detail: role === "admin" ? `${project.clientName} - M${milestone.number} ${milestone.clientLabel}` : `M${milestone.number} ${milestone.clientLabel}`,
-          date: readableDate(phase.completedAt),
-          sort: sortDate(phase.completedAt),
+          date: readableDate(completedDate),
+          sort: sortDate(completedDate),
           icon: CheckCircle2,
           tone: "good",
+        });
+      }
+
+      const activeTask = phase.tasks.find(task => task.status === "in_progress" || task.status === "blocked");
+      if (activeTask) {
+        items.push({
+          id: `task-${activeTask.id}`,
+          title: activeTask.status === "blocked" ? `Blocked: ${activeTask.title}` : `Started ${activeTask.title}`,
+          detail: role === "admin" ? `${project.clientName} - ${phaseShortTitle(phase.title)}` : phaseShortTitle(phase.title),
+          date: readableDate(activeTask.updatedAt ?? activeTask.dueDate),
+          sort: sortDate(activeTask.updatedAt ?? activeTask.dueDate),
+          icon: Clock,
+          tone: activeTask.status === "blocked" ? "attention" : "neutral",
         });
       }
 
@@ -195,6 +251,52 @@ function buildDecisions(project: Project): DecisionItem[] {
     .slice(0, 5);
 }
 
+function taskPriority(task: Task) {
+  if (task.status === "blocked") return 0;
+  if (task.status === "in_progress") return 1;
+  if (task.assignee === "client") return 2;
+  return 3;
+}
+
+function taskOwnerLabel(task: Task, role: HistoryRole) {
+  if (task.assignee === "client") return role === "admin" ? "Client task" : "Your task";
+  if (task.assignee === "AI") return "AI task";
+  return "Studio task";
+}
+
+function buildNextTodos(project: Project, role: HistoryRole): TodoItem[] {
+  const todos: TodoItem[] = [];
+  const isRelevantTask = (task: Task) => role === "client" ? task.assignee === "client" : task.assignee !== "client";
+
+  project.milestones.forEach(milestone => {
+    milestone.phases.forEach(phase => {
+      phase.tasks
+        .filter(task => task.status !== "complete" && isRelevantTask(task))
+        .forEach(task => {
+          const date = task.dueDate ?? task.updatedAt ?? phase.completedAt ?? "";
+          todos.push({
+            id: `todo-${milestone.id}-${phase.id}-${task.id}`,
+            title: task.status === "blocked" ? `Blocked: ${task.title}` : task.title,
+            detail: `M${milestone.number} ${milestone.clientLabel} - ${taskOwnerLabel(task, role)}`,
+            date: readableDate(date),
+            sort: sortDate(date),
+            priority: taskPriority(task),
+            icon: task.status === "blocked" ? Clock : ClipboardList,
+            tone: task.status === "blocked" || task.assignee === "client" ? "attention" : "neutral",
+          });
+        });
+    });
+  });
+
+  return todos
+    .sort((a, b) => {
+      const priority = a.priority - b.priority;
+      if (priority !== 0) return priority;
+      return a.sort - b.sort;
+    })
+    .slice(0, 6);
+}
+
 function EmptyHistory({ label }: { label: string }) {
   return (
     <div className="history-empty">
@@ -206,16 +308,18 @@ function EmptyHistory({ label }: { label: string }) {
 
 export function ActivityDecisionHistory({ project, role, showDecisionLog = true }: { project: Project; role: HistoryRole; showDecisionLog?: boolean }) {
   const activity = buildActivity(project, role);
+  const nextTodos = buildNextTodos(project, role);
   const decisions = buildDecisions(project);
+  const primaryItems = showDecisionLog ? activity : nextTodos;
 
   return (
     <div className={`history-grid ${showDecisionLog ? "" : "is-activity-only"}`}>
       <Panel className="history-panel">
-        <PanelHeader title="Recent Activity" icon={Clock} />
+        <PanelHeader title={showDecisionLog ? "Recent Activity" : "Next tasks"} icon={showDecisionLog ? Clock : ClipboardList} />
         <div className="history-list">
-          {activity.length === 0 ? (
-            <EmptyHistory label="Activity will appear here as the project moves." />
-          ) : activity.map(item => {
+          {primaryItems.length === 0 ? (
+            <EmptyHistory label={showDecisionLog ? "Activity will appear here as the project moves." : "Next tasks will appear here as the project moves."} />
+          ) : primaryItems.map(item => {
             const Icon = item.icon;
             return (
               <div key={item.id} className={`history-row is-${item.tone ?? "neutral"}`}>

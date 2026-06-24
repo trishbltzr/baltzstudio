@@ -2,9 +2,10 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import type { ClientLifecycleStage, Project, ClientNav } from "@/types";
+import type { ClientLifecycleStage, DashboardUserRole, Project, ClientNav } from "@/types";
 import { LIFECYCLE_PROJECTS, applyLifecycleStageToProject } from "@/data/mockProjects";
 import { updateTask, sendGate, approveGate, submitFeedback, finishMilestone } from "@/lib/projectMutations";
+import { currentDashboardTimestamp } from "@/lib/dateDisplay";
 import { Toast } from "@/components/shared";
 import { AdminView } from "@/admin/AdminView";
 import { ClientView, buildOnboardingSeed, type OnboardingStorageMode } from "@/client/ClientTabs";
@@ -21,13 +22,13 @@ type WorkflowNudge = {
 export default function Dashboard() {
   const router = useRouter();
   const [userLoaded, setUserLoaded] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ email: string; role: "admin" | "client"; name: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ email: string; role: DashboardUserRole; name: string } | null>(null);
 
   useEffect(() => {
     const saved = sessionStorage.getItem("bs-user");
     if (saved) {
       try {
-        setCurrentUser(JSON.parse(saved) as { email: string; role: "admin" | "client"; name: string });
+        setCurrentUser(JSON.parse(saved) as { email: string; role: DashboardUserRole; name: string });
       } catch {
         sessionStorage.removeItem("bs-user");
       }
@@ -162,13 +163,18 @@ export default function Dashboard() {
 
   return (
     <div className="bs-app">
-      {currentUser.role === "admin" ? (
+      {currentUser.role === "admin" || currentUser.role === "manager" ? (
         <AdminView
+          workspaceRole={currentUser.role}
           projects={projects}
           selectedProjectId={selectedProjectId}
           onSelectProject={selectProject}
           onTaskStatusChange={(id, status) => {
             updateProject(p => updateTask(p, id, status));
+            showToast("Task updated.");
+          }}
+          onProjectTaskStatusChange={(projectId, taskId, status) => {
+            setProjects(prev => prev.map(p => (p.id === projectId ? updateTask(p, taskId, status) : p)));
             showToast("Task updated.");
           }}
           onSendGate={id => {
@@ -180,7 +186,7 @@ export default function Dashboard() {
             showToast("Gate approved.");
           }}
           onDenyGate={id => {
-            updateProject(p => submitFeedback(p, id, { whatWorked: "", adjustments: "Revision requested by studio.", approved: false, submittedAt: new Date().toLocaleDateString() }));
+            updateProject(p => submitFeedback(p, id, { whatWorked: "", adjustments: "Revision requested by studio.", approved: false, submittedAt: currentDashboardTimestamp() }));
             showToast("Gate moved to revisions.");
           }}
           onFinishMilestone={milestoneId => {

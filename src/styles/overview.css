@@ -376,6 +376,97 @@
 .overview-timeline-activity-grid .history-panel {
   height: 100%;
 }
+
+.launch-pad-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.portfolio-project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.75rem;
+}
+
+.portfolio-project-card {
+  background: oklch(0.99 0.003 55);
+  border: 1px solid oklch(0.93 0.012 48);
+  border-radius: var(--radius);
+}
+
+.portfolio-project-card-button {
+  width: 100%;
+  padding: 1rem 1.1rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.portfolio-project-card-button:hover {
+  background: oklch(0.975 0.008 48);
+}
+
+.portfolio-project-card-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.portfolio-project-avatar {
+  display: grid;
+  width: 1.95rem;
+  height: 1.95rem;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.portfolio-project-copy {
+  min-width: 0;
+}
+
+.portfolio-project-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-md);
+  font-weight: 500;
+}
+
+.portfolio-project-milestone {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+
+.portfolio-project-state {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+.portfolio-project-state.is-active {
+  color: var(--accent);
+}
+
+.portfolio-project-state.is-complete {
+  color: var(--success);
+}
+
+.portfolio-project-state.is-locked,
+.portfolio-project-state.is-not-started {
+  color: var(--fg-faint);
+}
+
 .account-access-panel {
   overflow: hidden;
 }

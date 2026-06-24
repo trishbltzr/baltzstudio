@@ -755,7 +755,7 @@ export const PROJECT_BY_LIFECYCLE: Record<ClientLifecycleStage, Project> = {
 
 export function applyLifecycleStageToProject(project: Project, stage: ClientLifecycleStage): Project {
   const template = PROJECT_BY_LIFECYCLE[stage];
-  const shouldUseTemplateMilestones = stage === "wiaw-active" || stage === "in-full-flight";
+  const shouldUseTemplateMilestones = stage === "cocoon-consult" || stage === "wiaw-active" || stage === "in-full-flight";
 
   return {
     ...project,

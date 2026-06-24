@@ -9,6 +9,7 @@ export interface NavChild {
   id: string;
   label: string;
   icon: LucideIcon;
+  count?: number;
   locked?: boolean;
 }
 
@@ -52,6 +53,7 @@ interface Props {
   projects?: Project[];
   selectedProjectId?: string;
   onSelectProject?: (id: string) => void;
+  projectNavItems?: NavChild[];
 
   // Client-only: non-interactive project display for pre-Cocoon state
   clientProject?: Project;
@@ -68,6 +70,16 @@ interface Props {
   footerShowPrivacyLinks?: boolean;
 }
 
+function creativeSidebarTitle(label: string) {
+  const titles: Record<string, string> = {
+    "Getting Started": "First Steps",
+    Workspace: "Studio Desk",
+    Collaboration: "Shared Studio",
+    Projects: "Client Rooms",
+  };
+  return titles[label] ?? label;
+}
+
 export function DashboardSidebar({
   activeNav,
   onNavChange,
@@ -81,6 +93,7 @@ export function DashboardSidebar({
   projects,
   selectedProjectId,
   onSelectProject,
+  projectNavItems,
   clientProject,
   collaborationLocked,
   onUpgrade,
@@ -94,6 +107,15 @@ export function DashboardSidebar({
   const nudgeTitle = workflowNudge?.sidebarNudgeTitle ?? "Turn the audit into a build";
   const nudgeBody = workflowNudge?.sidebarNudgeBody ?? "Move from insight to launch with Winged in a Week™.";
   const nudgeButton = workflowNudge?.nextStepLabel ?? "Upgrade to WIAW";
+  const renderUpgradeButtonLabel = () => {
+    if (!nudgeButton.endsWith(" Premium")) return <span className="sidebar-upgrade-btn-text">{nudgeButton}</span>;
+    return (
+      <>
+        <span className="sidebar-upgrade-btn-text">{nudgeButton.replace(/\s+Premium$/, "")}</span>
+        <span className="sidebar-premium-badge">Premium</span>
+      </>
+    );
+  };
 
   // ── Locked-item toast ──────────────────────
   const [lockedToast, setLockedToast] = useState<string | null>(null);
@@ -248,57 +270,13 @@ export function DashboardSidebar({
 
       <div style={{ margin: "0 -1.15rem", height: "1px", background: "var(--border-soft)" }} />
 
-      {/* Admin: interactive project switcher */}
-      {projects && selected && (
-        <div style={{ position: "relative" }}>
-          <button
-            type="button"
-            ref={triggerRef}
-            className="dashboard-project-switcher"
-            onClick={() => setMenuOpen(v => !v)}
-            aria-expanded={menuOpen}
-          >
-            <div className="dashboard-project-icon">{selected.clientInitials}</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <strong style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selected.clientName}</strong>
-              <small>{selected.platform}</small>
-            </div>
-            <ChevronDown size={13} style={{ color: "var(--fg-muted)", flexShrink: 0 }} />
-          </button>
-          {menuOpen && menuCoords && createPortal(
-            <div
-              ref={menuRef}
-              className="dashboard-project-menu"
-              style={{ position: "fixed", top: menuCoords.top, left: menuCoords.left, width: menuCoords.width }}
-            >
-              {projects.map(p => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={selectedProjectId === p.id ? "is-active" : ""}
-                  onClick={() => { onSelectProject?.(p.id); setMenuOpen(false); }}
-                >
-                  <div className="dashboard-project-icon" style={{ width: "1.6rem", height: "1.6rem", borderRadius: "0.45rem", fontSize: "var(--text-xs)" }}>{p.clientInitials}</div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: "var(--text-base)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.clientName}</div>
-                    <div style={{ fontSize: "var(--text-xs)", color: "var(--fg-muted)" }}>{p.platform}</div>
-                  </div>
-                  {selectedProjectId === p.id && <Check size={11} style={{ marginLeft: "auto", color: "var(--success)" }} />}
-                </button>
-              ))}
-            </div>,
-            document.body
-          )}
-        </div>
-      )}
-
       {/* Nav */}
       <nav className="dashboard-nav">
         {navSections.map((section, sIdx) => (
           <Fragment key={sIdx}>
             {section.label && (
               <div className={`dashboard-nav-section${sIdx > 0 ? " has-divider" : ""}`}>
-                {section.label}
+                {creativeSidebarTitle(section.label)}
               </div>
             )}
             {section.items.map(item => {
@@ -415,6 +393,74 @@ export function DashboardSidebar({
         ))}
       </nav>
 
+      {/* Admin: interactive project switcher */}
+      {projects && selected && (
+        <div style={{ position: "relative" }}>
+          {!collapsed && <div className="dashboard-project-selector-label">{creativeSidebarTitle("Projects")}</div>}
+          <button
+            type="button"
+            ref={triggerRef}
+            className="dashboard-project-switcher"
+            onClick={() => setMenuOpen(v => !v)}
+            aria-expanded={menuOpen}
+          >
+            <div className="dashboard-project-icon">{selected.clientInitials}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <strong style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selected.clientName}</strong>
+              <small>{selected.platform}</small>
+            </div>
+            <ChevronDown size={13} style={{ color: "var(--fg-muted)", flexShrink: 0 }} />
+          </button>
+          {menuOpen && menuCoords && createPortal(
+            <div
+              ref={menuRef}
+              className="dashboard-project-menu"
+              style={{ position: "fixed", top: menuCoords.top, left: menuCoords.left, width: menuCoords.width }}
+            >
+              {projects.map(p => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={selectedProjectId === p.id ? "is-active" : ""}
+                  onClick={() => { onSelectProject?.(p.id); setMenuOpen(false); }}
+                >
+                  <div className="dashboard-project-icon" style={{ width: "1.6rem", height: "1.6rem", borderRadius: "0.45rem", fontSize: "var(--text-xs)" }}>{p.clientInitials}</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: "var(--text-base)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.clientName}</div>
+                    <div style={{ fontSize: "var(--text-xs)", color: "var(--fg-muted)" }}>{p.platform}</div>
+                  </div>
+                  {selectedProjectId === p.id && <Check size={11} style={{ marginLeft: "auto", color: "var(--success)" }} />}
+                </button>
+              ))}
+            </div>,
+            document.body
+          )}
+          {projectNavItems && projectNavItems.length > 0 && (
+            <div className="dashboard-project-subnav">
+              {projectNavItems.map(item => {
+                const ItemIcon = item.icon;
+                const isActive = activeNav === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`dashboard-nav-item dashboard-nav-subitem ${isActive ? "is-active" : ""} ${item.locked ? "is-locked" : ""}`}
+                    onClick={() => item.locked ? showLockedToast(item.label) : onNavChange(item.id)}
+                    style={item.locked ? { opacity: 0.45, cursor: "default" } : undefined}
+                    onMouseEnter={e => showNavTooltip(e, item.label)}
+                    onMouseLeave={hideNavTooltip}
+                  >
+                    <ItemIcon size={13} />
+                    <span>{item.label}</span>
+                    {!item.locked && item.count ? <span className="dashboard-count">{item.count}</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Collapsed tooltip */}
       {collapsed && navTooltip && createPortal(
         <div className="sidebar-nav-tooltip" style={{ top: navTooltip.top, left: navTooltip.left }}>
@@ -451,7 +497,7 @@ export function DashboardSidebar({
                   {nudgeBody}
                 </p>
                 <button type="button" className="sidebar-upgrade-btn" onClick={() => { onUpgrade?.(); setUpgradePopoverOpen(false); }}>
-                  {nudgeButton} <ArrowRight size={11} />
+                  {renderUpgradeButtonLabel()} <ArrowRight size={11} />
                 </button>
               </div>,
               document.body
@@ -468,7 +514,7 @@ export function DashboardSidebar({
               {nudgeBody}
             </p>
             <button type="button" className="sidebar-upgrade-btn" onClick={onUpgrade}>
-              {nudgeButton} <ArrowRight size={11} />
+              {renderUpgradeButtonLabel()} <ArrowRight size={11} />
             </button>
           </div>
         )

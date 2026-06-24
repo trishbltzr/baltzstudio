@@ -1,8 +1,13 @@
+# Dependencies
 node_modules/
-dist/
+.pnp/
+.pnp.js
+
+# Build output and generated caches
 .next/
 **/.next/
 out/
+dist/
 build/
 coverage/
 .turbo/
@@ -10,15 +15,42 @@ coverage/
 .vite/
 .pnpm-store/
 .eslintcache
+*.tsbuildinfo
+
+# Test and browser artifacts
 playwright-report/
 test-results/
-.DS_Store
+
+# Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment and deployment secrets
 .env
-.env.local
-.env.*.local
-.vercel
-*.tsbuildinfo
+.env.*
+!.env.example
+.vercel/
+
+# Local OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local exports and archives
+*.zip
+*.tar
+*.tgz
+*.gz
+*.7z
+*.rar
+
+# Local migrated/source folders that should not be committed here
 The Baltazar Studio/
 
 # Local Claude Code overrides (machine-specific; keep out of git)

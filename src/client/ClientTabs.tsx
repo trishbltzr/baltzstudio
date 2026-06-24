@@ -22,6 +22,7 @@ import { CocoonStepTracker } from "../components/CocoonStepTracker";
 import { CocoonPromptForm } from "../components/CocoonPromptForm";
 import { FILE_WORKSPACE_ITEMS, isClientFileHubView } from "../components/fileWorkspace";
 import { ActivityDecisionHistory } from "../components/ActivityDecisionHistory";
+import { currentDashboardTimestamp, formatDashboardDate } from "../lib/dateDisplay";
 import { SHARED_AUDIT_CATEGORIES, SHARED_AUDIT_PAGES } from "../data/mockProjects";
 
 export type OnboardingPrompt = {
@@ -891,7 +892,7 @@ export function ClientMilestonesTab({ project, auditMode = false, onTaskStatusCh
                             </div>
                             <StatusBadge status={gateStatusClass(gate.status)} label={gateStatusLabel(gate.status)} detail={gateStatusDetail(gate.status)} size="sm" className="is-shrink-0" />
                           </div>
-                          {gate.sentAt && <p className="gate-meta">Sent {gate.sentAt.replace(/\s+at\s+.+$/, "").replace(/,\s*\d{4}/, "")} · Go to <strong>Tasks</strong> to respond.</p>}
+                          {gate.sentAt && <p className="gate-meta">Sent {formatDashboardDate(gate.sentAt)} · Go to <strong>Tasks</strong> to respond.</p>}
                           {gate.status === "locked" && <p className="gate-meta">Unlocks after {phase.title.replace(/^\d+\.\d+\s+/, "")} is ready.</p>}
                           {gate.status === "approved" && <p className="gate-meta" style={{ color: "var(--success)" }}>Approved — moving forward.</p>}
                         </div>
@@ -1004,7 +1005,7 @@ export function ClientReviewsTab({ project, onSubmitFeedback }: { project: Proje
             <div className="client-review-header">
               <div>
                 <h3>{gate.clientLabel}</h3>
-                {gate.sentAt && <p>Sent {gate.sentAt.replace(/\s+at\s+.+$/, "").replace(/,\s*\d{4}/, "")}</p>}
+                {gate.sentAt && <p>Sent {formatDashboardDate(gate.sentAt)}</p>}
               </div>
               <StatusBadge status={gateStatusClass(gate.status)} label={gateStatusLabel(gate.status)} />
             </div>
@@ -1072,7 +1073,7 @@ export function ClientReviewsTab({ project, onSubmitFeedback }: { project: Proje
 
                 {/* Submit — only after deciding */}
                 {form.approved !== null && (
-                  <Btn variant="primary" onClick={() => { onSubmitFeedback(gate.id, { whatWorked: "", adjustments: "", approved: form.approved!, submittedAt: "Jun 6, 2025 at 11:42 AM" }); }}>
+                  <Btn variant="primary" onClick={() => { onSubmitFeedback(gate.id, { whatWorked: "", adjustments: "", approved: form.approved!, submittedAt: currentDashboardTimestamp() }); }}>
                     <Send size={13} />Submit
                   </Btn>
                 )}
@@ -1861,20 +1862,19 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
   const clientMobilePrimary: MobileNavItem[] = isPreCocoon
     ? [
         { key: "cocoon",         label: "Cocoon",        icon: BookOpen },
-        { key: "reviews",        label: "Tasks",          icon: CheckCircle2, count: pendingReviews, locked: true },
+        { key: "milestones",     label: "Milestones",     icon: ClipboardList, locked: true },
         { key: "overview",       label: "Overview",       icon: LayoutDashboard, locked: true },
         { key: "notifications",  label: "Notifications",  icon: Bell, count: unread, locked: true },
       ]
     : [
-        { key: "milestones",     label: "Milestones",     icon: ClipboardList, locked: !access.milestones },
         { key: "reviews",        label: "Tasks",          icon: CheckCircle2, count: pendingReviews, locked: !access.tasks },
+        { key: "milestones",     label: "Milestones",     icon: ClipboardList, locked: !access.milestones },
         { key: "overview",       label: "Overview",       icon: LayoutDashboard, locked: !access.overview },
         { key: "notifications",  label: "Notifications",  icon: Bell, count: unread, locked: !access.notifications },
       ];
   // Overflow items live in the More sheet
   const clientMobileMore: MobileNavItem[] = [
     { key: "files",            label: "Files",            icon: Folder,     locked: !access.files },
-    { key: "brand-guidelines", label: "Brand Guidelines", icon: FileText,   locked: !access.brandGuidelines },
     { key: "billing",          label: "Billing",          icon: CreditCard, locked: !access.billing },
     { key: "support",          label: "Support",          icon: MessageSquare, locked: !access.support },
   ];
@@ -1898,17 +1898,15 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
     ]}] : []),
     { label: "Workspace", items: [
       { id: "overview",   label: "Overview",   icon: LayoutDashboard, locked: !access.overview },
-      { id: "milestones", label: "Milestones", icon: ClipboardList,   locked: !access.milestones },
+      { id: "reviews",    label: "Tasks",      icon: CheckCircle2, count: pendingReviews, locked: !access.tasks },
     ]},
     { label: "Collaboration", items: [
-      { id: "reviews",       label: "Tasks",         icon: CheckCircle2, count: pendingReviews, locked: !access.tasks },
-      { id: "files",         label: "Files",         icon: Folder,       locked: !access.files, children: [
-        ...FILE_WORKSPACE_ITEMS.map(item => ({
-          ...item,
-          id: item.id === "assets" ? "brand" : item.id,
-          locked: item.id === "assets" ? !access.assets : item.id === "brand-guidelines" ? !access.brandGuidelines : !access.contract,
-        })),
-      ]},
+      { id: "milestones",    label: "Milestones",    icon: ClipboardList, locked: !access.milestones },
+      { id: "files",         label: "Files",         icon: Folder,       locked: !access.files, children: FILE_WORKSPACE_ITEMS.map(item => ({
+        ...item,
+        id: item.id === "assets" ? "brand" : item.id,
+        locked: item.id === "assets" ? !access.assets : item.id === "brand-guidelines" ? !access.brandGuidelines : !access.contract,
+      })) },
       { id: "notifications", label: "Notifications", icon: Bell,         count: unread,         locked: !access.notifications },
     ]},
   ];
@@ -2212,6 +2210,15 @@ export function ClientCocoonEmbedTab({ onComplete, onConfirmCocoonPayment, devSe
     setCallScheduled(false);
     setScheduledMeeting(null);
   }
+  function resetToStartPreview() {
+    setAnswers({});
+    setAuditGenerated(false);
+    setOpenStepId(onboardingSteps[0]?.id ?? "brand-core");
+    setActivePromptIndex(0);
+    setUnsureKeys(new Set());
+    setCallScheduled(false);
+    setScheduledMeeting(null);
+  }
   const auditPreviewReports = SHARED_AUDIT_CATEGORIES.map(category => {
     const total = category.items.length;
     const complete = auditCategoryCompleteCount(category.items);
@@ -2283,6 +2290,7 @@ export function ClientCocoonEmbedTab({ onComplete, onConfirmCocoonPayment, devSe
           const step = stepsWithStatus.find(item => item.id === stepId);
           if (step) selectStep(step);
         }}
+        onResetPreview={resetToStartPreview}
         onSkipToFinalPreview={skipToFinalPreview}
       />
 

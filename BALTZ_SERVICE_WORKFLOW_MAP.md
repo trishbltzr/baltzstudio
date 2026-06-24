@@ -178,6 +178,40 @@ Use this section to define who owns each task and what notification should be se
 | No-action nurture step sent | System | Client | Helpful follow-up was sent because the client has not continued yet. | Client continues, pauses, or lets access expire. |
 | Dashboard access window ended | System / Superadmin | Studio Admin | Client access window ended; dashboard deletion or archive review is due. | Delete access or manually extend. |
 
+### Current Dashboard Notification Triggers
+
+The current dashboard does not yet run a background automation engine. Notifications are derived at render time from the selected project state in `src/components/notifications.tsx`.
+
+Current trigger sources:
+
+| Source In Project Data | Trigger Condition | Admin Receives | Client Receives | Destination / Action |
+| --- | --- | --- | --- | --- |
+| `project.workflow.notifications` | Lifecycle event exists in the workflow data. | All workflow notifications. | Only records marked `clientVisible`. | Open the related dashboard area implied by the event type. |
+| Approval gate | Gate status is `sent`. | Studio sent a gate for review, with approve/deny actions where allowed. | Review request from Baltazar Studio. | Reviews/Tasks for gate decision. |
+| Approval gate | Gate status is `revision`. | Client requested revisions. | Not currently pushed to the client list. | Admin review queue. |
+| Approval gate | Gate status is `approved`. | Client approved the gate. | Approval received confirmation. | Next milestone/phase context. |
+| Phase tasks | All tasks in a phase are complete. | Phase completed by Studio. | Milestone/phase completed by Baltazar Studio. | Milestones or current project overview. |
+
+Current read/dismiss behavior:
+
+- Read and dismissed states are local UI state in the current session.
+- Notification badge counts are derived from unread notifications that have not been dismissed.
+- Popover and full Notifications page share the same row renderer.
+- Notification and activity timestamps use the same display rule: `Now`, minutes, hours, then month/day only after 24 hours.
+- The notification list is not yet stored as a normalized notification table in Supabase.
+
+### Notification Push Decision Rules
+
+Use these rules when deciding whether a task completion should create or update a notification:
+
+1. Push a notification only when the event changes what someone needs to do, review, approve, book, upload, pay, or know.
+2. Do not push noise for internal micro-tasks unless they unblock a client-visible step or an admin decision.
+3. A notification needs a recipient, trigger event, actor, target, destination, and next action before it is valid.
+4. If the client must act, the first sentence should name the client action.
+5. If the studio must act, the message should name the admin queue or workflow step.
+6. If a task is reopened, replaced, or corrected, update or resolve the old notification instead of leaving a stale alert.
+7. Billing, AI review automation, notification automation, and dashboard deletion automation remain documented only until those business rules are approved.
+
 ### Dynamic Notification Requirements
 
 - Notification copy should include the completed task name, client/project name, current stage, and the next required action.

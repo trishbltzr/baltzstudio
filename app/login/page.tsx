@@ -3,6 +3,7 @@
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LoginPage } from "@/components/LoginPage";
+import type { DashboardUserRole } from "@/types";
 
 export default function Page() {
   return (
@@ -22,7 +23,7 @@ function LoginRoute() {
     if (saved) router.replace(nextPath);
   }, [nextPath, router]);
 
-  function handleLogin(user: { email: string; role: "admin" | "client"; name: string }) {
+  function handleLogin(user: { email: string; role: DashboardUserRole; name: string }) {
     sessionStorage.setItem("bs-user", JSON.stringify(user));
     router.push(nextPath);
   }

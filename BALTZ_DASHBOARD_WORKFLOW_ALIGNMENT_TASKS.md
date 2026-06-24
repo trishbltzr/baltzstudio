@@ -63,6 +63,7 @@ Proceed one checklist item at a time:
 - [x] Admin and Client plan restrictions now read from one shared `planAccess(project)` contract.
 - [x] Client-facing lifecycle samples are consolidated into Cocoon Consult and WIAW paths; Paid Cocoon is reached through the payment handoff, not a visible dev tab.
 - [~] Notifications exist as dashboard UI/data, but they still need to become assignee-aware and event-driven instead of feeling static.
+- [x] Current notification trigger logic is documented in `BALTZ_SERVICE_WORKFLOW_MAP.md`: workflow records, gate statuses, and completed phases currently derive the visible notifications at render time.
 - [~] Task assignees exist in task data and now appear in task lists/detail rows with role-safe labels; broader assignment controls and routing are still pending.
 
 ## Recent Website Development Updates To Implement
@@ -87,7 +88,8 @@ Source: recent updates added to `BALTZ_SERVICE_WORKFLOW_MAP.md` under **Current 
 - [~] Show assignee ownership on task rows, approval gates, and admin workflow queues.
 - [~] Add role-safe assignee display rules so clients never see Superadmin-only or internal AI/system ownership details.
 - [!] Convert lifecycle notifications from static sample records into notifications generated from completed workflow events. Deferred because this is automation/event-generation work.
-- [ ] Link each completed task type to a notification recipient, message, next action, and destination tab/section.
+- [~] Link each completed task type to a notification recipient, message, next action, and destination tab/section.
+  - Current documentation added under `BALTZ_SERVICE_WORKFLOW_MAP.md` > **Current Dashboard Notification Triggers** and **Notification Push Decision Rules**.
 - [ ] Update notification badge counts when task completion, reopening, or correction events happen.
 - [ ] Add stale-notification handling when a completed task is reopened or changed.
 - [ ] Add tests or targeted browser checks proving a completed task changes the related notification list dynamically.

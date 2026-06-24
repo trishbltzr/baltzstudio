@@ -1,8 +1,8 @@
-import { Check, ChevronDown, ChevronRight, Globe, Lock, Paperclip, Pencil, Plus, Send, X } from "lucide-react";
+import { AlertCircle, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight, Clock3, Globe, Lock, Paperclip, Pencil, Plus, Send, X } from "lucide-react";
 import { useState } from "react";
-import type { Project, TaskStatus, BrandIdentity } from "../types";
-import { allTasksComplete, phaseProgress, phaseProgressMarkers, milestoneProgress, allGates, taskStatusDetail, gateStatusClass, gateStatusLabel } from "../lib/projectUtils";
-import { StatusBadge, MilestoneDot, Panel, Btn, ProgressDots, ProgressRing } from "../components/shared";
+import type { Milestone, Phase, Project, Task, TaskStatus, BrandIdentity } from "../types";
+import { allTasksComplete, phaseProgress, phaseProgressMarkers, milestoneProgress, allGates, taskStatusDetail, gateStatusClass, gateStatusLabel, taskStatusClass, taskStatusLabel } from "../lib/projectUtils";
+import { StatusBadge, MilestoneDot, Panel, PanelHeader, Btn, ProgressDots, ProgressRing, TruncatedText } from "../components/shared";
 import { GateBlock } from "../components/widgets";
 import { PhaseDetailModal } from "../components/PhaseDetailModal";
 import { TaskActionCenter } from "../components/TaskActionCenter";
@@ -380,6 +380,178 @@ export function AdminReviewsTab({ project, onSendGate, onApproveGate, onTaskStat
       )}
     </div>
     </TaskActionCenter>
+  );
+}
+
+type PortfolioTaskBucket = "action" | "progress" | "upcoming" | "complete";
+type PortfolioTaskRow = {
+  project: Project;
+  milestone: Milestone;
+  phase: Phase;
+  task: Task;
+  bucket: PortfolioTaskBucket;
+};
+
+const portfolioTaskBuckets: PortfolioTaskBucket[] = ["upcoming", "progress", "complete", "action"];
+
+const portfolioBucketMeta: Record<PortfolioTaskBucket, { title: string; icon: typeof CalendarDays; empty: string }> = {
+  action: { title: "Action needed", icon: AlertCircle, empty: "No studio blockers right now." },
+  progress: { title: "In progress", icon: Clock3, empty: "No studio tasks are marked in progress." },
+  upcoming: { title: "Upcoming", icon: CalendarDays, empty: "No queued studio tasks yet." },
+  complete: { title: "Completed", icon: CheckCircle2, empty: "Completed studio tasks will collect here." },
+};
+
+function portfolioTaskBucket(task: Task, milestone: Milestone): PortfolioTaskBucket {
+  if (task.status === "complete") return "complete";
+  if (task.status === "blocked") return "action";
+  if (task.status === "in_progress") return "progress";
+  if (milestone.status === "active") return "upcoming";
+  return "upcoming";
+}
+
+function derivePortfolioTasks(projects: Project[]) {
+  const rows: PortfolioTaskRow[] = [];
+  for (const project of projects.filter(item => item.status === "active")) {
+    for (const milestone of project.milestones) {
+      for (const phase of milestone.phases) {
+        for (const task of phase.tasks) {
+          if (task.assignee === "client") continue;
+          rows.push({ project, milestone, phase, task, bucket: portfolioTaskBucket(task, milestone) });
+        }
+      }
+    }
+  }
+  return rows;
+}
+
+function portfolioPhaseLabel(phase: Phase) {
+  return phase.title.replace(/^\d+\.\d+\s+/, "");
+}
+
+function portfolioTaskDate(date?: string) {
+  if (!date) return null;
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function PortfolioTaskStatus({
+  row,
+  onProjectTaskStatusChange,
+}: {
+  row: PortfolioTaskRow;
+  onProjectTaskStatusChange: (projectId: string, taskId: string, status: TaskStatus) => void;
+}) {
+  const statuses: TaskStatus[] = ["not_started", "in_progress", "blocked", "complete"];
+  return (
+    <select
+      className="dashboard-dropdown-control portfolio-task-status"
+      value={row.task.status}
+      aria-label={`Update ${row.project.clientName} task status`}
+      onChange={event => onProjectTaskStatusChange(row.project.id, row.task.id, event.target.value as TaskStatus)}
+    >
+      {statuses.map(status => <option key={status} value={status}>{taskStatusLabel(status)}</option>)}
+    </select>
+  );
+}
+
+function PortfolioTaskGroup({
+  bucket,
+  rows,
+  onProjectTaskStatusChange,
+}: {
+  bucket: PortfolioTaskBucket;
+  rows: PortfolioTaskRow[];
+  onProjectTaskStatusChange: (projectId: string, taskId: string, status: TaskStatus) => void;
+}) {
+  const meta = portfolioBucketMeta[bucket];
+  const Icon = meta.icon;
+
+  return (
+    <section className={`task-group is-${bucket}`}>
+      <div className="task-group-header">
+        <div>
+          <Icon size={14} />
+          <span>{meta.title}</span>
+        </div>
+        <span>{rows.length}</span>
+      </div>
+      <div className="task-list">
+        {rows.length === 0 ? (
+          <div className="task-empty">{meta.empty}</div>
+        ) : rows.map(row => (
+          <div key={`${row.project.id}-${row.task.id}`} className={`task-row ${row.task.status === "complete" ? "is-complete" : ""}`}>
+            <div className="task-row-main">
+              <TruncatedText text={row.task.title} className="task-row-title" />
+              <div className="task-row-meta">
+                <span>{row.project.clientName}</span>
+                <span>M{row.milestone.number} {row.milestone.clientLabel}</span>
+                <span>{portfolioPhaseLabel(row.phase)}</span>
+                {portfolioTaskDate(row.task.dueDate) && <span>Due {portfolioTaskDate(row.task.dueDate)}</span>}
+              </div>
+            </div>
+            <div className="task-row-status">
+              <PortfolioTaskStatus row={row} onProjectTaskStatusChange={onProjectTaskStatusChange} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function AdminPortfolioTasks({
+  projects,
+  onProjectTaskStatusChange,
+}: {
+  projects: Project[];
+  onProjectTaskStatusChange: (projectId: string, taskId: string, status: TaskStatus) => void;
+}) {
+  const rows = derivePortfolioTasks(projects);
+  const completed = rows.filter(row => row.bucket === "complete").length;
+  const progress = rows.length === 0 ? 0 : Math.round((completed / rows.length) * 100);
+  const counts = {
+    upcoming: rows.filter(row => row.bucket === "upcoming").length,
+    progress: rows.filter(row => row.bucket === "progress").length,
+    complete: completed,
+    action: rows.filter(row => row.bucket === "action").length,
+  };
+
+  return (
+    <div className="task-center">
+      <Panel>
+        <PanelHeader title="All studio tasks" icon={CalendarDays} action={<StatusBadge status="is-progress" label={`${progress}% complete`} />} />
+        <div className="task-center-summary">
+          <div className="task-summary-item">
+            <span>{counts.upcoming}</span>
+            <p>Upcoming</p>
+          </div>
+          <div className="task-summary-item">
+            <span>{counts.progress}</span>
+            <p>In progress</p>
+          </div>
+          <div className="task-summary-item">
+            <span>{counts.complete}</span>
+            <p>Completed</p>
+          </div>
+          <div className="task-summary-item is-priority">
+            <span>{counts.action}</span>
+            <p>Action needed</p>
+          </div>
+        </div>
+      </Panel>
+      <div className="task-center-milestone-label">Studio-side work across all active clients</div>
+      <div className="task-center-groups">
+        {portfolioTaskBuckets.map(bucket => (
+          <PortfolioTaskGroup
+            key={bucket}
+            bucket={bucket}
+            rows={rows.filter(row => row.bucket === bucket)}
+            onProjectTaskStatusChange={onProjectTaskStatusChange}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 

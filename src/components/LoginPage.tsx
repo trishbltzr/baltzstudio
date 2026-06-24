@@ -1,20 +1,23 @@
 import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
+import type { DashboardUserRole } from "../types";
 
 type LoginUser = {
   email: string;
-  role: "admin" | "client";
+  role: DashboardUserRole;
   name: string;
 };
 
 export const MOCK_USERS = [
   { email: "trisha@baltazarstudio.co", password: "studio123", role: "admin" as const, name: "Trisha Baltazar" },
+  { email: "manager@baltazarstudio.co", password: "manager123", role: "manager" as const, name: "Studio Manager" },
   { email: "team@floraandco.com", password: "flora123", role: "client" as const, name: "Flora & Co." },
   { email: "hazel@houseofhazel.co", password: "hazel123", role: "client" as const, name: "House of Hazel" },
 ];
 
 const DEMO_LOGIN_OPTIONS = [
   { label: "View admin", email: "trisha@baltazarstudio.co", ariaLabel: "View admin dashboard — auto-login to explore the admin view" },
+  { label: "View manager", email: "manager@baltazarstudio.co", ariaLabel: "View manager dashboard — auto-login to explore the manager view" },
   { label: "View Flora & Co.", email: "team@floraandco.com", ariaLabel: "View Flora and Co. client dashboard — auto-login to explore the Flora workspace" },
   { label: "View House of Hazel", email: "hazel@houseofhazel.co", ariaLabel: "View House of Hazel client dashboard — auto-login to explore the House of Hazel workspace" },
 ] as const;
@@ -112,6 +115,7 @@ export function LoginPage({ onLogin }: { onLogin: (user: LoginUser) => void }) {
         <div className="login-demo-hint">
           <strong>Demo credentials</strong><br />
           Admin: trisha@baltazarstudio.co / studio123<br />
+          Manager: manager@baltazarstudio.co / manager123<br />
           Flora & Co.: team@floraandco.com / flora123<br />
           House of Hazel: hazel@houseofhazel.co / hazel123
         </div>

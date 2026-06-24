@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import type { Project, GateFeedback, Phase } from "../types";
 import { allTasksComplete } from "../lib/projectUtils";
+import { currentDashboardTimestamp, formatDashboardDate } from "../lib/dateDisplay";
 import { Btn, Panel } from "./shared";
 
 // ─────────────────────────────────────────────
@@ -42,6 +43,10 @@ function workflowNotifications(project: Project, clientOnly: boolean): AppNotifi
 function latestPhaseTaskDate(phase: Phase): string {
   if (phase.completedAt) return phase.completedAt;
   for (let i = phase.tasks.length - 1; i >= 0; i--) {
+    const updatedAt = phase.tasks[i]?.updatedAt;
+    if (updatedAt) return updatedAt;
+  }
+  for (let i = phase.tasks.length - 1; i >= 0; i--) {
     const dueDate = phase.tasks[i]?.dueDate;
     if (dueDate) return dueDate;
   }
@@ -49,9 +54,7 @@ function latestPhaseTaskDate(phase: Phase): string {
 }
 
 function formatNotificationDate(value: string): string {
-  const clean = value.trim();
-  if (!clean) return "Date pending";
-  return clean.replace(/,\s*\d{4}/, "").replace(/\s+at\s+/, " at ");
+  return formatDashboardDate(value, "Date pending");
 }
 
 function NotificationAvatar({ notification, className }: { notification: AppNotification; className: string }) {
@@ -476,7 +479,7 @@ export function NotificationBell({
   function handleGateDeny(notification: AppNotification) {
     if (!notification.gateId) return;
     if (onSubmitFeedback) {
-      onSubmitFeedback(notification.gateId, { whatWorked: "", adjustments: "Revision requested", approved: false, submittedAt: new Date().toLocaleDateString() });
+      onSubmitFeedback(notification.gateId, { whatWorked: "", adjustments: "Revision requested", approved: false, submittedAt: currentDashboardTimestamp() });
     } else {
       onDenyGate?.(notification.gateId);
     }
@@ -487,7 +490,7 @@ export function NotificationBell({
   function handleGateApprove(notification: AppNotification) {
     if (!notification.gateId) return;
     if (onSubmitFeedback) {
-      onSubmitFeedback(notification.gateId, { whatWorked: "", adjustments: "", approved: true, submittedAt: new Date().toLocaleDateString() });
+      onSubmitFeedback(notification.gateId, { whatWorked: "", adjustments: "", approved: true, submittedAt: currentDashboardTimestamp() });
     } else {
       onApproveGate?.(notification.gateId);
     }
@@ -742,12 +745,12 @@ export function NotificationsPage({ notifications, readIds, setReadIds, dismisse
                     onOpen={() => handleRowClick(n)}
                     onDeny={() => {
                       if (!n.gateId) return;
-                      onSubmitFeedback?.(n.gateId, { whatWorked: "", adjustments: "Revision requested", approved: false, submittedAt: new Date().toLocaleDateString() });
+                      onSubmitFeedback?.(n.gateId, { whatWorked: "", adjustments: "Revision requested", approved: false, submittedAt: currentDashboardTimestamp() });
                       setDismissedIds(prev => new Set([...prev, n.id]));
                     }}
                     onApprove={() => {
                       if (!n.gateId) return;
-                      onSubmitFeedback?.(n.gateId, { whatWorked: "", adjustments: "", approved: true, submittedAt: new Date().toLocaleDateString() });
+                      onSubmitFeedback?.(n.gateId, { whatWorked: "", adjustments: "", approved: true, submittedAt: currentDashboardTimestamp() });
                       setDismissedIds(prev => new Set([...prev, n.id]));
                     }}
                   />

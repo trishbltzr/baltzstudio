@@ -26,6 +26,84 @@ Note: use `[~]` only when code has landed but TypeScript/build/browser verificat
 
 ---
 
+## Active Batch: Cocoon Consult Polish + Notification Workflow
+
+Source: five browser comments on `http://localhost:3412/dashboard` plus user request for notification trigger logic and a markdown workflow file.
+
+Target: `/dashboard` Cocoon Consult client surface and notification documentation in `/Users/trishabltzr/baltazarstudio`.
+
+### Comment Checklist
+
+- [~] **1. Remove audit preview gauge strip**
+  - [x] Remove the top percentage gauge row from the Audit Preview popup.
+  - [x] Keep the audit category cards and detail drill-down intact.
+  - [~] Verify the popup no longer shows the six circular percentage gauges.
+    - Code/build verified; screenshot-level browser verification pending because browser automation was unavailable in this turn.
+
+- [~] **2. Fix Premium CTA wrapping**
+  - [x] Change sidebar CTA wording so `Premium` renders as a badge instead of wrapping onto a second button line.
+  - [x] Review equivalent Premium CTAs and keep labels to a single professional line where possible.
+  - [~] Verify sidebar and final-screen CTAs do not split awkwardly on desktop.
+    - Code/build verified; screenshot-level browser verification pending because browser automation was unavailable in this turn.
+
+- [~] **3. Make completed Cocoon checklist states green**
+  - [x] Change completed Cocoon prep/checklist icons and progress accents from red to green.
+  - [x] Apply the green completed treatment consistently across all completed checklist items.
+  - [~] Verify current/incomplete states remain visually distinct.
+    - Code/build verified; screenshot-level browser verification pending because browser automation was unavailable in this turn.
+
+- [~] **4. Add complete PDF report copy**
+  - [x] Update the DIY-ready strategy files inclusion to mention the complete PDF report.
+  - [~] Verify the inclusion copy remains readable and does not overflow.
+    - Code/build verified; screenshot-level browser verification pending because browser automation was unavailable in this turn.
+
+- [~] **5. Add start and finish auto-fill controls**
+  - [x] Add a control near the final-screen preview action to auto-fill the start and finish Cocoon states.
+  - [x] Keep the auto-fill local to the dummy/preview workflow and avoid speculative automation.
+  - [~] Verify both auto-fill actions update the Cocoon checklist state.
+    - Code/build verified; screenshot-level browser verification pending because browser automation was unavailable in this turn.
+
+- [x] **6. Document notification workflow**
+  - [x] Create or update a markdown workflow file explaining notification triggers, recipients, push criteria, and dynamic copy rules.
+  - [x] Clarify that uncertain automation/billing/AI behavior remains documented only, not implemented.
+  - [x] Verify the markdown file is present and linked conceptually to the current dashboard workflow.
+
+- [~] **7. Make Recent Activity update from project movement**
+  - [x] Derive Recent Activity from workflow lifecycle records, gate movement, completed phases, and completed task groups.
+  - [x] Ensure WIAW milestone progress creates visible activity even when dummy preview data lacks `completedAt`.
+  - [~] Verify the admin overview no longer shows the empty activity message when the project has movement.
+    - Code/build verified; screenshot-level browser verification pending.
+
+- [~] **8. Make activity and notification dates age accurately**
+  - [x] Show very recent events as `Now`.
+  - [x] Show events under one hour as minutes.
+  - [x] Show events under 24 hours as hours.
+  - [x] Show dates after 24 hours as month and day only.
+  - [x] Store new dashboard action timestamps with date and time so relative aging works.
+  - [x] Stamp task movement with `updatedAt` so Recent Activity reflects when the update happened, not just the task due date.
+  - [~] Verify the aging labels in browser after a live task/gate update.
+    - Formatter smoke test passes; screenshot-level browser verification pending.
+
+### Verification Checklist
+
+- [x] `tsc --noEmit` passes.
+- [x] `next build --webpack` passes.
+- [x] Local `/dashboard` loads without `/api/dashboard-state` errors.
+- [~] Browser verifies the five annotated Cocoon UI fixes.
+  - Pending screenshot-level pass; code/build/source checks are complete.
+- [x] Notification workflow markdown is created/updated.
+
+### Execution Rules
+
+Proceed one checklist item at a time:
+
+1. Implement the next item.
+2. Verify it with code checks or browser evidence.
+3. Update this checklist.
+4. Move to the next item.
+
+---
+
 ## Active Batch: Optimization + Global Modules
 
 Source: user request on `http://localhost:3412/dashboard` to reduce credit waste by consolidating repeated dashboard UI into global modules and tackling the work one item at a time.

@@ -1,18 +1,18 @@
-import { Bell, CheckCircle2, ChevronDown, ClipboardList, Folder, Home, LayoutDashboard, ChevronsLeft, ChevronsRight, Paperclip, Plus, Settings, User, X } from "lucide-react";
-import { useEffect, useState, useMemo, useRef } from "react";
+import { ArrowDownCircle, ArrowUpCircle, Bell, ClipboardList, Folder, Home, LayoutDashboard, ChevronsLeft, ChevronsRight, Paperclip, Plus, Settings, User, UserPlus } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { ClientLifecycleStage, Project, TaskStatus, BrandIdentity, AdminNav, ProjectTab, ClientNav } from "../types";
-import { allGates, planAccess } from "../lib/projectUtils";
-import { StatusBadge, TopbarHeading, ProgressBar, PanelHeader, Panel } from "../components/shared";
+import { planAccess } from "../lib/projectUtils";
+import { ProgressBar, PanelHeader, Panel } from "../components/shared";
 import { type MobileNavItem, MobileTabBar, MoreSheet } from "../components/mobileNav";
 import { deriveAdminNotifications, NotificationBell, NotificationsPage } from "../components/notifications";
 import { useIsMobile } from "../hooks/use-mobile";
-import { AdminMilestonesTab, AdminReviewsTab, BrandGuidelinesPanel, AdminNotesTab } from "./AdminTabs";
+import { AdminMilestonesTab, AdminPortfolioTasks, BrandGuidelinesPanel, AdminNotesTab } from "./AdminTabs";
 import { ClientMilestonesTab, ClientOverviewTab } from "../client/ClientTabs";
 import { ContractModal } from "../components/ContractModal";
 import { AccountMenu } from "../components/legal";
 import { DashboardSidebar } from "../components/DashboardSidebar";
 import { FileAssetHub } from "../components/FileAssetHub";
-import { FILE_WORKSPACE_ITEMS, FILE_WORKSPACE_TITLES } from "../components/fileWorkspace";
+import { FILE_WORKSPACE_TITLES } from "../components/fileWorkspace";
 
 // ─────────────────────────────────────────────
 // ADMIN — MAIN VIEW
@@ -20,6 +20,7 @@ import { FILE_WORKSPACE_ITEMS, FILE_WORKSPACE_TITLES } from "../components/fileW
 
 function accessForAdminAccountRole(role: string) {
   if (role === "Studio admin") return "Can manage project";
+  if (role === "Studio manager") return "Can manage project work";
   if (role === "Client owner") return "Can review and approve";
   return "Can view client portal";
 }
@@ -29,17 +30,20 @@ function isProjectTab(value: string | undefined): value is ProjectTab {
 }
 
 function isAdminTopNav(value: string | undefined): value is AdminNav {
-  return value === "home" || value === "projects" || value === "reviews" || value === "assets" || value === "users" || value === "settings" || value === "notifications";
+  return value === "home" || value === "projects" || value === "reviews" || value === "assets" || value === "users" || value === "clients" || value === "settings" || value === "notifications";
 }
 
-const CLIENT_PLAN_OPTIONS: Array<{ stage: ClientLifecycleStage; label: string; tier?: "Free" | "Premium" }> = [
-  { stage: "paid-cocoon", label: "Cocoon Consult", tier: "Premium" },
-  { stage: "wiaw-active", label: "Winged in a Week" },
-];
-
 function planTierForStage(stage: ClientLifecycleStage) {
+  if (stage === "cocoon-consult") return "Basic";
   if (stage === "paid-cocoon") return "Premium";
   return null;
+}
+
+function planLabelForStage(stage: ClientLifecycleStage) {
+  if (stage === "wiaw-active") return "Winged in a Week";
+  if (stage === "in-full-flight") return "In Full Flight";
+  if (stage === "deleted") return "Dashboard Deleted";
+  return "Cocoon Consult";
 }
 
 function AdminPlanSelector({
@@ -49,133 +53,50 @@ function AdminPlanSelector({
   stage: ClientLifecycleStage;
   onChange: (stage: ClientLifecycleStage) => void;
 }) {
-  const detailsRef = useRef<HTMLDetailsElement>(null);
-  const selectedOption = CLIENT_PLAN_OPTIONS.find(option => option.stage === stage) ?? CLIENT_PLAN_OPTIONS[0];
-  const selectedTier = selectedOption.tier ?? planTierForStage(stage);
+  const selectedTier = planTierForStage(stage);
+  const isBasicConsult = stage === "cocoon-consult";
+  const isWiaw = stage === "wiaw-active";
 
   return (
     <div className="admin-plan-selector">
       <span className="admin-plan-selector-label">Current plan</span>
-      <details className="admin-plan-dropdown" ref={detailsRef}>
-        <summary className="dashboard-dropdown-control admin-plan-trigger" aria-label="Change client current plan">
-          <span className="admin-plan-trigger-text">{selectedOption.label}</span>
-          {selectedTier && <span className={`plan-tier-badge plan-tier-badge--${selectedTier.toLowerCase()}`}>{selectedTier}</span>}
-          <ChevronDown size={13} aria-hidden="true" />
-        </summary>
-        <div className="admin-plan-menu" role="listbox" aria-label="Client current plan">
-          {CLIENT_PLAN_OPTIONS.map(option => {
-            const isSelected = option.stage === stage;
-            return (
-              <button
-                key={option.stage}
-                type="button"
-                className={`admin-plan-option${isSelected ? " is-selected" : ""}`}
-                role="option"
-                aria-selected={isSelected}
-                onClick={() => {
-                  onChange(option.stage);
-                  detailsRef.current?.removeAttribute("open");
-                }}
-              >
-                <span className="admin-plan-option-main">
-                  <span>{option.label}</span>
-                  {option.tier && <span className={`plan-tier-badge plan-tier-badge--${option.tier.toLowerCase()}`}>{option.tier}</span>}
-                </span>
-                {isSelected && <CheckCircle2 size={14} aria-hidden="true" />}
-              </button>
-            );
-          })}
+      <div className="admin-plan-status" aria-label={`Current plan: ${planLabelForStage(stage)}${selectedTier ? ` ${selectedTier}` : ""}`}>
+        <span className="admin-plan-trigger-text">{planLabelForStage(stage)}</span>
+        {selectedTier && <span className={`plan-tier-badge plan-tier-badge--${selectedTier.toLowerCase()}`}>{selectedTier}</span>}
+      </div>
+      <div className="admin-plan-actions" aria-label="Change client plan">
+        <button
+          type="button"
+          className="admin-plan-icon-btn"
+          aria-label="Downgrade to basic Cocoon Consult"
+          title="Downgrade to basic Cocoon Consult"
+          disabled={isBasicConsult}
+          onClick={() => onChange("cocoon-consult")}
+        >
+          <ArrowDownCircle size={16} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className="admin-plan-icon-btn is-upgrade"
+          aria-label="Upgrade to Winged in a Week"
+          title="Upgrade to Winged in a Week"
+          disabled={isWiaw}
+          onClick={() => onChange("wiaw-active")}
+        >
+          <ArrowUpCircle size={16} aria-hidden="true" />
+        </button>
         </div>
-      </details>
     </div>
   );
 }
 
-function AdminUsersModal({
-  users,
-  adding,
-  newUser,
-  onClose,
-  onAddToggle,
-  onNewUserChange,
-  onSubmit,
-}: {
-  users: Array<{ name: string; email: string; role: string; access: string }>;
-  adding: boolean;
-  newUser: { name: string; email: string; role: string };
-  onClose: () => void;
-  onAddToggle: (open: boolean) => void;
-  onNewUserChange: (user: { name: string; email: string; role: string }) => void;
-  onSubmit: () => void;
-}) {
-  return (
-    <>
-      <div className="modal-backdrop" onClick={onClose} />
-      <div className="account-setup-modal users-modal" role="dialog" aria-modal="true" aria-labelledby="account-setup-title">
-        <div className="account-setup-head">
-          <div>
-            <span>Users</span>
-            <h3 id="account-setup-title">Account Access</h3>
-          </div>
-          <button type="button" aria-label="Close" onClick={onClose}>
-            <X size={16} />
-          </button>
-        </div>
-        <div className="users-modal-body">
-          <div className="account-access-body">
-            {users.map(person => (
-              <div key={person.email} className="account-user-row">
-                <span className="account-user-avatar">{person.name.slice(0, 2).toUpperCase()}</span>
-                <div className="account-user-main">
-                  <strong>{person.name}</strong>
-                  <span>{person.email}</span>
-                </div>
-                <div className="account-user-meta">
-                  <span>{person.role}</span>
-                  <small>{person.access}</small>
-                </div>
-              </div>
-            ))}
-          </div>
-          {adding ? (
-            <form
-              className="account-setup-form"
-              onSubmit={event => {
-                event.preventDefault();
-                onSubmit();
-              }}
-            >
-              <div className="account-setup-inline-fields">
-                <input value={newUser.name} onChange={event => onNewUserChange({ ...newUser, name: event.target.value })} placeholder="Name" />
-                <input type="email" value={newUser.email} onChange={event => onNewUserChange({ ...newUser, email: event.target.value })} placeholder="Email" />
-                <select className="dashboard-select" value={newUser.role} onChange={event => onNewUserChange({ ...newUser, role: event.target.value })}>
-                  <option>Collaborator</option>
-                  <option>Client owner</option>
-                  <option>Studio admin</option>
-                </select>
-              </div>
-              <div className="account-setup-actions">
-                <button type="button" className="btn" onClick={() => onAddToggle(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Add</button>
-              </div>
-            </form>
-          ) : (
-            <button type="button" className="users-modal-add" onClick={() => onAddToggle(true)}>
-              <Plus size={13} />
-              Add User
-            </button>
-          )}
-        </div>
-      </div>
-    </>
-  );
-}
-
-export function AdminView({ projects, selectedProjectId, onSelectProject, onTaskStatusChange, onSendGate, onApproveGate, onDenyGate, onFinishMilestone, onBrandChange, onChangeProjectStage, onLogout, initialNav }: {
+export function AdminView({ workspaceRole = "admin", projects, selectedProjectId, onSelectProject, onTaskStatusChange, onProjectTaskStatusChange, onSendGate, onApproveGate, onDenyGate, onFinishMilestone, onBrandChange, onChangeProjectStage, onLogout, initialNav }: {
+  workspaceRole?: "admin" | "manager";
   projects: Project[];
   selectedProjectId: string;
   onSelectProject: (id: string) => void;
   onTaskStatusChange: (taskId: string, status: TaskStatus) => void;
+  onProjectTaskStatusChange: (projectId: string, taskId: string, status: TaskStatus) => void;
   onSendGate: (gateId: string) => void;
   onApproveGate: (gateId: string) => void;
   onDenyGate: (gateId: string) => void;
@@ -185,7 +106,8 @@ export function AdminView({ projects, selectedProjectId, onSelectProject, onTask
   onLogout: () => void;
   initialNav?: string;
 }) {
-  const [adminNav, setAdminNav] = useState<AdminNav>(() => isProjectTab(initialNav) ? "projects" : isAdminTopNav(initialNav) ? initialNav : "projects");
+  const isManager = workspaceRole === "manager";
+  const [adminNav, setAdminNav] = useState<AdminNav>(() => isProjectTab(initialNav) ? "projects" : isAdminTopNav(initialNav) ? initialNav : "home");
   const [projectTab, setProjectTab] = useState<ProjectTab>(() => isProjectTab(initialNav) ? initialNav : "overview");
   const [contractOpen, setContractOpen] = useState(false);
   const project = projects.find(p => p.id === selectedProjectId) ?? projects[0]!;
@@ -194,9 +116,19 @@ export function AdminView({ projects, selectedProjectId, onSelectProject, onTask
     { name: project.clientName, email: project.clientEmail, role: "Client owner", access: accessForAdminAccountRole("Client owner") },
     { name: "Trisha Baltazar", email: "studio@baltazarstudio.co", role: "Studio admin", access: accessForAdminAccountRole("Studio admin") },
   ]);
-  const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [addingAccountUser, setAddingAccountUser] = useState(false);
   const [newAccountUser, setNewAccountUser] = useState({ name: "", email: "", role: "Collaborator" });
+  const [clientAssignments, setClientAssignments] = useState<Record<string, string>>(() =>
+    Object.fromEntries(projects.map(item => [item.id, isManager ? "Studio Manager" : "Trisha Baltazar"])),
+  );
+  const handleAccountUserSubmit = () => {
+    const name = newAccountUser.name.trim();
+    const email = newAccountUser.email.trim();
+    if (!name || !email) return;
+    setAccountUsers(prev => [...prev, { ...newAccountUser, name, email, access: accessForAdminAccountRole(newAccountUser.role) }]);
+    setNewAccountUser({ name: "", email: "", role: "Collaborator" });
+    setAddingAccountUser(false);
+  };
   useEffect(() => {
     setAccountUsers(prev => {
       const clientOwner = { name: project.clientName, email: project.clientEmail, role: "Client owner", access: accessForAdminAccountRole("Client owner") };
@@ -204,8 +136,15 @@ export function AdminView({ projects, selectedProjectId, onSelectProject, onTask
       return [clientOwner, ...rest];
     });
   }, [project.clientEmail, project.clientName]);
-  const pendingReviews = useMemo(() => allGates(project).filter(g => g.gate.status === "sent" || g.gate.status === "ready").length, [project]);
-
+  useEffect(() => {
+    setClientAssignments(prev => {
+      const next = { ...prev };
+      for (const item of projects) {
+        if (!next[item.id]) next[item.id] = isManager ? "Studio Manager" : "Trisha Baltazar";
+      }
+      return next;
+    });
+  }, [projects, isManager]);
   // Notification state lifted here so the Notifications nav page can use it
   const notifications = deriveAdminNotifications(project);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
@@ -223,13 +162,14 @@ export function AdminView({ projects, selectedProjectId, onSelectProject, onTask
   // 4 primary slots (+ "More" appended by MobileTabBar = 5 total).
   // Projects is slot 3 (center) — gets the raised gradient bubble.
   const adminMobilePrimary: MobileNavItem[] = [
-    { key: "home",          label: "Home",          icon: Home },
-    { key: "reviews",       label: "Reviews",        icon: CheckCircle2, count: pendingReviews, locked: !access.tasks },
+    { key: "home",          label: "Overview",      icon: Home },
     { key: "projects",      label: "Projects",       icon: Folder },
     { key: "notifications", label: "Notifications",  icon: Bell, count: unread },
   ];
   const adminMobileMore: MobileNavItem[] = [
-    { key: "assets",   label: "Assets",   icon: Paperclip, locked: !access.assets },
+    { key: "clients",  label: "Clients",  icon: UserPlus },
+    { key: "users",    label: "Config",   icon: Settings },
+    { key: "assets",   label: "Files",    icon: Paperclip, locked: !access.files },
     { key: "settings", label: "Settings", icon: Settings },
   ];
   const canOpenAdminNav = (nav: AdminNav) => {
@@ -250,9 +190,23 @@ export function AdminView({ projects, selectedProjectId, onSelectProject, onTask
     if (nav === "projects") setProjectTab("overview");
   };
   const handleAdminSidebarNavSelect = (nav: string) => {
+    if (nav === "overview") {
+      setAdminNav("home");
+      return;
+    }
+    if (nav === "project-overview") {
+      setAdminNav("projects");
+      setProjectTab("overview");
+      return;
+    }
+    if (nav === "files") {
+      if (!access.files) return;
+      setAdminNav("assets");
+      return;
+    }
     if (nav === "users") {
       if (!access.users) return;
-      setAccountModalOpen(true);
+      setAdminNav("users");
       return;
     }
     if (nav === "contract") {
@@ -260,7 +214,7 @@ export function AdminView({ projects, selectedProjectId, onSelectProject, onTask
       setContractOpen(true);
       return;
     }
-    if (nav === "overview" || nav === "milestones" || nav === "assets" || nav === "brand-guidelines" || nav === "notes") {
+    if (nav === "milestones" || nav === "assets" || nav === "brand-guidelines" || nav === "notes") {
       if (!canOpenProjectTab(nav as ProjectTab)) return;
       setAdminNav("projects");
       setProjectTab(nav as ProjectTab);
@@ -288,9 +242,9 @@ export function AdminView({ projects, selectedProjectId, onSelectProject, onTask
       setContractOpen(false);
     }
   }, [adminNav, projectTab, access.stage, contractOpen]);
-  const activeSidebarNav = contractOpen ? "contract" : adminNav === "projects" ? projectTab : adminNav;
+  const activeSidebarNav = contractOpen ? "contract" : adminNav === "home" ? "overview" : adminNav === "projects" ? projectTab === "overview" ? "project-overview" : projectTab : adminNav;
   const projectViewTitles: Record<ProjectTab, string> = {
-    overview: "Overview",
+    overview: "Project Overview",
     milestones: "Milestones",
     ...FILE_WORKSPACE_TITLES,
     audit: "Audit",
@@ -329,22 +283,21 @@ export function AdminView({ projects, selectedProjectId, onSelectProject, onTask
     setProjectTab("overview");
   };
 
-  const adminNavSections = [
+  const adminSidebarNavSections = [
     { label: "Workspace", items: [
-      { id: "overview",   label: "Overview",   icon: LayoutDashboard },
-      { id: "milestones", label: "Milestones", icon: ClipboardList, locked: !access.milestones },
-    ]},
-    { label: "Collaboration", items: [
-      { id: "reviews",       label: "Tasks",         icon: CheckCircle2, count: pendingReviews, locked: !access.tasks },
-      { id: "users",         label: "Users",         icon: User, count: accountUsers.length, locked: !access.users },
-      { id: "files",         label: "Files",         icon: Folder, locked: !access.files, children: [
-        ...FILE_WORKSPACE_ITEMS.map(item => ({
-          ...item,
-          locked: item.id === "assets" ? !access.assets : item.id === "brand-guidelines" ? !access.brandGuidelines : !access.contract,
-        })),
-      ]},
+      { id: "overview",   label: "Launch Pad", icon: LayoutDashboard },
       { id: "notifications", label: "Notifications", icon: Bell, count: unread },
     ]},
+    { label: "Manage", items: [
+      { id: "clients", label: "Clients", icon: UserPlus },
+      { id: "users", label: "Configurations", icon: Settings, locked: !access.users },
+    ]},
+  ];
+
+  const projectNavItems = [
+      { id: "project-overview", label: "Overview",      icon: LayoutDashboard },
+      { id: "milestones",    label: "Milestones",    icon: ClipboardList, locked: !access.milestones },
+      { id: "assets",        label: "Files",         icon: Folder, locked: !access.files },
   ];
 
   return (
@@ -353,18 +306,23 @@ export function AdminView({ projects, selectedProjectId, onSelectProject, onTask
         <DashboardSidebar
           activeNav={activeSidebarNav}
           onNavChange={handleAdminSidebarNavSelect}
-          navSections={adminNavSections}
+          navSections={adminSidebarNavSections}
           collapsed={sidebarCollapsed}
           onLogout={onLogout}
           brandMark="BS"
           brandName="Baltazar Studio"
-          brandSub="Admin workspace"
+          brandSub={isManager ? "Manager workspace" : "Admin workspace"}
           projects={projects}
           selectedProjectId={selectedProjectId}
-          onSelectProject={onSelectProject}
-          footerAvatarLabel="T"
-          footerName="Trisha Baltazar"
-          footerSub="Studio admin"
+          onSelectProject={(id) => {
+            onSelectProject(id);
+            setAdminNav("projects");
+            setProjectTab("overview");
+          }}
+          projectNavItems={projectNavItems}
+          footerAvatarLabel={isManager ? "SM" : "T"}
+          footerName={isManager ? "Studio Manager" : "Trisha Baltazar"}
+          footerSub={isManager ? "Studio manager" : "Studio admin"}
           footerItems={[
             { key: "settings",      label: "Settings",              icon: Settings, onClick: () => setAdminNav("settings") },
             { key: "notif-settings", label: "Notification settings", icon: Bell,     onClick: () => { setAdminNav("notifications"); setNotifSettingsOpen(true); } },
@@ -386,33 +344,40 @@ export function AdminView({ projects, selectedProjectId, onSelectProject, onTask
         {adminNav === "home" && (
           <>
             <div className="dashboard-topbar">
-              <TopbarHeading title="Home" />
+              <div className="dashboard-topbar-left">
+                <div className="dashboard-topbar-heading-row">
+                  <div className="dashboard-topbar-title">Launch Pad</div>
+                </div>
+              </div>
               {!isMobile && <NotificationBell notifications={notifications} readIds={readIds} setReadIds={setReadIds} onViewAll={() => setAdminNav("notifications")} onApproveGate={onApproveGate} onDenyGate={onDenyGate} />}
             </div>
             <div className="dashboard-main">
-              {/* auto-fit/minmax instead of a fixed 2-up — project cards stack
-                  to a single column on phones instead of squeezing to ~160px. */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "0.75rem" }}>
-                {projects.map(p => {
-                  const prog = { done: p.milestones.flatMap(m => m.phases.flatMap(ph => ph.tasks)).filter(t => t.status === "complete").length, total: p.milestones.flatMap(m => m.phases.flatMap(ph => ph.tasks)).length };
-                  const cur = p.milestones.find(m => m.status === "active");
-                  return (
-                    <Panel key={p.id} className="cursor-pointer">
-                      <div style={{ padding: "1.1rem 1.25rem" }} onClick={() => { onSelectProject(p.id); setAdminNav("projects"); }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", marginBottom: "0.85rem" }}>
-                          <div className="dashboard-project-icon" style={{ width: "2.2rem", height: "2.2rem", borderRadius: "0.7rem", fontSize: "var(--text-base)" }}>{p.clientInitials}</div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 500 }}>{p.clientName}</div>
-                            <div style={{ fontSize: "var(--text-sm)", color: "var(--fg-muted)" }}>{p.platform}</div>
+              <div className="launch-pad-stack">
+                <div className="portfolio-project-grid">
+                  {projects.map(p => {
+                    const prog = { done: p.milestones.flatMap(m => m.phases.flatMap(ph => ph.tasks)).filter(t => t.status === "complete").length, total: p.milestones.flatMap(m => m.phases.flatMap(ph => ph.tasks)).length };
+                    const completedMilestones = p.milestones.filter(m => m.status === "complete");
+                    const milestone = p.milestones.find(m => m.status === "active") ?? p.milestones.find(m => m.status === "locked") ?? completedMilestones[completedMilestones.length - 1];
+                    const milestoneLabel = milestone ? `M${milestone.number} - ${milestone.title}` : "No milestone";
+                    const milestoneState = milestone ? milestone.status === "complete" ? "Complete" : milestone.status === "active" ? "Active" : "Locked" : "Not started";
+                    return (
+                      <Panel key={p.id} className="portfolio-project-card">
+                        <button type="button" className="portfolio-project-card-button" onClick={() => { onSelectProject(p.id); setAdminNav("projects"); setProjectTab("overview"); }}>
+                          <div className="portfolio-project-card-head">
+                            <div className="portfolio-project-avatar">{p.clientInitials}</div>
+                            <div className="portfolio-project-copy">
+                              <div className="portfolio-project-name">{p.clientName}</div>
+                              <div className="portfolio-project-milestone">{milestoneLabel}</div>
+                            </div>
+                            <span className={`portfolio-project-state is-${milestone?.status ?? "not-started"}`}>{milestoneState}</span>
                           </div>
-                          <StatusBadge status="is-active" label="Active" />
-                        </div>
-                        <ProgressBar {...prog} />
-                        {cur && <div style={{ fontSize: "var(--text-sm)", color: "var(--fg-muted)", marginTop: "0.5rem" }}>M{cur.number} — {cur.title}</div>}
-                      </div>
-                    </Panel>
-                  );
-                })}
+                          <ProgressBar {...prog} />
+                        </button>
+                      </Panel>
+                    );
+                  })}
+                </div>
+                <AdminPortfolioTasks projects={projects} onProjectTaskStatusChange={onProjectTaskStatusChange} />
               </div>
             </div>
           </>
@@ -431,7 +396,6 @@ export function AdminView({ projects, selectedProjectId, onSelectProject, onTask
                 {!isMobile && <NotificationBell notifications={notifications} readIds={readIds} setReadIds={setReadIds} onViewAll={() => setAdminNav("notifications")} onApproveGate={onApproveGate} onDenyGate={onDenyGate} />}
               </div>
             </div>
-
             <div className="dashboard-main">
               {projectTab === "overview" && <ClientOverviewTab project={project} role="admin" onNavChange={handleAdminOverviewNav} />}
               {projectTab === "milestones" && (
@@ -449,27 +413,167 @@ export function AdminView({ projects, selectedProjectId, onSelectProject, onTask
         {adminNav === "reviews" && (
           <>
             <div className="dashboard-topbar">
-              <TopbarHeading title="Tasks" />
+              <div className="dashboard-topbar-left">
+                <div className="dashboard-topbar-heading-row">
+                  <div className="dashboard-topbar-title">Portfolio Tasks</div>
+                </div>
+              </div>
               {!isMobile && <NotificationBell notifications={notifications} readIds={readIds} setReadIds={setReadIds} onViewAll={() => setAdminNav("notifications")} onApproveGate={onApproveGate} onDenyGate={onDenyGate} />}
             </div>
-            <div className="dashboard-main"><AdminReviewsTab project={project} onSendGate={onSendGate} onApproveGate={onApproveGate} onTaskStatusChange={onTaskStatusChange} /></div>
+            <div className="dashboard-main"><AdminPortfolioTasks projects={projects} onProjectTaskStatusChange={onProjectTaskStatusChange} /></div>
           </>
         )}
 
         {adminNav === "assets" && (
           <>
             <div className="dashboard-topbar">
-              <TopbarHeading title="Assets" />
+              <div className="dashboard-topbar-left">
+                <div className="dashboard-topbar-heading-row">
+                  <div className="dashboard-topbar-title">Files</div>
+                </div>
+              </div>
               {!isMobile && <NotificationBell notifications={notifications} readIds={readIds} setReadIds={setReadIds} onViewAll={() => setAdminNav("notifications")} onApproveGate={onApproveGate} onDenyGate={onDenyGate} />}
             </div>
             <div className="dashboard-main"><FileAssetHub project={project} role="admin" /></div>
           </>
         )}
 
+        {adminNav === "clients" && (
+          <>
+            <div className="dashboard-topbar">
+              <div className="dashboard-topbar-left">
+                <div className="dashboard-topbar-heading-row">
+                  <div className="dashboard-topbar-title">Clients</div>
+                </div>
+              </div>
+              {!isMobile && <NotificationBell notifications={notifications} readIds={readIds} setReadIds={setReadIds} onViewAll={() => setAdminNav("notifications")} onApproveGate={onApproveGate} onDenyGate={onDenyGate} />}
+            </div>
+            <div className="dashboard-main">
+              <Panel>
+                <PanelHeader title="Client assignments" icon={UserPlus} />
+                <div className="account-access-body">
+                  {projects.map(item => {
+                    const activeMilestone = item.milestones.find(milestone => milestone.status === "active") ?? item.milestones[0];
+                    return (
+                      <div key={item.id} className="account-user-row">
+                        <span className="account-user-avatar">{item.clientInitials}</span>
+                        <div className="account-user-main">
+                          <strong>{item.clientName}</strong>
+                          <span>{item.clientEmail}</span>
+                        </div>
+                        <div className="account-user-meta">
+                          <select
+                            className="dashboard-select"
+                            value={clientAssignments[item.id] ?? "Unassigned"}
+                            aria-label={`Assign ${item.clientName}`}
+                            onChange={event => setClientAssignments(prev => ({ ...prev, [item.id]: event.target.value }))}
+                          >
+                            <option>Trisha Baltazar</option>
+                            <option>Studio Manager</option>
+                            <option>Unassigned</option>
+                          </select>
+                          <small>{item.platform} · M{activeMilestone?.number ?? 1} {activeMilestone?.clientLabel ?? "Foundation"}</small>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Panel>
+            </div>
+          </>
+        )}
+
+        {adminNav === "users" && (
+          <>
+            <div className="dashboard-topbar">
+              <div className="dashboard-topbar-left">
+                <div className="dashboard-topbar-heading-row">
+                  <div className="dashboard-topbar-title">Configurations</div>
+                </div>
+              </div>
+              {!isMobile && <NotificationBell notifications={notifications} readIds={readIds} setReadIds={setReadIds} onViewAll={() => setAdminNav("notifications")} onApproveGate={onApproveGate} onDenyGate={onDenyGate} />}
+            </div>
+            <div className="dashboard-main">
+              <div style={{ display: "grid", gap: "0.75rem" }}>
+                <Panel>
+                  <PanelHeader title={`${project.clientName} role access`} icon={User} />
+                  <div className="account-access-body">
+                    {accountUsers.map(person => (
+                      <div key={person.email} className="account-user-row">
+                        <span className="account-user-avatar">{person.name.slice(0, 2).toUpperCase()}</span>
+                        <div className="account-user-main">
+                          <strong>{person.name}</strong>
+                          <span>{person.email}</span>
+                        </div>
+                        <div className="account-user-meta">
+                          <span>{person.role}</span>
+                          <small>{person.access}</small>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="users-modal-body">
+                    {addingAccountUser ? (
+                      <form
+                        className="account-setup-form"
+                        onSubmit={event => {
+                          event.preventDefault();
+                          handleAccountUserSubmit();
+                        }}
+                      >
+                        <div className="account-setup-inline-fields">
+                          <input value={newAccountUser.name} onChange={event => setNewAccountUser({ ...newAccountUser, name: event.target.value })} placeholder="Name" />
+                          <input type="email" value={newAccountUser.email} onChange={event => setNewAccountUser({ ...newAccountUser, email: event.target.value })} placeholder="Email" />
+                          <select className="dashboard-select" value={newAccountUser.role} onChange={event => setNewAccountUser({ ...newAccountUser, role: event.target.value })}>
+                            <option>Collaborator</option>
+                            <option>Client owner</option>
+                            <option>Studio manager</option>
+                            <option>Studio admin</option>
+                          </select>
+                        </div>
+                        <div className="account-setup-actions">
+                          <button type="button" className="btn" onClick={() => setAddingAccountUser(false)}>Cancel</button>
+                          <button type="submit" className="btn btn-primary">Add access</button>
+                        </div>
+                      </form>
+                    ) : (
+                      <button type="button" className="users-modal-add" onClick={() => setAddingAccountUser(true)}>
+                        <Plus size={13} />
+                        Add role access
+                      </button>
+                    )}
+                  </div>
+                </Panel>
+
+                <Panel>
+                  <PanelHeader title="Role settings" icon={Settings} />
+                  <div style={{ padding: "0.75rem 1.25rem 1rem" }}>
+                    {[
+                      ["Studio admin", "Can manage plans, files, milestones, roles, and notifications."],
+                      ["Studio manager", "Can manage active project work and client communication."],
+                      ["Client owner", "Can review deliverables, complete client tasks, and access shared files."],
+                      ["Collaborator", "Can view assigned project information."],
+                    ].map(([role, detail]) => (
+                      <div key={role} style={{ display: "grid", gap: "0.18rem", padding: "0.75rem 0", borderBottom: "1px solid var(--border-soft)" }}>
+                        <strong style={{ fontSize: "var(--text-md)", fontWeight: 500 }}>{role}</strong>
+                        <span style={{ color: "var(--fg-muted)", fontSize: "var(--text-sm)", lineHeight: 1.5 }}>{detail}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Panel>
+              </div>
+            </div>
+          </>
+        )}
+
         {adminNav === "settings" && (
           <>
             <div className="dashboard-topbar">
-              <TopbarHeading title="Settings" />
+              <div className="dashboard-topbar-left">
+                <div className="dashboard-topbar-heading-row">
+                  <div className="dashboard-topbar-title">Settings</div>
+                </div>
+              </div>
               {!isMobile && <NotificationBell notifications={notifications} readIds={readIds} setReadIds={setReadIds} onViewAll={() => setAdminNav("notifications")} onApproveGate={onApproveGate} onDenyGate={onDenyGate} />}
             </div>
             <div className="dashboard-main">
@@ -491,7 +595,11 @@ export function AdminView({ projects, selectedProjectId, onSelectProject, onTask
         {adminNav === "notifications" && (
           <>
             <div className="dashboard-topbar">
-              <TopbarHeading title="Notifications" />
+              <div className="dashboard-topbar-left">
+                <div className="dashboard-topbar-heading-row">
+                  <div className="dashboard-topbar-title">Notifications</div>
+                </div>
+              </div>
               {!isMobile && <NotificationBell notifications={notifications} readIds={readIds} setReadIds={setReadIds} onViewAll={() => setAdminNav("notifications")} onApproveGate={onApproveGate} onDenyGate={onDenyGate} />}
             </div>
             <div className="dashboard-main">
@@ -509,28 +617,6 @@ export function AdminView({ projects, selectedProjectId, onSelectProject, onTask
 
       {contractOpen && (
         <ContractModal project={project} onClose={() => setContractOpen(false)} />
-      )}
-
-      {accountModalOpen && (
-        <AdminUsersModal
-          users={accountUsers}
-          adding={addingAccountUser}
-          newUser={newAccountUser}
-          onClose={() => {
-            setAccountModalOpen(false);
-            setAddingAccountUser(false);
-          }}
-          onAddToggle={setAddingAccountUser}
-          onNewUserChange={setNewAccountUser}
-          onSubmit={() => {
-            const name = newAccountUser.name.trim();
-            const email = newAccountUser.email.trim();
-            if (!name || !email) return;
-            setAccountUsers(prev => [...prev, { ...newAccountUser, name, email, access: accessForAdminAccountRole(newAccountUser.role) }]);
-            setNewAccountUser({ name: "", email: "", role: "Collaborator" });
-            setAddingAccountUser(false);
-          }}
-        />
       )}
 
       {isMobile && (
@@ -552,9 +638,9 @@ export function AdminView({ projects, selectedProjectId, onSelectProject, onTask
               onClose={() => setMoreSheetOpen(false)}
               footer={
                 <AccountMenu
-                  avatarLabel="T"
-                  name="Trisha Baltazar"
-                  subtitle="Studio owner"
+                  avatarLabel={isManager ? "SM" : "T"}
+                  name={isManager ? "Studio Manager" : "Trisha Baltazar"}
+                  subtitle={isManager ? "Studio manager" : "Studio owner"}
                   onLogout={onLogout}
                   items={[
                     // Close the sheet on navigation too — leaving it open over

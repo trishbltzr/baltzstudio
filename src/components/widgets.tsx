@@ -2,6 +2,7 @@ import { Check, Globe, Lock, Plus, Send, X } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import type { Task, TaskStatus, ApprovalGate, Project } from "../types";
 import { allTasksComplete, milestoneProgress, taskStatusClass, taskStatusLabel, gateStatusClass, gateStatusLabel, gateStatusDetail } from "../lib/projectUtils";
+import { formatDashboardDate } from "../lib/dateDisplay";
 import { StatusBadge, Panel, Btn } from "./shared";
 
 // ─────────────────────────────────────────────
@@ -89,7 +90,7 @@ export function GateBlock({ gate, isAdmin, phaseDone, onSend, onApprove }: { gat
               </>
             )}
             {effectiveStatus === "revision" && <Btn size="sm" onClick={onApprove}><Check size={12} />Approve</Btn>}
-            {effectiveStatus === "approved" && gate.approvedAt && <span className="gate-admin-note is-approved">Approved {gate.approvedAt}</span>}
+            {effectiveStatus === "approved" && gate.approvedAt && <span className="gate-admin-note is-approved">Approved {formatDashboardDate(gate.approvedAt)}</span>}
           </div>
         )}
       </div>
@@ -152,7 +153,7 @@ export function GateBlock({ gate, isAdmin, phaseDone, onSend, onApprove }: { gat
           <strong>Client feedback</strong>
           {gate.clientFeedback.whatWorked && <p><b>What's working: </b>{gate.clientFeedback.whatWorked}</p>}
           {gate.clientFeedback.adjustments && <p className="gate-feedback-adjustments"><b>Adjustments: </b>{gate.clientFeedback.adjustments}</p>}
-          <p className="gate-feedback-meta">Submitted {gate.clientFeedback.submittedAt}</p>
+          <p className="gate-feedback-meta">Submitted {formatDashboardDate(gate.clientFeedback.submittedAt)}</p>
           <div className="gate-feedback-actions">
             <Btn size="sm" onClick={onApprove}><Check size={12} />Approve after revisions</Btn>
           </div>

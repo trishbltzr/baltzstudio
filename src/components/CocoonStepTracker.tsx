@@ -13,12 +13,14 @@ export function CocoonStepTracker({
   openStepId,
   completedSteps,
   onSelectStep,
+  onResetPreview,
   onSkipToFinalPreview,
 }: {
   steps: CocoonStepTrackerStep[];
   openStepId: string;
   completedSteps: number;
   onSelectStep: (stepId: string) => void;
+  onResetPreview: () => void;
   onSkipToFinalPreview: () => void;
 }) {
   const [hoveredStepId, setHoveredStepId] = useState<string | null>(null);
@@ -55,7 +57,7 @@ export function CocoonStepTracker({
                   onMouseLeave={() => setHoveredStepId(null)}
                   style={{ padding: "0.5rem 1rem", display: "flex", alignItems: "center", gap: "0.6rem", cursor: isLocked ? "default" : "pointer", background: isCurrent ? "oklch(0.97 0.006 50)" : isHovered && !isLocked ? "oklch(0 0 0 / 0.02)" : "transparent", transition: "background 0.12s" }}
                 >
-                  <div style={{ width: "1rem", height: "1rem", borderRadius: "50%", flexShrink: 0, border: isComplete ? "none" : isInProgress ? "1.5px dashed oklch(0.78 0.11 22)" : "1.5px solid var(--border)", background: isComplete ? "oklch(0.55 0.2 20)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <div className={`cocoon-step-dot ${isComplete ? "is-complete" : isInProgress ? "is-current" : "is-locked"}`}>
                     {isComplete && <Check size={7} color="white" strokeWidth={3} />}
                   </div>
                   <span style={{ fontSize: "var(--text-base)", fontWeight: isCurrent ? 600 : 400, color: isComplete ? "var(--fg-muted)" : isLocked ? "var(--fg-muted)" : "var(--fg)", textDecoration: isComplete ? "line-through" : "none", opacity: isLocked ? 0.45 : 1, lineHeight: 1.35 }}>
@@ -68,34 +70,19 @@ export function CocoonStepTracker({
           </div>
           <div style={{ padding: "0.65rem 1rem", borderTop: "1px solid var(--border)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.45rem" }}>
-              <span style={{ fontSize: "var(--text-base)", fontWeight: 500, color: "var(--accent)" }}>{completedSteps} of {steps.length} complete</span>
+              <span className="cocoon-step-progress-label">{completedSteps} of {steps.length} complete</span>
             </div>
             <div style={{ height: "4px", background: "var(--bg)", borderRadius: "999px", overflow: "hidden" }}>
-              <div style={{ height: "100%", background: "linear-gradient(90deg, oklch(0.78 0.11 22), oklch(0.7 0.13 18))", width: `${Math.max((completedSteps / steps.length) * 100, 2)}%`, transition: "width 0.3s ease" }} />
+              <div className="cocoon-step-progress-bar" style={{ width: `${Math.max((completedSteps / steps.length) * 100, 2)}%` }} />
             </div>
-            <button
-              type="button"
-              onClick={onSkipToFinalPreview}
-              style={{
-                width: "100%",
-                marginTop: "0.75rem",
-                padding: "0.55rem 0.7rem",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius)",
-                background: "var(--surface-alt)",
-                color: "var(--fg-muted)",
-                fontFamily: "inherit",
-                fontSize: "var(--text-sm)",
-                fontWeight: 500,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "0.35rem",
-              }}
-            >
-              Preview final screen <ArrowRight size={13} />
-            </button>
+            <div className="cocoon-preview-controls" aria-label="Preview auto-fill controls">
+              <button type="button" className="cocoon-preview-action" onClick={onResetPreview}>
+                Start
+              </button>
+              <button type="button" className="cocoon-preview-action is-primary" onClick={onSkipToFinalPreview}>
+                Finish <ArrowRight size={13} />
+              </button>
+            </div>
           </div>
         </div>
       </div>

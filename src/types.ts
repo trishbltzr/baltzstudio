@@ -13,6 +13,7 @@ export interface Task {
   assignee: TaskAssignee;
   status: TaskStatus;
   dueDate?: string;
+  updatedAt?: string;
 }
 
 export interface GateFeedback {
@@ -192,7 +193,8 @@ export interface Project {
   workflow?: ProjectWorkflow;
 }
 
-export type ViewMode = "admin" | "client";
-export type AdminNav = "home" | "projects" | "reviews" | "assets" | "users" | "settings" | "notifications";
+export type DashboardUserRole = "admin" | "manager" | "client";
+export type ViewMode = "admin" | "manager" | "client";
+export type AdminNav = "home" | "projects" | "reviews" | "assets" | "users" | "clients" | "settings" | "notifications";
 export type ProjectTab = "overview" | "milestones" | "assets" | "brand-guidelines" | "audit" | "notes";
 export type ClientNav = "overview" | "milestones" | "reviews" | "files" | "brand" | "brand-guidelines" | "contract" | "support" | "audit" | "notifications" | "billing" | "cocoon" | "settings";

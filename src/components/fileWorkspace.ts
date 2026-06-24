@@ -10,7 +10,7 @@ export const FILE_WORKSPACE_ITEMS = [
 ] as const;
 
 export const FILE_WORKSPACE_TITLES: Record<FileWorkspacePageView, string> = {
-  assets: "Assets",
+  assets: "Files",
   "brand-guidelines": "Brand Guidelines",
 };
 

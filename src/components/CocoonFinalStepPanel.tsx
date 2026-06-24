@@ -13,7 +13,7 @@ const paidCocoonBenefits = [
   },
   {
     title: "DIY-ready strategy files",
-    detail: "Keep the audit, checklist, strategy notes, and branded direction together for your own team or build partner.",
+    detail: "Keep the complete PDF report, audit checklist, strategy notes, and branded direction together for your own team or build partner.",
   },
 ];
 

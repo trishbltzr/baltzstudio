@@ -25,6 +25,47 @@ function assetVersion(asset: AssetFile): string {
   return match?.[0] ?? "v1";
 }
 
+function consolidatedWorkspaceFiles(project: Project): AssetFile[] {
+  return [
+    {
+      id: `${project.id}-brand-guidelines-file`,
+      name: "Brand Guidelines.pdf",
+      category: "Brand Guidelines",
+      size: "Generated",
+      uploadedAt: project.startDate,
+      sharedWithClient: true,
+      status: "shared",
+      source: "studio",
+      version: "v1",
+      requestNote: "Consolidated brand colors, typography, and style direction.",
+    },
+    {
+      id: `${project.id}-brand-assets-index`,
+      name: "Brand Assets Index.pdf",
+      category: "Brand Assets",
+      size: `${project.brand.colors.length} colors · ${project.brand.fonts.length} fonts`,
+      uploadedAt: project.startDate,
+      sharedWithClient: true,
+      status: "shared",
+      source: "studio",
+      version: "v1",
+      requestNote: "Live brand asset reference generated from the current brand profile.",
+    },
+    {
+      id: `${project.id}-contract-file`,
+      name: `${project.plan?.name ?? "Project"} Agreement.pdf`,
+      category: "Contract",
+      size: "PDF",
+      uploadedAt: project.startDate,
+      sharedWithClient: true,
+      status: "shared",
+      source: "studio",
+      version: "v1",
+      requestNote: "Current agreement and project terms live inside the consolidated file hub.",
+    },
+  ];
+}
+
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
@@ -245,15 +286,19 @@ export function FileAssetHub({ project, role, onFilesAdded }: {
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const coreFolders = ["Brand Assets", "Brand Guidelines", "Contract"];
   const milestoneFolders = project.milestones.map(m => m.title);
-  const allFolderNames = [...milestoneFolders, ...customFolders];
+  const allFolderNames = [...coreFolders, ...milestoneFolders, ...customFolders];
 
-  const allFiles = [...project.assets, ...uploadedFiles].filter(f => !deletedIds.has(f.id));
+  const allFiles = [...consolidatedWorkspaceFiles(project), ...project.assets, ...uploadedFiles].filter(f => !deletedIds.has(f.id));
   const requested = allFiles.filter(asset => assetStatus(asset) === "requested");
   const shared = allFiles.filter(asset => assetStatus(asset) !== "requested" && asset.sharedWithClient);
   const internal = allFiles.filter(asset => assetStatus(asset) !== "requested" && !asset.sharedWithClient);
 
   function folderFiles(folderName: string): AssetFile[] {
+    if (folderName === "Brand Assets") return allFiles.filter(a => a.category === "Brand Assets");
+    if (folderName === "Brand Guidelines") return allFiles.filter(a => a.category === "Brand Guidelines");
+    if (folderName === "Contract") return allFiles.filter(a => a.category === "Contract");
     if (folderName === "Foundation") return allFiles.filter(a => a.category === "Brand Assets" || assetStatus(a) === "requested");
     if (folderName === "Design & Build") return allFiles.filter(a => a.category === "Design" || a.category === "Deliverables");
     if (folderName === "Launch") return allFiles.filter(a => a.category === "Launch Prep");
@@ -382,6 +427,8 @@ export function FileAssetHub({ project, role, onFilesAdded }: {
               onChange={e => setSelectedFolder(e.target.value || null)}
             >
               <option value="" disabled>Choose folder</option>
+              {coreFolders.map(name => <option key={name} value={name}>{name}</option>)}
+              <option disabled>───</option>
               {milestoneFolders.map(name => <option key={name} value={name}>{name}</option>)}
               {customFolders.length > 0 && <option disabled>───</option>}
               {customFolders.map(name => <option key={name} value={name}>{name}</option>)}
@@ -399,6 +446,20 @@ export function FileAssetHub({ project, role, onFilesAdded }: {
 
         {/* Right: folders */}
         <div className="file-hub-folders-panel">
+          <div className="file-hub-folders-heading">Core files</div>
+          {coreFolders.map(name => (
+            <FileHubSection
+              key={name}
+              title={name}
+              role={role}
+              files={folderFiles(name)}
+              isSelected={selectedFolder === name}
+              onSelect={() => setSelectedFolder(name)}
+              onUpload={(fl) => processFilesTo(name, fl)}
+              onDelete={deleteFile}
+            />
+          ))}
+
           <div className="file-hub-folders-heading">Milestones</div>
           {/* Milestone folders */}
           {milestoneFolders.map(name => (
