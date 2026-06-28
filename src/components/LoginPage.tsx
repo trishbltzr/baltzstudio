@@ -15,11 +15,11 @@ export const MOCK_USERS = [
   { email: "hazel@houseofhazel.co", password: "hazel123", role: "client" as const, name: "House of Hazel" },
 ];
 
-const DEMO_LOGIN_OPTIONS = [
-  { label: "View admin", email: "trisha@baltazarstudio.co", ariaLabel: "View admin dashboard — auto-login to explore the admin view" },
-  { label: "View manager", email: "manager@baltazarstudio.co", ariaLabel: "View manager dashboard — auto-login to explore the manager view" },
-  { label: "View Flora & Co.", email: "team@floraandco.com", ariaLabel: "View Flora and Co. client dashboard — auto-login to explore the Flora workspace" },
-  { label: "View House of Hazel", email: "hazel@houseofhazel.co", ariaLabel: "View House of Hazel client dashboard — auto-login to explore the House of Hazel workspace" },
+const PREVIEW_LOGIN_OPTIONS = [
+  { label: "Admin", detail: "Studio owner", email: "trisha@baltazarstudio.co", ariaLabel: "Preview admin dashboard" },
+  { label: "Manager", detail: "Studio team", email: "manager@baltazarstudio.co", ariaLabel: "Preview manager dashboard" },
+  { label: "Flora & Co.", detail: "Client portal", email: "team@floraandco.com", ariaLabel: "Preview Flora and Co. client dashboard" },
+  { label: "House of Hazel", detail: "Client portal", email: "hazel@houseofhazel.co", ariaLabel: "Preview House of Hazel client dashboard" },
 ] as const;
 
 export function LoginPage({ onLogin }: { onLogin: (user: LoginUser) => void }) {
@@ -61,22 +61,29 @@ export function LoginPage({ onLogin }: { onLogin: (user: LoginUser) => void }) {
         <div className="login-brand">
           <div className="login-mark">BS</div>
           <div className="login-title">Baltazar Studio</div>
-          <div className="login-subtitle">Your website audit and project management portal — secure, encrypted, your data stays private</div>
+          <div className="login-subtitle">Access your project timeline, files, approvals, and next steps.</div>
         </div>
 
-        <div className="login-demo-actions" aria-label="Demo login options">
-          {DEMO_LOGIN_OPTIONS.map(option => (
+        <div className="login-preview-panel" aria-label="Preview workspace options">
+          <div className="login-preview-head">
+            <span>Preview workspace</span>
+            <p>Jump into a role while this portal is in setup.</p>
+          </div>
+          <div className="login-preview-actions">
+          {PREVIEW_LOGIN_OPTIONS.map(option => (
             <button
               key={option.email}
               type="button"
-              className="login-demo-btn"
+              className="login-preview-btn"
               onClick={() => handleDemoLogin(option.email)}
               disabled={loading}
               aria-label={option.ariaLabel}
             >
-              {option.label}
+              <span>{option.label}</span>
+              <small>{option.detail}</small>
             </button>
           ))}
+          </div>
         </div>
 
         <div className="login-card">
@@ -107,17 +114,23 @@ export function LoginPage({ onLogin }: { onLogin: (user: LoginUser) => void }) {
             </div>
             {error && <div className="login-error">{error}</div>}
             <button type="submit" className="login-submit-btn" disabled={loading}>
-              {loading ? "Signing in…" : "Sign in"}
+              {loading ? (
+                <>
+                  <span className="dashboard-preloader-dot login-submit-spinner" aria-hidden="true" />
+                  <span>Signing in...</span>
+                </>
+              ) : "Sign in"}
             </button>
+            <div className="login-support-row">
+              <a href="mailto:hello@baltazarstudio.co?subject=Password%20reset%20request">Forgot password?</a>
+              <a href="mailto:hello@baltazarstudio.co?subject=Portal%20access%20request">Request access</a>
+            </div>
           </form>
         </div>
 
-        <div className="login-demo-hint">
-          <strong>Demo credentials</strong><br />
-          Admin: trisha@baltazarstudio.co / studio123<br />
-          Manager: manager@baltazarstudio.co / manager123<br />
-          Flora & Co.: team@floraandco.com / flora123<br />
-          House of Hazel: hazel@houseofhazel.co / hazel123
+        <div className="login-security-note">
+          <strong>Private client portal</strong>
+          <span>Project data, approvals, files, and audit notes stay inside your assigned workspace.</span>
         </div>
       </div>
     </div>

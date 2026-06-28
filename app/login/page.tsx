@@ -3,11 +3,12 @@
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LoginPage } from "@/components/LoginPage";
+import { PagePreloader } from "@/components/PagePreloader";
 import type { DashboardUserRole } from "@/types";
 
 export default function Page() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PagePreloader />}>
       <LoginRoute />
     </Suspense>
   );

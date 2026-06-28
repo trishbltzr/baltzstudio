@@ -39,6 +39,7 @@
 .task-group {
   display: flex;
   flex-direction: column;
+  container-type: inline-size;
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--border-soft);
@@ -265,6 +266,46 @@
 .task-approval-heading {
   border: 1px solid var(--border);
   border-radius: var(--radius-panel);
+}
+
+@container (max-width: 34rem) {
+  .task-row {
+    grid-template-columns: minmax(0, 1fr) minmax(6.8rem, 7.7rem);
+    gap: 0.55rem;
+  }
+  .task-row-main {
+    overflow: hidden;
+  }
+  .task-row-meta {
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    gap: 0.25rem;
+    white-space: nowrap;
+  }
+  .task-row-meta span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .task-row-meta span:nth-child(n + 3) {
+    display: none;
+  }
+  .task-row-status {
+    min-width: 0;
+  }
+  .task-status-menu {
+    min-width: 0;
+  }
+  .task-status-menu summary {
+    min-width: 0;
+    padding-right: 1.8rem;
+    padding-left: 0.7rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 @media (max-width: 860px) {

@@ -66,6 +66,17 @@ Proceed one checklist item at a time:
 - [x] Current notification trigger logic is documented in `BALTZ_SERVICE_WORKFLOW_MAP.md`: workflow records, gate statuses, and completed phases currently derive the visible notifications at render time.
 - [~] Task assignees exist in task data and now appear in task lists/detail rows with role-safe labels; broader assignment controls and routing are still pending.
 
+## Portal Stabilization Pass
+
+- [x] Admin, manager, and client roles now share one permission source in `src/lib/rolePermissions.ts`.
+- [x] Manager keeps the admin shell layout but no longer sees plan-change controls or global configuration/settings controls.
+- [x] Admin shell navigation remains dashboard-first: `Launch Pad`, `Notifications`, `Manage > Clients`, and admin-only `Manage > Configurations`.
+- [x] Project navigation remains project-specific: `Overview`, `Milestones`, and `Files`.
+- [x] Heavy dashboard surfaces are lazy-loaded: milestones, files, brand guidelines, notifications, contract modal, and portfolio task panels.
+- [x] Old landing/copy reference files are archived under `docs/archive/landing-copy` instead of living beside dashboard source.
+- [x] No billing tables, AI automation tables, automation execution logic, or new public API routes were added in this pass.
+- [x] Verification passed with `tsc --noEmit`, `next build --webpack`, and local `200 OK` checks for `/login` and `/dashboard`.
+
 ## Recent Website Development Updates To Implement
 
 Source: recent updates added to `BALTZ_SERVICE_WORKFLOW_MAP.md` under **Current Website Development Process Snapshot** and **Assignees And Dynamic Notifications**.

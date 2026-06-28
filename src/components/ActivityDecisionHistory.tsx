@@ -253,7 +253,6 @@ function buildDecisions(project: Project): DecisionItem[] {
 
 function taskPriority(task: Task) {
   if (task.status === "blocked") return 0;
-  if (task.status === "in_progress") return 1;
   if (task.assignee === "client") return 2;
   return 3;
 }
@@ -271,7 +270,7 @@ function buildNextTodos(project: Project, role: HistoryRole): TodoItem[] {
   project.milestones.forEach(milestone => {
     milestone.phases.forEach(phase => {
       phase.tasks
-        .filter(task => task.status !== "complete" && isRelevantTask(task))
+        .filter(task => task.status !== "complete" && task.status !== "in_progress" && isRelevantTask(task))
         .forEach(task => {
           const date = task.dueDate ?? task.updatedAt ?? phase.completedAt ?? "";
           todos.push({

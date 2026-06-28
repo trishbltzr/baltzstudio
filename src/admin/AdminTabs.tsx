@@ -5,7 +5,7 @@ import { allTasksComplete, phaseProgress, phaseProgressMarkers, milestoneProgres
 import { StatusBadge, MilestoneDot, Panel, PanelHeader, Btn, ProgressDots, ProgressRing, TruncatedText } from "../components/shared";
 import { GateBlock } from "../components/widgets";
 import { PhaseDetailModal } from "../components/PhaseDetailModal";
-import { TaskActionCenter } from "../components/TaskActionCenter";
+import { StatusMenu, TaskActionCenter } from "../components/TaskActionCenter";
 import { SwatchPopover } from "../components/SwatchPopover";
 
 export function AdminMilestonesTab({ project, onTaskStatusChange, onSendGate, onApproveGate, onFinishMilestone }: {
@@ -442,16 +442,11 @@ function PortfolioTaskStatus({
   row: PortfolioTaskRow;
   onProjectTaskStatusChange: (projectId: string, taskId: string, status: TaskStatus) => void;
 }) {
-  const statuses: TaskStatus[] = ["not_started", "in_progress", "blocked", "complete"];
   return (
-    <select
-      className="dashboard-dropdown-control portfolio-task-status"
-      value={row.task.status}
-      aria-label={`Update ${row.project.clientName} task status`}
-      onChange={event => onProjectTaskStatusChange(row.project.id, row.task.id, event.target.value as TaskStatus)}
-    >
-      {statuses.map(status => <option key={status} value={status}>{taskStatusLabel(status)}</option>)}
-    </select>
+    <StatusMenu
+      task={row.task}
+      onTaskStatusChange={(taskId, status) => onProjectTaskStatusChange(row.project.id, taskId, status)}
+    />
   );
 }
 

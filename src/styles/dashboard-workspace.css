@@ -195,3 +195,27 @@
   background: oklch(0.98 0.025 24);
   color: oklch(0.58 0.15 20);
 }
+
+.dashboard-main-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 8rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+.dashboard-preloader-dot {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--border-soft);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: dashboardPreloaderSpin 0.8s linear infinite;
+}
+@keyframes dashboardPreloaderSpin {
+  to { transform: rotate(360deg); }
+}

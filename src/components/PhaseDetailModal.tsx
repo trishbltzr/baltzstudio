@@ -84,7 +84,6 @@ export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTas
       const completedTaskIndex = nextTasks.findIndex(task => task.id === taskId);
       const nextWaitingIndex = nextTasks.findIndex((task, index) => index > completedTaskIndex && task.status === "not_started");
       nextTasks = nextTasks.map((task, index) => {
-        if (task.status === "in_progress") return { ...task, status: "not_started" as TaskStatus };
         if (index === nextWaitingIndex) return { ...task, status: "in_progress" as TaskStatus };
         return task;
       });
@@ -151,6 +150,7 @@ export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTas
   const enterInlineEdit = () => setIsEditing(true);
   const renderTaskRow = (task: Task, priority?: AuditPriority) => {
     const isUrgent = priority === "urgent-important" || priority === "urgent";
+    const showBlockedFlag = task.status === "blocked";
     return (
     <div key={task.id} className={`phase-detail-task-row is-${task.status}`}>
       <button
@@ -163,8 +163,14 @@ export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTas
       </button>
       <span className="phase-detail-task-title">{task.title}</span>
       <AssigneeBadge assignee={task.assignee} />
-      {priority && (
+      {!showBlockedFlag && priority && (
         <svg className={`audit-item-flag ${isUrgent ? "is-red" : "is-yellow"}`} width="13" height="13" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+          <line x1="4" y1="22" x2="4" y2="15" stroke="currentColor" strokeWidth="2" fill="none" />
+        </svg>
+      )}
+      {showBlockedFlag && (
+        <svg className="audit-item-flag is-red is-blocked-flag" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-label="Blocked">
           <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
           <line x1="4" y1="22" x2="4" y2="15" stroke="currentColor" strokeWidth="2" fill="none" />
         </svg>

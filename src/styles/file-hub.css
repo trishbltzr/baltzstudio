@@ -690,7 +690,7 @@
   line-height: 1.45;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 1024px) {
   .file-hub-layout {
     grid-template-columns: 1fr;
   }
@@ -707,6 +707,9 @@
   .file-hub-summary {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+}
+
+@media (max-width: 760px) {
   .file-hub-folder {
     grid-template-columns: none;
   }

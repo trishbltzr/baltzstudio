@@ -107,14 +107,10 @@ export function DashboardSidebar({
   const nudgeTitle = workflowNudge?.sidebarNudgeTitle ?? "Turn the audit into a build";
   const nudgeBody = workflowNudge?.sidebarNudgeBody ?? "Move from insight to launch with Winged in a Week™.";
   const nudgeButton = workflowNudge?.nextStepLabel ?? "Upgrade to WIAW";
+  const nudgeHasPremiumBadge = nudgeButton.endsWith(" Premium");
+  const nudgeButtonLabel = nudgeHasPremiumBadge ? nudgeButton.replace(/\s+Premium$/, "") : nudgeButton;
   const renderUpgradeButtonLabel = () => {
-    if (!nudgeButton.endsWith(" Premium")) return <span className="sidebar-upgrade-btn-text">{nudgeButton}</span>;
-    return (
-      <>
-        <span className="sidebar-upgrade-btn-text">{nudgeButton.replace(/\s+Premium$/, "")}</span>
-        <span className="sidebar-premium-badge">Premium</span>
-      </>
-    );
+    return <span className="sidebar-upgrade-btn-text">{nudgeButtonLabel}</span>;
   };
 
   // ── Locked-item toast ──────────────────────
@@ -491,6 +487,7 @@ export function DashboardSidebar({
                 <div className="sidebar-upgrade-header">
                   <BadgeCheck size={12} style={{ color: "var(--accent)", flexShrink: 0 }} />
                   <span className="sidebar-upgrade-eyebrow">Launch path</span>
+                  {nudgeHasPremiumBadge && <span className="sidebar-premium-badge">Premium</span>}
                 </div>
                 <div className="sidebar-upgrade-plan">{nudgeTitle}</div>
                 <p className="sidebar-upgrade-desc">
@@ -508,6 +505,7 @@ export function DashboardSidebar({
             <div className="sidebar-upgrade-header">
               <BadgeCheck size={12} style={{ color: "var(--accent)", flexShrink: 0 }} />
               <span className="sidebar-upgrade-eyebrow">Launch path</span>
+              {nudgeHasPremiumBadge && <span className="sidebar-premium-badge">Premium</span>}
             </div>
             <div className="sidebar-upgrade-plan">{nudgeTitle}</div>
             <p className="sidebar-upgrade-desc">

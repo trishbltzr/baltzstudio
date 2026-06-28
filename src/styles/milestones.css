@@ -298,6 +298,10 @@
 .phase-detail-task-row.is-in_progress {
   background: oklch(0.985 0.006 55);
 }
+.phase-detail-task-row.is-blocked {
+  background: oklch(0.975 0.035 25 / 0.42);
+  color: var(--fg);
+}
 .phase-detail-task-check {
   width: 1.1rem;
   height: 1.1rem;
@@ -317,6 +321,11 @@
 .phase-detail-task-row.is-in_progress .phase-detail-task-check {
   border-color: var(--accent);
   border-style: dashed;
+}
+.phase-detail-task-row.is-blocked .phase-detail-task-check {
+  border-color: var(--accent);
+  border-style: dashed;
+  background: oklch(0.98 0.025 24);
 }
 .phase-detail-task-row.is-complete .phase-detail-task-check {
   border-color: var(--success);
@@ -412,6 +421,9 @@
   margin-left: 0.35rem;
 }
 .phase-detail-task-row .audit-item-flag.is-red {
+  color: var(--accent);
+}
+.phase-detail-task-row .audit-item-flag.is-blocked-flag {
   color: var(--accent);
 }
 .phase-detail-task-row .audit-item-flag.is-yellow {

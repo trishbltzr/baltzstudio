@@ -1,18 +1,35 @@
+import dynamic from "next/dynamic";
 import { ArrowDownCircle, ArrowUpCircle, Bell, ClipboardList, Folder, Home, LayoutDashboard, ChevronsLeft, ChevronsRight, Paperclip, Plus, Settings, User, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ClientLifecycleStage, Project, TaskStatus, BrandIdentity, AdminNav, ProjectTab, ClientNav } from "../types";
 import { planAccess } from "../lib/projectUtils";
+import { can } from "../lib/rolePermissions";
 import { ProgressBar, PanelHeader, Panel } from "../components/shared";
 import { type MobileNavItem, MobileTabBar, MoreSheet } from "../components/mobileNav";
-import { deriveAdminNotifications, NotificationBell, NotificationsPage } from "../components/notifications";
+import { deriveAdminNotifications, NotificationBell } from "../components/notifications";
 import { useIsMobile } from "../hooks/use-mobile";
-import { AdminMilestonesTab, AdminPortfolioTasks, BrandGuidelinesPanel, AdminNotesTab } from "./AdminTabs";
-import { ClientMilestonesTab, ClientOverviewTab } from "../client/ClientTabs";
-import { ContractModal } from "../components/ContractModal";
 import { AccountMenu } from "../components/legal";
 import { DashboardSidebar } from "../components/DashboardSidebar";
-import { FileAssetHub } from "../components/FileAssetHub";
 import { FILE_WORKSPACE_TITLES } from "../components/fileWorkspace";
+
+function DashboardPanelLoading() {
+  return (
+    <div className="dashboard-main-loading" role="status" aria-live="polite">
+      <span className="dashboard-preloader-dot" aria-hidden="true" />
+      <span>Loading workspace...</span>
+    </div>
+  );
+}
+
+const AdminMilestonesTab = dynamic(() => import("./AdminTabs").then(mod => mod.AdminMilestonesTab), { loading: DashboardPanelLoading });
+const AdminPortfolioTasks = dynamic(() => import("./AdminTabs").then(mod => mod.AdminPortfolioTasks), { loading: DashboardPanelLoading });
+const BrandGuidelinesPanel = dynamic(() => import("./AdminTabs").then(mod => mod.BrandGuidelinesPanel), { loading: DashboardPanelLoading });
+const AdminNotesTab = dynamic(() => import("./AdminTabs").then(mod => mod.AdminNotesTab), { loading: DashboardPanelLoading });
+const ClientMilestonesTab = dynamic(() => import("../client/ClientTabs").then(mod => mod.ClientMilestonesTab), { loading: DashboardPanelLoading });
+const ClientOverviewTab = dynamic(() => import("../client/ClientTabs").then(mod => mod.ClientOverviewTab), { loading: DashboardPanelLoading });
+const ContractModal = dynamic(() => import("../components/ContractModal").then(mod => mod.ContractModal), { loading: DashboardPanelLoading });
+const FileAssetHub = dynamic(() => import("../components/FileAssetHub").then(mod => mod.FileAssetHub), { loading: DashboardPanelLoading });
+const NotificationsPage = dynamic(() => import("../components/notifications").then(mod => mod.NotificationsPage), { loading: DashboardPanelLoading });
 
 // ─────────────────────────────────────────────
 // ADMIN — MAIN VIEW
@@ -107,6 +124,9 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
   initialNav?: string;
 }) {
   const isManager = workspaceRole === "manager";
+  const canManageClientAssignments = can(workspaceRole, "manageClientAssignments");
+  const canChangeClientPlan = can(workspaceRole, "changeClientPlan");
+  const canEditGlobalConfigurations = can(workspaceRole, "editGlobalConfigurations");
   const [adminNav, setAdminNav] = useState<AdminNav>(() => isProjectTab(initialNav) ? "projects" : isAdminTopNav(initialNav) ? initialNav : "home");
   const [projectTab, setProjectTab] = useState<ProjectTab>(() => isProjectTab(initialNav) ? initialNav : "overview");
   const [contractOpen, setContractOpen] = useState(false);
@@ -167,14 +187,16 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
     { key: "notifications", label: "Notifications",  icon: Bell, count: unread },
   ];
   const adminMobileMore: MobileNavItem[] = [
-    { key: "clients",  label: "Clients",  icon: UserPlus },
-    { key: "users",    label: "Config",   icon: Settings },
+    ...(canManageClientAssignments ? [{ key: "clients",  label: "Clients",  icon: UserPlus }] : []),
+    ...(canEditGlobalConfigurations ? [{ key: "users",    label: "Config",   icon: Settings }] : []),
     { key: "assets",   label: "Files",    icon: Paperclip, locked: !access.files },
-    { key: "settings", label: "Settings", icon: Settings },
+    ...(canEditGlobalConfigurations ? [{ key: "settings", label: "Settings", icon: Settings }] : []),
   ];
   const canOpenAdminNav = (nav: AdminNav) => {
     if (nav === "reviews") return access.tasks;
     if (nav === "assets") return access.assets;
+    if (nav === "clients") return canManageClientAssignments;
+    if (nav === "users" || nav === "settings") return canEditGlobalConfigurations;
     return true;
   };
   const canOpenProjectTab = (tab: ProjectTab) => {
@@ -205,10 +227,12 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
       return;
     }
     if (nav === "users") {
-      if (!access.users) return;
+      if (!access.users || !canEditGlobalConfigurations) return;
       setAdminNav("users");
       return;
     }
+    if (nav === "clients" && !canManageClientAssignments) return;
+    if (nav === "settings" && !canEditGlobalConfigurations) return;
     if (nav === "contract") {
       if (!access.contract) return;
       setContractOpen(true);
@@ -242,6 +266,14 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
       setContractOpen(false);
     }
   }, [adminNav, projectTab, access.stage, contractOpen]);
+  useEffect(() => {
+    if ((adminNav === "users" || adminNav === "settings") && !canEditGlobalConfigurations) {
+      setAdminNav("home");
+    }
+    if (adminNav === "clients" && !canManageClientAssignments) {
+      setAdminNav("home");
+    }
+  }, [adminNav, canEditGlobalConfigurations, canManageClientAssignments]);
   const activeSidebarNav = contractOpen ? "contract" : adminNav === "home" ? "overview" : adminNav === "projects" ? projectTab === "overview" ? "project-overview" : projectTab : adminNav;
   const projectViewTitles: Record<ProjectTab, string> = {
     overview: "Project Overview",
@@ -289,8 +321,8 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
       { id: "notifications", label: "Notifications", icon: Bell, count: unread },
     ]},
     { label: "Manage", items: [
-      { id: "clients", label: "Clients", icon: UserPlus },
-      { id: "users", label: "Configurations", icon: Settings, locked: !access.users },
+      ...(canManageClientAssignments ? [{ id: "clients", label: "Clients", icon: UserPlus }] : []),
+      ...(canEditGlobalConfigurations ? [{ id: "users", label: "Configurations", icon: Settings, locked: !access.users }] : []),
     ]},
   ];
 
@@ -324,7 +356,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
           footerName={isManager ? "Studio Manager" : "Trisha Baltazar"}
           footerSub={isManager ? "Studio manager" : "Studio admin"}
           footerItems={[
-            { key: "settings",      label: "Settings",              icon: Settings, onClick: () => setAdminNav("settings") },
+            ...(canEditGlobalConfigurations ? [{ key: "settings", label: "Settings", icon: Settings, onClick: () => setAdminNav("settings") }] : []),
             { key: "notif-settings", label: "Notification settings", icon: Bell,     onClick: () => { setAdminNav("notifications"); setNotifSettingsOpen(true); } },
           ]}
         />
@@ -392,7 +424,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
                 </div>
               </div>
               <div className="dashboard-topbar-actions admin-project-actions">
-                <AdminPlanSelector stage={project.workflow?.stage ?? "wiaw-active"} onChange={onChangeProjectStage} />
+                {canChangeClientPlan && <AdminPlanSelector stage={project.workflow?.stage ?? "wiaw-active"} onChange={onChangeProjectStage} />}
                 {!isMobile && <NotificationBell notifications={notifications} readIds={readIds} setReadIds={setReadIds} onViewAll={() => setAdminNav("notifications")} onApproveGate={onApproveGate} onDenyGate={onDenyGate} />}
               </div>
             </div>
@@ -645,7 +677,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
                   items={[
                     // Close the sheet on navigation too — leaving it open over
                     // the destination page would read as "stuck", not intentional.
-                    { key: "settings", label: "Settings", icon: Settings, onClick: () => { setMoreSheetOpen(false); setAdminNav("settings"); } },
+                    ...(canEditGlobalConfigurations ? [{ key: "settings", label: "Settings", icon: Settings, onClick: () => { setMoreSheetOpen(false); setAdminNav("settings"); } }] : []),
                     { key: "notif-settings", label: "Notification settings", icon: Bell, onClick: () => { setMoreSheetOpen(false); setAdminNav("notifications"); setNotifSettingsOpen(true); } },
                   ]}
                 />

@@ -16,7 +16,7 @@ type TaskRow = {
 
 const statusOptions: TaskStatus[] = ["not_started", "in_progress", "blocked", "complete"];
 
-function StatusMenu({ task, onTaskStatusChange }: { task: Task; onTaskStatusChange: (taskId: string, status: TaskStatus) => void }) {
+export function StatusMenu({ task, onTaskStatusChange }: { task: Task; onTaskStatusChange: (taskId: string, status: TaskStatus) => void }) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
   const summaryRef = useRef<HTMLElement>(null);
