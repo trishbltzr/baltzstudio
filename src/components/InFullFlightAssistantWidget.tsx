@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, Bot, CheckCircle2, ChevronRight, CircleDashed, Clock3, Coins, Lock, MessageSquareText, Pencil, Send, X } from "lucide-react";
+import { ArrowUpRight, Bot, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed, Clock3, Coins, Lock, MessageSquareText, Pencil, Plus, Send, X } from "lucide-react";
 import {
   classifyPrototypeRequest,
   getPrototypePreviewPath,
@@ -206,6 +206,14 @@ export function InFullFlightAssistantWidget({
     setTimeout(() => composerRef.current?.focus(), 80);
   }
 
+  function startNewThread() {
+    setMessages([]);
+    setRequests([]);
+    setActivePreviewId(null);
+    setInput("");
+    setScreen("intro");
+  }
+
   function submitRequest(rawInput: string) {
     const prompt = rawInput.trim();
     if (!prompt) return;
@@ -359,83 +367,99 @@ export function InFullFlightAssistantWidget({
         <>
           <div className={`iff-widget ${screen === "intro" ? "iff-widget--intro" : ""}`}>
             <div className="iff-widget-header">
-              <div className="iff-widget-header-left">
+              {screen === "chat" ? (
+                <button
+                  type="button"
+                  className="iff-header-icon-btn"
+                  aria-label="Back to home"
+                  onClick={() => setScreen("intro")}
+                >
+                  <ChevronLeft size={15} />
+                </button>
+              ) : (
                 <span className="iff-avatar iff-avatar--bot iff-avatar--sm">
                   <Bot size={13} />
                 </span>
-                <div className="iff-widget-header-copy">
-                  <strong>In Full Flight</strong>
-                  <span>{workspace.siteName}</span>
-                </div>
+              )}
+              <div className="iff-widget-header-copy">
+                <strong>In Full Flight</strong>
               </div>
-              <button
-                type="button"
-                className="iff-widget-close"
-                aria-label="Close assistant"
-                onClick={() => setIsOpen(false)}
-              >
-                <X size={14} />
-              </button>
+              <div className="iff-header-actions">
+                {screen === "chat" ? (
+                  <button
+                    type="button"
+                    className="iff-header-icon-btn"
+                    aria-label="New thread"
+                    onClick={startNewThread}
+                  >
+                    <Plus size={15} />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="iff-header-icon-btn"
+                  aria-label="Close assistant"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <X size={14} />
+                </button>
+              </div>
             </div>
 
             {screen === "intro" ? (
               <div className="iff-intro">
                 <div className="iff-intro-greeting">
                   <p className="iff-intro-hi">Hi {firstName}.</p>
-                  <p className="iff-intro-sub">What do you want to change on your site?</p>
+                  <p className="iff-intro-sub">What do you want to change?</p>
                 </div>
 
-                <div className="iff-intro-suggestions">
-                  {SUGGESTIONS.map(text => (
-                    <button
-                      key={text}
-                      type="button"
-                      className="iff-intro-suggestion"
-                      onClick={() => openChat(text)}
-                    >
-                      <Pencil size={12} />
-                      {text}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="iff-intro-tokens">
-                  <Coins size={13} />
-                  <span>{tokenUsage} / {freeTokenAllowance} tokens used</span>
-                  <span className="iff-intro-tokens-sub">{remainingFreeTokens} remaining after launch</span>
+                <div className="iff-intro-section">
+                  <div className="iff-intro-suggestions">
+                    {SUGGESTIONS.map(text => (
+                      <button
+                        key={text}
+                        type="button"
+                        className="iff-intro-suggestion"
+                        onClick={() => openChat(text)}
+                      >
+                        {text}
+                        <ChevronRight size={12} className="iff-intro-suggestion-arrow" />
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {introRequests.length > 0 ? (
-                  <div className="iff-intro-history">
-                    <div className="iff-intro-history-header">
-                      <span>Recent requests</span>
-                      {queueCounts.ready > 0 ? (
-                        <span className="iff-intro-history-count">{queueCounts.ready} ready</span>
-                      ) : null}
-                    </div>
-                    {introRequests.map(request => (
-                      <button
-                        key={request.id}
-                        type="button"
-                        className="iff-intro-history-item"
-                        onClick={() => openChat()}
-                      >
-                        <div className="iff-intro-history-copy">
+                  <div className="iff-intro-section">
+                    <span className="iff-intro-label">Recent</span>
+                    <div className="iff-intro-history">
+                      {introRequests.map(request => (
+                        <button
+                          key={request.id}
+                          type="button"
+                          className="iff-intro-history-item"
+                          onClick={() => openChat()}
+                        >
                           <strong>{request.prompt}</strong>
                           <span className={`iff-intro-history-badge ${requestBadgeClass(request.status)}`}>
                             {statusLabel(request.status)}
                           </span>
-                        </div>
-                        <ChevronRight size={14} />
-                      </button>
-                    ))}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 ) : null}
 
-                <button type="button" className="iff-intro-start" onClick={() => openChat()}>
-                  <Send size={13} />
-                  Start a new request
-                </button>
+                <div className="iff-intro-footer">
+                  <div className="iff-intro-tokens">
+                    <Coins size={12} />
+                    <span>{remainingFreeTokens} of {freeTokenAllowance} tokens left</span>
+                  </div>
+                  <button type="button" className="iff-intro-start" onClick={() => openChat()}>
+                    New request
+                    <ArrowUpRight size={12} />
+                  </button>
+                </div>
               </div>
             ) : (
               <>
