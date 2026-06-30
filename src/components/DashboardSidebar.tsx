@@ -75,7 +75,7 @@ function creativeSidebarTitle(label: string) {
     "Getting Started": "First Steps",
     Workspace: "Studio Desk",
     Collaboration: "Shared Studio",
-    Projects: "Client Rooms",
+    Projects: "Active Client",
   };
   return titles[label] ?? label;
 }
@@ -298,7 +298,7 @@ export function DashboardSidebar({
 
               return (
                 <Fragment key={item.id}>
-                  {/* Parent with children uses a toggle; leaf items navigate directly */}
+                  {/* Parent rows can own a page and still expose child shortcuts. */}
                   {hasChildren && !collapsed ? (
                     <button
                       type="button"
@@ -306,9 +306,10 @@ export function DashboardSidebar({
                       style={isLocked ? { opacity: 0.45, cursor: "default" } : undefined}
                       onClick={() => {
                         if (isLocked) { showLockedToast(item.label); return; }
+                        onNavChange(item.id);
                         setOpenParents(prev => {
                           const next = new Set(prev);
-                          next.has(item.id) ? next.delete(item.id) : next.add(item.id);
+                          next.add(item.id);
                           return next;
                         });
                       }}

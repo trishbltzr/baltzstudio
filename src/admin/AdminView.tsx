@@ -1,10 +1,10 @@
 import dynamic from "next/dynamic";
-import { ArrowDownCircle, ArrowUpCircle, Bell, Bot, CheckCircle2, ChevronDown, Flag, Folder, Home, Inbox, LayoutDashboard, ChevronsLeft, ChevronsRight, Plus, Settings, User, Users } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Bell, Bot, CheckCircle2, ChevronDown, Eye, Flag, Folder, Home, Inbox, LayoutDashboard, ChevronsLeft, ChevronsRight, Plus, Settings, User, Users } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import type { ClientLifecycleStage, Project, TaskStatus, BrandIdentity, AdminNav, ProjectTab, ClientNav } from "../types";
 import { planAccess } from "../lib/projectUtils";
 import { can } from "../lib/rolePermissions";
-import { ProgressBar, PanelHeader, Panel } from "../components/shared";
+import { ProgressBar, PanelHeader, Panel, RoleBadge } from "../components/shared";
 import { type MobileNavCenterAction, type MobileNavItem, type ClientSwitcherOption, MobileTabBar, ClientSwitcherSheet } from "../components/mobileNav";
 import { DEFAULT_NOTIFICATION_PREFERENCES, NotificationSettingsPanel, type NotificationPreferences, deriveAdminNotifications, NotificationBell } from "../components/notifications";
 import { useIsMobile } from "../hooks/use-mobile";
@@ -132,7 +132,7 @@ function AdminWorkspacePane({
   );
 }
 
-export function AdminView({ workspaceRole = "admin", projects, selectedProjectId, onSelectProject, onTaskStatusChange, onProjectTaskStatusChange, onSendGate, onApproveGate, onDenyGate, onFinishMilestone, onBrandChange, onChangeProjectStage, onLogout, initialNav }: {
+export function AdminView({ workspaceRole = "admin", projects, selectedProjectId, onSelectProject, onTaskStatusChange, onProjectTaskStatusChange, onSendGate, onApproveGate, onDenyGate, onFinishMilestone, onBrandChange, onChangeProjectStage, onLogout, onViewAsClient, initialNav }: {
   workspaceRole?: "admin" | "manager";
   projects: Project[];
   selectedProjectId: string;
@@ -146,13 +146,14 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
   onBrandChange: (brand: BrandIdentity) => void;
   onChangeProjectStage: (stage: ClientLifecycleStage) => void;
   onLogout: () => void;
+  onViewAsClient?: (projectId: string) => void;
   initialNav?: string;
 }) {
   const isManager = workspaceRole === "manager";
   const canManageClientAssignments = can(workspaceRole, "manageClientAssignments");
   const canChangeClientPlan = can(workspaceRole, "changeClientPlan");
   const canEditGlobalConfigurations = can(workspaceRole, "editGlobalConfigurations");
-  const [adminNav, setAdminNav] = useState<AdminNav>(() => isProjectTab(initialNav) ? "projects" : isAdminTopNav(initialNav) ? initialNav : "home");
+  const [adminNav, setAdminNav] = useState<AdminNav>(() => isProjectTab(initialNav) ? "projects" : isAdminTopNav(initialNav) ? initialNav : isManager ? "reviews" : "home");
   const [projectTab, setProjectTab] = useState<ProjectTab>(() => isProjectTab(initialNav) ? initialNav : "overview");
   const [contractOpen, setContractOpen] = useState(false);
   const project = projects.find(p => p.id === selectedProjectId) ?? projects[0]!;
@@ -422,8 +423,8 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
       { id: "notifications", label: "Notifications", icon: Bell, count: unread },
     ]},
     { label: "Manage", items: [
-      ...(access.tasks ? [{ id: "reviews", label: "Tasks", icon: CheckCircle2 }] : []),
-      { id: "inbox", label: "Inbox", icon: Inbox },
+      ...(access.tasks ? [{ id: "reviews", label: isManager ? "My Tasks" : "Tasks", icon: CheckCircle2 }] : []),
+      { id: "inbox", label: isManager ? "Agent queue" : "Inbox", icon: Inbox },
     ]},
   ].filter(section => section.items.length > 0);
   const adminSettingsTabs: Array<{ key: "general" | "clients" | "notifications"; label: string; icon: typeof Settings }> = [
@@ -516,10 +517,33 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
               <div className="dashboard-topbar-left">
                 <div className="dashboard-topbar-heading-row">
                   <div className="dashboard-topbar-title">{projectViewTitles[projectTab]}</div>
+                  {onViewAsClient && (
+                    <button
+                      type="button"
+                      className="view-as-client-btn view-as-client-btn--mobile"
+                      onClick={() => onViewAsClient(project.id)}
+                      aria-label={`Preview ${project.clientName}'s portal`}
+                    >
+                      <Eye size={13} aria-hidden="true" />
+                      View as client
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="dashboard-topbar-actions admin-project-actions">
+                {isManager && <RoleBadge label="Manager" tone="manager" />}
                 {canChangeClientPlan && <AdminPlanSelector stage={project.workflow?.stage ?? "wiaw-active"} onChange={onChangeProjectStage} />}
+                {onViewAsClient && (
+                  <button
+                    type="button"
+                    className="view-as-client-btn"
+                    onClick={() => onViewAsClient(project.id)}
+                    title={`Preview ${project.clientName}'s portal`}
+                  >
+                    <Eye size={14} aria-hidden="true" />
+                    View as client
+                  </button>
+                )}
                 {desktopNotificationBell}
               </div>
             </div>
@@ -539,7 +563,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
         )}
 
         {adminNav === "reviews" && (
-          <AdminWorkspacePane title="Tasks" actions={defaultTopbarActions}>
+          <AdminWorkspacePane title={isManager ? "My Tasks" : "Tasks"} actions={defaultTopbarActions}>
             <AdminPortfolioTasks projects={projects} role={isManager ? "manager" : "admin"} onProjectTaskStatusChange={onProjectTaskStatusChange} />
           </AdminWorkspacePane>
         )}
@@ -551,8 +575,8 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
         )}
 
         {adminNav === "inbox" && (
-          <AdminWorkspacePane title="Inbox" actions={defaultTopbarActions}>
-            <AdminAgentQueue />
+          <AdminWorkspacePane title={isManager ? "Agent queue" : "Inbox"} actions={defaultTopbarActions}>
+            <AdminAgentQueue role={isManager ? "manager" : "admin"} focusClientName={project.clientName} />
           </AdminWorkspacePane>
         )}
 

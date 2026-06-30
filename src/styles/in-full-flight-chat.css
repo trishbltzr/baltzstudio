@@ -1270,9 +1270,12 @@
   }
 
   .iff-dashboard-widget-shell {
+    position: fixed;
+    top: auto;
     right: 0.8rem;
     bottom: 0.8rem;
     width: min(22rem, calc(100vw - 1.6rem));
+    margin-top: 0;
   }
 
   .iff-widget {
@@ -1282,9 +1285,12 @@
 
 @media (max-width: 767px) {
   .iff-dashboard-widget-shell {
+    position: fixed;
+    top: auto;
     bottom: calc(5.35rem + env(safe-area-inset-bottom));
     right: 0.75rem;
     width: min(22rem, calc(100vw - 1.5rem));
+    margin-top: 0;
   }
 }
 

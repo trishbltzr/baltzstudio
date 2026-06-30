@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Clock,
   CircleDashed,
+  Eye,
   Lock,
   LoaderCircle,
   MessageSquare,
@@ -276,6 +277,33 @@ export function Btn({ children, onClick, variant = "default", size = "md", disab
 
 export function Toast({ message }: { message: string }) {
   return <div className="toast">{message}</div>;
+}
+
+// Persistent "who am I right now" chip — shared across admin / manager / client
+// shells and the impersonation banner so the active identity is never ambiguous.
+export function RoleBadge({ label, tone = "studio", icon }: { label: string; tone?: "studio" | "manager" | "client" | "preview"; icon?: ReactNode }) {
+  return (
+    <span className={`role-badge role-badge--${tone}`}>
+      {icon && <span className="role-badge-icon">{icon}</span>}
+      {label}
+    </span>
+  );
+}
+
+// Banner shown while a studio user previews a client's portal (read-only).
+export function ImpersonationBanner({ clientName, onExit }: { clientName: string; onExit: () => void }) {
+  return (
+    <div className="impersonation-banner" role="status" aria-live="polite">
+      <div className="impersonation-banner-left">
+        <Eye size={14} aria-hidden="true" />
+        <span>Previewing as <strong>{clientName}</strong></span>
+        <RoleBadge label="Read-only" tone="preview" />
+      </div>
+      <button type="button" className="impersonation-banner-exit" onClick={onExit}>
+        Exit preview
+      </button>
+    </div>
+  );
 }
 
 export function RadialGauge({ value, size = 64, strokeWidth = 6, color = "var(--accent)", trackColor = "var(--border)" }: { value: number; size?: number; strokeWidth?: number; color?: string; trackColor?: string }) {

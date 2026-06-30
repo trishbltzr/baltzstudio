@@ -186,11 +186,22 @@ const CANNED_REPLIES = [
   "That one falls a little outside the current support scope, but here's what we can do instead:",
 ];
 
-export function AdminAgentQueue() {
-  const [threads, setThreads] = useState(MOCK_THREADS);
+export function AdminAgentQueue({ role = "admin", focusClientName }: { role?: "admin" | "manager"; focusClientName?: string } = {}) {
+  // Managers work the "agent queue" — requests that need a human (routed to an
+  // agent, escalated, or not yet triaged), not the ones AI auto-handles.
+  const isAgentQueue = role === "manager";
+  const scopedThreads = isAgentQueue
+    ? MOCK_THREADS.filter(t => t.assignee !== "ai")
+    : MOCK_THREADS;
+  // When a client is selected in the workspace, the inbox opens focused on them
+  // (with a one-tap escape to all clients) so the Room and Inbox stay in sync.
+  const focusedClient = focusClientName && scopedThreads.some(t => t.clientName === focusClientName)
+    ? focusClientName
+    : null;
+  const [threads, setThreads] = useState(scopedThreads);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [clientFilter, setClientFilter] = useState<string>("all");
+  const [clientFilter, setClientFilter] = useState<string>(focusedClient ?? "all");
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [listCollapsed, setListCollapsed] = useState(false);
@@ -366,7 +377,7 @@ export function AdminAgentQueue() {
       <div className="inbox-list-pane">
         <div className="inbox-list-header">
           <strong className="inbox-list-title">
-            Conversations
+            {isAgentQueue ? "Agent queue" : "Conversations"}
             {unreadCount > 0 && <span className="inbox-unread-badge">{unreadCount}</span>}
           </strong>
           <div className="inbox-list-actions">
@@ -403,11 +414,22 @@ export function AdminAgentQueue() {
           </div>
         )}
 
+        {!listCollapsed && focusedClient && clientFilter === focusedClient && (
+          <button
+            type="button"
+            className="inbox-focus-chip"
+            onClick={() => setClientFilter("all")}
+          >
+            <span className="inbox-focus-chip-label">Focused on <strong>{focusedClient}</strong></span>
+            <span className="inbox-focus-chip-action">View all clients</span>
+          </button>
+        )}
+
         {showFilters && !listCollapsed && (
           <div className="inbox-filter-bar">
             <div className="inbox-filter-group">
               <label className="inbox-filter-label">Status</label>
-              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+              <select className="dashboard-select inbox-filter-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
                 <option value="all">All ({statusCounts.all})</option>
                 <option value="unread">Unread ({statusCounts.unread})</option>
                 <option value="open">Open ({statusCounts.open})</option>
@@ -417,7 +439,7 @@ export function AdminAgentQueue() {
             {clients.length > 1 && (
               <div className="inbox-filter-group">
                 <label className="inbox-filter-label">Client</label>
-                <select value={clientFilter} onChange={e => setClientFilter(e.target.value)}>
+                <select className="dashboard-select inbox-filter-select" value={clientFilter} onChange={e => setClientFilter(e.target.value)}>
                   <option value="all">All clients</option>
                   {clients.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>

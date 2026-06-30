@@ -6,7 +6,7 @@ import type { ClientLifecycleStage, DashboardUserRole, Project, ClientNav } from
 import { LIFECYCLE_PROJECTS, applyLifecycleStageToProject } from "@/data/mockProjects";
 import { updateTask, sendGate, approveGate, submitFeedback, finishMilestone } from "@/lib/projectMutations";
 import { currentDashboardTimestamp } from "@/lib/dateDisplay";
-import { Toast } from "@/components/shared";
+import { Toast, ImpersonationBanner } from "@/components/shared";
 import { AdminView } from "@/admin/AdminView";
 import { ClientView, buildOnboardingSeed, type OnboardingStorageMode } from "@/client/ClientTabs";
 import { InFullFlightAssistantWidget } from "@/components/InFullFlightAssistantWidget";
@@ -58,6 +58,8 @@ export default function Dashboard() {
 
   const [selectedProjectId, setSelectedProjectId] = useState(PROJECTS[0]?.id ?? "");
   const [projects, setProjects] = useState<Project[]>(PROJECTS);
+  // Studio users (admin/manager) can preview a client's portal read-only.
+  const [impersonatingClientId, setImpersonatingClientId] = useState<string | null>(null);
   const [dashboardStateLoaded, setDashboardStateLoaded] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [workflowNudge, setWorkflowNudge] = useState<WorkflowNudge | null>(null);
@@ -198,11 +200,37 @@ export default function Dashboard() {
 
   if (!userLoaded || !currentUser || !dashboardStateLoaded) return null;
 
+  const isStudio = currentUser.role === "admin" || currentUser.role === "manager";
+  const impersonatedProject = impersonatingClientId
+    ? projects.find(p => p.id === impersonatingClientId) ?? null
+    : null;
+  const showImpersonation = isStudio && impersonatedProject !== null;
+  const readonlyNotice = () => showToast("Read-only preview — exit to make changes.");
+
   return (
     <div className="bs-app">
-      {currentUser.role === "admin" || currentUser.role === "manager" ? (
+      {showImpersonation && impersonatedProject && (
+        <ImpersonationBanner
+          clientName={impersonatedProject.clientName}
+          onExit={() => setImpersonatingClientId(null)}
+        />
+      )}
+      {showImpersonation && impersonatedProject ? (
+        <ClientView
+          project={impersonatedProject}
+          onSubmitFeedback={readonlyNotice}
+          onBrandChange={readonlyNotice}
+          onTaskStatusChange={readonlyNotice}
+          onFinishMilestone={readonlyNotice}
+          onConfirmCocoonPayment={readonlyNotice}
+          onLogout={() => setImpersonatingClientId(null)}
+          ownerName={impersonatedProject.clientName}
+          ownerEmail={impersonatedProject.clientEmail}
+        />
+      ) : isStudio ? (
         <AdminView
-          workspaceRole={currentUser.role}
+          workspaceRole={currentUser.role === "manager" ? "manager" : "admin"}
+          onViewAsClient={(id) => setImpersonatingClientId(id)}
           projects={projects}
           selectedProjectId={selectedProjectId}
           onSelectProject={selectProject}
@@ -283,7 +311,7 @@ export default function Dashboard() {
           <button type="button" onClick={() => setClientLifecycleMode("wiaw-active")}>{workflowNudge.actionLabel}</button>
         </div>
       )}
-      {currentUser.role === "client" && (
+      {(currentUser.role === "client" || showImpersonation) && (
         <InFullFlightAssistantWidget
           workspace={dashboardAssistantWorkspace}
           shellClassName="iff-widget-anchor iff-dashboard-widget-shell"

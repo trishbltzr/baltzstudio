@@ -135,24 +135,15 @@
   letter-spacing: 0.04em;
 }
 
-.inbox-filter-group select {
-  appearance: none;
+.inbox-filter-select {
   width: 100%;
-  padding: 0.32rem 0.5rem;
-  border: 1px solid color-mix(in srgb, var(--border-soft) 45%, transparent 55%);
-  border-radius: 0.4rem;
-  background: white;
-  color: var(--fg);
-  font: inherit;
-  font-size: 0.74rem;
+  height: 2.3rem;
+  min-height: 2.3rem;
+  border-radius: 0.55rem;
+  background-color: var(--surface);
+  box-shadow: 0 1px 0 color-mix(in srgb, white 85%, transparent) inset;
+  font-size: 0.78rem;
   font-weight: 500;
-  cursor: pointer;
-  outline: none;
-  transition: border-color 100ms ease;
-}
-
-.inbox-filter-group select:focus {
-  border-color: color-mix(in srgb, var(--accent) 25%, white 75%);
 }
 
 .inbox-list-scroll {
@@ -933,6 +924,43 @@
 }
 
 .inbox-search input::placeholder { color: var(--fg-faint); }
+
+/* ── Client focus chip (inbox follows the selected client) ── */
+
+.inbox-focus-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: calc(100% - 1.5rem);
+  margin: 0 0.75rem 0.15rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent 82%);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--accent-soft) 22%, white 78%);
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 100ms ease, border-color 100ms ease;
+}
+
+.inbox-focus-chip:hover {
+  background: color-mix(in srgb, var(--accent-soft) 34%, white 66%);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent 72%);
+}
+
+.inbox-focus-chip-label strong {
+  color: color-mix(in srgb, var(--accent) 58%, black 42%);
+  font-weight: 600;
+}
+
+.inbox-focus-chip-action {
+  flex-shrink: 0;
+  color: color-mix(in srgb, var(--accent) 55%, black 45%);
+  font-weight: 500;
+}
 
 /* ── Richer list rows ── */
 
