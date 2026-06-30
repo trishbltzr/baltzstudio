@@ -1,5 +1,5 @@
-import { Lock, MoreHorizontal, type LucideIcon } from "lucide-react";
-import { useState, type ReactNode, type PointerEvent as ReactPointerEvent, useRef } from "react";
+import { Check, type LucideIcon } from "lucide-react";
+import { useEffect, useState, type ReactNode, type PointerEvent as ReactPointerEvent, useRef } from "react";
 
 export type MobileNavItem = {
   key: string;
@@ -7,100 +7,164 @@ export type MobileNavItem = {
   icon: LucideIcon;
   count?: number;
   locked?: boolean;
+  action?: () => void;
+  toggled?: boolean;
 };
 
-// Brand gradient — matches the coral/salmon palette used throughout the dashboard
-const NAV_GRADIENT = "linear-gradient(135deg, oklch(0.78 0.11 22), oklch(0.7 0.13 18))";
+export type MobileNavCenterAction = {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  action: () => void;
+  locked?: boolean;
+};
 
-export function MobileTabBar({ items, centerKey, activeKey, onSelect, moreActive, onMore }: {
+export function MobileTabBar({ items, centerKey, activeKey, onSelect, centerActions = [], endItem }: {
   items: MobileNavItem[];
   /** The nav key whose active state shows the raised gradient bubble (center slot). */
   centerKey: string;
   activeKey: string;
   onSelect: (key: string) => void;
-  moreActive: boolean;
-  onMore: () => void;
+  centerActions?: MobileNavCenterAction[];
+  endItem?: MobileNavItem;
 }) {
-  // Callers pass exactly 4 primary items; we append the "More" button as slot 5.
-  const allItems = [
-    ...items.map(item => ({ ...item, isMore: false as const })),
-    { key: "__more__", label: "More", icon: MoreHorizontal, isMore: true as const, locked: false },
-  ];
+  const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
+  const [centerMenuOpen, setCenterMenuOpen] = useState(false);
+  const toastTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    };
+  }, []);
+
+  function showTabToast(message: string) {
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    setToast({ id: Date.now(), message });
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 1500);
+  }
+
+  // Callers pass 4 primary items plus an optional 5th end tab.
+  const allItems = endItem ? [...items, endItem] : items;
 
   return (
-    <nav className="dashboard-tabbar-mobile" aria-label="Primary navigation">
-      {allItems.map(item => {
-        const Icon = item.icon;
-        const isActive = item.isMore ? moreActive : activeKey === item.key;
-        const isCenter = !item.isMore && item.key === centerKey;
-        const isLocked = !item.isMore && !!(item as MobileNavItem).locked;
-        const count = !item.isMore ? (item as MobileNavItem).count : undefined;
+    <>
+      {toast && (
+        <div key={toast.id} className="dashboard-tabbar-toast" role="status" aria-live="polite">
+          {toast.message}
+        </div>
+      )}
+      {centerMenuOpen && centerActions.length > 0 && (
+        <div className="dashboard-tabbar-action-cluster" aria-label="Quick actions">
+          {centerActions.map((action, index) => {
+            const ActionIcon = action.icon;
+            return (
+              <button
+                key={action.key}
+                type="button"
+                className={`dashboard-tabbar-action-chip dashboard-tabbar-action-chip--${index + 1}`}
+                onClick={() => {
+                  if (action.locked) return;
+                  setCenterMenuOpen(false);
+                  showTabToast(action.label);
+                  action.action();
+                }}
+                disabled={action.locked}
+                title={action.locked ? "Complete your Cocoon Consult to unlock" : action.label}
+                aria-label={action.label}
+              >
+                <ActionIcon />
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <nav className="dashboard-tabbar-mobile" aria-label="Primary navigation">
+        {allItems.map(item => {
+          const Icon = item.icon;
+          const isActive = activeKey === item.key;
+          const isCenter = item.key === centerKey;
+          const isLocked = !!item.locked;
+          const count = item.count;
 
-        let cls = "dashboard-tabbar-mobile-btn";
-        if (isActive) cls += " is-active";
-        if (isCenter) cls += " is-center";
-        if (isLocked) cls += " is-locked";
+          let cls = "dashboard-tabbar-mobile-btn";
+          if (isActive) cls += " is-active";
+          if (isCenter) cls += " is-center";
+          if (isLocked) cls += " is-locked";
+          if (item.toggled || (isCenter && centerMenuOpen)) cls += " is-toggled";
 
-        return (
-          <button
-            key={item.key}
-            type="button"
-            className={cls}
-            onClick={() => {
-              if (isLocked) return;
-              if (item.isMore) { onMore(); return; }
-              onSelect(item.key);
-            }}
-            aria-current={isActive && !item.isMore ? "page" : undefined}
-            aria-haspopup={item.isMore ? "true" : undefined}
-            aria-expanded={item.isMore ? moreActive : undefined}
-            title={isLocked ? "Complete your Cocoon Consult to unlock" : undefined}
-          >
-            {/* Center item when active: raised gradient bubble */}
-            {isActive && isCenter ? (
-              <span className="dashboard-tabbar-mobile-bubble">
-                <span className="dashboard-tabbar-mobile-bubble-inner" style={{ background: NAV_GRADIENT }}>
-                  <Icon color="white" />
+          return (
+            <button
+              key={item.key}
+              type="button"
+              className={cls}
+              onClick={() => {
+                if (isLocked) return;
+                showTabToast(item.label);
+                if (isCenter && centerActions.length > 0) {
+                  if (centerMenuOpen) {
+                    setCenterMenuOpen(false);
+                    return;
+                  }
+                  if (item.toggled) {
+                    item.action?.();
+                    return;
+                  }
+                  setCenterMenuOpen(true);
+                  return;
+                }
+                setCenterMenuOpen(false);
+                if (item.action) { item.action(); return; }
+                onSelect(item.key);
+              }}
+              aria-current={isActive ? "page" : undefined}
+              aria-expanded={isCenter && centerActions.length > 0 ? centerMenuOpen : undefined}
+              title={isLocked ? "Complete your Cocoon Consult to unlock" : undefined}
+            >
+              {/* Center slot is reserved for the raised primary mobile action. */}
+              {isCenter ? (
+                <span className="dashboard-tabbar-mobile-bubble">
+                  <span className="dashboard-tabbar-mobile-bubble-inner">
+                    <Icon color="white" />
+                    {!isLocked && !!count && (
+                      <span className="dashboard-tabbar-mobile-badge dashboard-tabbar-mobile-badge--bubble">
+                        {count > 9 ? "9+" : count}
+                      </span>
+                    )}
+                  </span>
+                </span>
+              ) : (
+                /* All other items: plain icon; dot rendered via CSS ::after on is-active */
+                <span className="dashboard-tabbar-mobile-icon">
+                  <Icon />
                   {!isLocked && !!count && (
-                    <span className="dashboard-tabbar-mobile-badge dashboard-tabbar-mobile-badge--bubble">
-                      {count > 9 ? "9+" : count}
-                    </span>
+                    <span className="dashboard-tabbar-mobile-badge">{count > 9 ? "9+" : count}</span>
                   )}
                 </span>
-              </span>
-            ) : (
-              /* All other items: plain icon; dot rendered via CSS ::after on is-active */
-              <span className="dashboard-tabbar-mobile-icon">
-                <Icon />
-                {!isLocked && !!count && (
-                  <span className="dashboard-tabbar-mobile-badge">{count > 9 ? "9+" : count}</span>
-                )}
-              </span>
-            )}
-            <span className="dashboard-tabbar-mobile-label">{item.label}</span>
-          </button>
-        );
-      })}
-    </nav>
+              )}
+              <span className="dashboard-tabbar-mobile-label">{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+    </>
   );
 }
 
-export function MoreSheet({ title, items, activeKey, onSelect, onClose, footer }: {
-  title: string;
-  items: MobileNavItem[];
-  activeKey?: string;
-  onSelect: (key: string) => void;
+// Shared slide-up bottom sheet shell. Reuses the PhaseDetailModal overlay
+// pattern (fixed backdrop + card, onClose callback, stopPropagation) but
+// anchored to the bottom edge, matching native mobile sheet UX.
+//
+// Swipe-to-dismiss: drag the top handle downward to close, like a native
+// bottom sheet — no need to tap the backdrop. Tracked via pointer events
+// (works for touch + mouse) scoped to just the handle, so it never fights
+// with scrolling the content beneath it.
+export function BottomSheet({ title, onClose, children, labelledBy }: {
+  title?: ReactNode;
   onClose: () => void;
-  footer?: ReactNode;
+  children: ReactNode;
+  labelledBy?: string;
 }) {
-  // Reuses the PhaseDetailModal overlay pattern (fixed backdrop + card,
-  // onClose callback, stopPropagation) but anchored to the bottom edge as a
-  // slide-up sheet rather than centered, matching native mobile sheet UX.
-  //
-  // Swipe-to-dismiss: drag the top handle downward to close, like a native
-  // bottom sheet — no need to tap the backdrop. Tracked via pointer events
-  // (works for touch + mouse) scoped to just the handle, so it never fights
-  // with scrolling the item list beneath it.
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartYRef = useRef(0);
@@ -128,6 +192,9 @@ export function MoreSheet({ title, items, activeKey, onSelect, onClose, footer }
         onClick={onClose}
       />
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={labelledBy}
         style={{
           position: "fixed",
           left: 0,
@@ -155,31 +222,58 @@ export function MoreSheet({ title, items, activeKey, onSelect, onClose, footer }
         >
           <span style={{ width: "2.25rem", height: "0.28rem", borderRadius: "999px", background: "var(--border)" }} />
         </div>
-        <div style={{ padding: "0.4rem 1.25rem 0.5rem", fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--fg-muted)" }}>{title}</div>
-        <div className="dashboard-more-sheet-list">
-          {items.map(item => {
-            const Icon = item.icon;
-            const isActive = activeKey === item.key;
-            return (
-              <button
-                key={item.key}
-                type="button"
-                className={`dashboard-more-sheet-item ${isActive ? "is-active" : ""}`}
-                onClick={() => { if (item.locked) return; onClose(); onSelect(item.key); }}
-                style={item.locked ? { opacity: 0.42, cursor: "default" } : undefined}
-                title={item.locked ? "Complete your Cocoon Consult to unlock" : undefined}
-              >
-                <Icon />
-                <span>{item.label}</span>
-                {item.locked
-                  ? <Lock size={12} style={{ marginLeft: "auto", opacity: 0.6, flexShrink: 0 }} />
-                  : (!!item.count ? <span className="dashboard-count">{item.count}</span> : null)}
-              </button>
-            );
-          })}
-        </div>
-        {footer && <div className="dashboard-more-sheet-footer">{footer}</div>}
+        {title != null && (
+          <div id={labelledBy} style={{ padding: "0.4rem 1.25rem 0.5rem", fontSize: "var(--text-sm)", fontWeight: 500, color: "var(--fg-muted)" }}>{title}</div>
+        )}
+        {children}
       </div>
     </>
+  );
+}
+
+export type ClientSwitcherOption = {
+  id: string;
+  initials: string;
+  name: string;
+  /** Secondary line, e.g. "Webflow · M3 Launch · Complete". */
+  sub: string;
+  /** Optional right-side progress badge shown on inactive rows, e.g. "24/45". */
+  badge?: string;
+};
+
+export function ClientSwitcherSheet({ clients, activeId, onSelect, onClose, footer }: {
+  clients: ClientSwitcherOption[];
+  activeId: string;
+  onSelect: (id: string) => void;
+  onClose: () => void;
+  footer?: ReactNode;
+}) {
+  return (
+    <BottomSheet title="Switch client" onClose={onClose} labelledBy="client-switcher-title">
+      <div className="dashboard-client-switcher-list">
+        {clients.map(client => {
+          const isActive = client.id === activeId;
+          return (
+            <button
+              key={client.id}
+              type="button"
+              className={`dashboard-client-switcher-row ${isActive ? "is-active" : ""}`}
+              onClick={() => { onClose(); onSelect(client.id); }}
+              aria-current={isActive ? "true" : undefined}
+            >
+              <span className="dashboard-client-switcher-avatar" aria-hidden="true">{client.initials}</span>
+              <span className="dashboard-client-switcher-meta">
+                <span className="dashboard-client-switcher-name">{client.name}</span>
+                <span className="dashboard-client-switcher-sub">{client.sub}</span>
+              </span>
+              {isActive
+                ? <Check size={16} className="dashboard-client-switcher-check" aria-label="Currently viewing" />
+                : (client.badge ? <span className="dashboard-client-switcher-badge">{client.badge}</span> : null)}
+            </button>
+          );
+        })}
+      </div>
+      {footer && <div className="dashboard-client-switcher-footer">{footer}</div>}
+    </BottomSheet>
   );
 }

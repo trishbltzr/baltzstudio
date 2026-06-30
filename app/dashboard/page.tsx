@@ -9,6 +9,15 @@ import { currentDashboardTimestamp } from "@/lib/dateDisplay";
 import { Toast } from "@/components/shared";
 import { AdminView } from "@/admin/AdminView";
 import { ClientView, buildOnboardingSeed, type OnboardingStorageMode } from "@/client/ClientTabs";
+import { InFullFlightAssistantWidget } from "@/components/InFullFlightAssistantWidget";
+import type { InFullFlightWorkspace } from "@/lib/inFullFlightPrototype";
+import {
+  DASHBOARD_USER_EMAIL_HEADER,
+  coercePersistedProjects,
+  findProjectIdForUser,
+  mergeDashboardProjects,
+  type DashboardStatePayload,
+} from "@/lib/dashboardPersistence";
 
 const PROJECTS = LIFECYCLE_PROJECTS;
 
@@ -45,6 +54,7 @@ export default function Dashboard() {
   const devParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
   const devNav = devParams?.get("nav");
   const devSeed = devParams?.get("seed");
+  const devAssistant = devParams?.get("assistant");
 
   const [selectedProjectId, setSelectedProjectId] = useState(PROJECTS[0]?.id ?? "");
   const [projects, setProjects] = useState<Project[]>(PROJECTS);
@@ -81,27 +91,51 @@ export default function Dashboard() {
   );
 
   const project = projects.find(p => p.id === selectedProjectId) ?? projects[0]!;
+  const dashboardAssistantWorkspace: InFullFlightWorkspace = {
+    slug: project.id,
+    clientName: project.clientName,
+    siteName: project.workflow?.lead.businessName || project.clientName,
+    supportTier: project.workflow?.planLabel || "In Full Flight Assistant Preview",
+    launchDate: project.startDate,
+    liveUrl: project.workflow?.lead.website || `${project.clientName.toLowerCase().replace(/\s+/g, "-")}.example`,
+    revisionPolicy: "Fast content edits and light layout refinements are in scope. Bigger repositioning opens a new studio round.",
+    autoPreviewRule: "Copy, images, testimonials, banners, and section order can auto-preview. Structural redesign requests pause for studio review.",
+    allowedEdits: [],
+    pushbackRules: [
+      "Whole-site redesign requests become a separate scope",
+      "Brand repositioning needs studio review before preview",
+      "Post-approval structural changes open a new round",
+    ],
+  };
 
   useEffect(() => {
     if (!userLoaded || !currentUser) return;
 
     let cancelled = false;
+    const activeUser = currentUser;
 
     async function loadDashboardState() {
       try {
-        const response = await fetch("/api/dashboard-state", { cache: "no-store" });
+        const response = await fetch("/api/dashboard-state", {
+          cache: "no-store",
+          headers: { [DASHBOARD_USER_EMAIL_HEADER]: activeUser.email },
+        });
         if (!response.ok) throw new Error(`Dashboard state load failed: ${response.status}`);
-        const data = await response.json() as { projects?: unknown; selectedProjectId?: unknown };
+        const data = await response.json() as DashboardStatePayload;
         if (cancelled) return;
-        if (Array.isArray(data.projects) && data.projects.length > 0) {
-          const persistedProjects = data.projects as Project[];
-          const persistedProjectId = typeof data.selectedProjectId === "string" ? data.selectedProjectId : null;
-          const nextSelectedProjectId = persistedProjectId && persistedProjects.some(p => p.id === persistedProjectId)
+        const persistedProjects = coercePersistedProjects(data.projects);
+        const mergedProjects = mergeDashboardProjects(PROJECTS, persistedProjects);
+        const persistedProjectId = typeof data.selectedProjectId === "string" ? data.selectedProjectId : null;
+        const clientProjectId = activeUser.role === "client"
+          ? findProjectIdForUser(mergedProjects, activeUser.email)
+          : null;
+        const nextSelectedProjectId = clientProjectId
+          ?? (persistedProjectId && mergedProjects.some(project => project.id === persistedProjectId)
             ? persistedProjectId
-            : persistedProjects[0]?.id;
-          setProjects(persistedProjects);
-          if (nextSelectedProjectId) setSelectedProjectId(nextSelectedProjectId);
-        }
+            : mergedProjects[0]?.id);
+
+        setProjects(mergedProjects);
+        if (nextSelectedProjectId) setSelectedProjectId(nextSelectedProjectId);
       } catch (error) {
         console.error("Unable to load dashboard state from Supabase.", error);
       } finally {
@@ -122,7 +156,10 @@ export default function Dashboard() {
     const saveTimer = setTimeout(() => {
       void fetch("/api/dashboard-state", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          [DASHBOARD_USER_EMAIL_HEADER]: currentUser.email,
+        },
         body: JSON.stringify({ projects, selectedProjectId }),
       }).catch(error => {
         console.error("Unable to save dashboard state to Supabase.", error);
@@ -245,6 +282,13 @@ export default function Dashboard() {
           <p>{workflowNudge.body}</p>
           <button type="button" onClick={() => setClientLifecycleMode("wiaw-active")}>{workflowNudge.actionLabel}</button>
         </div>
+      )}
+      {currentUser.role === "client" && (
+        <InFullFlightAssistantWidget
+          workspace={dashboardAssistantWorkspace}
+          shellClassName="iff-widget-anchor iff-dashboard-widget-shell"
+          defaultOpen={devAssistant === "open"}
+        />
       )}
     </div>
   );

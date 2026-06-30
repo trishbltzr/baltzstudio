@@ -6,6 +6,7 @@ import { allGates, taskStatusClass, taskStatusLabel } from "../lib/projectUtils"
 import { AssigneeBadge, Panel, PanelHeader, StatusBadge, TruncatedText } from "./shared";
 
 type TaskBucket = "action" | "progress" | "upcoming" | "complete";
+type TaskAudienceRole = "admin" | "manager" | "client";
 
 type TaskRow = {
   task: Task;
@@ -111,22 +112,23 @@ const bucketMeta: Record<TaskBucket, { title: string; icon: LucideIcon; emptyCli
   },
 };
 
-function taskBucket(task: Task, milestone: Milestone, role: "admin" | "client"): TaskBucket {
+function taskBucket(task: Task, milestone: Milestone, role: TaskAudienceRole): TaskBucket {
   if (task.status === "complete") return "complete";
   if (task.status === "blocked") return "action";
   if (role === "client" && task.assignee === "client") return "action";
-  if (role === "admin" && task.assignee === "client") return "action";
+  if (role !== "client" && task.assignee === "client") return "action";
   if (task.status === "in_progress") return "progress";
   if (milestone.status === "active") return "upcoming";
   return "upcoming";
 }
 
-function deriveTaskRows(project: Project, role: "admin" | "client", milestoneFilter?: Milestone) {
+function deriveTaskRows(project: Project, role: TaskAudienceRole, milestoneFilter?: Milestone) {
   const rows: TaskRow[] = [];
   const milestones = milestoneFilter ? [milestoneFilter] : project.milestones;
   for (const milestone of milestones) {
     for (const phase of milestone.phases) {
       for (const task of phase.tasks) {
+        if (role === "manager" && task.assignee !== "human") continue;
         rows.push({ task, phase, milestone, bucket: taskBucket(task, milestone, role) });
       }
     }
@@ -145,6 +147,10 @@ function phaseLabel(phase: Phase) {
   return phase.title.replace(/^\d+\.\d+\s+/, "");
 }
 
+function assigneeAudience(role: TaskAudienceRole) {
+  return role === "client" ? "client" : "admin";
+}
+
 function TaskGroup({
   bucket,
   bucketRows,
@@ -153,7 +159,7 @@ function TaskGroup({
 }: {
   bucket: TaskBucket;
   bucketRows: TaskRow[];
-  role: "admin" | "client";
+  role: TaskAudienceRole;
   onTaskStatusChange?: (taskId: string, status: TaskStatus) => void;
 }) {
   const meta = bucketMeta[bucket];
@@ -171,7 +177,7 @@ function TaskGroup({
 
       <div className="task-list">
         {bucketRows.length === 0 ? (
-          <div className="task-empty">{role === "admin" ? meta.emptyAdmin : meta.emptyClient}</div>
+          <div className="task-empty">{role === "client" ? meta.emptyClient : meta.emptyAdmin}</div>
         ) : (
           bucketRows.map(({ task, phase }) => (
             <div key={task.id} className={`task-row ${task.status === "complete" ? "is-complete" : ""}`}>
@@ -179,7 +185,7 @@ function TaskGroup({
                 <TruncatedText text={task.title} className="task-row-title" />
                 <div className="task-row-meta">
                   <span>{phaseLabel(phase)}</span>
-                  <AssigneeBadge assignee={task.assignee} audience={role} />
+                  <AssigneeBadge assignee={task.assignee} audience={assigneeAudience(role)} />
                   {displayDate(task.dueDate) && <span>Due {displayDate(task.dueDate)}</span>}
                 </div>
               </div>
@@ -205,7 +211,7 @@ export function TaskActionCenter({
   children,
 }: {
   project: Project;
-  role: "admin" | "client";
+  role: TaskAudienceRole;
   onTaskStatusChange?: (taskId: string, status: TaskStatus) => void;
   children?: ReactNode;
 }) {
@@ -254,7 +260,7 @@ export function TaskActionCenter({
         </div>
       </Panel>
 
-      {role === "admin" && (
+      {role !== "client" && (
         <div className="task-center-groups">
           {activeMilestone && (
             <div className="task-center-milestone-label">

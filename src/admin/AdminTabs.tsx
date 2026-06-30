@@ -384,6 +384,7 @@ export function AdminReviewsTab({ project, onSendGate, onApproveGate, onTaskStat
 }
 
 type PortfolioTaskBucket = "action" | "progress" | "upcoming" | "complete";
+type PortfolioTaskRole = "admin" | "manager";
 type PortfolioTaskRow = {
   project: Project;
   milestone: Milestone;
@@ -409,13 +410,14 @@ function portfolioTaskBucket(task: Task, milestone: Milestone): PortfolioTaskBuc
   return "upcoming";
 }
 
-function derivePortfolioTasks(projects: Project[]) {
+function derivePortfolioTasks(projects: Project[], role: PortfolioTaskRole = "admin") {
   const rows: PortfolioTaskRow[] = [];
   for (const project of projects.filter(item => item.status === "active")) {
     for (const milestone of project.milestones) {
       for (const phase of milestone.phases) {
         for (const task of phase.tasks) {
           if (task.assignee === "client") continue;
+          if (role === "manager" && task.assignee !== "human") continue;
           rows.push({ project, milestone, phase, task, bucket: portfolioTaskBucket(task, milestone) });
         }
       }
@@ -497,12 +499,14 @@ function PortfolioTaskGroup({
 
 export function AdminPortfolioTasks({
   projects,
+  role = "admin",
   onProjectTaskStatusChange,
 }: {
   projects: Project[];
+  role?: PortfolioTaskRole;
   onProjectTaskStatusChange: (projectId: string, taskId: string, status: TaskStatus) => void;
 }) {
-  const rows = derivePortfolioTasks(projects);
+  const rows = derivePortfolioTasks(projects, role);
   const completed = rows.filter(row => row.bucket === "complete").length;
   const progress = rows.length === 0 ? 0 : Math.round((completed / rows.length) * 100);
   const counts = {
@@ -515,7 +519,7 @@ export function AdminPortfolioTasks({
   return (
     <div className="task-center">
       <Panel>
-        <PanelHeader title="All studio tasks" icon={CalendarDays} action={<StatusBadge status="is-progress" label={`${progress}% complete`} />} />
+        <PanelHeader title={role === "manager" ? "Assigned manager tasks" : "All studio tasks"} icon={CalendarDays} action={<StatusBadge status="is-progress" label={`${progress}% complete`} />} />
         <div className="task-center-summary">
           <div className="task-summary-item">
             <span>{counts.upcoming}</span>
@@ -535,7 +539,9 @@ export function AdminPortfolioTasks({
           </div>
         </div>
       </Panel>
-      <div className="task-center-milestone-label">Studio-side work across all active clients</div>
+      <div className="task-center-milestone-label">
+        {role === "manager" ? "Tasks reassigned to the manager across active clients" : "Studio-side work across all active clients"}
+      </div>
       <div className="task-center-groups">
         {portfolioTaskBuckets.map(bucket => (
           <PortfolioTaskGroup

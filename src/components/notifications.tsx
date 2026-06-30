@@ -102,6 +102,89 @@ export function deriveClientNotifications(project: Project): AppNotification[] {
   return notifs;
 }
 
+export type NotificationPreferences = {
+  gateReviews: boolean;
+  phaseUpdates: boolean;
+  emailDigest: boolean;
+  quietHours: boolean;
+};
+
+export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  gateReviews: true,
+  phaseUpdates: true,
+  emailDigest: false,
+  quietHours: false,
+};
+
+const notificationSettingsRows: Array<{ key: keyof NotificationPreferences; label: string; desc: string }> = [
+  { key: "gateReviews", label: "Gate review requests", desc: "When the studio sends a milestone for your approval." },
+  { key: "phaseUpdates", label: "Phase completions", desc: "Status changes inside the active milestone." },
+  { key: "emailDigest", label: "Weekly email digest", desc: "Friday summary of activity and decisions waiting." },
+  { key: "quietHours", label: "Quiet hours", desc: "Mute toasts and badges from 8pm to 8am." },
+];
+
+export function NotificationSettingsPanel({
+  prefs,
+  onToggle,
+  onBack,
+}: {
+  prefs: NotificationPreferences;
+  onToggle: (key: keyof NotificationPreferences) => void;
+  onBack?: () => void;
+}) {
+  return (
+    <Panel>
+      <div className="dashboard-panel-header">
+        <div className="dashboard-panel-title">
+          <Settings size={15} />
+          <h2>Notification settings</h2>
+        </div>
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: "var(--text-base)", color: "var(--fg-muted)", fontFamily: "inherit", display: "flex", alignItems: "center", gap: "0.25rem", padding: 0, fontWeight: 500 }}
+          >
+            <ChevronLeft size={13} /> Back
+          </button>
+        )}
+      </div>
+      <div>
+        {notificationSettingsRows.map(row => (
+          <label
+            key={row.key}
+            style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", padding: "0.85rem 1.1rem", cursor: "pointer", borderBottom: "1px solid var(--border-soft)" }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: "var(--text-base)", fontWeight: 500, color: "var(--fg)" }}>{row.label}</div>
+              <div style={{ fontSize: "var(--text-xs)", color: "var(--fg-muted)", marginTop: "0.15rem", lineHeight: 1.4 }}>{row.desc}</div>
+            </div>
+            <span
+              role="switch"
+              aria-checked={prefs[row.key]}
+              onClick={event => { event.preventDefault(); onToggle(row.key); }}
+              style={{
+                flexShrink: 0,
+                width: "2.1rem", height: "1.2rem", borderRadius: "999px",
+                background: prefs[row.key] ? "var(--accent)" : "var(--border)",
+                position: "relative", transition: "background 0.18s", marginTop: "0.1rem",
+              }}
+            >
+              <span style={{
+                position: "absolute", top: "0.15rem",
+                left: prefs[row.key] ? "calc(100% - 1.05rem)" : "0.15rem",
+                width: "0.9rem", height: "0.9rem", borderRadius: "50%",
+                background: "var(--surface)", transition: "left 0.18s",
+                boxShadow: "var(--shadow-xs)",
+              }} />
+            </span>
+          </label>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
 // ─── Notification panel component (shared between admin + client) ───
 export function NotificationPanel({
   notifications, readIds, setReadIds, onClose, offsetLeft,
@@ -594,7 +677,7 @@ export function NotificationBell({
   );
 }
 
-export function NotificationsPage({ notifications, readIds, setReadIds, dismissedIds, setDismissedIds, onSubmitFeedback, onNavigate, settingsOpen, setSettingsOpen }: {
+export function NotificationsPage({ notifications, readIds, setReadIds, dismissedIds, setDismissedIds, onSubmitFeedback, onNavigate, settingsOpen = false, setSettingsOpen, onOpenSettings, showSettingsShortcut = true }: {
   notifications: AppNotification[];
   readIds: Set<string>;
   setReadIds: React.Dispatch<React.SetStateAction<Set<string>>>;
@@ -602,27 +685,21 @@ export function NotificationsPage({ notifications, readIds, setReadIds, dismisse
   setDismissedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   onSubmitFeedback?: (gateId: string, feedback: GateFeedback) => void;
   onNavigate?: (phaseId?: string, type?: AppNotification["type"]) => void;
-  // Lifted to the parent view so the account popover's "Notification settings"
-  // shortcut can jump straight into the settings pane even on first mount.
-  settingsOpen: boolean;
-  setSettingsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  settingsOpen?: boolean;
+  setSettingsOpen?: React.Dispatch<React.SetStateAction<boolean>>;
+  onOpenSettings?: () => void;
+  showSettingsShortcut?: boolean;
 }) {
   const [tab, setTab] = useState<"all" | "updates" | "approvals">("all");
-  // In-memory preference state — not persisted, but toggles feel responsive
-  // and reflect intent. The same shape lives in NotificationPanel.
-  const [prefs, setPrefs] = useState({
-    gateReviews: true,
-    phaseUpdates: true,
-    emailDigest: false,
-    quietHours: false,
-  });
-  const togglePref = (key: keyof typeof prefs) => setPrefs(p => ({ ...p, [key]: !p[key] }));
-  const settingsRows: Array<{ key: keyof typeof prefs; label: string; desc: string }> = [
-    { key: "gateReviews", label: "Gate review requests", desc: "When the studio sends a milestone for your approval." },
-    { key: "phaseUpdates", label: "Phase completions", desc: "Status changes inside the active milestone." },
-    { key: "emailDigest", label: "Weekly email digest", desc: "Friday summary of activity and decisions waiting." },
-    { key: "quietHours", label: "Quiet hours", desc: "Mute toasts and badges from 8pm to 8am." },
-  ];
+  const [prefs, setPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
+  const togglePref = (key: keyof NotificationPreferences) => setPrefs(current => ({ ...current, [key]: !current[key] }));
+  const openSettings = () => {
+    if (onOpenSettings) {
+      onOpenSettings();
+      return;
+    }
+    setSettingsOpen?.(true);
+  };
   const approvals = notifications.filter(n => n.type === "gate_sent");
   const updates = notifications.filter(n => n.type !== "gate_sent");
   const allDisplayed = notifications.filter(n => !dismissedIds.has(n.id));
@@ -648,54 +725,7 @@ export function NotificationsPage({ notifications, readIds, setReadIds, dismisse
   return (
     <div>
       {settingsOpen ? (
-        /* ── Settings panel ── */
-        <Panel>
-          <div className="dashboard-panel-header">
-            <div className="dashboard-panel-title">
-              <Settings size={15} />
-              <h2>Notification settings</h2>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSettingsOpen(false)}
-              style={{ background: "none", border: "none", cursor: "pointer", fontSize: "var(--text-base)", color: "var(--fg-muted)", fontFamily: "inherit", display: "flex", alignItems: "center", gap: "0.25rem", padding: 0, fontWeight: 500 }}
-            >
-              <ChevronLeft size={13} /> Back
-            </button>
-          </div>
-          <div>
-            {settingsRows.map(row => (
-              <label
-                key={row.key}
-                style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", padding: "0.85rem 1.1rem", cursor: "pointer", borderBottom: "1px solid var(--border-soft)" }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: "var(--text-base)", fontWeight: 500, color: "var(--fg)" }}>{row.label}</div>
-                  <div style={{ fontSize: "var(--text-xs)", color: "var(--fg-muted)", marginTop: "0.15rem", lineHeight: 1.4 }}>{row.desc}</div>
-                </div>
-                <span
-                  role="switch"
-                  aria-checked={prefs[row.key]}
-                  onClick={e => { e.preventDefault(); togglePref(row.key); }}
-                  style={{
-                    flexShrink: 0,
-                    width: "2.1rem", height: "1.2rem", borderRadius: "999px",
-                    background: prefs[row.key] ? "var(--accent)" : "var(--border)",
-                    position: "relative", transition: "background 0.18s", marginTop: "0.1rem",
-                  }}
-                >
-                  <span style={{
-                    position: "absolute", top: "0.15rem",
-                    left: prefs[row.key] ? "calc(100% - 1.05rem)" : "0.15rem",
-                    width: "0.9rem", height: "0.9rem", borderRadius: "50%",
-                    background: "var(--surface)", transition: "left 0.18s",
-                    boxShadow: "var(--shadow-xs)",
-                  }} />
-                </span>
-              </label>
-            ))}
-          </div>
-        </Panel>
+        <NotificationSettingsPanel prefs={prefs} onToggle={togglePref} onBack={setSettingsOpen ? () => setSettingsOpen(false) : undefined} />
       ) : (
         <div className="notifications-page">
           <section className="notifications-card">
@@ -721,9 +751,11 @@ export function NotificationsPage({ notifications, readIds, setReadIds, dismisse
                     Mark all as read
                   </button>
                 )}
-                <button type="button" className="notifications-settings-btn" onClick={() => setSettingsOpen(true)} title="Notification settings" aria-label="Notification settings">
-                  <MoreVertical size={13} />
-                </button>
+                {showSettingsShortcut && (
+                  <button type="button" className="notifications-settings-btn" onClick={openSettings} title="Notification settings" aria-label="Notification settings">
+                    <MoreVertical size={13} />
+                  </button>
+                )}
               </div>
             </div>
 

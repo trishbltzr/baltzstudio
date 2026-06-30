@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowRight, Bell, BookOpen, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, Clock, CreditCard, ExternalLink, Eye, FileSearch, FileText, Folder, Globe, LayoutDashboard, Link as LinkIcon, Lock, LockKeyhole, MessageSquare, Paperclip, PenLine, Pencil, Rocket, Send, Settings, ThumbsDown, ThumbsUp, User, Wand2, X, Zap, type LucideIcon } from "lucide-react";
+import { AlertCircle, ArrowRight, Bell, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, Clock, Compass, CreditCard, Flag, ExternalLink, Eye, FileSearch, FileText, Folder, Globe, Home, Link as LinkIcon, Lock, LockKeyhole, MessageSquare, Paperclip, PenLine, Pencil, Plus, Rocket, Send, Settings, ThumbsDown, ThumbsUp, User, Wand2, X, Zap, type LucideIcon } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import type { AuditPriority, Project, BrandIdentity, ClientNav, GateFeedback, Milestone, MilestoneStatus, Task } from "../types";
 import { DashboardSidebar } from "../components/DashboardSidebar";
@@ -6,12 +6,11 @@ import { StatGrid } from "../components/StatGrid";
 import { allTasksComplete, phaseProgress, phaseProgressMarkers, milestoneProgress, allGates, taskStatusDetail, gateStatusClass, gateStatusLabel, gateStatusDetail, isAuditMilestoneStage, lifecycleStage, auditCategoryLabel, planAccess, projectNextMoves } from "../lib/projectUtils";
 import { StatusBadge, MilestoneDot, ProgressBar, Panel, PanelHeader, Btn, RadialGauge, MicroBar, ProgressDots, ProgressRing, progressDotsFromCounts } from "../components/shared";
 import { PhaseDetailModal } from "../components/PhaseDetailModal";
-import { BrandGuidelinesPanel } from "../admin/AdminTabs";
 import { AccountMenu } from "../components/legal";
-import { type MobileNavItem, MobileTabBar, MoreSheet } from "../components/mobileNav";
+import { type MobileNavCenterAction, type MobileNavItem, MobileTabBar } from "../components/mobileNav";
 import { deriveClientNotifications, NotificationBell, NotificationsPage } from "../components/notifications";
 import { useIsMobile } from "../hooks/use-mobile";
-import { FileAssetHub } from "../components/FileAssetHub";
+import { FileAssetHub, type FileHubSectionId } from "../components/FileAssetHub";
 import { ContractModal } from "../components/ContractModal";
 import { MeetingScheduler, type MeetingDetails } from "../components/MeetingScheduler";
 import { CocoonAuditPreviewPopup } from "../components/CocoonAuditPreviewPopup";
@@ -1757,42 +1756,13 @@ export function ClientSettingsTab({ tab, ownerName, ownerEmail }: { tab: "notifi
   );
 }
 
-export function ClientSupportTab() {
-  const [msg, setMsg] = useState("");
-  const [sent, setSent] = useState(false);
-  return (
-    <Panel>
-      <PanelHeader title="Send a message" icon={MessageSquare} />
-      <div style={{ padding: "1.1rem 1.25rem", display: "grid", gap: "0.85rem" }}>
-        <div className="support-notice">Build-week feedback goes through your <strong>Reviews tab</strong>, not here. Use this for general questions only.</div>
-        {sent ? (
-          <div className="empty-state">
-            <div className="empty-state-icon" style={{ background: "oklch(0.92 0.075 150)", color: "oklch(0.38 0.09 160)" }}><Check /></div>
-            <strong>Message sent</strong>
-            <p>We'll get back to you via email within one business day.</p>
-            <Btn variant="ghost" size="sm" onClick={() => { setSent(false); setMsg(""); }}>Send another</Btn>
-          </div>
-        ) : (
-          <>
-            <div className="client-field" style={{ marginBottom: 0 }}>
-              <label>Your message</label>
-              <textarea rows={4} placeholder="What's on your mind?" value={msg} onChange={e => setMsg(e.target.value)} />
-            </div>
-            <Btn variant="primary" disabled={msg.trim().length === 0} onClick={() => setSent(true)}><Send size={13} />Send message</Btn>
-          </>
-        )}
-      </div>
-    </Panel>
-  );
-}
-
 export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskStatusChange, onFinishMilestone, onConfirmCocoonPayment, onLogout, cocoonComplete, collaborationLocked, ownerName, ownerEmail, initialNav, devOnboardingSeed, devOnboardingStorageMode = "default" }: { project: Project; onSubmitFeedback: (gateId: string, feedback: GateFeedback) => void; onBrandChange: (b: BrandIdentity) => void; onTaskStatusChange?: (taskId: string, status: Task["status"]) => void; onFinishMilestone?: (milestoneId: string) => void; onConfirmCocoonPayment?: () => void; onLogout: () => void; cocoonComplete?: boolean; collaborationLocked?: boolean; ownerName?: string; ownerEmail?: string; initialNav?: ClientNav; devOnboardingSeed?: OnboardingSeed; devOnboardingStorageMode?: OnboardingStorageMode; }) {
   const access = planAccess(project);
   const isPreCocoon = access.isPreCocoon || cocoonComplete === false;
   const isCollaborationLocked = collaborationLocked ?? access.buildLocked;
   const showAuditMode = access.showAuditMilestones;
   const isDeleted = access.isDeleted;
-  const initialClientNav = initialNav === "audit" ? undefined : initialNav;
+  const initialClientNav = initialNav === "audit" || initialNav === "support" ? undefined : initialNav;
   const [clientNav, setClientNavRaw] = useState<ClientNav>(initialClientNav ?? (isPreCocoon ? "cocoon" : "overview"));
   const [contractOpen, setContractOpen] = useState(false);
   const pendingReviews = useMemo(() => allGates(project).filter(g => g.gate.status === "sent").length, [project]);
@@ -1815,6 +1785,10 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
   const setClientNav = (nav: ClientNav) => {
     if (!canOpenClientNav(nav)) return;
     if (nav === "contract") { setContractOpen(true); return; }
+    if (nav === "support") {
+      window.dispatchEvent(new CustomEvent("iff-widget:open"));
+      return;
+    }
     setClientNavRaw(nav);
   };
 
@@ -1827,7 +1801,7 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
       setClientNavRaw(isPreCocoon ? "cocoon" : "overview");
     }
   }, [clientNav, isPreCocoon, access.stage]);
-  const titles: Record<ClientNav, string> = { cocoon: "Cocoon Consult", overview: "Overview", milestones: "Milestones", reviews: "Tasks", files: "Files", brand: "Assets", "brand-guidelines": "Brand Guidelines", contract: "Contract", audit: "Audit", support: "Support", notifications: "Notifications", billing: "Plan & Billing", settings: "Settings" };
+  const titles: Record<ClientNav, string> = { cocoon: "Cocoon Consult", overview: "Overview", milestones: "Milestones", reviews: "Tasks", files: "Files", brand: "Files", "brand-guidelines": "Files", contract: "Contract", audit: "Audit", support: "Support", notifications: "Notifications", billing: "Plan & Billing", settings: "Settings" };
 
   // Notification state lifted here so the Notifications nav page can use it
   const notifications = deriveClientNotifications(project);
@@ -1841,6 +1815,7 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [settingsTab, setSettingsTab] = useState<"notifications" | "general" | "profile">("notifications");
+  const [cocoonSidebarOpen, setCocoonSidebarOpen] = useState(false);
   const settingsTabs: Array<{ key: "notifications" | "general" | "profile"; label: string; icon: LucideIcon }> = [
     { key: "notifications", label: "Notifications", icon: Bell },
     { key: "general", label: "General", icon: Settings },
@@ -1849,6 +1824,8 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
 
   // When pre-Cocoon, always force nav to cocoon
   const activeNav = isPreCocoon ? "cocoon" : clientNav;
+  const clientFileHubFocus: FileHubSectionId | undefined = clientNav === "brand" ? "assets" : clientNav === "brand-guidelines" ? "brand-guidelines" : clientNav === "files" ? "assets" : undefined;
+  const mobilePlanLabel = project.workflow?.planLabel ?? project.plan?.name ?? "Winged in a Week";
 
   // ── Mobile bottom-nav (replaces the sidebar at ≤768px) ──
   // Build one ordered list mirroring ClientSidebar's nav rows (minus
@@ -1856,28 +1833,44 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
   // primary tabs, the rest fall into the "More" sheet. This naturally puts
   // "Cocoon Consult™" first (and everything else locked) for pre-Cocoon users.
   const isMobile = useIsMobile();
-  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  useEffect(() => {
+    const handleAssistantState = (event: Event) => {
+      const detail = (event as CustomEvent<{ isOpen?: boolean }>).detail;
+      setAssistantOpen(Boolean(detail?.isOpen));
+    };
+
+    window.addEventListener("iff-widget:state", handleAssistantState);
+    return () => window.removeEventListener("iff-widget:state", handleAssistantState);
+  }, []);
+  const toggleInFullFlightAssistant = () => {
+    window.dispatchEvent(new CustomEvent("iff-widget:toggle"));
+  };
+  const openInFullFlightAssistant = () => {
+    window.dispatchEvent(new CustomEvent("iff-widget:open"));
+  };
   // 4 primary slots (+ "More" appended by MobileTabBar = 5 total).
-  // Overview is always slot 3 (center) — gets the raised gradient bubble.
+  // The center slot is the raised AI action, matching the admin mobile shell.
   const clientMobilePrimary: MobileNavItem[] = isPreCocoon
     ? [
-        { key: "cocoon",         label: "Cocoon",        icon: BookOpen },
-        { key: "milestones",     label: "Milestones",     icon: ClipboardList, locked: true },
-        { key: "overview",       label: "Overview",       icon: LayoutDashboard, locked: true },
+        { key: "cocoon",         label: "Home",           icon: Compass },
         { key: "notifications",  label: "Notifications",  icon: Bell, count: unread, locked: true },
+        { key: "assistant",      label: "In Full Flight", icon: Plus, locked: true },
+        { key: "reviews",        label: "Tasks",          icon: CheckCircle2, locked: true },
       ]
     : [
-        { key: "reviews",        label: "Tasks",          icon: CheckCircle2, count: pendingReviews, locked: !access.tasks },
-        { key: "milestones",     label: "Milestones",     icon: ClipboardList, locked: !access.milestones },
-        { key: "overview",       label: "Overview",       icon: LayoutDashboard, locked: !access.overview },
+        { key: "overview",       label: "Home",           icon: Home, locked: !access.overview },
         { key: "notifications",  label: "Notifications",  icon: Bell, count: unread, locked: !access.notifications },
+        { key: "assistant",      label: assistantOpen ? "Close In Full Flight" : "In Full Flight", icon: Plus, action: toggleInFullFlightAssistant, toggled: assistantOpen },
+        { key: "reviews",        label: "Tasks",          icon: CheckCircle2, count: pendingReviews, locked: !access.tasks },
       ];
-  // Overflow items live in the More sheet
-  const clientMobileMore: MobileNavItem[] = [
-    { key: "files",            label: "Files",            icon: Folder,     locked: !access.files },
-    { key: "billing",          label: "Billing",          icon: CreditCard, locked: !access.billing },
-    { key: "support",          label: "Support",          icon: MessageSquare, locked: !access.support },
-  ];
+  const clientMobileCenterActions: MobileNavCenterAction[] = isPreCocoon
+    ? []
+    : [
+        { key: "files", label: "Files", icon: Folder, action: () => setClientNav("files"), locked: !access.files },
+        { key: "support", label: "Support", icon: MessageSquare, action: openInFullFlightAssistant, locked: !access.support },
+        { key: "billing", label: "Billing", icon: CreditCard, action: () => setClientNav("billing"), locked: !access.billing },
+      ];
   const handleClientNavSelect = (key: string) => setClientNav(key as ClientNav);
   const openNotificationTarget = (phaseId?: string, type?: string) => {
     if (type === "gate_sent") {
@@ -1894,20 +1887,20 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
 
   const clientNavSections = [
     ...(isPreCocoon ? [{ label: "Getting Started", items: [
-      { id: "cocoon", label: "Cocoon Consult", icon: BookOpen, iconSize: 16 },
+      { id: "cocoon", label: "Cocoon Consult", icon: Compass, iconSize: 16 },
     ]}] : []),
     { label: "Workspace", items: [
-      { id: "overview",   label: "Overview",   icon: LayoutDashboard, locked: !access.overview },
+      { id: "overview",   label: "Overview",   icon: Home, locked: !access.overview },
       { id: "reviews",    label: "Tasks",      icon: CheckCircle2, count: pendingReviews, locked: !access.tasks },
     ]},
     { label: "Collaboration", items: [
-      { id: "milestones",    label: "Milestones",    icon: ClipboardList, locked: !access.milestones },
+      { id: "milestones",    label: "Milestones",    icon: Flag, locked: !access.milestones },
       { id: "files",         label: "Files",         icon: Folder,       locked: !access.files, children: FILE_WORKSPACE_ITEMS.map(item => ({
         ...item,
         id: item.id === "assets" ? "brand" : item.id,
-        locked: item.id === "assets" ? !access.assets : item.id === "brand-guidelines" ? !access.brandGuidelines : !access.contract,
+        locked: item.id === "assets" ? !access.assets : !access.brandGuidelines,
       })) },
-      { id: "notifications", label: "Notifications", icon: Bell,         count: unread,         locked: !access.notifications },
+      { id: "support",       label: "Support",       icon: MessageSquare, locked: !access.support },
     ]},
   ];
 
@@ -1932,7 +1925,6 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
           footerSub={project.clientEmail}
           footerItems={[
             { key: "billing", label: "Plan & Billing", icon: CreditCard,    onClick: () => setClientNav("billing"),      locked: !access.billing },
-            { key: "support", label: "Support",        icon: MessageSquare, onClick: () => setClientNav("support"),      locked: !access.support },
             { key: "settings", label: "Settings",      icon: Settings,      onClick: () => setClientNav("settings") },
           ]}
           footerShowPrivacyLinks
@@ -1956,6 +1948,33 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
               <div className="dashboard-topbar-title">{titles[activeNav]}</div>
             </div>
           </div>
+          {isMobile && (
+            <div className="dashboard-topbar-actions dashboard-topbar-actions--mobile">
+              {activeNav === "cocoon" && (
+              <button
+                type="button"
+                className="cocoon-mobile-sidebar-trigger"
+                onClick={() => setCocoonSidebarOpen(true)}
+                aria-expanded={cocoonSidebarOpen}
+              >
+                <Compass size={14} />
+                <span>Steps</span>
+              </button>
+              )}
+              <AccountMenu
+                avatarLabel={ownerName ? ownerName.slice(0, 2).toUpperCase() : project.clientInitials}
+                name={ownerName ?? project.clientName}
+                subtitle={ownerEmail ?? project.clientEmail}
+                onLogout={onLogout}
+                showPrivacyLinks
+                collapsed
+                placement="bottom"
+                items={[
+                  { key: "settings", label: "Settings", icon: Settings, onClick: () => setClientNav("settings") },
+                ]}
+              />
+            </div>
+          )}
           {!isMobile && (
             <NotificationBell
               notifications={notifications}
@@ -1969,6 +1988,14 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
             />
           )}
         </div>
+        {isMobile && !isPreCocoon && (
+          <div className="dashboard-mobile-context-strip" aria-label="Workspace context">
+            <div className="dashboard-mobile-context-item dashboard-mobile-context-item--plan">
+              <span>Plan</span>
+              <strong>{mobilePlanLabel}</strong>
+            </div>
+          </div>
+        )}
 
         {/* Cocoon embed fills the workspace without dashboard-main padding */}
         {activeNav === "cocoon" ? (
@@ -1977,6 +2004,8 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
             devSeed={devOnboardingSeed}
             storageMode={devOnboardingStorageMode}
             onConfirmCocoonPayment={onConfirmCocoonPayment}
+            cocoonSidebarOpen={cocoonSidebarOpen}
+            onCocoonSidebarOpenChange={setCocoonSidebarOpen}
           />
         ) : (
         <>
@@ -1997,10 +2026,10 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
             {clientNav === "overview" && <ClientOverviewTab project={project} onNavChange={setClientNav} />}
             {clientNav === "milestones" && <ClientMilestonesTab project={project} auditMode={showAuditMode} onTaskStatusChange={onTaskStatusChange} onFinishMilestone={onFinishMilestone} />}
             {clientNav === "reviews" && <ClientReviewsTab project={project} onSubmitFeedback={onSubmitFeedback} />}
-            {isClientFileHubView(clientNav) && <FileAssetHub project={project} role="client" />}
-            {clientNav === "brand-guidelines" && <BrandGuidelinesPanel project={project} onBrandChange={onBrandChange} />}
+            {(isClientFileHubView(clientNav) || clientNav === "brand-guidelines") && (
+              <FileAssetHub project={project} role="client" focusSection={clientFileHubFocus} />
+            )}
             {/* contract opens as modal, not a page */}
-            {clientNav === "support" && <ClientSupportTab />}
             {clientNav === "settings" && <ClientSettingsTab tab={settingsTab} ownerName={ownerName} ownerEmail={ownerEmail} />}
             {clientNav === "billing" && <ClientBillingTab project={project} />}
             {clientNav === "notifications" && (
@@ -2034,37 +2063,12 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
         <>
           <MobileTabBar
             items={clientMobilePrimary}
-            centerKey="overview"
+            centerKey="assistant"
             activeKey={activeNav}
             onSelect={handleClientNavSelect}
-            moreActive={moreSheetOpen || clientMobileMore.some(i => i.key === activeNav)}
-            onMore={() => setMoreSheetOpen(true)}
+            centerActions={clientMobileCenterActions}
+            endItem={{ key: "milestones", label: "Milestones", icon: Flag, locked: !access.milestones }}
           />
-          {moreSheetOpen && (
-            <MoreSheet
-              title="More"
-              items={clientMobileMore}
-              activeKey={activeNav}
-              onSelect={handleClientNavSelect}
-              onClose={() => setMoreSheetOpen(false)}
-              footer={
-                <AccountMenu
-                  avatarLabel={ownerName ? ownerName.slice(0, 2).toUpperCase() : project.clientInitials}
-                  name={ownerName ?? project.clientName}
-                  subtitle={ownerEmail ?? project.clientEmail}
-                  onLogout={onLogout}
-                  showPrivacyLinks
-                  items={[
-                    // Close the sheet on navigation too — leaving it open over
-                    // the destination page would read as "stuck", not intentional.
-                    { key: "billing", label: "Plan & Billing", icon: CreditCard, onClick: () => { setMoreSheetOpen(false); setClientNav("billing"); }, locked: !access.billing },
-                    { key: "support", label: "Support", icon: MessageSquare, onClick: () => { setMoreSheetOpen(false); setClientNav("support"); }, locked: !access.support },
-                    { key: "settings", label: "Settings", icon: Settings, onClick: () => { setMoreSheetOpen(false); setClientNav("settings"); } },
-                  ]}
-                />
-              }
-            />
-          )}
         </>
       )}
     </div>
@@ -2076,7 +2080,21 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
 // (same logic as CocoonOnboardingPage, renders inside the dashboard shell)
 // ─────────────────────────────────────────────
 
-export function ClientCocoonEmbedTab({ onComplete, onConfirmCocoonPayment, devSeed, storageMode = "default" }: { onComplete?: () => void; onConfirmCocoonPayment?: () => void; devSeed?: OnboardingSeed; storageMode?: OnboardingStorageMode }) {
+export function ClientCocoonEmbedTab({
+  onComplete,
+  onConfirmCocoonPayment,
+  devSeed,
+  storageMode = "default",
+  cocoonSidebarOpen = false,
+  onCocoonSidebarOpenChange,
+}: {
+  onComplete?: () => void;
+  onConfirmCocoonPayment?: () => void;
+  devSeed?: OnboardingSeed;
+  storageMode?: OnboardingStorageMode;
+  cocoonSidebarOpen?: boolean;
+  onCocoonSidebarOpenChange?: (open: boolean) => void;
+}) {
   const storageKey = onboardingStorageKey(storageMode);
   const [initialWorkflowState] = useState(() => getInitialOnboardingState(devSeed, storageKey));
   const [answers, setAnswers] = useState<AnswerState>(() => initialWorkflowState.answers);
@@ -2271,7 +2289,7 @@ export function ClientCocoonEmbedTab({ onComplete, onConfirmCocoonPayment, devSe
   }));
 
   return (
-    <div className="cocoon-embed">
+    <div className={`cocoon-embed ${cocoonSidebarOpen ? "is-sidebar-open" : ""}`}>
       {selectedAuditPhaseId && (
         <PhaseDetailModal
           phaseId={selectedAuditPhaseId}
@@ -2279,6 +2297,14 @@ export function ClientCocoonEmbedTab({ onComplete, onConfirmCocoonPayment, devSe
           project={cocoonAuditProject}
           onClose={() => setSelectedAuditPhaseId(null)}
           auditCategories={SHARED_AUDIT_CATEGORIES}
+        />
+      )}
+      {cocoonSidebarOpen && (
+        <button
+          type="button"
+          className="cocoon-mobile-sidebar-backdrop"
+          aria-label="Close Cocoon steps"
+          onClick={() => onCocoonSidebarOpenChange?.(false)}
         />
       )}
 
@@ -2289,6 +2315,7 @@ export function ClientCocoonEmbedTab({ onComplete, onConfirmCocoonPayment, devSe
         onSelectStep={stepId => {
           const step = stepsWithStatus.find(item => item.id === stepId);
           if (step) selectStep(step);
+          onCocoonSidebarOpenChange?.(false);
         }}
         onResetPreview={resetToStartPreview}
         onSkipToFinalPreview={skipToFinalPreview}

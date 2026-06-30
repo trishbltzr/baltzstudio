@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, Bot, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed, Clock3, Coins, Lock, MessageSquareText, Pencil, Plus, Send, X } from "lucide-react";
+import { ArrowUpRight, Bot, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed, Clock3, Coins, Lock, MessageSquareText, Plus, Send, X } from "lucide-react";
 import {
   classifyPrototypeRequest,
   getPrototypePreviewPath,
@@ -111,9 +111,7 @@ export function InFullFlightAssistantWidget({
   const firstName = clientFirstName(workspace.clientName);
 
   useEffect(() => {
-    return () => {
-      timersRef.current.forEach(timer => window.clearTimeout(timer));
-    };
+    return () => clearTimers();
   }, []);
 
   useEffect(() => {
@@ -163,6 +161,31 @@ export function InFullFlightAssistantWidget({
     thread.scrollTop = thread.scrollHeight;
   }, [messages, requests]);
 
+  useEffect(() => {
+    const openWidget = () => {
+      setIsOpen(true);
+      setScreen(messages.length > 0 ? "chat" : "intro");
+    };
+    const toggleWidget = () => {
+      setIsOpen(prev => {
+        const nextOpen = !prev;
+        if (nextOpen) setScreen(messages.length > 0 ? "chat" : "intro");
+        return nextOpen;
+      });
+    };
+
+    window.addEventListener("iff-widget:open", openWidget);
+    window.addEventListener("iff-widget:toggle", toggleWidget);
+    return () => {
+      window.removeEventListener("iff-widget:open", openWidget);
+      window.removeEventListener("iff-widget:toggle", toggleWidget);
+    };
+  }, [messages.length]);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("iff-widget:state", { detail: { isOpen } }));
+  }, [isOpen]);
+
   const latestRequest = requests[0] ?? null;
   const activePreviewUrl = activePreviewId ? getPrototypePreviewPath(workspace.slug, activePreviewId) : null;
   const introRequests = requests.slice(0, 3);
@@ -181,32 +204,31 @@ export function InFullFlightAssistantWidget({
   }, [messages, requests]);
   const remainingFreeTokens = Math.max(0, freeTokenAllowance - tokenUsage);
 
-  const queueCounts = useMemo(
-    () => ({
-      ready: requests.filter(r => r.status === "preview_ready").length,
-      held: requests.filter(r =>
-        r.status === "out_of_scope" || r.status === "new_revision_round" || r.status === "needs_clarification",
-      ).length,
-    }),
-    [requests],
-  );
-
   function addMessage(message: PrototypeMessage) {
     setMessages(prev => [...prev, message]);
   }
 
+  function clearTimers() {
+    timersRef.current.forEach(timer => window.clearTimeout(timer));
+    timersRef.current = [];
+  }
+
   function queueTimer(callback: () => void, delay: number) {
-    const timer = window.setTimeout(callback, delay);
+    const timer = window.setTimeout(() => {
+      timersRef.current = timersRef.current.filter(activeTimer => activeTimer !== timer);
+      callback();
+    }, delay);
     timersRef.current.push(timer);
   }
 
   function openChat(prefill?: string) {
     setScreen("chat");
     if (typeof prefill === "string") setInput(prefill);
-    setTimeout(() => composerRef.current?.focus(), 80);
+    queueTimer(() => composerRef.current?.focus(), 80);
   }
 
   function startNewThread() {
+    clearTimers();
     setMessages([]);
     setRequests([]);
     setActivePreviewId(null);
@@ -346,7 +368,7 @@ export function InFullFlightAssistantWidget({
   }
 
   return (
-    <section className={shellClassName}>
+    <section className={`${shellClassName} ${isOpen ? "is-open" : ""}`.trim()}>
       <button
         type="button"
         className={`iff-widget-launcher ${isOpen ? "is-open" : ""}`}
@@ -456,8 +478,8 @@ export function InFullFlightAssistantWidget({
                     <span>{remainingFreeTokens} of {freeTokenAllowance} tokens left</span>
                   </div>
                   <button type="button" className="iff-intro-start" onClick={() => openChat()}>
+                    <Plus size={13} />
                     New request
-                    <ArrowUpRight size={12} />
                   </button>
                 </div>
               </div>

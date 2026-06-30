@@ -88,7 +88,7 @@ export function planAccess(project: Project) {
     contract: isBuildStage,
     notifications: !isPreCocoon && !isDeleted,
     billing: !isPreCocoon && !isDeleted,
-    support: isBuildStage,
+    support: !isDeleted,
     users: !isDeleted,
   };
 }

@@ -97,6 +97,18 @@
   left: 80px;
 }
 
+/* Tablet range: the sidebar grid narrows (see dashboard-shell.css), so keep the
+   collapse toggle on the sidebar's right edge instead of drifting into the
+   workspace and overlapping the page title. */
+@media (min-width: 768px) and (max-width: 1100px) {
+  .sidebar-collapse-btn {
+    left: 232px;
+  }
+  .client-dashboard-shell.is-collapsed .sidebar-collapse-btn {
+    left: 72px;
+  }
+}
+
 .dashboard-brand-row {
   display: flex;
   align-items: center;
@@ -628,10 +640,50 @@
   background: var(--surface);
   box-shadow: var(--shadow-popover);
   overflow: hidden;
-  /* 1100: must outrank the MoreSheet overlay (1000/1001) — the popover's
+  /* 1100: must outrank the bottom-sheet overlay (1000/1001) — the popover's
      trigger lives in the sheet's footer on mobile, so when both are open the
      popover has to render on top of the sheet panel, not behind it. */
   z-index: 1100;
+}
+.dashboard-account-popover-client {
+  display: flex;
+  align-items: center;
+  gap: 0.58rem;
+  padding: 0.62rem 0.78rem;
+  border-bottom: 1px solid var(--border-soft);
+  background: color-mix(in srgb, white 92%, var(--surface) 8%);
+}
+.dashboard-account-popover-client > div:not(.dashboard-avatar) {
+  min-width: 0;
+}
+.dashboard-account-popover-client strong {
+  display: block;
+  overflow: hidden;
+  color: var(--fg);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dashboard-account-popover-eyebrow {
+  display: block;
+  margin-bottom: 0.16rem;
+  color: var(--fg-faint);
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.dashboard-account-popover-client small {
+  display: block;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: 0.64rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .dashboard-account-popover button {
   display: flex;

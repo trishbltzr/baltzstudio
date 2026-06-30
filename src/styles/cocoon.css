@@ -41,6 +41,11 @@
   max-width: 680px;
 }
 
+.cocoon-mobile-sidebar-trigger,
+.cocoon-mobile-sidebar-backdrop {
+  display: none;
+}
+
 .cocoon-final-screen {
   display: grid;
   gap: 1rem;
@@ -733,23 +738,191 @@
   }
 }
 
-/* Small screens — stack vertically */
+/* Small screens — keep the form focused, move steps into an openable popover */
 @media (max-width: 640px) {
   .cocoon-embed {
-    flex-direction: column;
     overflow-y: auto;
     overflow-x: hidden;
   }
-  .cocoon-widget-col {
-    width: 100%;
-    padding: 0.75rem 0.75rem 0.35rem;
+
+  .cocoon-mobile-sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 82;
+    display: block;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
   }
+
+  .cocoon-mobile-sidebar-trigger {
+    position: static;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    width: auto;
+    min-height: 2.15rem;
+    margin: 0;
+    padding: 0 0.65rem;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--surface) 96%, var(--accent-soft) 4%);
+    color: var(--fg);
+    box-shadow: none;
+    font: inherit;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .dashboard-topbar-actions:has(.cocoon-mobile-sidebar-trigger) {
+    align-items: center;
+    align-self: center;
+  }
+
+  .cocoon-mobile-sidebar-trigger span {
+    flex: 0 0 auto;
+    text-align: left;
+  }
+
+  .cocoon-widget-col {
+    position: fixed;
+    top: 4.7rem;
+    bottom: auto;
+    left: auto;
+    right: 0.75rem;
+    z-index: 83;
+    width: calc(100vw - 1.5rem);
+    max-height: min(34rem, calc(100vh - 7rem));
+    padding: 0.55rem;
+    border: 1px solid var(--border-soft);
+    border-radius: 1.15rem;
+    background: color-mix(in srgb, var(--surface) 96%, var(--accent-soft) 4%);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-0.35rem) scale(0.98);
+    transform-origin: top right;
+    transition: opacity 160ms ease, transform 160ms ease;
+    box-shadow: 0 22px 54px color-mix(in srgb, var(--fg) 13%, transparent 87%);
+    overscroll-behavior: contain;
+  }
+
+  .cocoon-embed.is-sidebar-open .cocoon-widget-col {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+  }
+
   .cocoon-form-col {
-    padding: 0.5rem 0.75rem 1.5rem;
+    width: 100%;
+    padding: 0.75rem 0.75rem calc(1.5rem + env(safe-area-inset-bottom));
   }
   .cocoon-form-inner {
     max-width: 100%;
   }
+
+  .cocoon-prompt-form {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .cocoon-prompt-card {
+    border-radius: 1rem !important;
+  }
+
+  .cocoon-prompt-head {
+    padding: 1rem 1rem 0.85rem !important;
+  }
+
+  .cocoon-prompt-meta {
+    flex-wrap: wrap;
+    row-gap: 0.15rem;
+    margin-bottom: 0.5rem !important;
+    font-size: var(--text-xs) !important;
+  }
+
+  .cocoon-prompt-title {
+    font-size: var(--text-xl) !important;
+    line-height: 1.25 !important;
+  }
+
+  .cocoon-prompt-subtitle {
+    font-size: var(--text-sm) !important;
+    line-height: 1.35;
+  }
+
+  .cocoon-prompt-body {
+    padding: 1rem !important;
+  }
+
+  .cocoon-checklist-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.45rem !important;
+  }
+
+  .cocoon-checklist-option {
+    min-height: 2.75rem;
+    padding: 0.65rem 0.75rem !important;
+    gap: 0.65rem !important;
+  }
+
+  .cocoon-checklist-option-text {
+    font-size: var(--text-base) !important;
+    font-weight: 500 !important;
+    line-height: 1.25;
+  }
+
+  .cocoon-answer-input,
+  .cocoon-answer-field {
+    min-height: 2.9rem;
+    font-size: var(--text-base) !important;
+  }
+
+  .cocoon-answer-input {
+    padding: 0.75rem 0.85rem !important;
+  }
+
+  .cocoon-answer-field {
+    min-height: 9rem;
+    line-height: 1.5;
+  }
+
+  .cocoon-prompt-actions {
+    align-items: stretch !important;
+    gap: 0.5rem !important;
+    margin-top: 0 !important;
+  }
+
+  .cocoon-prompt-action {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: 0.85rem !important;
+    font-size: var(--text-sm) !important;
+    white-space: nowrap;
+  }
+
+  .cocoon-prompt-action--primary {
+    flex: 1 1 0;
+  }
+
+  .cocoon-prompt-shortcut {
+    display: none !important;
+  }
+
+  .cocoon-unsure-toggle {
+    align-items: flex-start !important;
+    margin-top: 0 !important;
+    padding: 0 0.1rem;
+    line-height: 1.35;
+  }
+
+  .cocoon-unsure-toggle span {
+    font-size: var(--text-sm) !important;
+  }
+
   .cocoon-hover-popup {
     display: none;
   }

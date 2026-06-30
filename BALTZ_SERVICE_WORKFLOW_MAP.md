@@ -8,6 +8,10 @@ Create a client-facing service workflow map that shows the full journey from fir
 
 This file should stay practical and editable. If something does not match the current system, revise the source here first before updating any visual artifact.
 
+Related planning docs:
+
+- `BALTZ_CLIENT_CHAT_PREVIEW_MVP.md` for the In Full Flight client chat-to-edit product model and stack.
+
 ## Current Website Development Process Snapshot
 
 Use this section as the plain-English view of where the website-development journey is now and what stages come next.

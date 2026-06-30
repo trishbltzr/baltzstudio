@@ -737,12 +737,42 @@
 }
 
 @media (max-width: 560px) {
+  .welcome-card {
+    padding: 1rem;
+  }
   .welcome-card-main {
-    align-items: flex-start;
-    flex-direction: column;
+    align-items: center;
+    flex-direction: row;
+    gap: 0.75rem;
+  }
+  .welcome-kicker {
+    font-size: var(--text-sm);
+  }
+  .welcome-card h2 {
+    font-size: clamp(1.15rem, 7vw, 1.45rem);
+    line-height: 1.05;
+  }
+  .welcome-card-copy p {
+    font-size: var(--text-sm);
+    line-height: 1.3;
   }
   .welcome-progress-pie {
-    justify-items: start;
+    justify-items: end;
+    min-width: 4.9rem;
+    flex: 0 0 4.9rem;
+  }
+  .welcome-progress-pie .speedometer-wrap {
+    min-width: 4.9rem;
+  }
+  .welcome-progress-pie .speedometer-gauge {
+    width: 4.65rem;
+    height: 3.3rem;
+  }
+  .welcome-progress-pie .speedometer-wrap strong {
+    font-size: 0.88rem;
+  }
+  .welcome-progress-pie .speedometer-wrap > span {
+    font-size: 0.62rem;
   }
   .overview-next-summary {
     grid-template-columns: 1fr;

@@ -4,7 +4,20 @@ import { createPortal } from "react-dom";
 
 export type AccountMenuItem = { key: string; label: string; icon: LucideIcon; onClick: () => void; locked?: boolean };
 
-export function AccountMenu({ avatarLabel, name, subtitle, items, onLogout, showPrivacyLinks, collapsed }: {
+export function AccountMenu({
+  avatarLabel,
+  name,
+  subtitle,
+  items,
+  onLogout,
+  showPrivacyLinks,
+  collapsed,
+  placement = "top",
+  popoverEyebrow,
+  popoverAvatarLabel,
+  popoverName,
+  popoverSubtitle,
+}: {
   avatarLabel: string;
   name: string;
   subtitle: string;
@@ -12,6 +25,11 @@ export function AccountMenu({ avatarLabel, name, subtitle, items, onLogout, show
   onLogout: () => void;
   showPrivacyLinks?: boolean;
   collapsed?: boolean;
+  placement?: "top" | "bottom";
+  popoverEyebrow?: string;
+  popoverAvatarLabel?: string;
+  popoverName?: string;
+  popoverSubtitle?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [legalDoc, setLegalDoc] = useState<LegalDocKind | null>(null);
@@ -32,8 +50,9 @@ export function AccountMenu({ avatarLabel, name, subtitle, items, onLogout, show
     const width = Math.max(r.width, 208);
     let left = r.left;
     if (left + width > window.innerWidth - margin) left = Math.max(margin, window.innerWidth - width - margin);
-    setCoords({ top: r.top - 8, left, width });
-  }, []);
+    const top = placement === "bottom" ? r.bottom + 8 : r.top - 8;
+    setCoords({ top, left, width });
+  }, [placement]);
 
   useEffect(() => {
     if (!open) return;
@@ -64,8 +83,16 @@ export function AccountMenu({ avatarLabel, name, subtitle, items, onLogout, show
         <div
           className="dashboard-account-popover"
           ref={panelRef}
-          style={{ top: coords.top, left: coords.left, width: coords.width, transform: "translateY(-100%)" }}
+          style={{ top: coords.top, left: coords.left, width: coords.width, transform: placement === "top" ? "translateY(-100%)" : undefined }}
         >
+          <div className="dashboard-account-popover-client">
+            <div className="dashboard-avatar">{popoverAvatarLabel ?? avatarLabel}</div>
+            <div>
+              {popoverEyebrow && <span className="dashboard-account-popover-eyebrow">{popoverEyebrow}</span>}
+              <strong>{popoverName ?? name}</strong>
+              <small>{popoverSubtitle ?? subtitle}</small>
+            </div>
+          </div>
           {items.map(item => {
             const Icon = item.icon;
             return (

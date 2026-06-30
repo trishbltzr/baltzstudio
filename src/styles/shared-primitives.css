@@ -107,7 +107,6 @@
   background: var(--border);
 }
 
-.dashboard-more-sheet-item svg,
 .dashboard-nav-item svg {
   width: 1.05rem;
   height: 1.05rem;
@@ -116,7 +115,6 @@
   color: var(--fg);
 }
 
-.dashboard-more-sheet-item.is-active,
 .sidebar-child-popover-item.is-active {
   background: linear-gradient(90deg, oklch(0.78 0.11 22), oklch(0.7 0.13 18));
   color: white;

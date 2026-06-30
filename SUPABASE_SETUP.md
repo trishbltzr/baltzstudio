@@ -1,6 +1,6 @@
 # Supabase Setup
 
-Supabase is installed in the app, and the live dashboard now has a database-backed state table for project/task persistence.
+Supabase is installed in the app, and the live dashboard now has database-backed persistence for project/task state plus per-user project selection.
 
 ## Project
 
@@ -24,20 +24,27 @@ Use the publishable key for browser/client code. Do not expose a secret key or s
 - `src/lib/supabase/client.ts` creates the browser Supabase client for Client Components.
 - `src/lib/supabase/server.ts` creates the cookie-aware server Supabase client for Server Components, Server Actions, and Route Handlers.
 - `src/lib/supabase/types.ts` is a placeholder for generated database types once the schema exists.
-- `app/api/dashboard-state/route.ts` reads and writes the dashboard state snapshot.
+- `app/api/dashboard-state/route.ts` reads and writes scoped dashboard persistence.
+- `src/lib/dashboardPersistence.ts` keeps the scope helpers and merge logic aligned between the API and dashboard page.
 
 ## Database
 
-The `public.dashboard_state` table stores the current dashboard project state as JSON.
+The dashboard now uses two scoped tables:
 
-Current columns:
+- `public.dashboard_project_state`
+  - `project_id`
+  - `project`
+  - `client_email`
+  - `updated_at`
 
-- `id`
-- `projects`
-- `selected_project_id`
-- `updated_at`
+- `public.dashboard_user_state`
+  - `user_email`
+  - `selected_project_id`
+  - `updated_at`
 
-RLS is enabled. The current policy allows the deployed dashboard to read/write the single `default` state row with the publishable key. This is enough for the current demo-style dashboard persistence, but the production-grade next step is Supabase Auth plus user-specific ownership policies.
+The legacy `public.dashboard_state` singleton row is left in place as a migration backup, but the dashboard route no longer reads or writes it.
+
+RLS is enabled on the new tables. Because the current preview login is still a demo `sessionStorage` flow rather than Supabase Auth, the new policies intentionally preserve the existing anon-access preview behavior while the app scopes selection by user email and project state by workspace/project row. The production-grade next step is still Supabase Auth plus user-specific ownership policies.
 
 ## Next Safe Stage
 

@@ -73,15 +73,15 @@
   position: relative;
   display: grid;
   place-items: center;
-  width: 4.5rem;
-  height: 4.5rem;
-  animation: preloaderMarkIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
+  width: 4.6rem;
+  height: 4.6rem;
+  animation: preloaderMarkIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
 }
 
 @keyframes preloaderMarkIn {
   from {
     opacity: 0;
-    transform: scale(0.8);
+    transform: scale(0.82);
   }
   to {
     opacity: 1;
@@ -89,51 +89,67 @@
   }
 }
 
-.page-preloader-ring {
+/* Soft halo that breathes behind the mark. */
+.page-preloader-glow {
   position: absolute;
-  inset: 0;
-  border: 2px solid color-mix(in srgb, var(--accent-soft) 40%, transparent 60%);
-  border-top-color: var(--accent);
+  inset: -0.55rem;
   border-radius: 50%;
-  animation: preloaderSpin 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--accent) 20%, transparent 80%),
+    transparent 62%
+  );
+  animation: preloaderGlow 2.4s ease-in-out infinite;
 }
 
-.page-preloader-ring--outer {
-  inset: -0.35rem;
-  border-width: 1.5px;
-  border-color: color-mix(in srgb, var(--accent-soft) 22%, transparent 78%);
-  border-top-color: color-mix(in srgb, var(--accent) 45%, white 55%);
-  animation: preloaderSpinReverse 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+@keyframes preloaderGlow {
+  0%, 100% { opacity: 0.45; transform: scale(0.94); }
+  50% { opacity: 0.9; transform: scale(1.06); }
+}
+
+/* Single smooth conic sweep, masked into a thin ring. */
+.page-preloader-arc {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 90deg,
+    transparent 6%,
+    color-mix(in srgb, var(--accent) 55%, white 45%) 48%,
+    var(--accent) 88%,
+    transparent 100%
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2.5px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2.5px));
+  animation: preloaderSpin 0.95s linear infinite;
 }
 
 @keyframes preloaderSpin {
   to { transform: rotate(360deg); }
 }
 
-@keyframes preloaderSpinReverse {
-  to { transform: rotate(-360deg); }
-}
-
 .page-preloader-mark {
   position: relative;
   z-index: 1;
-  width: 3.15rem;
-  height: 3.15rem;
+  width: 3.2rem;
+  height: 3.2rem;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: var(--fg);
+  background: linear-gradient(150deg, color-mix(in srgb, var(--fg) 88%, var(--accent) 12%), var(--fg));
   color: var(--surface);
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   font-weight: 500;
   letter-spacing: 0;
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--fg) 15%, transparent 85%);
-  animation: preloaderMarkPulse 2s ease-in-out infinite;
+  box-shadow:
+    0 6px 18px color-mix(in srgb, var(--fg) 16%, transparent 84%),
+    0 0 0 1px oklch(1 0 0 / 0.06) inset;
+  animation: preloaderBreathe 2.4s ease-in-out infinite;
 }
 
-@keyframes preloaderMarkPulse {
-  0%, 100% { box-shadow: 0 4px 16px color-mix(in srgb, var(--fg) 15%, transparent 85%); }
-  50% { box-shadow: 0 4px 24px color-mix(in srgb, var(--accent) 22%, transparent 78%); }
+@keyframes preloaderBreathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
 }
 
 .page-preloader-copy {
@@ -171,6 +187,62 @@
   font-size: var(--text-sm);
   font-weight: 500;
   line-height: 1.3;
+}
+
+/* Indeterminate progress sliver for a sense of forward motion. */
+.page-preloader-bar {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 2px;
+  margin-top: 0.15rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border-soft) 45%, transparent 55%);
+  animation: preloaderCopyIn 0.5s ease-out 0.6s both;
+}
+
+.page-preloader-bar span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 38%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--accent) 85%, white 15%),
+    transparent
+  );
+  animation: preloaderBar 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes preloaderBar {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(365%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-preloader,
+  .page-preloader-card,
+  .page-preloader-mark-wrap,
+  .page-preloader-copy,
+  .page-preloader-bar {
+    animation-duration: 0.01ms;
+    animation-delay: 0ms;
+  }
+  .page-preloader-arc,
+  .page-preloader-glow,
+  .page-preloader-mark {
+    animation: none;
+  }
+  .page-preloader-glow { opacity: 0.7; }
+  .page-preloader-bar span {
+    width: 100%;
+    opacity: 0.5;
+    animation: none;
+  }
 }
 
 /* Legacy compact card fallback kept for older route markup. */

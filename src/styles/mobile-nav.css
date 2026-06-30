@@ -16,68 +16,443 @@
   .client-dashboard-shell,
   .client-dashboard-shell.is-collapsed {
     grid-template-columns: minmax(0, 1fr);
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+  .dashboard-workspace {
+    min-height: 0;
+    overflow: hidden;
   }
   .dashboard-sidebar {
     display: none;
   }
   .dashboard-topbar {
-    padding: 0.6rem 1rem;
+    padding: 0.52rem 1rem;
     min-height: 3.75rem;
+  }
+  .dashboard-topbar-left {
+    min-width: 0;
+    max-width: 8.8rem;
+    padding-right: 0.35rem;
+  }
+  .dashboard-topbar-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dashboard-topbar-actions--mobile {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-left: auto;
+  }
+  .dashboard-topbar-actions.admin-project-actions {
+    display: none;
+  }
+  .dashboard-mobile-topbar-account {
+    position: fixed;
+    top: 0.68rem;
+    right: 1rem;
+    z-index: 55;
+  }
+  .dashboard-topbar-actions--mobile .dashboard-account-menu,
+  .dashboard-mobile-topbar-account .dashboard-account-menu {
+    flex-shrink: 0;
+  }
+  .dashboard-topbar-actions--mobile .dashboard-account-trigger,
+  .dashboard-mobile-topbar-account .dashboard-account-trigger {
+    width: 2.1rem;
+    height: 2.1rem;
+    margin: 0;
+    padding: 0;
+    justify-content: center;
+    border-radius: 999px;
+    background: color-mix(in srgb, white 88%, var(--surface) 12%);
+    border-color: var(--border-soft);
+    box-shadow: 0 6px 14px color-mix(in srgb, var(--fg) 6%, transparent 94%);
+  }
+  .dashboard-topbar-actions--mobile .dashboard-account-trigger > div:not(.dashboard-avatar),
+  .dashboard-mobile-topbar-account .dashboard-account-trigger > div:not(.dashboard-avatar),
+  .dashboard-topbar-actions--mobile .dashboard-account-chevron,
+  .dashboard-mobile-topbar-account .dashboard-account-chevron {
+    display: none;
+  }
+  .dashboard-topbar-actions--mobile .dashboard-avatar,
+  .dashboard-mobile-topbar-account .dashboard-avatar {
+    width: 1.68rem;
+    height: 1.68rem;
+    font-size: 0.62rem;
   }
   .dashboard-main {
     padding: 1rem;
     /* keep content clear of the fixed bottom tab bar + safe area */
-    padding-bottom: calc(1rem + 4.85rem + env(safe-area-inset-bottom));
+    padding-top: 1rem;
+    padding-bottom: calc(1rem + 5.8rem + env(safe-area-inset-bottom));
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
   }
+  .dashboard-tabbar.settings-tabbar,
+  .cocoon-embed {
+    margin-top: 0;
+  }
+}
+
+/* Admin/manager: compact client-switcher chip slotted inline in the topbar,
+   between the page title and the account avatar. */
+.dashboard-mobile-switcher-strip {
+  position: fixed;
+  top: 0.66rem;
+  left: 10.15rem;
+  right: 3.95rem;
+  z-index: 56;
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  min-width: 0;
+}
+
+/* Client: read-only plan chip, right-aligned just left of the account avatar.
+   Clients only ever see their own portal, so there's no switcher here. */
+.dashboard-mobile-context-strip {
+  position: fixed;
+  top: 0.66rem;
+  right: 3.95rem;
+  left: auto;
+  z-index: 56;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  max-width: calc(100vw - 9.5rem);
+  min-width: 0;
+  height: 2.12rem;
+}
+
+.dashboard-mobile-context-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-width: 0;
+  min-height: 100%;
+}
+
+/* Render the client plan as a self-contained pill (mirrors the admin chip). */
+.dashboard-mobile-context-strip .dashboard-mobile-context-item--plan {
+  flex: 0 1 auto;
+  padding: 0.22rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--border-soft) 78%, white 22%);
+  border-radius: 999px;
+  background: color-mix(in srgb, white 94%, var(--surface) 6%);
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--fg) 4%, transparent 96%);
+}
+
+.dashboard-mobile-context-item span {
+  flex: 0 0 auto;
+  color: var(--fg-faint);
+  font-size: 0.55rem;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.dashboard-mobile-context-item strong {
+  overflow: hidden;
+  color: var(--fg);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Mobile client switcher chip (admin/manager) ──────────────────────────── */
+/* Tappable identity pill that opens the client switcher sheet. Mirrors the
+   desktop sidebar project switcher so the two views feel like one product. */
+.dashboard-mobile-client-switcher {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.34rem;
+  flex: 1;
+  min-width: 0;
+  min-height: 2.12rem;
+  padding: 0.16rem 0.5rem 0.16rem 0.22rem;
+  border: 1px solid color-mix(in srgb, var(--border-soft) 78%, white 22%);
+  border-radius: 999px;
+  background: color-mix(in srgb, white 94%, var(--surface) 6%);
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--fg) 4%, transparent 96%);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition: transform 0.12s ease, box-shadow 0.15s ease;
+}
+.dashboard-mobile-client-switcher:active {
+  transform: scale(0.99);
+}
+
+.dashboard-mobile-client-avatar {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: color-mix(in srgb, var(--accent) 72%, black 28%);
+  font-size: 0.58rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.dashboard-mobile-client-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.22rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-mobile-client-name {
+  overflow: hidden;
+  color: var(--fg);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-mobile-client-sub {
+  display: none;
+}
+
+.dashboard-mobile-client-chevron {
+  flex: 0 0 auto;
+  color: var(--fg-muted);
+}
+
+/* ── Client switcher sheet rows ───────────────────────────────────────────── */
+.dashboard-client-switcher-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0 0.6rem 0.4rem;
+}
+
+.dashboard-client-switcher-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  min-height: 3.3rem;
+  padding: 0.5rem 0.7rem;
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.dashboard-client-switcher-row:hover {
+  background: oklch(0.96 0.008 50);
+}
+.dashboard-client-switcher-row.is-active {
+  background: color-mix(in srgb, var(--accent-soft) 55%, white 45%);
+  box-shadow: inset 0 0 0 1px var(--accent-dim);
+}
+
+.dashboard-client-switcher-avatar {
+  display: grid;
+  place-items: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: color-mix(in srgb, var(--accent) 72%, black 28%);
+  font-size: 0.74rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.dashboard-client-switcher-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-client-switcher-name {
+  overflow: hidden;
+  color: var(--fg);
+  font-size: 0.92rem;
+  font-weight: 500;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-client-switcher-sub {
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: 0.72rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-client-switcher-check {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--accent);
+}
+
+.dashboard-client-switcher-badge {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: color-mix(in srgb, white 90%, var(--surface) 10%);
+  color: var(--fg-muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.dashboard-client-switcher-footer {
+  padding: 0.55rem 0.85rem calc(0.7rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border-soft);
+  margin-top: 0.2rem;
+}
+
+.dashboard-client-switcher-plan {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.dashboard-client-switcher-plan-label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.dashboard-client-switcher-plan-label span {
+  flex: 0 0 auto;
+  color: var(--fg-faint);
+  font-size: 0.58rem;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.dashboard-client-switcher-plan-label strong {
+  overflow: hidden;
+  color: var(--fg);
+  font-size: 0.82rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-mobile-plan-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+}
+
+.dashboard-mobile-plan-actions button {
+  display: grid;
+  place-items: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.dashboard-mobile-plan-actions button:not(:disabled):hover {
+  background: color-mix(in srgb, var(--accent-soft) 60%, white 40%);
+  color: var(--accent);
+}
+.dashboard-mobile-plan-actions button:disabled {
+  opacity: 0.34;
+  cursor: default;
 }
 
 /* Bottom tab bar — fixed, icon + micro-label buttons, ~3 primary items + More */
 /* ── Mobile bottom tab bar ─────────────────────────────────────────────────── */
 .dashboard-tabbar-mobile {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: 50%;
+  right: auto;
+  bottom: calc(0.7rem + env(safe-area-inset-bottom));
   z-index: 60;
   display: flex;
-  align-items: flex-end;   /* buttons sit on the floor; active bubble pops above */
+  align-items: center;
   overflow: visible;       /* allow the active bubble to bleed above the bar */
-  border-top: 1px solid var(--border-soft);
-  background: var(--surface);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  padding: 0 0.25rem calc(0.45rem + env(safe-area-inset-bottom));
+  width: min(27rem, calc(100vw - 1.4rem));
+  min-height: 3.65rem;
+  transform: translateX(-50%);
+  border: 1px solid color-mix(in srgb, var(--border-soft) 82%, white 18%);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 99%, var(--accent-soft) 1%), color-mix(in srgb, white 96%, var(--surface) 4%));
+  box-shadow:
+    0 12px 28px color-mix(in srgb, var(--accent-soft) 10%, transparent 90%),
+    0 5px 14px color-mix(in srgb, var(--fg) 4%, transparent 96%),
+    0 1px 0 color-mix(in srgb, white 85%, transparent 15%) inset;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: 0.22rem 0.52rem;
 }
 
 /* Each slot — equal width, flex column, centred */
 .dashboard-tabbar-mobile-btn {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;  /* pin label to the bottom of each slot */
-  gap: 0.18rem;
-  padding: 0.3rem 0.15rem 0.1rem;
+  justify-content: center;
+  gap: 0.22rem;
+  min-width: 0;
+  min-height: 2.85rem;
+  padding: 0.12rem 0.15rem 0.08rem;
   border: 0;
+  border-radius: 999px;
   background: transparent;
-  color: oklch(0.62 0.04 50);
+  color: var(--fg-faint);
   font: inherit;
   font-size: 0.6rem;
   font-weight: 500;
   letter-spacing: 0.05px;
   cursor: pointer;
-  transition: color 0.15s;
+  transition: color 0.15s ease;
   /* No border-radius flash on tap — we handle active state differently */
 }
 
-/* Labels — truncate so a long label never reflows neighbouring slots */
 .dashboard-tabbar-mobile-label {
-  max-width: 100%;
+  position: absolute;
+  width: 1px;
+  height: 1px;
   overflow: hidden;
-  text-overflow: ellipsis;
+  clip: rect(0 0 0 0);
   white-space: nowrap;
-  line-height: 1;
-  padding-bottom: 0.1rem;
 }
 
 /* Inactive icon wrapper */
@@ -91,29 +466,144 @@
 .dashboard-tabbar-mobile-icon svg,
 .dashboard-tabbar-mobile-bubble-inner svg { width: 1.25rem; height: 1.25rem; stroke-width: 1.85; }
 
-/* Active label — gradient text on all active items */
-.dashboard-tabbar-mobile-btn.is-active .dashboard-tabbar-mobile-label {
-  background: linear-gradient(90deg, oklch(0.78 0.11 22), oklch(0.7 0.13 18));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  font-weight: 500;
+.dashboard-tabbar-mobile-btn.is-active:not(.is-center) {
+  color: var(--accent);
 }
 
-/* Non-center active items: small gradient dot below the icon */
-.dashboard-tabbar-mobile-btn.is-active:not(.is-center) .dashboard-tabbar-mobile-icon {
-  padding-bottom: 6px; /* room for the dot without shifting the label */
+.dashboard-tabbar-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(5rem + env(safe-area-inset-bottom));
+  z-index: 61;
+  transform: translateX(-50%);
+  max-width: min(18rem, calc(100vw - 2rem));
+  padding: 0.45rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--border-soft) 75%, white 25%);
+  border-radius: 999px;
+  background: color-mix(in srgb, white 94%, var(--surface) 6%);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--fg) 10%, transparent 90%);
+  color: var(--fg);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  line-height: 1;
+  text-align: center;
+  pointer-events: none;
+  animation: mobile-tab-toast-in 1500ms ease both;
 }
-.dashboard-tabbar-mobile-btn.is-active:not(.is-center) .dashboard-tabbar-mobile-icon::after {
+
+.dashboard-tabbar-action-cluster {
+  position: fixed;
+  left: 50%;
+  bottom: calc(5.15rem + env(safe-area-inset-bottom));
+  z-index: 62;
+  width: 10.5rem;
+  height: 4.4rem;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.dashboard-tabbar-action-chip {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 2.55rem;
+  height: 2.55rem;
+  border: 1px solid color-mix(in srgb, var(--border-soft) 76%, white 24%);
+  border-radius: 999px;
+  background: color-mix(in srgb, white 92%, var(--surface) 8%);
+  color: var(--fg-muted);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, white 38%, transparent 62%),
+    0 12px 24px color-mix(in srgb, var(--fg) 10%, transparent 90%);
+  backdrop-filter: blur(18px) saturate(1.1);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
+  cursor: pointer;
+  pointer-events: auto;
+  transform: translateY(0.45rem) scale(0.82);
+  opacity: 0;
+  animation: dashboard-quick-action-in 180ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.dashboard-tabbar-action-chip svg {
+  width: 1.12rem;
+  height: 1.12rem;
+  stroke-width: 1.9;
+}
+
+.dashboard-tabbar-action-chip--1 {
+  left: 0;
+  bottom: 0.05rem;
+  animation-delay: 10ms;
+}
+
+.dashboard-tabbar-action-chip--2 {
+  left: 50%;
+  bottom: 1.45rem;
+  transform: translate(-50%, 0.45rem) scale(0.82);
+  animation-name: dashboard-quick-action-center-in;
+  animation-delay: 35ms;
+  background: color-mix(in srgb, var(--accent) 88%, white 12%);
+  border-color: color-mix(in srgb, var(--accent) 50%, white 50%);
+  color: white;
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, white 42%, transparent 58%),
+    0 14px 28px color-mix(in srgb, var(--accent) 18%, transparent 82%);
+}
+
+.dashboard-tabbar-action-chip--3 {
+  right: 0;
+  bottom: 0.05rem;
+  animation-delay: 60ms;
+}
+
+.dashboard-tabbar-action-chip:disabled {
+  opacity: 0.36;
+  cursor: default;
+}
+
+.dashboard-tabbar-action-chip:not(:disabled):active {
+  transform: translateY(0.45rem) scale(0.76);
+}
+
+.dashboard-tabbar-action-chip--2:not(:disabled):active {
+  transform: translate(-50%, 0.45rem) scale(0.76);
+}
+
+@keyframes dashboard-quick-action-in {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dashboard-quick-action-center-in {
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+@keyframes mobile-tab-toast-in {
+  0% { opacity: 0; transform: translate(-50%, 0.35rem) scale(0.96); }
+  12% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  82% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -0.2rem) scale(0.98); }
+}
+
+/* Non-center active items: slim top line, like a native app tab indicator. */
+.dashboard-tabbar-mobile-btn.is-active:not(.is-center) .dashboard-tabbar-mobile-icon {
+  padding-top: 0;
+}
+.dashboard-tabbar-mobile-btn.is-active:not(.is-center)::before {
   content: "";
   position: absolute;
-  bottom: 0;
+  top: -0.22rem;
   left: 50%;
   transform: translateX(-50%);
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, oklch(0.78 0.11 22), oklch(0.7 0.13 18));
+  width: 1.35rem;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
 }
 
 /* ── Active bubble — gradient circle that floats above the bar ─────────────── */
@@ -123,23 +613,51 @@
   align-items: center;
   justify-content: center;
   /* Negative margin pulls the bubble above the bar's top edge */
-  margin-top: -0.75rem;
-  margin-bottom: 0.25rem;
+  margin-top: -1.95rem;
+  margin-bottom: 0.1rem;
 }
 .dashboard-tabbar-mobile-bubble-inner {
   position: relative;
-  width: 2.15rem;
-  height: 2.15rem;
+  width: 2.85rem;
+  height: 2.85rem;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  /* White ring so the bubble looks lifted off the bar */
-  box-shadow: 0 0 0 3px oklch(1 0 0 / 0.78);
-  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+  background: color-mix(in srgb, var(--fg) 82%, transparent 18%);
+  border: 1px solid color-mix(in srgb, white 42%, var(--border-soft) 58%);
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  /* Soft ring so the bubble floats without feeling pasted on top. */
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, white 58%, transparent 42%),
+    0 18px 38px color-mix(in srgb, var(--fg) 22%, transparent 78%),
+    0 8px 18px color-mix(in srgb, var(--fg) 10%, transparent 90%);
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.dashboard-tabbar-mobile-btn.is-active:active .dashboard-tabbar-mobile-bubble-inner {
+.dashboard-tabbar-mobile-btn.is-center:active .dashboard-tabbar-mobile-bubble-inner {
   transform: scale(0.92);
+}
+
+.dashboard-tabbar-mobile-btn.is-center .dashboard-tabbar-mobile-bubble-inner svg {
+  width: 1.38rem;
+  height: 1.38rem;
+  stroke-width: 1.85;
+  transition: transform 180ms ease;
+  transform-origin: center;
+}
+
+.dashboard-tabbar-mobile-btn.is-center.is-toggled .dashboard-tabbar-mobile-bubble-inner svg {
+  transform: rotate(45deg);
+}
+
+.dashboard-tabbar-mobile-btn.is-center.is-toggled .dashboard-tabbar-mobile-bubble-inner {
+  background: color-mix(in srgb, var(--accent) 84%, transparent 16%);
+  border-color: color-mix(in srgb, white 46%, var(--accent) 54%);
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, white 58%, transparent 42%),
+    0 18px 38px color-mix(in srgb, var(--accent) 28%, transparent 72%),
+    0 8px 18px color-mix(in srgb, var(--accent) 14%, transparent 86%);
 }
 
 /* Badge on the bubble sits top-right of the circle */
@@ -165,45 +683,9 @@
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background: linear-gradient(90deg, oklch(0.78 0.11 22), oklch(0.7 0.13 18));
+  background: var(--accent);
   color: white;
   font-size: 0.6rem;
   font-weight: 500;
   line-height: 1;
-}
-/* "More" sheet — slide-up overlay listing overflow nav items + account */
-.dashboard-more-sheet-list {
-  display: flex;
-  flex-direction: column;
-  padding: 0 0.6rem 0.4rem;
-}
-.dashboard-more-sheet-item {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  width: 100%;
-  min-height: 2.9rem;
-  padding: 0.5rem 0.7rem;
-  border: 0;
-  border-radius: var(--radius-panel);
-  background: transparent;
-  color: var(--fg);
-  font: inherit;
-  font-size: 0.92rem;
-  font-weight: 500;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.12s;
-}
-.dashboard-more-sheet-item:hover { background: oklch(0.96 0.008 50); }
-.dashboard-more-sheet-item.is-active svg { color: white; }
-.dashboard-more-sheet-footer {
-  padding: 0.5rem 0.6rem calc(0.6rem + env(safe-area-inset-bottom));
-  border-top: 1px solid var(--border-soft);
-  margin-top: 0.2rem;
-}
-/* Inside the sheet, the account trigger needs a plain (non-sidebar) surface */
-.dashboard-more-sheet-footer .dashboard-account-trigger {
-  background: oklch(1 0 0 / 0.5);
-  border-color: var(--border-soft);
 }

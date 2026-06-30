@@ -6,6 +6,27 @@ export type Database = {
   };
   public: {
     Tables: {
+      dashboard_project_state: {
+        Row: {
+          client_email: string | null;
+          project: Json;
+          project_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          client_email?: string | null;
+          project: Json;
+          project_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          client_email?: string | null;
+          project?: Json;
+          project_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       dashboard_state: {
         Row: {
           id: string;
@@ -26,6 +47,32 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      dashboard_user_state: {
+        Row: {
+          selected_project_id: string | null;
+          updated_at: string;
+          user_email: string;
+        };
+        Insert: {
+          selected_project_id?: string | null;
+          updated_at?: string;
+          user_email: string;
+        };
+        Update: {
+          selected_project_id?: string | null;
+          updated_at?: string;
+          user_email?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "dashboard_user_state_selected_project_id_fkey";
+            columns: ["selected_project_id"];
+            isOneToOne: false;
+            referencedRelation: "dashboard_project_state";
+            referencedColumns: ["project_id"];
+          },
+        ];
       };
     };
     Views: Record<string, never>;

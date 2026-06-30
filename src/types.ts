@@ -195,6 +195,6 @@ export interface Project {
 
 export type DashboardUserRole = "admin" | "manager" | "client";
 export type ViewMode = "admin" | "manager" | "client";
-export type AdminNav = "home" | "projects" | "reviews" | "assets" | "users" | "clients" | "settings" | "notifications";
+export type AdminNav = "home" | "projects" | "reviews" | "assets" | "clients" | "inbox" | "settings" | "notifications";
 export type ProjectTab = "overview" | "milestones" | "assets" | "brand-guidelines" | "audit" | "notes";
 export type ClientNav = "overview" | "milestones" | "reviews" | "files" | "brand" | "brand-guidelines" | "contract" | "support" | "audit" | "notifications" | "billing" | "cocoon" | "settings";
