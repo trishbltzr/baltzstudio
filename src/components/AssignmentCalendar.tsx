@@ -1,8 +1,9 @@
 "use client";
 
-import { type CSSProperties, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import type { Project, TaskAssignee, TaskStatus } from "../types";
+import { type ClientColor, clientColorFor, clientColorVars, hashId } from "../lib/projectUtils";
 import { Panel } from "./shared";
 
 type CalendarRole = "admin" | "manager";
@@ -21,12 +22,6 @@ type Assignment = {
   clientColor: ClientColor;
 };
 
-type ClientColor = {
-  marker: string;
-  soft: string;
-  text: string;
-};
-
 type ClientLegendItem = {
   id: string;
   name: string;
@@ -36,13 +31,6 @@ type ClientLegendItem = {
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const CLIENT_COLORS: ClientColor[] = [
-  { marker: "oklch(0.62 0.15 21)", soft: "oklch(0.97 0.025 21)", text: "oklch(0.42 0.11 21)" },
-  { marker: "oklch(0.57 0.12 154)", soft: "oklch(0.96 0.026 154)", text: "oklch(0.36 0.09 154)" },
-  { marker: "oklch(0.58 0.12 252)", soft: "oklch(0.96 0.024 252)", text: "oklch(0.37 0.09 252)" },
-  { marker: "oklch(0.64 0.12 76)", soft: "oklch(0.97 0.03 76)", text: "oklch(0.42 0.09 76)" },
-  { marker: "oklch(0.56 0.13 315)", soft: "oklch(0.97 0.026 315)", text: "oklch(0.4 0.095 315)" },
-];
 
 function dayKey(d: Date) {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -54,24 +42,6 @@ function addDays(d: Date, n: number) {
 
 function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-
-function hashId(id: string) {
-  let h = 0;
-  for (let i = 0; i < id.length; i += 1) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return h;
-}
-
-function clientColorFor(projectId: string) {
-  return CLIENT_COLORS[hashId(projectId) % CLIENT_COLORS.length] ?? CLIENT_COLORS[0];
-}
-
-function colorVars(color: ClientColor): CSSProperties {
-  return {
-    "--assignment-client": color.marker,
-    "--assignment-client-soft": color.soft,
-    "--assignment-client-text": color.text,
-  } as CSSProperties;
 }
 
 function dayDiff(date: Date, today: Date) {
@@ -274,7 +244,7 @@ export function AssignmentCalendar({
               <span className="assignment-cal-daynum">{cell.getDate()}</span>
               <span className="assignment-cal-chips">
                 {items.slice(0, 3).map(a => (
-                  <span key={a.id} className={`assignment-cal-chip ${assigneeClass(a.assignee)} ${statusClass(a.status)}`} style={colorVars(a.clientColor)}>
+                  <span key={a.id} className={`assignment-cal-chip ${assigneeClass(a.assignee)} ${statusClass(a.status)}`} style={clientColorVars(a.clientColor)}>
                     <span className="assignment-cal-chip-dot" />
                     <span className="assignment-cal-chip-text">{a.title}</span>
                   </span>
@@ -289,7 +259,7 @@ export function AssignmentCalendar({
       <div className="assignment-cal-footer">
         <div className="assignment-cal-legend">
           {clientLegend.map(client => (
-            <span key={client.id} className="assignment-cal-legend-item" style={colorVars(client.color)}>
+            <span key={client.id} className="assignment-cal-legend-item" style={clientColorVars(client.color)}>
               <span className="assignment-cal-client-dot">{client.initials}</span>
               {client.name}
             </span>
@@ -307,7 +277,7 @@ export function AssignmentCalendar({
         ) : (
           <ul className="assignment-cal-detail-list">
             {selectedAssignments.map(a => (
-              <li key={a.id} className={`assignment-cal-detail-item ${statusClass(a.status)}`} style={colorVars(a.clientColor)}>
+              <li key={a.id} className={`assignment-cal-detail-item ${statusClass(a.status)}`} style={clientColorVars(a.clientColor)}>
                 <span className={`assignment-cal-client-dot ${assigneeClass(a.assignee)}`}>{a.clientInitials}</span>
                 <div className="assignment-cal-detail-body">
                   <span className="assignment-cal-detail-title">{a.title}</span>

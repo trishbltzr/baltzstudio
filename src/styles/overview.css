@@ -121,6 +121,17 @@
   position: relative;
   padding-inline: 0;
 }
+.stage-track.is-five-phase {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.stage-stepper {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.stage-stepper::-webkit-scrollbar {
+  display: none;
+}
 .stage-track::before {
   content: "";
   position: absolute;
@@ -136,6 +147,7 @@
   flex-direction: column;
   align-items: center;
   gap: 0.45rem;
+  min-width: 0;
   position: relative;
   z-index: 1;
 }
@@ -163,13 +175,21 @@
 .stage-dot.is-active   { background: var(--accent-soft); border: 1.5px dashed var(--accent); color: var(--accent); }
 .stage-dot.is-locked   { background: var(--surface-alt); border-color: var(--border); color: var(--fg-faint); }
 .stage-dot.has-rocket {
-  background: color-mix(in srgb, var(--accent-soft) 58%, white 42%);
-  border-color: color-mix(in srgb, var(--accent) 28%, white 72%);
-  color: color-mix(in srgb, var(--accent) 66%, black 34%);
+  background: var(--success-soft);
+  border-color: color-mix(in srgb, var(--success) 28%, white 72%);
+  color: color-mix(in srgb, var(--success) 64%, black 36%);
 }
 
-.stage-name   { font-size: 0.78rem; font-weight: 500; text-align: center; color: var(--fg); line-height: 1.2; }
+.stage-name   { max-width: 100%; font-size: 0.78rem; font-weight: 500; text-align: center; color: var(--fg); line-height: 1.2; overflow-wrap: anywhere; }
 .stage-status { font-size: 0.68rem; font-weight: 400; color: var(--fg-faint); text-align: center; }
+.stage-track.is-five-phase .stage-name {
+  font-size: 0.7rem;
+  line-height: 1.15;
+  overflow-wrap: normal;
+}
+.stage-track.is-five-phase .stage-status {
+  font-size: 0.62rem;
+}
 .stage-item:first-child .stage-name,
 .stage-item:first-child .stage-status { text-align: left; }
 .stage-item:last-child .stage-name,
@@ -179,6 +199,10 @@
 .stage-item:last-child .stage-name,
 .stage-item:last-child .stage-status { text-align: center; }
 .stage-item.is-active .stage-name   { color: var(--accent); }
+.stage-item.has-rocket.is-active .stage-name,
+.stage-item.has-rocket.is-active .stage-status {
+  color: color-mix(in srgb, var(--success) 64%, black 36%);
+}
 .stage-item.is-locked .stage-name   { color: var(--fg-muted); }
 .stage-item.is-locked .stage-status { color: var(--fg-faint); }
 
@@ -230,9 +254,9 @@
 .timeline-date.is-active .timeline-date-num { color: var(--accent); }
 .timeline-date.is-active .timeline-date-mon { color: oklch(0.65 0.12 10 / 0.7); }
 .timeline-date.has-rocket {
-  background: color-mix(in srgb, var(--accent-soft) 58%, white 42%);
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, white 78%);
-  color: color-mix(in srgb, var(--accent) 66%, black 34%);
+  background: var(--success-soft);
+  border: 1px solid color-mix(in srgb, var(--success) 22%, white 78%);
+  color: color-mix(in srgb, var(--success) 64%, black 36%);
 }
 .timeline-info { flex: 1; min-width: 0; }
 .timeline-title { font-size: 0.85rem; font-weight: 500; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

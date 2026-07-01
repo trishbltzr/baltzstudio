@@ -1,11 +1,11 @@
 import { AlertCircle, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight, Clock3, Globe, Lock, Paperclip, Pencil, Plus, Send, X } from "lucide-react";
 import { useState } from "react";
 import type { Milestone, Phase, Project, Task, TaskStatus, BrandIdentity } from "../types";
-import { allTasksComplete, phaseProgress, phaseProgressMarkers, milestoneProgress, allGates, taskStatusDetail, gateStatusClass, gateStatusLabel, taskStatusClass, taskStatusLabel } from "../lib/projectUtils";
+import { allTasksComplete, phaseProgress, phaseProgressMarkers, milestoneProgress, allGates, taskStatusDetail, gateStatusClass, gateStatusLabel, taskStatusClass, taskStatusLabel, bucketTaskStatus, isTaskOverdue, clientColorFor, clientColorVars } from "../lib/projectUtils";
 import { StatusBadge, MilestoneDot, Panel, PanelHeader, Btn, ProgressDots, ProgressRing, TruncatedText } from "../components/shared";
 import { GateBlock } from "../components/widgets";
 import { PhaseDetailModal } from "../components/PhaseDetailModal";
-import { StatusMenu, TaskActionCenter } from "../components/TaskActionCenter";
+import { TaskActionCenter } from "../components/TaskActionCenter";
 import { SwatchPopover } from "../components/SwatchPopover";
 
 export function AdminMilestonesTab({ project, onTaskStatusChange, onSendGate, onApproveGate, onFinishMilestone }: {
@@ -437,35 +437,53 @@ function portfolioTaskDate(date?: string) {
   return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function PortfolioTaskStatus({
-  row,
-  onProjectTaskStatusChange,
-}: {
-  row: PortfolioTaskRow;
-  onProjectTaskStatusChange: (projectId: string, taskId: string, status: TaskStatus) => void;
-}) {
-  return (
-    <StatusMenu
-      task={row.task}
-      onTaskStatusChange={(taskId, status) => onProjectTaskStatusChange(row.project.id, taskId, status)}
-    />
-  );
+function portfolioRowKey(row: PortfolioTaskRow) {
+  return `${row.project.id}:${row.task.id}`;
 }
 
 function PortfolioTaskGroup({
   bucket,
   rows,
-  onProjectTaskStatusChange,
+  draggingKey,
+  isDragOver,
+  onRowDragStart,
+  onRowDragEnd,
+  onGroupDragOver,
+  onGroupDragLeave,
+  onGroupDrop,
 }: {
   bucket: PortfolioTaskBucket;
   rows: PortfolioTaskRow[];
-  onProjectTaskStatusChange: (projectId: string, taskId: string, status: TaskStatus) => void;
+  draggingKey: string | null;
+  isDragOver: boolean;
+  onRowDragStart: (row: PortfolioTaskRow) => void;
+  onRowDragEnd: () => void;
+  onGroupDragOver: (bucket: PortfolioTaskBucket) => void;
+  onGroupDragLeave: (bucket: PortfolioTaskBucket) => void;
+  onGroupDrop: (bucket: PortfolioTaskBucket) => void;
 }) {
   const meta = portfolioBucketMeta[bucket];
   const Icon = meta.icon;
 
   return (
-    <section className={`task-group is-${bucket}`}>
+    <section
+      className={`task-group is-${bucket} ${isDragOver ? "is-drag-over" : ""}`}
+      onDragOver={event => {
+        if (!draggingKey) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        onGroupDragOver(bucket);
+      }}
+      onDragLeave={event => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          onGroupDragLeave(bucket);
+        }
+      }}
+      onDrop={event => {
+        event.preventDefault();
+        onGroupDrop(bucket);
+      }}
+    >
       <div className="task-group-header">
         <div>
           <Icon size={14} />
@@ -477,19 +495,37 @@ function PortfolioTaskGroup({
         {rows.length === 0 ? (
           <div className="task-empty">{meta.empty}</div>
         ) : rows.map(row => (
-          <div key={`${row.project.id}-${row.task.id}`} className={`task-row ${row.task.status === "complete" ? "is-complete" : ""}`}>
-            <div className="task-row-main">
-              <TruncatedText text={row.task.title} className="task-row-title" />
-              <div className="task-row-meta">
-                <span>{row.project.clientName}</span>
-                <span>M{row.milestone.number} {row.milestone.clientLabel}</span>
-                <span>{portfolioPhaseLabel(row.phase)}</span>
-                {portfolioTaskDate(row.task.dueDate) && <span>Due {portfolioTaskDate(row.task.dueDate)}</span>}
+          <div
+            key={portfolioRowKey(row)}
+            className={`task-row ${row.task.status === "complete" ? "is-complete" : ""} ${draggingKey === portfolioRowKey(row) ? "is-dragging" : ""}`}
+            style={clientColorVars(clientColorFor(row.project.id))}
+            draggable
+            onDragStart={event => {
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("text/plain", portfolioRowKey(row));
+              onRowDragStart(row);
+            }}
+            onDragEnd={onRowDragEnd}
+          >
+            <div className="task-row-head">
+              <span className="task-row-avatar">{row.project.clientInitials}</span>
+              <div className="task-row-main">
+                <TruncatedText text={row.task.title} className="task-row-title" />
+                <div className="task-row-meta">
+                  <span>{row.project.clientName}</span>
+                  <span>M{row.milestone.number} {row.milestone.clientLabel}</span>
+                  <span>{portfolioPhaseLabel(row.phase)}</span>
+                </div>
               </div>
             </div>
-            <div className="task-row-status">
-              <PortfolioTaskStatus row={row} onProjectTaskStatusChange={onProjectTaskStatusChange} />
-            </div>
+            {portfolioTaskDate(row.task.dueDate) && (
+              <div className="task-row-foot">
+                <span className={`task-row-due ${isTaskOverdue(row.task) ? "is-overdue" : ""}`}>
+                  <CalendarDays size={11} />
+                  {portfolioTaskDate(row.task.dueDate)}
+                </span>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -515,6 +551,18 @@ export function AdminPortfolioTasks({
     complete: completed,
     action: rows.filter(row => row.bucket === "action").length,
   };
+
+  const [draggingRow, setDraggingRow] = useState<PortfolioTaskRow | null>(null);
+  const [dragOverBucket, setDragOverBucket] = useState<PortfolioTaskBucket | null>(null);
+  const draggingKey = draggingRow ? portfolioRowKey(draggingRow) : null;
+
+  function handleDrop(bucket: PortfolioTaskBucket) {
+    if (draggingRow && draggingRow.bucket !== bucket) {
+      onProjectTaskStatusChange(draggingRow.project.id, draggingRow.task.id, bucketTaskStatus(bucket));
+    }
+    setDraggingRow(null);
+    setDragOverBucket(null);
+  }
 
   return (
     <div className="task-center">
@@ -548,7 +596,13 @@ export function AdminPortfolioTasks({
             key={bucket}
             bucket={bucket}
             rows={rows.filter(row => row.bucket === bucket)}
-            onProjectTaskStatusChange={onProjectTaskStatusChange}
+            draggingKey={draggingKey}
+            isDragOver={dragOverBucket === bucket}
+            onRowDragStart={setDraggingRow}
+            onRowDragEnd={() => { setDraggingRow(null); setDragOverBucket(null); }}
+            onGroupDragOver={setDragOverBucket}
+            onGroupDragLeave={targetBucket => setDragOverBucket(current => (current === targetBucket ? null : current))}
+            onGroupDrop={handleDrop}
           />
         ))}
       </div>

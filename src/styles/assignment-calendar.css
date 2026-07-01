@@ -259,14 +259,23 @@
   -webkit-overflow-scrolling: touch;
 }
 .assignment-cal-detail-item {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 0.55rem;
   padding: 0.5rem 0.6rem;
   border: 1px solid color-mix(in srgb, var(--assignment-client, var(--border-soft)) 18%, transparent 82%);
-  border-left: 0;
   border-radius: 0.55rem;
   background: color-mix(in srgb, var(--assignment-client-soft, var(--surface-alt)) 58%, white 42%);
+  overflow: hidden;
+}
+.assignment-cal-detail-item::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 1px;
+  border-radius: 0.55rem 0 0 0.55rem;
+  background: color-mix(in srgb, var(--assignment-client, var(--border-soft)) 18%, transparent 82%);
 }
 .assignment-cal-detail-item.is-complete { opacity: 0.6; }
 .assignment-cal-detail-item .assignment-cal-client-dot {

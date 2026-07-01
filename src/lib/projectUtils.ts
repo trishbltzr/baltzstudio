@@ -1,8 +1,49 @@
+import type { CSSProperties } from "react";
 import type { Task, Milestone, Project, ApprovalGate, Phase, TaskStatus, GateStatus, ClientLifecycleStage } from "../types";
 import { AUDIT_CHECKLIST_SUBCATEGORY_RANGES } from "../data/auditTaxonomy";
 
 export function allTasksComplete(tasks: Task[]) {
   return tasks.length > 0 && tasks.every((t) => t.status === "complete");
+}
+
+// Deterministic per-client colour coding — same client always gets the same
+// swatch across the calendar and task boards, without storing a colour on
+// the project record itself.
+export type ClientColor = { marker: string; soft: string; text: string };
+
+const CLIENT_COLORS: ClientColor[] = [
+  { marker: "oklch(0.62 0.15 21)", soft: "oklch(0.97 0.025 21)", text: "oklch(0.42 0.11 21)" },
+  { marker: "oklch(0.57 0.12 154)", soft: "oklch(0.96 0.026 154)", text: "oklch(0.36 0.09 154)" },
+  { marker: "oklch(0.58 0.12 252)", soft: "oklch(0.96 0.024 252)", text: "oklch(0.37 0.09 252)" },
+  { marker: "oklch(0.64 0.12 76)", soft: "oklch(0.97 0.03 76)", text: "oklch(0.42 0.09 76)" },
+  { marker: "oklch(0.56 0.13 315)", soft: "oklch(0.97 0.026 315)", text: "oklch(0.4 0.095 315)" },
+];
+
+export function hashId(id: string) {
+  let h = 0;
+  for (let i = 0; i < id.length; i += 1) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+export function clientColorFor(projectId: string): ClientColor {
+  return CLIENT_COLORS[hashId(projectId) % CLIENT_COLORS.length] ?? CLIENT_COLORS[0];
+}
+
+export function clientColorVars(color: ClientColor) {
+  return {
+    "--assignment-client": color.marker,
+    "--assignment-client-soft": color.soft,
+    "--assignment-client-text": color.text,
+  } as CSSProperties;
+}
+
+export function isTaskOverdue(task: Task) {
+  if (task.status === "complete" || !task.dueDate) return false;
+  const due = new Date(task.dueDate);
+  if (Number.isNaN(due.getTime())) return false;
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  return due.getTime() < startOfToday.getTime();
 }
 
 export function phaseProgress(tasks: Task[]) {
@@ -181,6 +222,13 @@ export function groupAuditItems<T extends { label: string }>(categoryTitle: stri
 
 export function taskStatusClass(status: TaskStatus) {
   return { not_started: "is-pending", in_progress: "is-progress", complete: "is-success", blocked: "is-blocked" }[status];
+}
+
+// Maps a Kanban column ("bucket") to the task status it represents, so
+// dropping a card into a column can drive the same status change the
+// dropdown menu would.
+export function bucketTaskStatus(bucket: "upcoming" | "progress" | "complete" | "action"): TaskStatus {
+  return ({ upcoming: "not_started", progress: "in_progress", complete: "complete", action: "blocked" } as const)[bucket];
 }
 
 export function taskStatusLabel(status: TaskStatus) {

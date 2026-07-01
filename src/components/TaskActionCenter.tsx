@@ -1,8 +1,7 @@
 import { AlertCircle, CalendarDays, CheckCircle2, ClipboardList, Clock3, Lock, type LucideIcon } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { useState, type ReactNode } from "react";
 import type { Milestone, Phase, Project, Task, TaskStatus } from "../types";
-import { allGates, taskStatusClass, taskStatusLabel } from "../lib/projectUtils";
+import { allGates, bucketTaskStatus, isTaskOverdue, clientColorFor, clientColorVars } from "../lib/projectUtils";
 import { AssigneeBadge, Panel, PanelHeader, StatusBadge, TruncatedText } from "./shared";
 
 type TaskBucket = "action" | "progress" | "upcoming" | "complete";
@@ -14,76 +13,6 @@ type TaskRow = {
   milestone: Milestone;
   bucket: TaskBucket;
 };
-
-const statusOptions: TaskStatus[] = ["not_started", "in_progress", "blocked", "complete"];
-
-export function StatusMenu({ task, onTaskStatusChange }: { task: Task; onTaskStatusChange: (taskId: string, status: TaskStatus) => void }) {
-  const [open, setOpen] = useState(false);
-  const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
-  const summaryRef = useRef<HTMLElement>(null);
-  const optionsRef = useRef<HTMLDivElement>(null);
-
-  function positionOptions() {
-    const trigger = summaryRef.current;
-    if (!trigger) return;
-    const rect = trigger.getBoundingClientRect();
-    const width = Math.max(rect.width, 168);
-    const margin = 12;
-    let left = rect.right - width;
-    if (left < margin) left = margin;
-    if (left + width > window.innerWidth - margin) left = window.innerWidth - width - margin;
-    setCoords({ top: rect.bottom + 4, left, width });
-  }
-
-  useEffect(() => {
-    if (!open) return;
-    positionOptions();
-    const handleReposition = () => positionOptions();
-    const handlePointerDown = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (summaryRef.current?.contains(target) || optionsRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    window.addEventListener("scroll", handleReposition, true);
-    window.addEventListener("resize", handleReposition);
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => {
-      window.removeEventListener("scroll", handleReposition, true);
-      window.removeEventListener("resize", handleReposition);
-      document.removeEventListener("mousedown", handlePointerDown);
-    };
-  }, [open]);
-
-  return (
-    <details className="task-status-menu" open={open} onToggle={event => setOpen(event.currentTarget.open)}>
-      <summary ref={summaryRef} className="dashboard-dropdown-control" aria-label={`Update ${task.title} status`}>
-        <span>{taskStatusLabel(task.status)}</span>
-      </summary>
-      {open && coords && createPortal(
-        <div
-          ref={optionsRef}
-          className="task-status-options"
-          style={{ top: coords.top, left: coords.left, width: coords.width }}
-        >
-          {statusOptions.map(status => (
-            <button
-              key={status}
-              type="button"
-              className={status === task.status ? "is-active" : ""}
-              onClick={() => {
-                onTaskStatusChange(task.id, status);
-                setOpen(false);
-              }}
-            >
-              {taskStatusLabel(status)}
-            </button>
-          ))}
-        </div>,
-        document.body,
-      )}
-    </details>
-  );
-}
 
 const bucketMeta: Record<TaskBucket, { title: string; icon: LucideIcon; emptyClient: string; emptyAdmin: string }> = {
   action: {
@@ -155,18 +84,50 @@ function TaskGroup({
   bucket,
   bucketRows,
   role,
+  draggingTaskId,
+  isDragOver,
   onTaskStatusChange,
+  onRowDragStart,
+  onRowDragEnd,
+  onGroupDragOver,
+  onGroupDragLeave,
+  onGroupDrop,
 }: {
   bucket: TaskBucket;
   bucketRows: TaskRow[];
   role: TaskAudienceRole;
+  draggingTaskId: string | null;
+  isDragOver: boolean;
   onTaskStatusChange?: (taskId: string, status: TaskStatus) => void;
+  onRowDragStart: (row: TaskRow) => void;
+  onRowDragEnd: () => void;
+  onGroupDragOver: (bucket: TaskBucket) => void;
+  onGroupDragLeave: (bucket: TaskBucket) => void;
+  onGroupDrop: (bucket: TaskBucket) => void;
 }) {
   const meta = bucketMeta[bucket];
   const Icon = meta.icon;
+  const draggable = Boolean(onTaskStatusChange);
 
   return (
-    <section className={`task-group is-${bucket}`}>
+    <section
+      className={`task-group is-${bucket} ${isDragOver ? "is-drag-over" : ""}`}
+      onDragOver={event => {
+        if (!draggable || !draggingTaskId) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        onGroupDragOver(bucket);
+      }}
+      onDragLeave={event => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          onGroupDragLeave(bucket);
+        }
+      }}
+      onDrop={event => {
+        event.preventDefault();
+        onGroupDrop(bucket);
+      }}
+    >
       <div className="task-group-header">
         <div>
           <Icon size={14} />
@@ -179,23 +140,34 @@ function TaskGroup({
         {bucketRows.length === 0 ? (
           <div className="task-empty">{role === "client" ? meta.emptyClient : meta.emptyAdmin}</div>
         ) : (
-          bucketRows.map(({ task, phase }) => (
-            <div key={task.id} className={`task-row ${task.status === "complete" ? "is-complete" : ""}`}>
+          bucketRows.map(row => (
+            <div
+              key={row.task.id}
+              className={`task-row ${row.task.status === "complete" ? "is-complete" : ""} ${draggingTaskId === row.task.id ? "is-dragging" : ""}`}
+              draggable={draggable}
+              onDragStart={event => {
+                if (!draggable) return;
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", row.task.id);
+                onRowDragStart(row);
+              }}
+              onDragEnd={onRowDragEnd}
+            >
               <div className="task-row-main">
-                <TruncatedText text={task.title} className="task-row-title" />
+                <TruncatedText text={row.task.title} className="task-row-title" />
                 <div className="task-row-meta">
-                  <span>{phaseLabel(phase)}</span>
-                  <AssigneeBadge assignee={task.assignee} audience={assigneeAudience(role)} />
-                  {displayDate(task.dueDate) && <span>Due {displayDate(task.dueDate)}</span>}
+                  <span>{phaseLabel(row.phase)}</span>
+                  <AssigneeBadge assignee={row.task.assignee} audience={assigneeAudience(role)} />
                 </div>
               </div>
-              <div className="task-row-status">
-                {onTaskStatusChange ? (
-                  <StatusMenu task={task} onTaskStatusChange={onTaskStatusChange} />
-                ) : (
-                  <StatusBadge status={taskStatusClass(task.status)} label={taskStatusLabel(task.status)} />
-                )}
-              </div>
+              {displayDate(row.task.dueDate) && (
+                <div className="task-row-foot">
+                  <span className={`task-row-due ${isTaskOverdue(row.task) ? "is-overdue" : ""}`}>
+                    <CalendarDays size={11} />
+                    {displayDate(row.task.dueDate)}
+                  </span>
+                </div>
+              )}
             </div>
           ))
         )}
@@ -232,6 +204,17 @@ export function TaskActionCenter({
   const activeMilestone = project.milestones.find(m => m.status === "active");
   const milestoneRows = activeMilestone ? deriveTaskRows(project, role, activeMilestone) : allRows;
 
+  const [draggingRow, setDraggingRow] = useState<TaskRow | null>(null);
+  const [dragOverBucket, setDragOverBucket] = useState<TaskBucket | null>(null);
+
+  function handleDrop(bucket: TaskBucket) {
+    if (draggingRow && draggingRow.bucket !== bucket && onTaskStatusChange) {
+      onTaskStatusChange(draggingRow.task.id, bucketTaskStatus(bucket));
+    }
+    setDraggingRow(null);
+    setDragOverBucket(null);
+  }
+
   return (
     <div className="task-center">
       <Panel>
@@ -261,7 +244,7 @@ export function TaskActionCenter({
       </Panel>
 
       {role !== "client" && (
-        <div className="task-center-groups">
+        <div className="task-center-groups" style={clientColorVars(clientColorFor(project.id))}>
           {activeMilestone && (
             <div className="task-center-milestone-label">
               Milestone {activeMilestone.number} — {activeMilestone.title}
@@ -273,7 +256,14 @@ export function TaskActionCenter({
               bucket={bucket}
               bucketRows={milestoneRows.filter(row => row.bucket === bucket)}
               role={role}
+              draggingTaskId={draggingRow?.task.id ?? null}
+              isDragOver={dragOverBucket === bucket}
               onTaskStatusChange={onTaskStatusChange}
+              onRowDragStart={setDraggingRow}
+              onRowDragEnd={() => { setDraggingRow(null); setDragOverBucket(null); }}
+              onGroupDragOver={setDragOverBucket}
+              onGroupDragLeave={targetBucket => setDragOverBucket(current => (current === targetBucket ? null : current))}
+              onGroupDrop={handleDrop}
             />
           ))}
         </div>

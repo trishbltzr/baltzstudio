@@ -446,9 +446,9 @@ export function ClientOverviewTab({ project, onNavChange, role = "client" }: { p
           <PanelHeader title={showAuditOverview ? "Audit timeline" : "Project timeline"} icon={CalendarDays} />
 
           {/* Stage stepper visual only */}
-          <div style={{ padding: "1rem 1.25rem 0.75rem" }}>
+          <div>
             <div className="stage-stepper">
-              <div className="stage-track">
+              <div className={`stage-track ${showAuditOverview ? "" : "is-five-phase"}`}>
                 {(showAuditOverview
                   ? [
                       { id: "audit", number: 1, clientLabel: "Audit", status: "complete" as const },
@@ -457,7 +457,7 @@ export function ClientOverviewTab({ project, onNavChange, role = "client" }: { p
                     ]
                   : projectTimelineStages
                 ).map((m) => (
-                  <div key={m.id} className={`stage-item is-${m.status}`}>
+                  <div key={m.id} className={`stage-item is-${m.status} ${"marker" in m && m.marker ? `has-${m.marker}` : ""}`}>
                     <div className={`stage-dot is-${m.status} ${"marker" in m && m.marker ? `has-${m.marker}` : ""}`}>
                       {"marker" in m && m.marker === "rocket" ? <Rocket /> : m.status === "complete" ? <Check /> : <span>{m.number}</span>}
                     </div>
@@ -494,7 +494,7 @@ export function ClientOverviewTab({ project, onNavChange, role = "client" }: { p
                 <div className="timeline-meta">{detail}</div>
               </div>
               <StatusBadge
-                status={status === "complete" ? "is-success" : status === "active" ? "is-progress" : "is-locked"}
+                status={status === "complete" ? "is-success" : status === "active" ? ("marker" in eventMeta && eventMeta.marker === "rocket" ? "is-success" : "is-progress") : "is-locked"}
                 label={status === "complete" ? "Complete" : status === "active" ? ("marker" in eventMeta && eventMeta.marker === "rocket" ? "In flight" : showAuditOverview ? "In review" : "Active") : (showAuditOverview ? "Locked" : "Upcoming")}
               />
             </div>
