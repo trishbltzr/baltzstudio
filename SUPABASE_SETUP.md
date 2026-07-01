@@ -10,14 +10,18 @@ Supabase is installed in the app, and the live dashboard now has database-backed
 
 ## Environment Variables
 
-Add these in `.env.local` for local development. They are already set in Vercel for production, preview, and development:
+Add these in `.env.local` for local development. They are already set in Vercel for production, preview, and development.
+
+For the existing `baltazarstudio` Supabase project, the local file should look like this:
 
 ```txt
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_URL=https://frzfmqvymrqasyaailkm.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
 ```
 
 Use the publishable key for browser/client code. Do not expose a secret key or service role key in `NEXT_PUBLIC_*` variables.
+
+To connect a fork or local branch to a new Supabase project instead, replace both values with the new project's Project URL and publishable key from Supabase Project Settings -> API. After creating the new project, apply the migration in `supabase/migrations/20260630093000_refactor_dashboard_state_scopes.sql` so the dashboard persistence tables exist.
 
 ## Added Files
 
