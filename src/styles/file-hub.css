@@ -329,7 +329,8 @@
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   padding: 0.55rem 1.15rem;
   border-top: 1px solid var(--border-soft);
 }
@@ -340,11 +341,14 @@
   white-space: nowrap;
 }
 .file-hub-folder-select {
+  flex: 0 1 11rem;
   height: 2.15rem;
   min-height: 2.15rem;
+  min-width: 9rem;
   border-style: dashed;
 }
 .file-hub-upload-folder-or {
+  flex-shrink: 0;
   font-size: var(--text-xs);
   color: var(--fg-faint);
 }
@@ -353,6 +357,7 @@
   align-items: center;
   gap: 0.25rem;
   height: 2.15rem;
+  flex-shrink: 0;
   padding: 0 0.65rem;
   border: 1px dashed var(--border);
   border-radius: var(--radius);
@@ -565,6 +570,9 @@
   border: 1px solid transparent;
   border-radius: var(--radius);
   background: oklch(0.968 0.003 50);
+}
+.file-hub-list .file-hub-row:nth-child(even):not(.is-requested) {
+  background: var(--row-alt);
 }
 .file-hub-row.is-requested {
   background: oklch(0.982 0.012 68);
@@ -852,6 +860,10 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.7rem;
   }
+  .file-hub-other-folders {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.7rem;
+  }
   .file-hub-folder {
     width: 100%;
     min-width: 0;
@@ -889,7 +901,7 @@
     padding: 0.9rem 1rem 1rem;
   }
   .file-hub-brand-swatches {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .file-hub-top,
   .file-hub-section-head {
@@ -1006,6 +1018,29 @@
 .toast svg {
   flex-shrink: 0;
   opacity: 0.7;
+}
+
+@media (max-width: 640px) {
+  .toast {
+    bottom: calc(5.15rem + env(safe-area-inset-bottom));
+    max-width: min(18rem, calc(100vw - 2rem));
+    height: auto;
+    min-height: 2.35rem;
+    padding: 0.48rem 0.85rem;
+    border-radius: 999px;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, white 96%, var(--accent-soft) 4%), color-mix(in srgb, white 90%, var(--surface) 10%));
+    color: color-mix(in srgb, var(--fg) 84%, var(--accent) 16%);
+    font-size: 0.76rem;
+    line-height: 1.25;
+    text-align: center;
+    white-space: normal;
+    box-shadow:
+      0 12px 24px color-mix(in srgb, var(--fg) 9%, transparent 91%),
+      0 1px 0 color-mix(in srgb, white 88%, transparent 12%) inset;
+    backdrop-filter: blur(18px) saturate(1.05);
+    -webkit-backdrop-filter: blur(18px) saturate(1.05);
+  }
 }
 
 .workflow-nudge-toast {

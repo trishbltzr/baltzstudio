@@ -5,7 +5,7 @@ export type FileWorkspacePageView = FileWorkspaceView;
 
 export const FILE_WORKSPACE_ITEMS = [
   { id: "assets", label: "Assets", icon: ImageIcon },
-  { id: "brand-guidelines", label: "Brand Guidelines", icon: Palette },
+  { id: "brand-guidelines", label: "Brand", icon: Palette },
 ] as const;
 
 export const FILE_WORKSPACE_TITLES: Record<FileWorkspacePageView, string> = {

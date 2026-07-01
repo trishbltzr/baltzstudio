@@ -35,11 +35,15 @@
 /* ── Left pane ── */
 
 .inbox-list-pane {
+  --inbox-list-inset: 0.9rem;
   display: flex;
   flex-direction: column;
   border-right: 1px solid color-mix(in srgb, var(--border-soft) 40%, transparent 60%);
   background: rgb(253 251 248);
   min-width: 0;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0.35rem 0 0.95rem color-mix(in srgb, var(--fg) 2.35%, transparent 97.65%);
 }
 
 .inbox-list-header {
@@ -116,9 +120,9 @@
 .inbox-filter-bar {
   display: flex;
   gap: 0.5rem;
-  padding: 0.55rem 0.75rem;
+  padding: 0.55rem var(--inbox-list-inset) 0.62rem;
   border-bottom: 1px solid color-mix(in srgb, var(--border-soft) 22%, transparent 78%);
-  background: rgb(247 243 239);
+  background: color-mix(in srgb, var(--surface-alt) 48%, white 52%);
 }
 
 .inbox-filter-group {
@@ -136,11 +140,12 @@
 }
 
 .inbox-filter-select {
+  --dropdown-background: color-mix(in srgb, white 88%, var(--surface-alt) 12%);
+  --dropdown-border: color-mix(in srgb, var(--border-soft) 60%, transparent 40%);
   width: 100%;
   height: 2.3rem;
   min-height: 2.3rem;
-  border-radius: 0.55rem;
-  background-color: var(--surface);
+  border-radius: var(--radius-sm);
   box-shadow: 0 1px 0 color-mix(in srgb, white 85%, transparent) inset;
   font-size: 0.78rem;
   font-weight: 500;
@@ -167,8 +172,9 @@
   display: flex;
   gap: 0.5rem;
   align-items: center;
-  width: 100%;
-  padding: 0.72rem 0.75rem;
+  width: calc(100% - (var(--inbox-list-inset) * 2));
+  margin-inline: var(--inbox-list-inset);
+  padding: 0.72rem 0.15rem;
   border: none;
   border-bottom: 1px solid color-mix(in srgb, var(--border-soft) 18%, transparent 82%);
   background: transparent;
@@ -176,6 +182,10 @@
   text-align: left;
   cursor: pointer;
   transition: background 80ms ease;
+}
+
+.inbox-row:nth-of-type(even) {
+  background: var(--row-alt);
 }
 
 .inbox-row:hover {
@@ -337,7 +347,7 @@
 /* Subject and meta each stay on a single line so the header keeps a fixed,
    tidy height regardless of pane width or zoom. */
 .inbox-detail-subject-block strong {
-  font-size: 0.88rem;
+  font-size: 0.8rem;
   font-weight: 500;
   line-height: 1.3;
   white-space: nowrap;
@@ -678,6 +688,58 @@
   gap: 0.5rem;
 }
 
+.inbox-pending-attachments,
+.inbox-attachment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.inbox-pending-attachment,
+.inbox-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0.28rem 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--border-soft) 36%, transparent 64%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-alt) 45%, white 55%);
+  color: var(--fg-muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.inbox-pending-attachment button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.inbox-pending-attachment button:hover {
+  background: color-mix(in srgb, var(--border-soft) 32%, transparent 68%);
+  color: var(--fg);
+}
+
+.inbox-attachment-list {
+  margin-top: 0.55rem;
+}
+
+.inbox-attachment-chip {
+  border-color: color-mix(in srgb, var(--accent) 12%, transparent 88%);
+  background: color-mix(in srgb, var(--accent-soft) 18%, white 82%);
+  color: color-mix(in srgb, var(--fg-muted) 75%, var(--accent) 25%);
+}
+
 .inbox-reply-tools {
   display: inline-flex;
   align-items: center;
@@ -788,6 +850,8 @@
 .inbox-split.is-list-collapsed .inbox-row {
   justify-content: center;
   gap: 0.28rem;
+  width: 100%;
+  margin-inline: 0;
   padding: 0.78rem 0.35rem;
 }
 
@@ -821,6 +885,12 @@
     border-right: none;
     max-height: none;
   }
+
+  .inbox-list-header { order: 0; }
+  .inbox-search { order: 1; }
+  .inbox-filter-bar { order: 2; }
+  .inbox-focus-chip { order: 3; }
+  .inbox-list-scroll { order: 4; }
 
   .inbox-detail-pane { display: none; }
 
@@ -858,7 +928,9 @@
   .inbox-split.is-list-collapsed .inbox-row {
     justify-content: flex-start;
     gap: 0.5rem;
-    padding: 0.72rem 0.75rem;
+    width: calc(100% - (var(--inbox-list-inset) * 2));
+    margin-inline: var(--inbox-list-inset);
+    padding: 0.72rem 0.15rem;
   }
 
   .inbox-split.is-list-collapsed .inbox-row-avatar {
@@ -869,25 +941,25 @@
     align-self: stretch;
   }
 
-  /* ── Larger, more legible type on mobile ── */
-  .inbox-list-title { font-size: 0.95rem; }
-  .inbox-search input { font-size: 0.88rem; }
-  .inbox-row-client { font-size: 0.76rem; }
-  .inbox-row-time { font-size: 0.74rem; }
-  .inbox-row-subject { font-size: 0.92rem; }
-  .inbox-row-snippet { font-size: 0.82rem; }
+  /* ── Mobile type: minimal but legible (a touch up from desktop, not large) ── */
+  .inbox-list-title { font-size: 0.88rem; }
+  .inbox-search input { font-size: 0.85rem; }
+  .inbox-row-client { font-size: 0.74rem; }
+  .inbox-row-time { font-size: 0.72rem; }
+  .inbox-row-subject { font-size: 0.85rem; }
+  .inbox-row-snippet { font-size: 0.8rem; }
   .inbox-chip,
   .inbox-row-status,
-  .inbox-row-awaiting { font-size: 0.7rem; }
-  .inbox-row-status svg { width: 0.82rem; height: 0.82rem; }
+  .inbox-row-awaiting { font-size: 0.68rem; }
+  .inbox-row-status svg { width: 0.8rem; height: 0.8rem; }
 
-  .inbox-detail-subject-block strong { font-size: 0.98rem; }
-  .inbox-detail-meta { font-size: 0.82rem; }
-  .inbox-status.is-button { font-size: 0.8rem; }
-  .inbox-day-divider span { font-size: 0.82rem; }
-  .inbox-bubble p { font-size: 0.95rem; }
-  .inbox-system-card-body p { font-size: 0.86rem; }
-  .inbox-reply textarea { font-size: 0.95rem; }
+  .inbox-detail-subject-block strong { font-size: 0.86rem; }
+  .inbox-detail-meta { font-size: 0.8rem; }
+  .inbox-status.is-button { font-size: 0.78rem; }
+  .inbox-day-divider span { font-size: 0.8rem; }
+  .inbox-bubble p { font-size: 0.88rem; }
+  .inbox-system-card-body p { font-size: 0.84rem; }
+  .inbox-reply textarea { font-size: 0.88rem; }
   .inbox-routing-label { font-size: 0.74rem; }
   .inbox-routing-btn { font-size: 0.74rem; height: 1.85rem; }
 }
@@ -899,7 +971,7 @@
   align-items: center;
   gap: 0.45rem;
   padding: 0.5rem 0.7rem;
-  margin: 0.55rem 0.75rem 0.15rem;
+  margin: 0.55rem var(--inbox-list-inset) 0.15rem;
   border: 1px solid color-mix(in srgb, var(--border-soft) 38%, transparent 62%);
   border-radius: 0.5rem;
   background: white;
@@ -932,8 +1004,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  width: calc(100% - 1.5rem);
-  margin: 0 0.75rem 0.15rem;
+  width: calc(100% - (var(--inbox-list-inset) * 2));
+  margin: 0.35rem var(--inbox-list-inset) 0.15rem;
   padding: 0.4rem 0.6rem;
   border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent 82%);
   border-radius: 0.5rem;
@@ -1217,20 +1289,26 @@
   bottom: calc(100% + 0.4rem);
   left: 0;
   z-index: 20;
-  width: 20rem;
-  max-width: 70vw;
+  width: 21rem;
+  max-width: 78vw;
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
-  padding: 0.35rem;
+  padding: 0.5rem;
   border: 1px solid color-mix(in srgb, var(--border-soft) 45%, transparent 55%);
-  border-radius: 0.6rem;
+  border-radius: 0.7rem;
   background: white;
-  box-shadow: 0 14px 30px -12px rgb(40 30 25 / 0.3);
+  box-shadow: 0 16px 34px -12px rgb(40 30 25 / 0.32);
+}
+
+.inbox-canned-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.1rem 0.35rem 0.4rem;
 }
 
 .inbox-canned-title {
-  padding: 0.25rem 0.45rem 0.15rem;
   color: var(--fg-faint);
   font-size: 0.6rem;
   font-weight: 500;
@@ -1238,10 +1316,52 @@
   letter-spacing: 0.05em;
 }
 
-.inbox-canned-menu button {
+.inbox-canned-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem 0.45rem 0.2rem 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, white 78%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-soft) 24%, white 76%);
+  color: color-mix(in srgb, var(--accent) 58%, black 42%);
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 100ms ease, border-color 100ms ease;
+}
+
+.inbox-canned-new:hover {
+  background: color-mix(in srgb, var(--accent-soft) 40%, white 60%);
+  border-color: color-mix(in srgb, var(--accent) 34%, white 66%);
+}
+
+.inbox-canned-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  max-height: 15rem;
+  overflow-y: auto;
+}
+
+.inbox-canned-item {
+  display: flex;
+  align-items: stretch;
+  gap: 0.1rem;
+  border-radius: 0.45rem;
+}
+
+.inbox-canned-item:hover {
+  background: color-mix(in srgb, var(--accent-soft) 14%, white 86%);
+}
+
+.inbox-canned-item-text {
+  flex: 1;
+  min-width: 0;
   padding: 0.45rem 0.5rem;
   border: none;
-  border-radius: 0.4rem;
+  border-radius: 0.45rem;
   background: transparent;
   color: var(--fg-muted);
   font: inherit;
@@ -1249,10 +1369,118 @@
   line-height: 1.4;
   text-align: left;
   cursor: pointer;
-  transition: background 100ms ease, color 100ms ease;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: color 100ms ease;
 }
 
-.inbox-canned-menu button:hover {
-  background: color-mix(in srgb, var(--accent-soft) 16%, white 84%);
+.inbox-canned-item:hover .inbox-canned-item-text {
   color: var(--fg);
+}
+
+.inbox-canned-item-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 0.45rem;
+  background: transparent;
+  color: var(--fg-faint);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 100ms ease, background 100ms ease, color 100ms ease;
+}
+
+.inbox-canned-item:hover .inbox-canned-item-remove,
+.inbox-canned-item-remove:focus-visible {
+  opacity: 1;
+}
+
+.inbox-canned-item-remove:hover {
+  background: color-mix(in srgb, var(--warn-soft) 36%, white 64%);
+  color: color-mix(in srgb, var(--warn) 55%, black 45%);
+}
+
+.inbox-canned-empty {
+  padding: 0.7rem 0.5rem;
+  color: var(--fg-faint);
+  font-size: 0.74rem;
+  text-align: center;
+}
+
+.inbox-canned-add {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid color-mix(in srgb, var(--border-soft) 30%, transparent 70%);
+}
+
+.inbox-canned-add textarea {
+  resize: none;
+  border: 1px solid color-mix(in srgb, var(--border-soft) 45%, transparent 55%);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.55rem;
+  outline: none;
+  background: white;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  transition: border-color 100ms ease;
+}
+
+.inbox-canned-add textarea:focus {
+  border-color: color-mix(in srgb, var(--accent) 30%, white 70%);
+}
+
+.inbox-canned-add textarea::placeholder {
+  color: var(--fg-faint);
+}
+
+.inbox-canned-add-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.inbox-canned-cancel,
+.inbox-canned-save {
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 100ms ease, background 100ms ease, border-color 100ms ease;
+}
+
+.inbox-canned-cancel {
+  border: 1px solid color-mix(in srgb, var(--border-soft) 42%, transparent 58%);
+  background: white;
+  color: var(--fg-muted);
+}
+
+.inbox-canned-cancel:hover {
+  border-color: color-mix(in srgb, var(--border-soft) 60%, transparent 40%);
+}
+
+.inbox-canned-save {
+  border: none;
+  background: color-mix(in srgb, var(--accent) 74%, white 26%);
+  color: white;
+}
+
+.inbox-canned-save:hover {
+  opacity: 0.9;
+}
+
+.inbox-canned-save:disabled {
+  opacity: 0.4;
+  cursor: default;
 }

@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowRight, Bell, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, Clock, Compass, CreditCard, Flag, ExternalLink, Eye, FileSearch, FileText, Folder, Globe, Home, Link as LinkIcon, Lock, LockKeyhole, MessageSquare, Paperclip, PenLine, Pencil, Plus, Rocket, Send, Settings, ThumbsDown, ThumbsUp, User, Wand2, X, Zap, type LucideIcon } from "lucide-react";
+import { AlertCircle, ArrowRight, Bell, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, Clock, Compass, CreditCard, Flag, ExternalLink, Eye, FileSearch, FileText, Folder, Globe, LayoutDashboard, Link as LinkIcon, Lock, LockKeyhole, MessageSquare, Paperclip, PenLine, Pencil, Plus, Rocket, Send, Settings, ThumbsDown, ThumbsUp, User, Wand2, X, Zap, type LucideIcon } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import type { AuditPriority, Project, BrandIdentity, ClientNav, GateFeedback, Milestone, MilestoneStatus, Task } from "../types";
 import { DashboardSidebar } from "../components/DashboardSidebar";
@@ -345,6 +345,24 @@ export function ClientOverviewTab({ project, onNavChange, role = "client" }: { p
           { label: "Outcome", value: stage === "deleted" ? "New Consult Required" : "A Clear Build Path" },
         ]
       : dynamicNextMoves;
+  const foundationMilestone = project.milestones[0]!;
+  const buildMilestone = project.milestones[1]!;
+  const launchMilestone = project.milestones[2]!;
+  const inFullFlightStatus: MilestoneStatus = launchMilestone.status === "complete" ? "active" : "locked";
+  const projectTimelineStages = [
+    { id: "cocoon-consult", number: 1, clientLabel: "Cocoon Consult", status: "complete" as MilestoneStatus },
+    { ...foundationMilestone, number: 2 },
+    { ...buildMilestone, number: 3 },
+    { ...launchMilestone, number: 4 },
+    { id: "in-full-flight", number: 5, clientLabel: "In Full Flight", status: inFullFlightStatus, marker: "rocket" as const },
+  ];
+  const projectTimelineEvents = [
+    { id: "cocoon-consult", title: "Cocoon Consult", status: "complete" as MilestoneStatus, dateNum: "1", dateMon: "Jun", detail: "Audit · consult call · build path" },
+    { id: foundationMilestone.id, title: `Phase 2 — ${foundationMilestone.title}`, status: foundationMilestone.status, dateNum: "3", dateMon: "Jun", detail: "Intake · Audit · Strategy · Copy" },
+    { id: buildMilestone.id, title: `Phase 3 — ${buildMilestone.title}`, status: buildMilestone.status, dateNum: "5", dateMon: "Jun", detail: "Design · Build · QA · 2 Approval Gates" },
+    { id: launchMilestone.id, title: `Phase 4 — ${launchMilestone.title}`, status: launchMilestone.status, dateNum: "10", dateMon: "Jun", detail: "Launch · DNS · handoff package" },
+    { id: "in-full-flight", title: "Phase 5 — In Full Flight", status: inFullFlightStatus, dateNum: "17", dateMon: "Jun", detail: "Post-launch support · optimization · next flight", marker: "rocket" as const },
+  ];
 
   return (
     <div style={{ display: "grid", gap: "0.85rem" }}>
@@ -437,15 +455,15 @@ export function ClientOverviewTab({ project, onNavChange, role = "client" }: { p
                       { id: "review", number: 2, clientLabel: "Guided Call", status: stage === "cocoon-consult" ? "active" as const : "complete" as const },
                       { id: "path", number: 3, clientLabel: "Build Path", status: stage === "paid-cocoon" ? "active" as const : stage === "deleted" ? "locked" as const : "complete" as const },
                     ]
-                  : project.milestones
+                  : projectTimelineStages
                 ).map((m) => (
                   <div key={m.id} className={`stage-item is-${m.status}`}>
-                    <div className={`stage-dot is-${m.status}`}>
-                      {m.status === "complete" ? <Check /> : <span>{m.number}</span>}
+                    <div className={`stage-dot is-${m.status} ${"marker" in m && m.marker ? `has-${m.marker}` : ""}`}>
+                      {"marker" in m && m.marker === "rocket" ? <Rocket /> : m.status === "complete" ? <Check /> : <span>{m.number}</span>}
                     </div>
                     <span className="stage-name">{m.clientLabel}</span>
                     <span className="stage-status">
-                      {m.status === "complete" ? "Complete" : m.status === "active" ? "In review" : "Locked"}
+                      {m.status === "complete" ? "Complete" : m.status === "active" ? ("marker" in m && m.marker === "rocket" ? "In flight" : showAuditOverview ? "In review" : "Active") : "Locked"}
                     </span>
                   </div>
                 ))}
@@ -460,16 +478,16 @@ export function ClientOverviewTab({ project, onNavChange, role = "client" }: { p
                 { id: "audit-review", title: "Guided Cocoon Consult call", status: stage === "cocoon-consult" ? "active" as const : "complete" as const, dateNum: "5", dateMon: "Jun", detail: workflow?.booking.label ?? "Findings reviewed with next-step recommendations" },
                 { id: "audit-path", title: workflow?.nextStepLabel ?? "Choose next path", status: stage === "paid-cocoon" ? "active" as const : stage === "deleted" ? "locked" as const : "complete" as const, dateNum: "10", dateMon: "Jun", detail: workflow?.nextStepDetail ?? "Paid Cocoon · Winged in a Week · In Full Flight" },
               ]
-            : [
-                { id: project.milestones[0]!.id, title: `Milestone ${project.milestones[0]!.number} — ${project.milestones[0]!.title}`, status: project.milestones[0]!.status, dateNum: "3", dateMon: "Jun", detail: "Intake · Audit · Strategy · Copy" },
-                { id: project.milestones[1]!.id, title: `Milestone ${project.milestones[1]!.number} — ${project.milestones[1]!.title}`, status: project.milestones[1]!.status, dateNum: "5", dateMon: "Jun", detail: "Design · Build · QA · 2 Approval Gates" },
-                { id: project.milestones[2]!.id, title: `Milestone ${project.milestones[2]!.number} — ${project.milestones[2]!.title}`, status: project.milestones[2]!.status, dateNum: "10", dateMon: "Jun", detail: "Launch · DNS · Handoff package" },
-              ]
-          ).map(({ id, title, status, dateNum, dateMon, detail }) => (
+            : projectTimelineEvents
+          ).map(({ id, title, status, dateNum, dateMon, detail, ...eventMeta }) => (
             <div key={id} className="timeline-event">
-              <div className={`timeline-date is-${status}`}>
-                <span className="timeline-date-num">{dateNum}</span>
-                <span className="timeline-date-mon">{dateMon}</span>
+              <div className={`timeline-date is-${status} ${"marker" in eventMeta && eventMeta.marker ? `has-${eventMeta.marker}` : ""}`}>
+                {"marker" in eventMeta && eventMeta.marker === "rocket" ? <Rocket /> : (
+                  <>
+                    <span className="timeline-date-num">{dateNum}</span>
+                    <span className="timeline-date-mon">{dateMon}</span>
+                  </>
+                )}
               </div>
               <div className="timeline-info">
                 <div className="timeline-title">{title}</div>
@@ -477,7 +495,7 @@ export function ClientOverviewTab({ project, onNavChange, role = "client" }: { p
               </div>
               <StatusBadge
                 status={status === "complete" ? "is-success" : status === "active" ? "is-progress" : "is-locked"}
-                label={status === "complete" ? "Complete" : status === "active" ? (showAuditOverview ? "In review" : "Active") : (showAuditOverview ? "Locked" : "Upcoming")}
+                label={status === "complete" ? "Complete" : status === "active" ? ("marker" in eventMeta && eventMeta.marker === "rocket" ? "In flight" : showAuditOverview ? "In review" : "Active") : (showAuditOverview ? "Locked" : "Upcoming")}
               />
             </div>
           ))}
@@ -1859,7 +1877,7 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
         { key: "reviews",        label: "Tasks",          icon: CheckCircle2, locked: true },
       ]
     : [
-        { key: "overview",       label: "Home",           icon: Home, locked: !access.overview },
+        { key: "overview",       label: "Home",           icon: LayoutDashboard, locked: !access.overview },
         { key: "notifications",  label: "Notifications",  icon: Bell, count: unread, locked: !access.notifications },
         { key: "assistant",      label: assistantOpen ? "Close In Full Flight" : "In Full Flight", icon: Plus, action: toggleInFullFlightAssistant, toggled: assistantOpen },
         { key: "reviews",        label: "Tasks",          icon: CheckCircle2, count: pendingReviews, locked: !access.tasks },
@@ -1890,7 +1908,7 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
       { id: "cocoon", label: "Cocoon Consult", icon: Compass, iconSize: 16 },
     ]}] : []),
     { label: "Workspace", items: [
-      { id: "overview",   label: "Overview",   icon: Home, locked: !access.overview },
+      { id: "overview",   label: "Overview",   icon: LayoutDashboard, locked: !access.overview },
       { id: "reviews",    label: "Tasks",      icon: CheckCircle2, count: pendingReviews, locked: !access.tasks },
     ]},
     { label: "Collaboration", items: [

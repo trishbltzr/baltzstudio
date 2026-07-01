@@ -60,6 +60,7 @@ export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>(PROJECTS);
   // Studio users (admin/manager) can preview a client's portal read-only.
   const [impersonatingClientId, setImpersonatingClientId] = useState<string | null>(null);
+  const [studioProjectContextOpened, setStudioProjectContextOpened] = useState(false);
   const [dashboardStateLoaded, setDashboardStateLoaded] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [workflowNudge, setWorkflowNudge] = useState<WorkflowNudge | null>(null);
@@ -180,6 +181,9 @@ export default function Dashboard() {
   }, [currentUser, projects, selectedProjectId]);
 
   function selectProject(id: string) {
+    if (currentUser?.role === "admin" || currentUser?.role === "manager") {
+      setStudioProjectContextOpened(true);
+    }
     setSelectedProjectId(id);
   }
 
@@ -230,7 +234,11 @@ export default function Dashboard() {
       ) : isStudio ? (
         <AdminView
           workspaceRole={currentUser.role === "manager" ? "manager" : "admin"}
-          onViewAsClient={(id) => setImpersonatingClientId(id)}
+          projectContextOpened={studioProjectContextOpened}
+          onViewAsClient={(id) => {
+            setStudioProjectContextOpened(true);
+            setImpersonatingClientId(id);
+          }}
           projects={projects}
           selectedProjectId={selectedProjectId}
           onSelectProject={selectProject}

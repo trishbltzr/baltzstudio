@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { Archive, Bot, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronsLeft, ChevronsRight, CircleDashed, Clock3, CornerUpLeft, Eye, Filter, Lock, MessageSquare, MessageSquareText, Paperclip, Search, Send, Shield, User } from "lucide-react";
+import { Archive, Bot, Check, ChevronDown, ChevronLeft, ChevronsLeft, ChevronsRight, CircleDashed, Clock3, CornerUpLeft, Eye, Filter, Lock, MessageSquare, MessageSquareText, Paperclip, Plus, Search, Send, Shield, User, X } from "lucide-react";
 
 type ThreadSource = "cocoon" | "wiaw" | "in_full_flight";
 type ThreadStatus = "unread" | "open" | "waiting" | "preview_ready" | "resolved" | "escalated";
@@ -17,6 +17,7 @@ type ThreadMessage = {
   time: string;
   day?: string;
   systemKind?: SystemNoteKind;
+  attachments?: string[];
 };
 
 type InboxThread = {
@@ -131,7 +132,7 @@ function sourceBadgeClass(source: ThreadSource) {
 function statusIcon(status: ThreadStatus) {
   if (status === "unread") return <Clock3 size={12} />;
   if (status === "open" || status === "waiting") return <CircleDashed size={12} />;
-  if (status === "preview_ready" || status === "resolved") return <CheckCircle2 size={12} />;
+  if (status === "preview_ready" || status === "resolved") return <Check size={12} />;
   return <Lock size={12} />;
 }
 
@@ -207,8 +208,16 @@ export function AdminAgentQueue({ role = "admin", focusClientName }: { role?: "a
   const [listCollapsed, setListCollapsed] = useState(false);
   const [revealedTimes, setRevealedTimes] = useState<Set<string>>(new Set());
   const [reply, setReply] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState<string[]>([]);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setClientFilter(focusedClient ?? "all");
+  }, [focusedClient]);
   const [cannedOpen, setCannedOpen] = useState(false);
+  const [cannedReplies, setCannedReplies] = useState<string[]>(CANNED_REPLIES);
+  const [addingCanned, setAddingCanned] = useState(false);
+  const [newCanned, setNewCanned] = useState("");
   const chatRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -261,6 +270,8 @@ export function AdminAgentQueue({ role = "admin", focusClientName }: { role?: "a
   useEffect(() => {
     setStatusMenuOpen(false);
     setCannedOpen(false);
+    setAddingCanned(false);
+    setPendingAttachments([]);
   }, [active?.id]);
 
   // Dismiss the status menu on outside click
@@ -279,6 +290,7 @@ export function AdminAgentQueue({ role = "admin", focusClientName }: { role?: "a
     );
     setActiveId(id);
     setReply("");
+    setPendingAttachments([]);
   }
 
   function assignThread(threadId: string, assigneeId: string) {
@@ -295,6 +307,7 @@ export function AdminAgentQueue({ role = "admin", focusClientName }: { role?: "a
     setThreads(prev => prev.filter(t => t.id !== threadId));
     setActiveId(current => current === threadId ? null : current);
     setReply("");
+    setPendingAttachments([]);
   }
 
   function setThreadStatus(threadId: string, status: ThreadStatus) {
@@ -329,14 +342,33 @@ export function AdminAgentQueue({ role = "admin", focusClientName }: { role?: "a
   function insertCanned(text: string) {
     setReply(text);
     setCannedOpen(false);
+    setAddingCanned(false);
     composerRef.current?.focus();
   }
 
+  function addCannedReply() {
+    const value = newCanned.trim();
+    if (!value) return;
+    setCannedReplies(prev => [...prev, value]);
+    setNewCanned("");
+    setAddingCanned(false);
+  }
+
+  function removeCannedReply(text: string) {
+    setCannedReplies(prev => prev.filter(c => c !== text));
+  }
+
   function onAttach(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) setReply(prev => `${prev}${prev ? " " : ""}📎 ${file.name}`.trim());
+    const files = Array.from(e.target.files ?? []).map(file => file.name);
+    if (files.length) {
+      setPendingAttachments(prev => [...prev, ...files]);
+    }
     e.target.value = "";
     composerRef.current?.focus();
+  }
+
+  function removeAttachment(name: string) {
+    setPendingAttachments(prev => prev.filter(fileName => fileName !== name));
   }
 
   function toggleTime(messageId: string) {
@@ -349,14 +381,15 @@ export function AdminAgentQueue({ role = "admin", focusClientName }: { role?: "a
   }
 
   function sendReply() {
-    if (!active || !reply.trim()) return;
+    if (!active || (!reply.trim() && pendingAttachments.length === 0)) return;
     const msg: ThreadMessage = {
       id: `m-${Date.now()}`,
       role: "studio",
       sender: "Trisha",
       senderInitials: "TB",
-      body: reply.trim(),
+      body: reply.trim() || "Attached file.",
       time: new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(Date.now()),
+      attachments: pendingAttachments,
     };
     setThreads(prev =>
       prev.map(t =>
@@ -366,6 +399,7 @@ export function AdminAgentQueue({ role = "admin", focusClientName }: { role?: "a
       ),
     );
     setReply("");
+    setPendingAttachments([]);
   }
 
   const hasActiveFilters = statusFilter !== "all" || clientFilter !== "all";
@@ -414,17 +448,6 @@ export function AdminAgentQueue({ role = "admin", focusClientName }: { role?: "a
           </div>
         )}
 
-        {!listCollapsed && focusedClient && clientFilter === focusedClient && (
-          <button
-            type="button"
-            className="inbox-focus-chip"
-            onClick={() => setClientFilter("all")}
-          >
-            <span className="inbox-focus-chip-label">Focused on <strong>{focusedClient}</strong></span>
-            <span className="inbox-focus-chip-action">View all clients</span>
-          </button>
-        )}
-
         {showFilters && !listCollapsed && (
           <div className="inbox-filter-bar">
             <div className="inbox-filter-group">
@@ -446,6 +469,17 @@ export function AdminAgentQueue({ role = "admin", focusClientName }: { role?: "a
               </div>
             )}
           </div>
+        )}
+
+        {!listCollapsed && focusedClient && clientFilter === focusedClient && (
+          <button
+            type="button"
+            className="inbox-focus-chip"
+            onClick={() => setClientFilter("all")}
+          >
+            <span className="inbox-focus-chip-label">Focused on <strong>{focusedClient}</strong></span>
+            <span className="inbox-focus-chip-action">View all clients</span>
+          </button>
         )}
 
         <div className="inbox-list-scroll">
@@ -526,7 +560,7 @@ export function AdminAgentQueue({ role = "admin", focusClientName }: { role?: "a
                       <CircleDashed size={12} />Mark as open
                     </button>
                     <button type="button" role="menuitem" onClick={() => setThreadStatus(active.id, "resolved")}>
-                      <CheckCircle2 size={12} />Mark resolved
+                      <Check size={12} />Mark resolved
                     </button>
                     <button type="button" role="menuitem" onClick={() => setThreadStatus(active.id, "escalated")}>
                       <Lock size={12} />Escalate
@@ -589,6 +623,16 @@ export function AdminAgentQueue({ role = "admin", focusClientName }: { role?: "a
                             }}
                           >
                             <p>{msg.body}</p>
+                            {msg.attachments && msg.attachments.length > 0 && (
+                              <div className="inbox-attachment-list" aria-label="Attachments">
+                                {msg.attachments.map(fileName => (
+                                  <span key={fileName} className="inbox-attachment-chip">
+                                    <Paperclip size={12} />
+                                    {fileName}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           {!sameAsNext && (
                             <div className={`inbox-bubble-footer inbox-bubble-footer--${msg.role}`}>
@@ -638,6 +682,19 @@ export function AdminAgentQueue({ role = "admin", focusClientName }: { role?: "a
                     }
                   }}
                 />
+                {pendingAttachments.length > 0 && (
+                  <div className="inbox-pending-attachments" aria-label="Files ready to send">
+                    {pendingAttachments.map(fileName => (
+                      <span key={fileName} className="inbox-pending-attachment">
+                        <Paperclip size={12} />
+                        {fileName}
+                        <button type="button" onClick={() => removeAttachment(fileName)} aria-label={`Remove ${fileName}`}>
+                          <X size={11} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="inbox-reply-bar">
                   <div className="inbox-reply-tools">
                     <button type="button" className="inbox-compose-tool" onClick={() => fileRef.current?.click()} aria-label="Attach file">
@@ -655,19 +712,92 @@ export function AdminAgentQueue({ role = "admin", focusClientName }: { role?: "a
                       </button>
                       {cannedOpen && (
                         <div className="inbox-canned-menu" role="menu">
-                          <span className="inbox-canned-title">Quick replies</span>
-                          {CANNED_REPLIES.map((c, i) => (
-                            <button key={i} type="button" role="menuitem" onClick={() => insertCanned(c)}>{c}</button>
-                          ))}
+                          <div className="inbox-canned-head">
+                            <span className="inbox-canned-title">Quick replies</span>
+                            {!addingCanned && (
+                              <button
+                                type="button"
+                                className="inbox-canned-new"
+                                onClick={() => setAddingCanned(true)}
+                              >
+                                <Plus size={13} />New
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="inbox-canned-list">
+                            {cannedReplies.map((c, i) => (
+                              <div key={i} className="inbox-canned-item">
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="inbox-canned-item-text"
+                                  onClick={() => insertCanned(c)}
+                                >
+                                  {c}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="inbox-canned-item-remove"
+                                  onClick={() => removeCannedReply(c)}
+                                  aria-label="Remove quick reply"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
+                            ))}
+                            {cannedReplies.length === 0 && !addingCanned && (
+                              <p className="inbox-canned-empty">No quick replies yet — add one.</p>
+                            )}
+                          </div>
+
+                          {addingCanned && (
+                            <div className="inbox-canned-add">
+                              <textarea
+                                value={newCanned}
+                                onChange={e => setNewCanned(e.target.value)}
+                                placeholder="Write a reusable reply…"
+                                rows={2}
+                                autoFocus
+                                onKeyDown={e => {
+                                  if (e.key === "Enter" && !e.shiftKey) {
+                                    e.preventDefault();
+                                    addCannedReply();
+                                  }
+                                  if (e.key === "Escape") {
+                                    setAddingCanned(false);
+                                    setNewCanned("");
+                                  }
+                                }}
+                              />
+                              <div className="inbox-canned-add-actions">
+                                <button
+                                  type="button"
+                                  className="inbox-canned-cancel"
+                                  onClick={() => { setAddingCanned(false); setNewCanned(""); }}
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  className="inbox-canned-save"
+                                  onClick={addCannedReply}
+                                  disabled={!newCanned.trim()}
+                                >
+                                  Add reply
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
                   </div>
-                  <button type="submit" className="inbox-send-btn" disabled={!reply.trim()} aria-label="Send">
+                  <button type="submit" className="inbox-send-btn" disabled={!reply.trim() && pendingAttachments.length === 0} aria-label="Send">
                     <Send size={14} />
                   </button>
                 </div>
-                <input ref={fileRef} type="file" hidden onChange={onAttach} />
+                <input ref={fileRef} type="file" hidden multiple onChange={onAttach} />
               </form>
               <div className="inbox-thread-actions">
                 <div className="inbox-routing-row">

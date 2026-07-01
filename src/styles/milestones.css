@@ -278,6 +278,10 @@
   font-size: var(--text-base);
   line-height: 1.35;
 }
+.phase-detail-task-list .phase-detail-task-row:nth-child(even):not(.is-in_progress):not(.is-blocked),
+.phase-detail-task-branch-items .phase-detail-task-row:nth-child(even):not(.is-in_progress):not(.is-blocked) {
+  background: var(--row-alt);
+}
 .phase-detail-task-row .phase-detail-task-title {
   min-width: 0;
   flex: 1;
@@ -533,6 +537,9 @@
   gap: 0.75rem;
   padding: 0.8rem 1rem;
   border-top: 1px solid var(--border-soft);
+}
+.audit-milestone-row:nth-of-type(even) {
+  background: var(--row-alt);
 }
 .audit-milestone-row > span {
   color: var(--fg-muted);

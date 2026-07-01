@@ -2,7 +2,6 @@ import {
   AlertTriangle,
   Bot,
   Check,
-  CheckCircle2,
   Clock,
   CircleDashed,
   Eye,
@@ -30,8 +29,8 @@ import type { TaskAssignee, MilestoneStatus, TaskStatus } from "../types";
 // Context-specific wording (e.g. "Approved" vs "Done") is still supplied by the
 // caller's `label`; this map only guarantees an icon + a sensible default.
 export const STATUS_META: Record<string, { icon: LucideIcon; label: string }> = {
-  "is-success":  { icon: CheckCircle2,  label: "Done" },
-  "is-complete": { icon: CheckCircle2,  label: "Complete" },
+  "is-success":  { icon: Check,         label: "Done" },
+  "is-complete": { icon: Check,         label: "Complete" },
   "is-progress": { icon: LoaderCircle,  label: "In progress" },
   "is-active":   { icon: LoaderCircle,  label: "In progress" },
   "is-review":   { icon: Clock,         label: "Awaiting" },

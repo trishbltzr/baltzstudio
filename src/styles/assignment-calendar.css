@@ -1,0 +1,393 @@
+/* ─── Assignment calendar ─────────────────────────────────────── */
+
+.assignment-calendar {
+  padding: 1rem 1.1rem 1.1rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(17rem, 0.9fr);
+  grid-template-areas:
+    "head head"
+    "week detail"
+    "grid detail"
+    "footer detail";
+  gap: 0 1rem;
+}
+
+.assignment-cal-head {
+  grid-area: head;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+
+.assignment-cal-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--fg);
+}
+.assignment-cal-title svg { color: var(--fg-muted); }
+.assignment-cal-title h2 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.assignment-cal-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.assignment-cal-month {
+  min-width: 8.5rem;
+  text-align: right;
+  color: var(--fg);
+  font-size: 0.84rem;
+  font-weight: 500;
+}
+
+.assignment-cal-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid color-mix(in srgb, var(--border-soft) 45%, transparent 55%);
+  border-radius: 0.5rem;
+  background: white;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background 100ms ease, color 100ms ease;
+}
+.assignment-cal-step:hover {
+  background: color-mix(in srgb, var(--surface-alt) 40%, white 60%);
+  color: var(--fg);
+}
+
+.assignment-cal-weekrow {
+  grid-area: week;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.3rem;
+  margin-bottom: 0.3rem;
+}
+.assignment-cal-weekday {
+  padding: 0 0.3rem;
+  color: var(--fg-faint);
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  text-align: center;
+  letter-spacing: 0.05em;
+}
+
+.assignment-cal-grid {
+  grid-area: grid;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.3rem;
+}
+
+.assignment-cal-day {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-height: 3rem;
+  padding: 0.35rem 0.35rem 0.3rem;
+  border: 1px solid color-mix(in srgb, var(--border-soft) 30%, transparent 70%);
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, white 75%, var(--surface-alt) 25%);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 100ms ease, background 100ms ease;
+}
+.assignment-cal-day:hover {
+  border-color: color-mix(in srgb, var(--accent) 22%, white 78%);
+}
+.assignment-cal-day.is-outside {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--border-soft) 18%, transparent 82%);
+}
+.assignment-cal-day.is-outside .assignment-cal-daynum { color: var(--fg-faint); }
+.assignment-cal-day.is-today {
+  border-color: color-mix(in srgb, var(--accent) 40%, white 60%);
+}
+.assignment-cal-day.is-today .assignment-cal-daynum {
+  color: white;
+  background: var(--accent);
+}
+.assignment-cal-day.is-selected {
+  border-color: color-mix(in srgb, var(--accent) 55%, white 45%);
+  background: color-mix(in srgb, var(--accent-soft) 16%, white 84%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent 72%);
+}
+
+.assignment-cal-daynum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.2rem;
+  border-radius: 999px;
+  color: var(--fg-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.assignment-cal-chips {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-self: stretch;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.assignment-cal-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  min-width: 0;
+  width: 0.5rem;
+  height: 0.5rem;
+  padding: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--assignment-client-soft, var(--surface-alt)) 80%, white 20%);
+  font-size: 0.6rem;
+  line-height: 1.3;
+}
+.assignment-cal-chip.is-complete { opacity: 0.55; }
+.assignment-cal-chip-text {
+  display: none;
+}
+
+.assignment-cal-chip-dot {
+  flex-shrink: 0;
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 999px;
+  background: var(--assignment-client, var(--fg-faint));
+}
+.assignment-cal-chip-dot.is-ai { background: color-mix(in srgb, var(--accent) 70%, white 30%); }
+.assignment-cal-chip-dot.is-studio { background: color-mix(in srgb, var(--fg) 65%, white 35%); }
+
+.assignment-cal-more {
+  padding-left: 0.05rem;
+  color: var(--fg-faint);
+  font-size: 0.58rem;
+  font-weight: 500;
+}
+
+.assignment-cal-footer {
+  grid-area: footer;
+  display: flex;
+  justify-content: center;
+  margin-top: 0.6rem;
+}
+.assignment-cal-legend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.85rem;
+}
+.assignment-cal-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--fg-muted);
+  font-size: 0.68rem;
+}
+
+.assignment-cal-client-dot {
+  display: inline-grid;
+  flex-shrink: 0;
+  width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--assignment-client-soft, var(--surface-alt));
+  color: var(--assignment-client-text, var(--fg-muted));
+  font-size: 0.54rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--assignment-client, var(--border-soft)) 22%, transparent 78%);
+}
+
+/* Selected-day detail list */
+.assignment-cal-detail {
+  grid-area: detail;
+  min-height: 0;
+  margin-top: 0;
+  padding: 0 0 0 0.6rem;
+  border-top: 0;
+  border-left: 0;
+}
+.assignment-cal-detail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.assignment-cal-detail-head strong { font-size: 0.84rem; font-weight: 600; color: var(--fg); }
+.assignment-cal-detail-head span { font-size: 0.72rem; color: var(--fg-faint); }
+
+.assignment-cal-detail-empty {
+  padding: 0.6rem 0;
+  color: var(--fg-faint);
+  font-size: 0.8rem;
+}
+
+.assignment-cal-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 19.5rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.assignment-cal-detail-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--assignment-client, var(--border-soft)) 18%, transparent 82%);
+  border-left: 0;
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, var(--assignment-client-soft, var(--surface-alt)) 58%, white 42%);
+}
+.assignment-cal-detail-item.is-complete { opacity: 0.6; }
+.assignment-cal-detail-item .assignment-cal-client-dot {
+  margin-top: 0.05rem;
+}
+
+.assignment-cal-detail-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+.assignment-cal-detail-title {
+  color: var(--fg);
+  font-size: 0.8rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assignment-cal-detail-meta {
+  color: var(--fg-faint);
+  font-size: 0.68rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assignment-cal-detail-side {
+  display: inline-flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+.assignment-cal-detail-deadline {
+  width: fit-content;
+  padding: 0.16rem 0.42rem;
+  border-radius: 999px;
+  background: white;
+  color: var(--assignment-client-text, var(--fg-muted));
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.assignment-cal-detail-deadline.is-past {
+  background: color-mix(in srgb, var(--accent-soft) 42%, white 58%);
+  color: color-mix(in srgb, var(--accent) 65%, black 35%);
+}
+.assignment-cal-detail-deadline.is-today {
+  background: color-mix(in srgb, var(--assignment-client, var(--accent)) 14%, white 86%);
+  color: var(--assignment-client-text, var(--fg));
+}
+.assignment-cal-detail-deadline.is-soon {
+  background: color-mix(in srgb, var(--assignment-client-soft, var(--surface-alt)) 68%, white 32%);
+}
+.assignment-cal-detail-deadline.is-later {
+  color: var(--fg-muted);
+}
+
+.assignment-cal-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex-shrink: 0;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--assignment-client, var(--accent)) 26%, white 74%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--assignment-client-soft, var(--accent-soft)) 48%, white 52%);
+  color: var(--assignment-client-text, color-mix(in srgb, var(--accent) 58%, black 42%));
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 100ms ease, border-color 100ms ease;
+}
+.assignment-cal-done:hover {
+  background: color-mix(in srgb, var(--assignment-client-soft, var(--accent-soft)) 64%, white 36%);
+  border-color: color-mix(in srgb, var(--assignment-client, var(--accent)) 36%, white 64%);
+}
+
+.assignment-cal-status {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--fg-faint);
+}
+.assignment-cal-status.is-complete { color: color-mix(in srgb, var(--success) 60%, black 40%); }
+
+@media (max-width: 860px) {
+  .assignment-calendar {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "head"
+      "week"
+      "grid"
+      "footer"
+      "detail";
+    gap: 0;
+  }
+  .assignment-cal-detail {
+    margin-top: 0.8rem;
+    padding: 0.8rem 0 0;
+    border-left: 0;
+    border-top: 1px solid color-mix(in srgb, var(--border-soft) 30%, transparent 70%);
+  }
+  .assignment-cal-detail-list {
+    max-height: min(16rem, 38vh);
+  }
+}
+
+@media (max-width: 680px) {
+  .assignment-cal-day { min-height: 2.85rem; }
+  .assignment-cal-chip {
+    width: 0.42rem;
+    height: 0.42rem;
+  }
+  .assignment-cal-chip-dot {
+    width: 0.26rem;
+    height: 0.26rem;
+  }
+  .assignment-cal-more { font-size: 0.55rem; }
+  .assignment-cal-month { min-width: auto; }
+}

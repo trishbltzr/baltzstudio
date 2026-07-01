@@ -473,22 +473,31 @@
 .dashboard-tabbar-toast {
   position: fixed;
   left: 50%;
-  bottom: calc(5rem + env(safe-area-inset-bottom));
-  z-index: 61;
+  bottom: calc(4.72rem + env(safe-area-inset-bottom));
+  z-index: 63;
   transform: translateX(-50%);
-  max-width: min(18rem, calc(100vw - 2rem));
-  padding: 0.45rem 0.75rem;
-  border: 1px solid color-mix(in srgb, var(--border-soft) 75%, white 25%);
+  max-width: min(17rem, calc(100vw - 2rem));
+  padding: 0.42rem 0.78rem;
+  border: 1px solid color-mix(in srgb, var(--accent-soft) 45%, white 55%);
   border-radius: 999px;
-  background: color-mix(in srgb, white 94%, var(--surface) 6%);
-  box-shadow: 0 12px 28px color-mix(in srgb, var(--fg) 10%, transparent 90%);
-  color: var(--fg);
-  font-size: var(--text-2xs);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 96%, var(--accent-soft) 4%), color-mix(in srgb, white 91%, var(--surface) 9%));
+  box-shadow:
+    0 12px 24px color-mix(in srgb, var(--fg) 8%, transparent 92%),
+    0 1px 0 color-mix(in srgb, white 88%, transparent 12%) inset;
+  color: color-mix(in srgb, var(--fg) 82%, var(--accent) 18%);
+  font-size: 0.74rem;
   font-weight: 500;
-  line-height: 1;
+  line-height: 1.2;
   text-align: center;
   pointer-events: none;
-  animation: mobile-tab-toast-in 1500ms ease both;
+  backdrop-filter: blur(18px) saturate(1.05);
+  -webkit-backdrop-filter: blur(18px) saturate(1.05);
+  animation: mobile-tab-toast-in 1700ms ease both;
+}
+
+.dashboard-tabbar-toast.is-raised {
+  bottom: calc(11rem + env(safe-area-inset-bottom));
 }
 
 .dashboard-tabbar-action-cluster {
@@ -496,9 +505,29 @@
   left: 50%;
   bottom: calc(5.15rem + env(safe-area-inset-bottom));
   z-index: 62;
-  width: 10.5rem;
-  height: 4.4rem;
+  width: min(14rem, calc(100vw - 2rem));
+  height: 6.25rem;
   transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.dashboard-tabbar-action-hint {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: max-content;
+  max-width: min(13rem, calc(100vw - 2.5rem));
+  transform: translateX(-50%);
+  padding: 0.42rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--border-soft) 70%, white 30%);
+  border-radius: 999px;
+  background: color-mix(in srgb, white 93%, var(--surface) 7%);
+  box-shadow: 0 12px 26px color-mix(in srgb, var(--fg) 8%, transparent 92%);
+  color: var(--fg-muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: center;
   pointer-events: none;
 }
 
@@ -584,10 +613,10 @@
 }
 
 @keyframes mobile-tab-toast-in {
-  0% { opacity: 0; transform: translate(-50%, 0.35rem) scale(0.96); }
+  0% { opacity: 0; transform: translate(-50%, 0.45rem) scale(0.96); }
   12% { opacity: 1; transform: translate(-50%, 0) scale(1); }
-  82% { opacity: 1; transform: translate(-50%, 0) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -0.2rem) scale(0.98); }
+  78% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -0.16rem) scale(0.985); }
 }
 
 /* Non-center active items: slim top line, like a native app tab indicator. */

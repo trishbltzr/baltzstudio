@@ -19,7 +19,7 @@ export type MobileNavCenterAction = {
   locked?: boolean;
 };
 
-export function MobileTabBar({ items, centerKey, activeKey, onSelect, centerActions = [], endItem }: {
+export function MobileTabBar({ items, centerKey, activeKey, onSelect, centerActions = [], endItem, quickActionHint }: {
   items: MobileNavItem[];
   /** The nav key whose active state shows the raised gradient bubble (center slot). */
   centerKey: string;
@@ -27,6 +27,7 @@ export function MobileTabBar({ items, centerKey, activeKey, onSelect, centerActi
   onSelect: (key: string) => void;
   centerActions?: MobileNavCenterAction[];
   endItem?: MobileNavItem;
+  quickActionHint?: ReactNode;
 }) {
   const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
   const [centerMenuOpen, setCenterMenuOpen] = useState(false);
@@ -50,14 +51,23 @@ export function MobileTabBar({ items, centerKey, activeKey, onSelect, centerActi
   return (
     <>
       {toast && (
-        <div key={toast.id} className="dashboard-tabbar-toast" role="status" aria-live="polite">
+        <div
+          key={toast.id}
+          className={`dashboard-tabbar-toast ${centerMenuOpen ? "is-raised" : ""}`}
+          role="status"
+          aria-live="polite"
+        >
           {toast.message}
         </div>
       )}
       {centerMenuOpen && centerActions.length > 0 && (
         <div className="dashboard-tabbar-action-cluster" aria-label="Quick actions">
+          {quickActionHint && (
+            <div className="dashboard-tabbar-action-hint">{quickActionHint}</div>
+          )}
           {centerActions.map((action, index) => {
             const ActionIcon = action.icon;
+            const lockedTitle = typeof quickActionHint === "string" ? quickActionHint : "Complete your Cocoon Consult to unlock";
             return (
               <button
                 key={action.key}
@@ -70,7 +80,7 @@ export function MobileTabBar({ items, centerKey, activeKey, onSelect, centerActi
                   action.action();
                 }}
                 disabled={action.locked}
-                title={action.locked ? "Complete your Cocoon Consult to unlock" : action.label}
+                title={action.locked ? lockedTitle : action.label}
                 aria-label={action.label}
               >
                 <ActionIcon />
@@ -100,13 +110,13 @@ export function MobileTabBar({ items, centerKey, activeKey, onSelect, centerActi
               className={cls}
               onClick={() => {
                 if (isLocked) return;
-                showTabToast(item.label);
                 if (isCenter && centerActions.length > 0) {
                   if (centerMenuOpen) {
                     setCenterMenuOpen(false);
                     return;
                   }
                   if (item.toggled) {
+                    showTabToast(item.label);
                     item.action?.();
                     return;
                   }
@@ -114,6 +124,7 @@ export function MobileTabBar({ items, centerKey, activeKey, onSelect, centerActi
                   return;
                 }
                 setCenterMenuOpen(false);
+                showTabToast(item.label);
                 if (item.action) { item.action(); return; }
                 onSelect(item.key);
               }}

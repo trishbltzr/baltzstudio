@@ -1,5 +1,5 @@
 import dynamic from "next/dynamic";
-import { ArrowDownCircle, ArrowUpCircle, Bell, Bot, CheckCircle2, ChevronDown, Eye, Flag, Folder, Home, Inbox, LayoutDashboard, ChevronsLeft, ChevronsRight, Plus, Settings, User, Users } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Bell, Bot, CheckCircle2, ChevronDown, Eye, Flag, Folder, Inbox, LayoutDashboard, ChevronsLeft, ChevronsRight, Plus, Settings, User, Users } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import type { ClientLifecycleStage, Project, TaskStatus, BrandIdentity, AdminNav, ProjectTab, ClientNav } from "../types";
 import { planAccess } from "../lib/projectUtils";
@@ -11,6 +11,7 @@ import { useIsMobile } from "../hooks/use-mobile";
 import { AccountMenu } from "../components/legal";
 import { DashboardSidebar } from "../components/DashboardSidebar";
 import { AdminAgentQueue } from "../components/AdminAgentQueue";
+import { AssignmentCalendar } from "../components/AssignmentCalendar";
 import { FILE_WORKSPACE_TITLES } from "../components/fileWorkspace";
 import type { FileHubSectionId } from "../components/FileAssetHub";
 
@@ -132,10 +133,11 @@ function AdminWorkspacePane({
   );
 }
 
-export function AdminView({ workspaceRole = "admin", projects, selectedProjectId, onSelectProject, onTaskStatusChange, onProjectTaskStatusChange, onSendGate, onApproveGate, onDenyGate, onFinishMilestone, onBrandChange, onChangeProjectStage, onLogout, onViewAsClient, initialNav }: {
+export function AdminView({ workspaceRole = "admin", projects, selectedProjectId, projectContextOpened = false, onSelectProject, onTaskStatusChange, onProjectTaskStatusChange, onSendGate, onApproveGate, onDenyGate, onFinishMilestone, onBrandChange, onChangeProjectStage, onLogout, onViewAsClient, initialNav }: {
   workspaceRole?: "admin" | "manager";
   projects: Project[];
   selectedProjectId: string;
+  projectContextOpened?: boolean;
   onSelectProject: (id: string) => void;
   onTaskStatusChange: (taskId: string, status: TaskStatus) => void;
   onProjectTaskStatusChange: (projectId: string, taskId: string, status: TaskStatus) => void;
@@ -155,6 +157,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
   const canEditGlobalConfigurations = can(workspaceRole, "editGlobalConfigurations");
   const [adminNav, setAdminNav] = useState<AdminNav>(() => isProjectTab(initialNav) ? "projects" : isAdminTopNav(initialNav) ? initialNav : isManager ? "reviews" : "home");
   const [projectTab, setProjectTab] = useState<ProjectTab>(() => isProjectTab(initialNav) ? initialNav : "overview");
+  const [hasSelectedLaunchpadClient, setHasSelectedLaunchpadClient] = useState(() => projectContextOpened || isProjectTab(initialNav) || initialNav === "projects");
   const [contractOpen, setContractOpen] = useState(false);
   const project = projects.find(p => p.id === selectedProjectId) ?? projects[0]!;
   const access = planAccess(project);
@@ -200,6 +203,9 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
   const adminFileHubFocus: FileHubSectionId | undefined = projectTab === "brand-guidelines" ? "brand-guidelines" : adminNav === "assets" || projectTab === "assets" ? "assets" : undefined;
   const [settingsTab, setSettingsTab] = useState<"general" | "clients" | "notifications">("general");
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
+  useEffect(() => {
+    if (projectContextOpened) setHasSelectedLaunchpadClient(true);
+  }, [projectContextOpened]);
   const toggleNotificationPref = (key: keyof NotificationPreferences) => {
     setNotificationPrefs(current => ({ ...current, [key]: !current[key] }));
   };
@@ -241,10 +247,16 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
     { key: "assistant",     label: assistantOpen ? "Close In Full Flight" : "In Full Flight", icon: Plus, action: toggleInFullFlightAssistant, toggled: assistantOpen },
     ...(access.tasks ? [{ key: "reviews", label: "Tasks", icon: CheckCircle2 }] : [{ key: "inbox", label: "Inbox", icon: Inbox }]),
   ];
+  function openProjectContext(tab: ProjectTab = "overview") {
+    setHasSelectedLaunchpadClient(true);
+    setAdminNav("projects");
+    setProjectTab(tab);
+  }
+
   const adminMobileCenterActions: MobileNavCenterAction[] = [
-    { key: "project-overview", label: "Overview", icon: Home, action: () => { setAdminNav("projects"); setProjectTab("overview"); } },
-    { key: "milestones", label: "Milestones", icon: Flag, action: () => { if (!access.milestones) return; setAdminNav("projects"); setProjectTab("milestones"); }, locked: !access.milestones },
-    { key: "files", label: "Files", icon: Folder, action: () => setAdminNav("assets"), locked: !access.files },
+    { key: "project-overview", label: "Overview", icon: LayoutDashboard, action: () => openProjectContext("overview"), locked: !hasSelectedLaunchpadClient },
+    { key: "milestones", label: "Milestones", icon: Flag, action: () => { if (!access.milestones) return; openProjectContext("milestones"); }, locked: !hasSelectedLaunchpadClient || !access.milestones },
+    { key: "files", label: "Files", icon: Folder, action: () => setAdminNav("assets"), locked: !hasSelectedLaunchpadClient || !access.files },
   ];
   const canOpenAdminNav = (nav: AdminNav) => {
     if (nav === "reviews") return access.tasks;
@@ -261,6 +273,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
   const handleAdminNavSelect = (key: string) => {
     const nav = key as AdminNav;
     if (!canOpenAdminNav(nav)) return;
+    if (nav === "home") setHasSelectedLaunchpadClient(false);
     setAdminNav(nav);
     if (nav === "projects") setProjectTab("overview");
   };
@@ -273,12 +286,12 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
   };
   const handleAdminSidebarNavSelect = (nav: string) => {
     if (nav === "overview") {
+      setHasSelectedLaunchpadClient(false);
       setAdminNav("home");
       return;
     }
     if (nav === "project-overview") {
-      setAdminNav("projects");
-      setProjectTab("overview");
+      openProjectContext("overview");
       return;
     }
     if (nav === "files") {
@@ -307,23 +320,20 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
     }
     if (nav === "milestones" || nav === "assets" || nav === "brand-guidelines" || nav === "notes") {
       if (!canOpenProjectTab(nav as ProjectTab)) return;
-      setAdminNav("projects");
-      setProjectTab(nav as ProjectTab);
+      openProjectContext(nav as ProjectTab);
       return;
     }
     if (isAdminTopNav(nav) && !canOpenAdminNav(nav)) return;
     setAdminNav(nav as AdminNav);
-    if (nav === "projects") setProjectTab("overview");
+    if (nav === "projects") openProjectContext("overview");
   };
   useEffect(() => {
     if (adminNav === "reviews" && !access.tasks) {
-      setAdminNav("projects");
-      setProjectTab("overview");
+      openProjectContext("overview");
       return;
     }
     if (adminNav === "assets" && !access.assets) {
-      setAdminNav("projects");
-      setProjectTab("overview");
+      openProjectContext("overview");
       return;
     }
     if (adminNav === "projects" && !canOpenProjectTab(projectTab)) {
@@ -380,9 +390,9 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
     };
   });
   const handleClientSwitcherSelect = (id: string) => {
+    setHasSelectedLaunchpadClient(true);
     onSelectProject(id);
-    setAdminNav("projects");
-    setProjectTab("overview");
+    openProjectContext("overview");
   };
   const handleAdminOverviewNav = (nav: ClientNav) => {
     if (nav === "reviews") {
@@ -392,8 +402,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
     }
     if (nav === "milestones") {
       if (!access.milestones) return;
-      setAdminNav("projects");
-      setProjectTab("milestones");
+      openProjectContext("milestones");
       return;
     }
     if (nav === "contract") {
@@ -403,18 +412,15 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
     }
     if (nav === "files" || nav === "brand") {
       if (!access.assets) return;
-      setAdminNav("projects");
-      setProjectTab("assets");
+      openProjectContext("assets");
       return;
     }
     if (nav === "brand-guidelines") {
       if (!access.brandGuidelines) return;
-      setAdminNav("projects");
-      setProjectTab("brand-guidelines");
+      openProjectContext("brand-guidelines");
       return;
     }
-    setAdminNav("projects");
-    setProjectTab("overview");
+    openProjectContext("overview");
   };
 
   const adminSidebarNavSections = [
@@ -434,10 +440,30 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
   ];
 
   const projectNavItems = [
-      { id: "project-overview", label: "Overview",      icon: Home },
+      { id: "project-overview", label: "Overview",      icon: LayoutDashboard },
       { id: "milestones",    label: "Milestones",    icon: Flag, locked: !access.milestones },
       { id: "assets",        label: "Files",         icon: Folder, locked: !access.files },
   ];
+  const activeLaunchpadProjects = projects.filter(item => item.status !== "complete" || item.clientName === "Flora & Co.");
+  const agentLaunchpadTasks = activeLaunchpadProjects.flatMap(item =>
+    item.milestones.flatMap(milestone =>
+      milestone.phases.flatMap(phase =>
+        phase.tasks.filter(task => task.assignee === "human" && task.status !== "complete"),
+      ),
+    ),
+  );
+  const floraDemoDeadlineCount = activeLaunchpadProjects.some(item =>
+    item.clientName === "Flora & Co." &&
+    !item.milestones.some(milestone =>
+      milestone.phases.some(phase =>
+        phase.tasks.some(task => task.assignee === "human" && task.status !== "complete"),
+      ),
+    ),
+  ) ? 3 : 0;
+  const blockedAgentTasks = agentLaunchpadTasks.filter(task => task.status === "blocked").length;
+  const inProgressAgentTasks = agentLaunchpadTasks.filter(task => task.status === "in_progress").length;
+  const launchpadAgentTaskCount = agentLaunchpadTasks.length + floraDemoDeadlineCount;
+  const launchpadGreetingName = isManager ? "Studio Manager" : "Trisha";
 
   return (
     <div className={`client-dashboard-shell ${sidebarCollapsed ? "is-collapsed" : ""}`}>
@@ -451,14 +477,14 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
           brandMark="BS"
           brandName="Baltazar Studio"
           brandSub={isManager ? "Manager workspace" : "Admin workspace"}
-          projects={projects}
-          selectedProjectId={selectedProjectId}
+          projects={hasSelectedLaunchpadClient ? projects : undefined}
+          selectedProjectId={hasSelectedLaunchpadClient ? selectedProjectId : undefined}
           onSelectProject={(id) => {
+            setHasSelectedLaunchpadClient(true);
             onSelectProject(id);
-            setAdminNav("projects");
-            setProjectTab("overview");
+            openProjectContext("overview");
           }}
-          projectNavItems={projectNavItems}
+          projectNavItems={hasSelectedLaunchpadClient ? projectNavItems : undefined}
           footerAvatarLabel={isManager ? "SM" : "T"}
           footerName={isManager ? "Studio Manager" : "Trisha Baltazar"}
           footerSub={isManager ? "Studio manager" : "Studio admin"}
@@ -482,31 +508,86 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
         {adminNav === "home" && (
           <AdminWorkspacePane title="Launch Pad" actions={defaultTopbarActions}>
             <div className="launch-pad-stack">
-              <div className="portfolio-project-grid">
-                {projects.map(p => {
-                  const prog = { done: p.milestones.flatMap(m => m.phases.flatMap(ph => ph.tasks)).filter(t => t.status === "complete").length, total: p.milestones.flatMap(m => m.phases.flatMap(ph => ph.tasks)).length };
-                  const completedMilestones = p.milestones.filter(m => m.status === "complete");
-                  const milestone = p.milestones.find(m => m.status === "active") ?? p.milestones.find(m => m.status === "locked") ?? completedMilestones[completedMilestones.length - 1];
-                  const milestoneLabel = milestone ? `M${milestone.number} - ${milestone.title}` : "No milestone";
-                  const milestoneState = milestone ? milestone.status === "complete" ? "Complete" : milestone.status === "active" ? "Active" : "Locked" : "Not started";
-                  return (
-                    <Panel key={p.id} className="portfolio-project-card">
-                      <button type="button" className="portfolio-project-card-button" onClick={() => { onSelectProject(p.id); setAdminNav("projects"); setProjectTab("overview"); }}>
-                        <div className="portfolio-project-card-head">
-                          <div className="portfolio-project-avatar">{p.clientInitials}</div>
-                          <div className="portfolio-project-copy">
-                            <div className="portfolio-project-name">{p.clientName}</div>
-                            <div className="portfolio-project-milestone">{milestoneLabel}</div>
+              <Panel className="welcome-card launch-pad-greeting">
+                <div className="welcome-card-main">
+                  <div className="welcome-card-copy">
+                    <div className="welcome-kicker">Welcome Back</div>
+                    <h2>Good to see you, {launchpadGreetingName}</h2>
+                    <p>Track clients, tasks, and upcoming deadlines.</p>
+                  </div>
+                  <div className="launch-pad-greeting-summary" aria-label="Launch Pad summary">
+                    <div className="launch-pad-greeting-stat">
+                      <span>Active clients</span>
+                      <strong>{activeLaunchpadProjects.length}</strong>
+                    </div>
+                    <div className="launch-pad-greeting-stat">
+                      <span>Agent tasks</span>
+                      <strong>{launchpadAgentTaskCount}</strong>
+                    </div>
+                    <div className="launch-pad-greeting-stat">
+                      <span>Blocked</span>
+                      <strong>{blockedAgentTasks}</strong>
+                    </div>
+                    <div className="launch-pad-greeting-stat">
+                      <span>In progress</span>
+                      <strong>{inProgressAgentTasks}</strong>
+                    </div>
+                  </div>
+                </div>
+              </Panel>
+              <Panel className="portfolio-project-section">
+                <div className="portfolio-project-section-head">
+                  <div>
+                    <span>Active clients</span>
+                    <h2>Client progress</h2>
+                  </div>
+                  <p>Choose a client.</p>
+                </div>
+                <div className="portfolio-project-grid">
+                  {projects.map(p => {
+                    const prog = { done: p.milestones.flatMap(m => m.phases.flatMap(ph => ph.tasks)).filter(t => t.status === "complete").length, total: p.milestones.flatMap(m => m.phases.flatMap(ph => ph.tasks)).length };
+                    const completedMilestones = p.milestones.filter(m => m.status === "complete");
+                    const milestone = p.milestones.find(m => m.status === "active") ?? p.milestones.find(m => m.status === "locked") ?? completedMilestones[completedMilestones.length - 1];
+                    const milestoneLabel = milestone ? `M${milestone.number} - ${milestone.title}` : "No milestone";
+                    const milestoneState = milestone ? milestone.status === "complete" ? "Complete" : milestone.status === "active" ? "Active" : "Locked" : "Not started";
+                    return (
+                      <Panel key={p.id} className="portfolio-project-card">
+                        <button
+                          type="button"
+                          className="portfolio-project-card-button"
+                          onClick={() => {
+                            setHasSelectedLaunchpadClient(true);
+                            onSelectProject(p.id);
+                            openProjectContext("overview");
+                          }}
+                        >
+                          <div className="portfolio-project-card-head">
+                            <div className="portfolio-project-avatar">{p.clientInitials}</div>
+                            <div className="portfolio-project-copy">
+                              <div className="portfolio-project-name">{p.clientName}</div>
+                              <div className="portfolio-project-milestone">{milestoneLabel}</div>
+                            </div>
+                            <span className={`portfolio-project-state is-${milestone?.status ?? "not-started"}`}>{milestoneState}</span>
                           </div>
-                          <span className={`portfolio-project-state is-${milestone?.status ?? "not-started"}`}>{milestoneState}</span>
-                        </div>
-                        <ProgressBar {...prog} />
-                      </button>
-                    </Panel>
-                  );
-                })}
-              </div>
-              <AdminPortfolioTasks projects={projects} role={isManager ? "manager" : "admin"} onProjectTaskStatusChange={onProjectTaskStatusChange} />
+                          <ProgressBar {...prog} />
+                        </button>
+                        {onViewAsClient && (
+                          <button
+                            type="button"
+                            className="portfolio-project-preview-btn"
+                            onClick={() => onViewAsClient(p.id)}
+                            aria-label={`Preview ${p.clientName} as client`}
+                          >
+                            <Eye size={13} aria-hidden="true" />
+                            Preview as client
+                          </button>
+                        )}
+                      </Panel>
+                    );
+                  })}
+                </div>
+              </Panel>
+              <AssignmentCalendar projects={projects} role={isManager ? "manager" : "admin"} onProjectTaskStatusChange={onProjectTaskStatusChange} />
             </div>
           </AdminWorkspacePane>
         )}
@@ -576,7 +657,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
 
         {adminNav === "inbox" && (
           <AdminWorkspacePane title={isManager ? "Agent queue" : "Inbox"} actions={defaultTopbarActions}>
-            <AdminAgentQueue role={isManager ? "manager" : "admin"} focusClientName={project.clientName} />
+            <AdminAgentQueue role={isManager ? "manager" : "admin"} focusClientName={hasSelectedLaunchpadClient ? project.clientName : undefined} />
           </AdminWorkspacePane>
         )}
 
@@ -730,7 +811,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
               notifications={notifications}
               readIds={readIds} setReadIds={setReadIds}
               dismissedIds={dismissedIds} setDismissedIds={setDismissedIds}
-              onNavigate={() => { setAdminNav("projects"); setProjectTab("overview"); }}
+              onNavigate={() => openProjectContext("overview")}
               showSettingsShortcut={false}
             />
           </AdminWorkspacePane>
@@ -759,12 +840,12 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
               onClick={() => setClientSwitcherOpen(true)}
               aria-haspopup="dialog"
               aria-expanded={clientSwitcherOpen}
-              aria-label={`Viewing ${project.clientName}. Switch client`}
+              aria-label={hasSelectedLaunchpadClient ? `Viewing ${project.clientName}. Switch client` : "Choose client"}
             >
-              <span className="dashboard-mobile-client-avatar" aria-hidden="true">{project.clientInitials}</span>
+              <span className="dashboard-mobile-client-avatar" aria-hidden="true">{hasSelectedLaunchpadClient ? project.clientInitials : "CL"}</span>
               <span className="dashboard-mobile-client-meta">
-                <span className="dashboard-mobile-client-name">{project.clientName}</span>
-                <span className="dashboard-mobile-client-sub">{project.platform} · {mobilePlanLabel}</span>
+                <span className="dashboard-mobile-client-name">{hasSelectedLaunchpadClient ? project.clientName : "Choose client"}</span>
+                <span className="dashboard-mobile-client-sub">{hasSelectedLaunchpadClient ? `${project.platform} · ${mobilePlanLabel}` : "Select first for quick actions"}</span>
               </span>
               <ChevronDown size={16} aria-hidden="true" className="dashboard-mobile-client-chevron" />
             </button>
@@ -784,6 +865,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
             activeKey={adminNav === "projects" && projectTab === "milestones" ? "milestones" : adminNav}
             onSelect={handleAdminMobileNavSelect}
             centerActions={adminMobileCenterActions}
+            quickActionHint={!hasSelectedLaunchpadClient ? "Choose a client first." : undefined}
             endItem={access.tasks
               ? { key: "inbox", label: "Inbox", icon: Inbox }
               : { key: "milestones", label: "Milestones", icon: Flag, locked: !access.milestones }}
@@ -791,7 +873,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
           {clientSwitcherOpen && (
             <ClientSwitcherSheet
               clients={clientSwitcherItems}
-              activeId={project.id}
+              activeId={hasSelectedLaunchpadClient ? project.id : ""}
               onSelect={handleClientSwitcherSelect}
               onClose={() => setClientSwitcherOpen(false)}
               footer={canChangeClientPlan ? (

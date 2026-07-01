@@ -83,6 +83,9 @@
 
 /* Admin reviews list rows — subtle hover lift to reinforce that each gate
    is tappable (opens the detail modal), aiding scannability. */
+.admin-review-row:nth-child(even) .dashboard-panel:not(.is-action-needed) {
+  background: var(--row-alt);
+}
 .admin-review-row .dashboard-panel:hover {
   border-color: oklch(0.86 0.05 20 / 0.7);
   background: oklch(0.992 0.006 55);

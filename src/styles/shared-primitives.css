@@ -151,8 +151,9 @@
   color: var(--fg-muted);
 }
 .role-badge--preview {
-  background: color-mix(in srgb, var(--accent) 14%, white 86%);
-  color: color-mix(in srgb, var(--accent) 60%, black 40%);
+  background: color-mix(in srgb, var(--accent) 26%, white 74%);
+  color: color-mix(in srgb, var(--accent) 70%, black 30%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent 78%);
 }
 
 /* ─── Impersonation (View as client) banner ─────────────────────── */

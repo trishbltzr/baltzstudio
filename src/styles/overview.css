@@ -117,7 +117,7 @@
 }
 .stage-track {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(4.2rem, 1fr));
   position: relative;
   padding-inline: 0;
 }
@@ -125,8 +125,8 @@
   content: "";
   position: absolute;
   top: 0.9rem;
-  left: 16.666%;
-  right: 16.666%;
+  left: 10%;
+  right: 10%;
   height: 1.5px;
   background: var(--border);
   z-index: 0;
@@ -162,6 +162,11 @@
 .stage-dot.is-complete { background: var(--success); border-color: var(--success); color: white; }
 .stage-dot.is-active   { background: var(--accent-soft); border: 1.5px dashed var(--accent); color: var(--accent); }
 .stage-dot.is-locked   { background: var(--surface-alt); border-color: var(--border); color: var(--fg-faint); }
+.stage-dot.has-rocket {
+  background: color-mix(in srgb, var(--accent-soft) 58%, white 42%);
+  border-color: color-mix(in srgb, var(--accent) 28%, white 72%);
+  color: color-mix(in srgb, var(--accent) 66%, black 34%);
+}
 
 .stage-name   { font-size: 0.78rem; font-weight: 500; text-align: center; color: var(--fg); line-height: 1.2; }
 .stage-status { font-size: 0.68rem; font-weight: 400; color: var(--fg-faint); text-align: center; }
@@ -185,6 +190,9 @@
   gap: 0.85rem;
   padding: 0.75rem 1.1rem;
 }
+.timeline-event:nth-of-type(even) {
+  background: var(--row-alt);
+}
 .timeline-event:not(:last-child):not(:has(+ .milestone-progress-bars))::after {
   content: "";
   position: absolute;
@@ -207,13 +215,25 @@
   flex-shrink: 0;
   text-align: center;
 }
+.timeline-date svg {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2.25;
+}
 .timeline-date-num { font-size: 0.95rem; font-weight: 500; line-height: 1; color: var(--fg); }
 .timeline-date-mon { font-size: 0.58rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-faint); }
+.timeline-date.is-complete,
 .timeline-date.is-done   { background: var(--success-soft); }
+.timeline-date.is-complete .timeline-date-num,
 .timeline-date.is-done .timeline-date-num { color: var(--success); }
 .timeline-date.is-active { background: oklch(0.94 0.025 20 / 0.5); border: 1.5px solid oklch(0.65 0.12 10 / 0.6); }
 .timeline-date.is-active .timeline-date-num { color: var(--accent); }
 .timeline-date.is-active .timeline-date-mon { color: oklch(0.65 0.12 10 / 0.7); }
+.timeline-date.has-rocket {
+  background: color-mix(in srgb, var(--accent-soft) 58%, white 42%);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, white 78%);
+  color: color-mix(in srgb, var(--accent) 66%, black 34%);
+}
 .timeline-info { flex: 1; min-width: 0; }
 .timeline-title { font-size: 0.85rem; font-weight: 500; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .timeline-meta  { font-size: 0.72rem; font-weight: 400; color: var(--fg-muted); margin-top: 0.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -387,15 +407,192 @@
   gap: 1rem;
 }
 
+.launch-pad-greeting {
+  background: #ffffff;
+}
+.launch-pad-greeting .welcome-card-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: flex-start;
+}
+.launch-pad-greeting-summary {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(7rem, 1fr));
+  gap: 0.45rem;
+  min-width: min(22rem, 100%);
+}
+.launch-pad-greeting-stat {
+  padding: 0.65rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--border-soft) 34%, transparent 66%);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-alt) 36%, white 64%);
+}
+.launch-pad-greeting-stat span {
+  display: block;
+  color: var(--fg-faint);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.launch-pad-greeting-stat strong {
+  display: block;
+  margin-top: 0.18rem;
+  color: var(--fg);
+  font-size: var(--text-md);
+  font-weight: 500;
+}
+
+.launch-pad-stack .assignment-calendar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(17rem, 0.9fr);
+  grid-template-areas:
+    "head head"
+    "week detail"
+    "grid detail"
+    "footer detail";
+  gap: 0 1rem;
+}
+.launch-pad-stack .assignment-cal-head { grid-area: head; }
+.launch-pad-stack .assignment-cal-weekrow { grid-area: week; }
+.launch-pad-stack .assignment-cal-grid { grid-area: grid; }
+.launch-pad-stack .assignment-cal-footer { grid-area: footer; }
+.launch-pad-stack .assignment-cal-footer {
+  justify-content: center;
+}
+.launch-pad-stack .assignment-cal-detail {
+  grid-area: detail;
+  min-height: 0;
+  margin-top: 0;
+  padding: 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--border-soft) 38%, transparent 62%);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface-alt) 28%, white 72%);
+}
+.launch-pad-stack .assignment-cal-day {
+  min-height: 3rem;
+}
+.launch-pad-stack .assignment-cal-chips {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.launch-pad-stack .assignment-cal-chip {
+  justify-content: center;
+  width: 0.5rem;
+  height: 0.5rem;
+  padding: 0;
+  border-radius: 999px;
+  gap: 0;
+  background: color-mix(in srgb, var(--assignment-client-soft, var(--surface-alt)) 80%, white 20%);
+}
+.launch-pad-stack .assignment-cal-chip-text {
+  display: none;
+}
+.launch-pad-stack .assignment-cal-chip-dot {
+  background: var(--assignment-client, var(--fg-faint));
+  width: 0.3rem;
+  height: 0.3rem;
+}
+.launch-pad-stack .assignment-cal-legend {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.launch-pad-stack .assignment-cal-client-dot {
+  display: inline-grid;
+  flex-shrink: 0;
+  width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--assignment-client-soft, var(--surface-alt));
+  color: var(--assignment-client-text, var(--fg-muted));
+  font-size: 0.54rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--assignment-client, var(--border-soft)) 22%, transparent 78%);
+}
+.launch-pad-stack .assignment-cal-detail-list {
+  max-height: 19.5rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.launch-pad-stack .assignment-cal-detail-item {
+  align-items: flex-start;
+  border: 1px solid color-mix(in srgb, var(--assignment-client, var(--border-soft)) 18%, transparent 82%);
+  border-left: 0;
+  background: color-mix(in srgb, var(--assignment-client-soft, var(--surface-alt)) 58%, white 42%);
+}
+.launch-pad-stack .assignment-cal-detail-item .assignment-cal-client-dot {
+  margin-top: 0.05rem;
+}
+.launch-pad-stack .assignment-cal-detail-deadline {
+  width: fit-content;
+  padding: 0.16rem 0.42rem;
+  border-radius: 999px;
+  background: white;
+  color: var(--assignment-client-text, var(--fg-muted));
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.launch-pad-stack .assignment-cal-detail-deadline.is-past {
+  background: color-mix(in srgb, var(--accent-soft) 42%, white 58%);
+  color: color-mix(in srgb, var(--accent) 65%, black 35%);
+}
+.launch-pad-stack .assignment-cal-detail-deadline.is-today {
+  background: color-mix(in srgb, var(--assignment-client, var(--accent)) 14%, white 86%);
+  color: var(--assignment-client-text, var(--fg));
+}
+.launch-pad-stack .assignment-cal-detail-deadline.is-soon {
+  background: color-mix(in srgb, var(--assignment-client-soft, var(--surface-alt)) 68%, white 32%);
+}
+.launch-pad-stack .assignment-cal-detail-deadline.is-later {
+  color: var(--fg-muted);
+}
+
+.portfolio-project-section {
+  background: var(--surface);
+}
+.portfolio-project-section-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem 0;
+}
+.portfolio-project-section-head span {
+  display: block;
+  color: var(--fg-faint);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.portfolio-project-section-head h2 {
+  margin: 0.25rem 0 0;
+  color: var(--fg);
+  font-size: var(--text-lg);
+  font-weight: 500;
+}
+.portfolio-project-section-head p {
+  max-width: 25rem;
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  text-align: right;
+}
 .portfolio-project-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 0.75rem;
+  padding: 1rem 1.1rem 1.1rem;
 }
 
 .portfolio-project-card {
-  background: oklch(0.99 0.003 55);
-  border: 1px solid oklch(0.93 0.012 48);
+  background: color-mix(in srgb, var(--surface-alt) 36%, white 64%);
+  border: 1px solid color-mix(in srgb, var(--border-soft) 42%, transparent 58%);
   border-radius: var(--radius);
 }
 
@@ -410,7 +607,32 @@
 }
 
 .portfolio-project-card-button:hover {
-  background: oklch(0.975 0.008 48);
+  background: color-mix(in srgb, var(--surface-alt) 58%, white 42%);
+}
+
+.portfolio-project-preview-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: calc(100% - 2.2rem);
+  min-height: 2rem;
+  margin: 0 1.1rem 1rem;
+  padding: 0 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--border-soft) 45%, transparent 55%);
+  border-radius: 999px;
+  background: color-mix(in srgb, white 82%, var(--surface-alt) 18%);
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 100ms ease, color 100ms ease, border-color 100ms ease;
+}
+.portfolio-project-preview-btn:hover {
+  border-color: color-mix(in srgb, var(--accent) 22%, white 78%);
+  background: color-mix(in srgb, var(--accent-soft) 18%, white 82%);
+  color: color-mix(in srgb, var(--accent) 60%, black 40%);
 }
 
 .portfolio-project-card-head {
@@ -470,6 +692,128 @@
 .portfolio-project-state.is-locked,
 .portfolio-project-state.is-not-started {
   color: var(--fg-faint);
+}
+
+@media (max-width: 860px) {
+  .launch-pad-greeting .welcome-card-main {
+    grid-template-columns: 1fr;
+  }
+  .launch-pad-greeting-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-width: 0;
+    width: 100%;
+  }
+  .portfolio-project-section-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+  .portfolio-project-section-head p {
+    max-width: 100%;
+    text-align: left;
+  }
+  .launch-pad-stack .assignment-calendar {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "head"
+      "week"
+      "grid"
+      "footer"
+      "detail";
+    gap: 0;
+  }
+  .launch-pad-stack .assignment-cal-detail {
+    margin-top: 0.8rem;
+    padding: 0.85rem;
+    border: 1px solid color-mix(in srgb, var(--border-soft) 38%, transparent 62%);
+  }
+  .launch-pad-stack .assignment-cal-detail-list {
+    max-height: min(16rem, 38vh);
+  }
+}
+
+@media (max-width: 680px) {
+  .launch-pad-stack {
+    gap: 1rem;
+  }
+  .launch-pad-greeting {
+    padding: 1.1rem;
+  }
+  .launch-pad-greeting .welcome-card-main {
+    gap: 0.95rem;
+  }
+  .launch-pad-greeting .welcome-kicker,
+  .portfolio-project-section-head span {
+    font-size: 0.72rem;
+  }
+  .launch-pad-greeting .welcome-card h2,
+  .launch-pad-greeting h2 {
+    font-size: clamp(1.25rem, 6.4vw, 1.55rem);
+    line-height: 1.08;
+  }
+  .launch-pad-greeting .welcome-card-copy p {
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+  .launch-pad-greeting-stat {
+    padding: 0.78rem 0.72rem;
+  }
+  .launch-pad-greeting-stat span {
+    font-size: 0.66rem;
+  }
+  .launch-pad-greeting-stat strong {
+    font-size: 1rem;
+  }
+  .portfolio-project-section-head {
+    padding: 1.05rem 1.1rem 0;
+  }
+  .portfolio-project-section-head h2 {
+    font-size: 1.08rem;
+  }
+  .portfolio-project-section-head p {
+    font-size: 0.84rem;
+    line-height: 1.45;
+  }
+  .portfolio-project-grid {
+    gap: 0.8rem;
+    padding: 0.95rem 1rem 1rem;
+  }
+  .portfolio-project-card-button {
+    padding: 1rem;
+  }
+  .portfolio-project-preview-btn {
+    width: calc(100% - 2rem);
+    margin: 0 1rem 1rem;
+    font-size: 0.78rem;
+  }
+  .portfolio-project-name {
+    font-size: 1rem;
+  }
+  .portfolio-project-milestone,
+  .portfolio-project-state {
+    font-size: 0.86rem;
+  }
+  .launch-pad-stack .assignment-cal-title h2 {
+    font-size: 1rem;
+  }
+  .launch-pad-stack .assignment-cal-detail-head strong {
+    font-size: 0.95rem;
+  }
+  .launch-pad-stack .assignment-cal-detail-empty,
+  .launch-pad-stack .assignment-cal-detail-meta {
+    font-size: 0.84rem;
+  }
+  .launch-pad-stack .assignment-cal-day {
+    min-height: 2.85rem;
+  }
+  .launch-pad-stack .assignment-cal-chip {
+    width: 0.42rem;
+    height: 0.42rem;
+  }
+  .launch-pad-stack .assignment-cal-chip-dot {
+    width: 0.26rem;
+    height: 0.26rem;
+  }
 }
 
 .account-access-panel {

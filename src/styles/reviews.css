@@ -74,6 +74,9 @@
   overflow: hidden;
   transition: box-shadow 0.15s, border-color 0.15s;
 }
+.client-reviews-group .client-review-card:nth-of-type(even):not(.is-open):not(.is-ready):not(.is-locked) {
+  background: var(--row-alt);
+}
 /* Compact "preview" cards (locked / ready) — deliberately quieter so the eye
    is drawn to the card that actually needs action. */
 .client-review-card.is-compact .client-review-header { border-bottom: none; padding: 0.8rem 1.1rem; }

@@ -18,6 +18,10 @@ body {
   font-synthesis-weight: none;
 }
 
+:root {
+  --row-alt: oklch(0.982 0.004 60);
+}
+
 button,
 input,
 textarea,
