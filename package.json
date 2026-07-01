@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "./scripts/dev.sh",
+    "dev": "next dev --port 3412",
+    "dev:sh": "./scripts/dev.sh",
     "build": "next build --webpack",
     "start": "next start --port 3412",
     "typecheck": "tsc --noEmit",
