@@ -299,11 +299,11 @@ function workflowFor(stage: ClientLifecycleStage, overrides: Partial<ProjectWork
     "wiaw-active": {
       stage,
       planLabel: "Winged in a Week",
-      planDescription: "Full website build and launch using the Cocoon audit as the strategy foundation.",
+      planDescription: "Single-page funnel strategy, build, and launch using the Cocoon audit as the conversion foundation.",
       sidebarNudgeTitle: "Protect the launch after handoff",
       sidebarNudgeBody: "In Full Flight keeps the site healthy, current, and useful after Winged in a Week.",
       nextStepLabel: "Approve current build step",
-      nextStepDetail: "WIAW is active. Dashboard access is unlimited while working with Baltazar Studio.",
+      nextStepDetail: "WIAW is active. The studio is building a single-page funnel with studio-first approval checkpoints before client review.",
       lead: baseLead,
       cocoonLink: { status: "completed", sentAt: "Jun 3, 2026" },
       booking: { status: "completed", label: "Guided Cocoon Consult call complete", scheduledAt: "Jun 6, 2026 11:00 AM" },
@@ -389,7 +389,7 @@ function planForStage(stage: ClientLifecycleStage): ProjectPlan {
     },
     "wiaw-active": {
       name: "Winged in a Week",
-      description: "Full website build and launch using the Cocoon audit as the strategy foundation.",
+      description: "Single-page funnel strategy, build, and launch using the Cocoon audit as the conversion foundation.",
       status: "active",
       invoices: [{ label: "WIAW project payment", amount: "$4,500", date: "Jun 7, 2026", paid: true }],
     },
@@ -415,6 +415,8 @@ export const INITIAL_PROJECT: Project = {
   clientName: "House of Hazel",
   clientEmail: "hazel@houseofhazel.co",
   clientInitials: "HH",
+  assignedDeveloperEmail: "developer@baltazarstudio.co",
+  assignedDeveloperName: "Studio Developer",
   status: "active",
   startDate: "Jun 3, 2025",
   platform: "Webflow",
@@ -425,9 +427,9 @@ export const INITIAL_PROJECT: Project = {
   assets: [
     { id: "a1", name: "House of Hazel — Primary Logo.svg", category: "Brand Assets", size: "48 KB", uploadedAt: "Jun 3, 2025", sharedWithClient: false, version: "v1", status: "internal", source: "client" },
     { id: "a2", name: "Brand Style Guide v1.pdf", category: "Brand Assets", size: "2.1 MB", uploadedAt: "Jun 3, 2025", sharedWithClient: false, version: "v1", status: "draft", source: "studio" },
-    { id: "a3", name: "Homepage Copy — Final Draft.docx", category: "Copy", size: "34 KB", uploadedAt: "Jun 4, 2025", sharedWithClient: true, version: "v2", status: "shared", source: "studio" },
-    { id: "a4", name: "Design System — Webflow.zip", category: "Design", size: "18.4 MB", uploadedAt: "Jun 5, 2025", sharedWithClient: false, version: "v1", status: "internal", source: "studio" },
-    { id: "a5", name: "Design Preview — All Pages.pdf", category: "Deliverables", size: "5.6 MB", uploadedAt: "Jun 5, 2025", sharedWithClient: true, version: "v1", status: "shared", source: "studio" },
+    { id: "a3", name: "Funnel Copy — Studio Approved Draft.docx", category: "Copy", size: "34 KB", uploadedAt: "Jun 4, 2025", sharedWithClient: true, version: "v2", status: "shared", source: "studio" },
+    { id: "a4", name: "Single-Page Funnel Design System — Webflow.zip", category: "Design", size: "18.4 MB", uploadedAt: "Jun 5, 2025", sharedWithClient: false, version: "v1", status: "internal", source: "studio" },
+    { id: "a5", name: "Initial Funnel Design Preview.pdf", category: "Deliverables", size: "5.6 MB", uploadedAt: "Jun 5, 2025", sharedWithClient: true, version: "v1", status: "shared", source: "studio" },
     { id: "a6", name: "Product photo selects", category: "Client Uploads", size: "Pending", uploadedAt: "Requested Jun 5, 2025", sharedWithClient: true, version: "Request", status: "requested", source: "client", requestNote: "Needed before QA so the final pages do not launch with placeholders." },
     { id: "a7", name: "DNS access notes.md", category: "Launch Prep", size: "12 KB", uploadedAt: "Jun 5, 2025", sharedWithClient: false, version: "v1", status: "internal", source: "studio" },
   ],
@@ -447,7 +449,7 @@ export const INITIAL_PROJECT: Project = {
   },
   plan: {
     name: "Winged in a Week",
-    description: "Full Webflow site built and launched in 7 business days. Includes up to 5 pages, CMS setup, and one round of revisions.",
+    description: "Single-page funnel built and launched in 7 business days. Includes strategy, copy, design, build, functionality testing, and one consolidated revision round.",
     status: "active",
     renewsAt: "Aug 3, 2025",
     invoices: [
@@ -458,7 +460,7 @@ export const INITIAL_PROJECT: Project = {
   workflow: workflowFor("wiaw-active"),
   milestones: [
     {
-      id: "m1", number: 1, title: "Foundation", clientLabel: "Foundation", status: "complete",
+      id: "m1", number: 1, title: "Funnel Foundation", clientLabel: "Funnel Foundation", status: "complete",
       phases: [
         { id: "m1-p1", title: "1.1 Project Setup", completedAt: "Jun 3, 2025", tasks: [
           mkTask("m1-p1-1", "Client provides platform credentials", "client", "complete"),
@@ -469,58 +471,64 @@ export const INITIAL_PROJECT: Project = {
           mkTask("m1-p1-6", "Pull Cocoon Consult™ audit into project", "human", "complete"),
           mkTask("m1-p1-7", "Lock project brief", "human", "complete"),
         ]},
-        { id: "m1-p2", title: "1.2 Strategy & Architecture", completedAt: "Jun 4, 2025", tasks: [
+        { id: "m1-p2", title: "1.2 Funnel Strategy & Flow", completedAt: "Jun 4, 2025", tasks: [
           mkTask("m1-p2-1", "Analyse Cocoon Consult™ audit", "AI", "complete"),
-          mkTask("m1-p2-2", "Generate site map", "AI", "complete"),
-          mkTask("m1-p2-3", "Generate user journey", "AI", "complete"),
-          mkTask("m1-p2-4", "Review and approve site map", "human", "complete"),
-          mkTask("m1-p2-5", "Define content hierarchy", "human", "complete"),
+          mkTask("m1-p2-2", "Generate single-page funnel flow", "AI", "complete"),
+          mkTask("m1-p2-3", "Generate conversion journey", "AI", "complete"),
+          mkTask("m1-p2-4", "Studio Admin reviews funnel strategy", "human", "complete"),
+          mkTask("m1-p2-5", "Define section hierarchy and CTA path", "human", "complete"),
         ]},
-        { id: "m1-p3", title: "1.3 Copy & Story", completedAt: "Jun 4, 2025", tasks: [
-          mkTask("m1-p3-1", "Generate homepage copy from audit", "AI", "complete"),
-          mkTask("m1-p3-2", "Generate About page copy", "AI", "complete"),
-          mkTask("m1-p3-3", "Generate Services copy", "AI", "complete"),
-          mkTask("m1-p3-4", "Edit and refine copy", "human", "complete"),
-          mkTask("m1-p3-5", "Client review and approve copy", "client", "complete"),
-        ]},
+        { id: "m1-p3", title: "1.3 Funnel Copy", completedAt: "Jun 4, 2025", tasks: [
+          mkTask("m1-p3-1", "Generate funnel copy from audit", "AI", "complete"),
+          mkTask("m1-p3-2", "Draft hero, offer, proof, FAQ, and final CTA sections", "AI", "complete"),
+          mkTask("m1-p3-3", "Developer refines copy for funnel flow", "human", "complete"),
+          mkTask("m1-p3-4", "Studio Admin approves copy direction", "human", "complete"),
+        ], gate: {
+          id: "gate-1", label: "Gate 1 — Copy Approval", clientLabel: "Copy Approval — Ready for your review",
+          message: "The studio has approved the single-page funnel copy direction. Please review the core message, section flow, and CTA language before design begins.",
+          deliverableLink: "docs.houseofhazel.co/funnel-copy",
+          adminLinks: [{ label: "Copy notes", url: "markup.houseofhazel.co/funnel-copy" }],
+          adminNotes: "Studio-first checkpoint: Admin approved the copy direction before this went to the client.",
+          status: "approved", sentAt: "Jun 4, 2025 at 3:30 PM", approvedAt: "Jun 4, 2025 at 5:10 PM",
+        }},
       ],
     },
     {
-      id: "m2", number: 2, title: "Design & Build", clientLabel: "Design & Build", status: "active",
+      id: "m2", number: 2, title: "Funnel Design & Build", clientLabel: "Funnel Design & Build", status: "active",
       phases: [
-        { id: "m2-p1", title: "2.1 Design", completedAt: "Jun 5, 2025", tasks: [
+        { id: "m2-p1", title: "2.1 Initial Funnel Design", completedAt: "Jun 5, 2025", tasks: [
           mkTask("m2-p1-1", "Generate visual references & moodboard", "AI", "complete"),
           mkTask("m2-p1-2", "Lock design system (colours, typography, spacing)", "human", "complete"),
-          mkTask("m2-p1-3", "Design homepage", "human", "complete"),
-          mkTask("m2-p1-4", "Design Services page", "human", "complete"),
-          mkTask("m2-p1-5", "Design About page", "human", "complete"),
-          mkTask("m2-p1-6", "QA designs at all breakpoints", "human", "complete"),
-          mkTask("m2-p1-7", "Prepare design preview link", "human", "complete"),
+          mkTask("m2-p1-3", "Design single-page funnel hero and offer sections", "human", "complete"),
+          mkTask("m2-p1-4", "Design proof, process, FAQ, and final CTA sections", "human", "complete"),
+          mkTask("m2-p1-5", "Studio Admin reviews initial design direction", "human", "complete"),
+          mkTask("m2-p1-6", "Prepare initial design preview link", "human", "complete"),
         ], gate: {
-          id: "gate-1", label: "Gate 1 — Design Preview", clientLabel: "Design Preview — Ready for your review",
-          message: "Your website designs are ready. Review the preview below and submit your feedback using the form. One round of feedback only. Please respond within 24 hours.",
-          deliverableLink: "houseofhazel.webflow.io/preview",
-          adminLinks: [{ label: "Markup board", url: "markup.houseofhazel.co/design-preview" }],
+          id: "gate-2", label: "Gate 2 — Initial Design Approval", clientLabel: "Initial Design Approval — Ready for your review",
+          message: "The studio has approved the initial single-page funnel design direction. Review the design preview and confirm whether the look, hierarchy, and flow are ready to move into build.",
+          deliverableLink: "houseofhazel.webflow.io/funnel-design-preview",
+          adminLinks: [{ label: "Markup board", url: "markup.houseofhazel.co/initial-funnel-design" }],
+          adminNotes: "Studio-first checkpoint: Admin approved the design direction before client review.",
           status: "sent", sentAt: "Jun 5, 2025 at 2:14 PM",
         }},
-        { id: "m2-p2", title: "2.2 Build", tasks: [
-          mkTask("m2-p2-1", "Set up Webflow project & CMS structure", "human", "in_progress", "Jun 6, 2025"),
-          mkTask("m2-p2-2", "Build homepage", "human", "not_started", "Jun 7, 2025"),
-          mkTask("m2-p2-3", "Build Services page", "human", "not_started", "Jun 8, 2025"),
-          mkTask("m2-p2-4", "Build About page", "human", "not_started", "Jun 8, 2025"),
-          mkTask("m2-p2-5", "Attach preview link", "human", "not_started", "Jun 9, 2025"),
+        { id: "m2-p2", title: "2.2 Funnel Build", tasks: [
+          mkTask("m2-p2-1", "Set up Webflow single-page funnel structure", "human", "in_progress", "Jun 6, 2025"),
+          mkTask("m2-p2-2", "Build hero, offer, and CTA sections", "human", "not_started", "Jun 7, 2025"),
+          mkTask("m2-p2-3", "Build proof, process, and FAQ sections", "human", "not_started", "Jun 8, 2025"),
+          mkTask("m2-p2-4", "Connect form, calendar, analytics, and tracking", "human", "not_started", "Jun 8, 2025"),
+          mkTask("m2-p2-5", "Attach funnel preview link", "human", "not_started", "Jun 9, 2025"),
           mkTask("m2-p2-6", "Attach markup link", "human", "not_started", "Jun 10, 2025"),
         ]},
-        { id: "m2-p3", title: "2.3 QA & Polish", tasks: [
+        { id: "m2-p3", title: "2.3 Functionality Test", tasks: [
           mkTask("m2-p3-1", "Cross-browser QA (Chrome, Safari, Firefox)", "human", "not_started"),
           mkTask("m2-p3-2", "Mobile QA across devices", "human", "not_started"),
-          mkTask("m2-p3-3", "Speed optimisation (images, scripts)", "human", "not_started"),
-          mkTask("m2-p3-4", "SEO meta setup (titles, descriptions, OG)", "human", "not_started"),
-          mkTask("m2-p3-5", "Final copy check against approved draft", "human", "not_started"),
-          mkTask("m2-p3-6", "Prepare full site preview link", "human", "not_started"),
+          mkTask("m2-p3-3", "Test form submission, calendar handoff, and thank-you flow", "human", "not_started"),
+          mkTask("m2-p3-4", "Verify analytics, pixels, SEO metadata, and OG preview", "human", "not_started"),
+          mkTask("m2-p3-5", "Studio Admin approves functionality test", "human", "not_started"),
+          mkTask("m2-p3-6", "Prepare final funnel preview link", "human", "not_started"),
         ], gate: {
-          id: "gate-2", label: "Gate 2 — Full Site Preview", clientLabel: "Full Site Preview — Ready for your review",
-          message: "Your full site is built and polished. Review the live preview below and confirm you're happy for us to proceed to launch.",
+          id: "gate-3", label: "Gate 3 — Functionality Test Approval", clientLabel: "Functionality Test Approval — Ready for your review",
+          message: "The studio has approved the functionality test. Please review the final single-page funnel preview, submit a test inquiry if requested, and confirm we can proceed to launch.",
           deliverableLink: "houseofhazel.webflow.io", status: "locked",
         }},
       ],
@@ -532,19 +540,15 @@ export const INITIAL_PROJECT: Project = {
           mkTask("m3-p1-1", "DNS configuration & domain connection", "human", "not_started"),
           mkTask("m3-p1-2", "SSL certificate setup", "human", "not_started"),
           mkTask("m3-p1-3", "Final deployment to production", "human", "not_started"),
-          mkTask("m3-p1-4", "Test live site across all devices", "human", "not_started"),
+          mkTask("m3-p1-4", "Test live funnel across all devices", "human", "not_started"),
           mkTask("m3-p1-5", "Analytics & conversion tracking setup", "human", "not_started"),
         ]},
         { id: "m3-p2", title: "3.2 Handoff", tasks: [
-          mkTask("m3-p2-1", "Create CMS training document", "human", "not_started"),
-          mkTask("m3-p2-2", "Record site walkthrough video", "human", "not_started"),
-          mkTask("m3-p2-3", "Compile full handoff package", "human", "not_started"),
+          mkTask("m3-p2-1", "Create funnel edit guide", "human", "not_started"),
+          mkTask("m3-p2-2", "Record funnel walkthrough video", "human", "not_started"),
+          mkTask("m3-p2-3", "Compile launch handoff package", "human", "not_started"),
           mkTask("m3-p2-4", "Generate SEO baseline report", "AI", "not_started"),
-        ], gate: {
-          id: "gate-3", label: "Gate 3 — Site Live + Handoff", clientLabel: "Your site is live — Handoff package ready",
-          message: "Your site is live. Please confirm receipt of your handoff package and training materials below.",
-          status: "locked",
-        }},
+        ]},
       ],
     },
   ],
@@ -642,13 +646,13 @@ export const WIAW_PROJECT: Project = {
   startDate: "Jun 7, 2026",
   status: "active",
   notes: [
-    { id: "flora-wiaw-note-1", content: "WIAW starts as its own build workflow after Cocoon Consult. Do not carry completed Cocoon audit tasks into the build milestones.", author: "Trisha", date: "Jun 7, 2026" },
-    { id: "flora-wiaw-note-2", content: "Use the Cocoon findings as strategy input only. Foundation, design, build, QA, launch, and handoff should progress inside the WIAW workflow.", author: "Trisha", date: "Jun 7, 2026" },
+    { id: "flora-wiaw-note-1", content: "WIAW starts as its own single-page funnel workflow after Cocoon Consult. Do not carry completed Cocoon audit tasks into the build milestones.", author: "Trisha", date: "Jun 7, 2026" },
+    { id: "flora-wiaw-note-2", content: "Use the Cocoon findings as strategy input only. Copy, initial design, functionality testing, launch, and handoff should progress inside the WIAW funnel workflow with Studio Admin approval before client review.", author: "Trisha", date: "Jun 7, 2026" },
   ],
   assets: SECOND_PROJECT.assets,
   plan: {
     name: "Winged in a Week",
-    description: "Full website build and launch using the Cocoon audit as the strategy foundation.",
+    description: "Single-page funnel strategy, build, and launch using the Cocoon audit as the conversion foundation.",
     status: "active",
     invoices: [{ label: "WIAW project payment", amount: "$4,500", date: "Jun 7, 2026", paid: true }],
   },
@@ -740,9 +744,14 @@ export const DELETED_PROJECT: Project = {
   }),
 };
 
+export const DASHBOARD_FLORA_PROJECT: Project = {
+  ...WIAW_PROJECT,
+  id: SECOND_PROJECT.id,
+};
+
 export const LIFECYCLE_PROJECTS: Project[] = [
-  SECOND_PROJECT,
-  HOUSE_COCOON_PROJECT,
+  DASHBOARD_FLORA_PROJECT,
+  INITIAL_PROJECT,
 ];
 
 export const PROJECT_BY_LIFECYCLE: Record<ClientLifecycleStage, Project> = {

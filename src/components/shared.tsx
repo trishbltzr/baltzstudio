@@ -278,9 +278,9 @@ export function Toast({ message }: { message: string }) {
   return <div className="toast">{message}</div>;
 }
 
-// Persistent "who am I right now" chip — shared across admin / manager / client
+// Persistent "who am I right now" chip — shared across admin / developer / client
 // shells and the impersonation banner so the active identity is never ambiguous.
-export function RoleBadge({ label, tone = "studio", icon }: { label: string; tone?: "studio" | "manager" | "client" | "preview"; icon?: ReactNode }) {
+export function RoleBadge({ label, tone = "studio", icon }: { label: string; tone?: "studio" | "developer" | "client" | "preview"; icon?: ReactNode }) {
   return (
     <span className={`role-badge role-badge--${tone}`}>
       {icon && <span className="role-badge-icon">{icon}</span>}

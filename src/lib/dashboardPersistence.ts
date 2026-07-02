@@ -24,11 +24,72 @@ export function coercePersistedProjects(value: unknown) {
   ));
 }
 
+function usesLegacyMultiPageWorkflow(project: Project) {
+  const milestoneText = project.milestones
+    ?.flatMap(milestone => [
+      milestone.title,
+      milestone.clientLabel,
+      ...milestone.phases.flatMap(phase => [
+        phase.title,
+        phase.gate?.label ?? "",
+        phase.gate?.clientLabel ?? "",
+        phase.gate?.message ?? "",
+        ...phase.tasks.map(task => task.title),
+      ]),
+    ])
+    .join(" ")
+    .toLowerCase() ?? "";
+
+  return (
+    milestoneText.includes("full site") ||
+    milestoneText.includes("homepage") ||
+    milestoneText.includes("services page") ||
+    milestoneText.includes("about page") ||
+    milestoneText.includes("site live + handoff")
+  );
+}
+
+function usesSinglePageFunnelWorkflow(project: Project) {
+  const milestoneText = project.milestones
+    ?.flatMap(milestone => [
+      milestone.title,
+      milestone.clientLabel,
+      ...milestone.phases.flatMap(phase => [
+        phase.title,
+        phase.gate?.label ?? "",
+        phase.gate?.clientLabel ?? "",
+        ...phase.tasks.map(task => task.title),
+      ]),
+    ])
+    .join(" ")
+    .toLowerCase() ?? "";
+
+  return milestoneText.includes("funnel") || milestoneText.includes("functionality test");
+}
+
 export function mergeDashboardProjects(defaultProjects: Project[], persistedProjects: Project[]) {
   const mergedById = new Map(defaultProjects.map(project => [project.id, project]));
 
   persistedProjects.forEach(project => {
-    mergedById.set(project.id, project);
+    const defaultProject = mergedById.get(project.id);
+    const shouldRefreshWorkflow = !!defaultProject && (
+      (usesLegacyMultiPageWorkflow(project) && !usesLegacyMultiPageWorkflow(defaultProject)) ||
+      (defaultProject.workflow?.stage === "wiaw-active" && project.workflow?.stage !== "wiaw-active" && usesSinglePageFunnelWorkflow(project))
+    );
+    const mergedProject = defaultProject ? { ...defaultProject, ...project } : project;
+    mergedById.set(
+      project.id,
+      shouldRefreshWorkflow && defaultProject
+        ? {
+            ...mergedProject,
+            milestones: defaultProject.milestones,
+            plan: defaultProject.plan,
+            workflow: defaultProject.workflow,
+            assets: defaultProject.assets,
+            notes: defaultProject.notes,
+          }
+        : mergedProject,
+    );
   });
 
   const defaultIds = new Set(defaultProjects.map(project => project.id));

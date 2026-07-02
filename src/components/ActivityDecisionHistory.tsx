@@ -262,7 +262,7 @@ function buildDecisions(project: Project): DecisionItem[] {
     milestone.phases.forEach(phase => {
       const platformTask = phase.tasks.find(task => task.title.toLowerCase().includes("platform selection") && task.status === "complete");
       const briefTask = phase.tasks.find(task => task.title.toLowerCase().includes("lock project brief") && task.status === "complete");
-      const copyTask = phase.tasks.find(task => task.title.toLowerCase().includes("review and approve copy") && task.status === "complete");
+      const copyTask = phase.tasks.find(task => task.title.toLowerCase().includes("approves copy direction") && task.status === "complete");
       const date = phase.completedAt ?? "";
 
       const majorDecisions = [

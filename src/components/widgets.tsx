@@ -61,13 +61,15 @@ export function TaskRow({ task, isAdmin, onStatusChange, locked }: { task: Task;
 // GATE BLOCK
 // ─────────────────────────────────────────────
 
-export function GateBlock({ gate, isAdmin, phaseDone, onSend, onApprove }: { gate: ApprovalGate; isAdmin: boolean; phaseDone: boolean; onSend: () => void; onApprove: () => void }) {
+export function GateBlock({ gate, isAdmin, phaseDone, onSend, onApprove }: { gate: ApprovalGate; isAdmin: boolean; phaseDone: boolean; onSend?: () => void; onApprove?: () => void }) {
   const [showForm, setShowForm] = useState(false);
   const [adminNote, setAdminNote] = useState(gate.adminNotes ?? "");
   const [links, setLinks] = useState<Array<{ label: string; url: string }>>(gate.adminLinks ?? []);
   const [newLinkLabel, setNewLinkLabel] = useState("");
   const [newLinkUrl, setNewLinkUrl] = useState("");
   const effectiveStatus = gate.status === "locked" && phaseDone ? "ready" : gate.status;
+  const canSend = isAdmin && Boolean(onSend);
+  const canApprove = isAdmin && Boolean(onApprove);
 
   return (
     <div className={`gate-block is-${effectiveStatus}`}>
@@ -79,31 +81,31 @@ export function GateBlock({ gate, isAdmin, phaseDone, onSend, onApprove }: { gat
         <StatusBadge status={gateStatusClass(effectiveStatus)} label={gateStatusLabel(effectiveStatus)} detail={gateStatusDetail(effectiveStatus)} className="gate-status-badge" />
         {isAdmin && (
           <div className="gate-admin-actions">
-            {effectiveStatus === "ready" && (
+            {effectiveStatus === "ready" && canSend && (
               <>
                 <Btn variant="ghost" size="sm" onClick={() => setShowForm(!showForm)}>
                   {showForm ? "Close" : "Add notes & links"}
                 </Btn>
-                <Btn variant="primary" size="sm" onClick={() => { gate.adminNotes = adminNote; gate.adminLinks = links; onSend(); }}>
-                  <Send size={12} />Send to client
+                <Btn variant="primary" size="sm" onClick={() => { gate.adminNotes = adminNote; gate.adminLinks = links; onSend?.(); }}>
+                  <Send size={12} />Approve for client review
                 </Btn>
               </>
             )}
-            {effectiveStatus === "revision" && <Btn size="sm" onClick={onApprove}><Check size={12} />Approve</Btn>}
+            {effectiveStatus === "revision" && canApprove && <Btn size="sm" onClick={onApprove}><Check size={12} />Approve</Btn>}
             {effectiveStatus === "approved" && gate.approvedAt && <span className="gate-admin-note is-approved">Approved {formatDashboardDate(gate.approvedAt)}</span>}
           </div>
         )}
       </div>
 
       {/* Admin note + link builder (before sending) */}
-      {showForm && effectiveStatus === "ready" && isAdmin && (
+      {showForm && effectiveStatus === "ready" && canSend && (
         <div className="gate-builder">
           <div>
-            <label className="gate-builder-label">Notes for client</label>
+            <label className="gate-builder-label">Studio approval notes for client</label>
             <textarea
               value={adminNote}
               onChange={e => setAdminNote(e.target.value)}
-              placeholder="Add context, instructions, or anything the client should know before reviewing…"
+              placeholder="Add the Admin decision, review context, or anything the client should know before reviewing..."
               rows={3}
               className="gate-builder-field gate-builder-textarea"
             />
@@ -155,7 +157,9 @@ export function GateBlock({ gate, isAdmin, phaseDone, onSend, onApprove }: { gat
           {gate.clientFeedback.adjustments && <p className="gate-feedback-adjustments"><b>Adjustments: </b>{gate.clientFeedback.adjustments}</p>}
           <p className="gate-feedback-meta">Submitted {formatDashboardDate(gate.clientFeedback.submittedAt)}</p>
           <div className="gate-feedback-actions">
+            {canApprove && (
             <Btn size="sm" onClick={onApprove}><Check size={12} />Approve after revisions</Btn>
+            )}
           </div>
         </div>
       )}

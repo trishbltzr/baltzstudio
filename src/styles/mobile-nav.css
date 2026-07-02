@@ -100,7 +100,7 @@
   }
 }
 
-/* Admin/manager: compact client-switcher chip slotted inline in the topbar,
+/* Admin/developer: compact client-switcher chip slotted inline in the topbar,
    between the page title and the account avatar. */
 .dashboard-mobile-switcher-strip {
   position: fixed;
@@ -169,7 +169,7 @@
   white-space: nowrap;
 }
 
-/* ── Mobile client switcher chip (admin/manager) ──────────────────────────── */
+/* ── Mobile client switcher chip (admin/developer) ────────────────────────── */
 /* Tappable identity pill that opens the client switcher sheet. Mirrors the
    desktop sidebar project switcher so the two views feel like one product. */
 .dashboard-mobile-client-switcher {

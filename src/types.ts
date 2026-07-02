@@ -182,6 +182,11 @@ export interface Project {
   clientName: string;
   clientEmail: string;
   clientInitials: string;
+  assignedDeveloperEmail?: string | null;
+  assignedDeveloperName?: string | null;
+  /** Legacy manager assignment fields are read during the developer rename migration. */
+  assignedManagerEmail?: string | null;
+  assignedManagerName?: string | null;
   status: "active" | "on_hold" | "complete";
   startDate: string;
   platform: string;
@@ -193,8 +198,8 @@ export interface Project {
   workflow?: ProjectWorkflow;
 }
 
-export type DashboardUserRole = "admin" | "manager" | "client";
-export type ViewMode = "admin" | "manager" | "client";
+export type DashboardUserRole = "admin" | "developer" | "client";
+export type ViewMode = "admin" | "developer" | "client";
 export type AdminNav = "home" | "projects" | "reviews" | "assets" | "clients" | "inbox" | "settings" | "notifications";
 export type ProjectTab = "overview" | "milestones" | "assets" | "brand-guidelines" | "audit" | "notes";
-export type ClientNav = "overview" | "milestones" | "reviews" | "files" | "brand" | "brand-guidelines" | "contract" | "support" | "audit" | "notifications" | "billing" | "cocoon" | "settings";
+export type ClientNav = "overview" | "milestones" | "reviews" | "files" | "support" | "notifications" | "billing" | "cocoon";

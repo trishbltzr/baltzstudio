@@ -44,13 +44,13 @@ const MOCK_THREADS: InboxThread[] = [
     id: "thread-001",
     clientName: "House of Hazel",
     clientInitials: "HH",
-    subject: "Can I see how the homepage is shaping up?",
+    subject: "Can I see how the funnel is shaping up?",
     source: "cocoon",
     status: "unread",
     assignee: null,
     updatedAt: "Just now",
     messages: [
-      { id: "m1", role: "client", sender: "Hazel", senderInitials: "HH", body: "Hi! I'd love to get a quick preview of how the homepage is shaping up before the milestone review. Is that possible at this stage?", time: "2:15 PM", day: "Today" },
+      { id: "m1", role: "client", sender: "Hazel", senderInitials: "HH", body: "Hi! I'd love to get a quick preview of how the single-page funnel is shaping up before the milestone review. Is that possible at this stage?", time: "2:15 PM", day: "Today" },
     ],
   },
   {
@@ -65,7 +65,7 @@ const MOCK_THREADS: InboxThread[] = [
     messages: [
       { id: "m1", role: "client", sender: "Flora", senderInitials: "FC", body: "Can you make the hero headline warmer? Something that feels more inviting.", time: "10:58 AM", day: "Today" },
       { id: "m2", role: "system", sender: "System", senderInitials: "SY", body: "Request classified as Quick edit. Routing to support lane.", time: "10:58 AM", systemKind: "routing" },
-      { id: "m3", role: "studio", sender: "In Full Flight", senderInitials: "BS", body: "This fits the post-launch support lane. I'll adjust the hero copy and prepare a preview without changing the page structure.", time: "11:01 AM" },
+      { id: "m3", role: "studio", sender: "In Full Flight", senderInitials: "BS", body: "This fits the post-launch support lane. I'll adjust the hero copy and prepare a preview without changing the funnel structure.", time: "11:01 AM" },
       { id: "m4", role: "studio", sender: "In Full Flight", senderInitials: "BS", body: "Your preview is ready. Approve it to lock this direction, or tell me what to adjust.", time: "11:04 AM" },
     ],
   },
@@ -88,16 +88,16 @@ const MOCK_THREADS: InboxThread[] = [
     id: "thread-004",
     clientName: "House of Hazel",
     clientInitials: "HH",
-    subject: "What's the timeline for the CMS setup?",
+    subject: "What's the timeline for the form and tracking setup?",
     source: "wiaw",
     status: "resolved",
     assignee: "agent",
     updatedAt: "Yesterday",
     messages: [
-      { id: "m1", role: "client", sender: "Hazel", senderInitials: "HH", body: "Quick question — when does the CMS get set up? I want to start prepping content.", time: "3:22 PM", day: "Monday" },
-      { id: "m2", role: "studio", sender: "Trisha", senderInitials: "TB", body: "Great question! The CMS goes live with Milestone 2 (Design & Build). You'll get full access once we wrap the design phase.", time: "3:45 PM" },
+      { id: "m1", role: "client", sender: "Hazel", senderInitials: "HH", body: "Quick question — when do the inquiry form and tracking get set up? I want to know when we can test leads.", time: "3:22 PM", day: "Monday" },
+      { id: "m2", role: "studio", sender: "Trisha", senderInitials: "TB", body: "Great question! The form, calendar handoff, and tracking are verified during the Functionality Test window after Studio Admin review.", time: "3:45 PM" },
       { id: "m3", role: "client", sender: "Hazel", senderInitials: "HH", body: "Perfect, I'll start drafting in the meantime. Thanks!", time: "4:01 PM" },
-      { id: "m4", role: "studio", sender: "Trisha", senderInitials: "TB", body: "Sounds good! I'll send you the content template ahead of time so you're ready.", time: "4:12 PM" },
+      { id: "m4", role: "studio", sender: "Trisha", senderInitials: "TB", body: "Sounds good! We'll send the test steps once the studio signs off internally.", time: "4:12 PM" },
       { id: "m5", role: "client", sender: "Hazel", senderInitials: "HH", body: "Amazing, thank you!", time: "4:15 PM" },
     ],
   },
@@ -187,10 +187,10 @@ const CANNED_REPLIES = [
   "That one falls a little outside the current support scope, but here's what we can do instead:",
 ];
 
-export function AdminAgentQueue({ role = "admin", focusClientName }: { role?: "admin" | "manager"; focusClientName?: string } = {}) {
-  // Managers work the "agent queue" — requests that need a human (routed to an
+export function AdminAgentQueue({ role = "admin", focusClientName }: { role?: "admin" | "developer"; focusClientName?: string } = {}) {
+  // Developers work the "agent queue" — requests that need a human (routed to an
   // agent, escalated, or not yet triaged), not the ones AI auto-handles.
-  const isAgentQueue = role === "manager";
+  const isAgentQueue = role === "developer";
   const scopedThreads = isAgentQueue
     ? MOCK_THREADS.filter(t => t.assignee !== "ai")
     : MOCK_THREADS;

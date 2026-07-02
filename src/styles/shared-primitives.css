@@ -142,7 +142,7 @@
   background: color-mix(in srgb, var(--fg) 8%, white 92%);
   color: var(--fg-muted);
 }
-.role-badge--manager {
+.role-badge--developer {
   background: color-mix(in srgb, var(--accent-soft) 36%, white 64%);
   color: color-mix(in srgb, var(--accent) 58%, black 42%);
 }

@@ -11,7 +11,6 @@ import { type MobileNavCenterAction, type MobileNavItem, MobileTabBar } from "..
 import { deriveClientNotifications, NotificationBell, NotificationsPage } from "../components/notifications";
 import { useIsMobile } from "../hooks/use-mobile";
 import { FileAssetHub, type FileHubSectionId } from "../components/FileAssetHub";
-import { ContractModal } from "../components/ContractModal";
 import { MeetingScheduler, type MeetingDetails } from "../components/MeetingScheduler";
 import { CocoonAuditPreviewPopup } from "../components/CocoonAuditPreviewPopup";
 import { CocoonPrepListPopup } from "../components/CocoonPrepListPopup";
@@ -19,7 +18,7 @@ import { CocoonPaymentPreviewPopup } from "../components/CocoonPaymentPreviewPop
 import { CocoonFinalStepPanel } from "../components/CocoonFinalStepPanel";
 import { CocoonStepTracker } from "../components/CocoonStepTracker";
 import { CocoonPromptForm } from "../components/CocoonPromptForm";
-import { FILE_WORKSPACE_ITEMS, isClientFileHubView } from "../components/fileWorkspace";
+import { isClientFileHubView } from "../components/fileWorkspace";
 import { ActivityDecisionHistory } from "../components/ActivityDecisionHistory";
 import { currentDashboardTimestamp, formatDashboardDate } from "../lib/dateDisplay";
 import { SHARED_AUDIT_CATEGORIES, SHARED_AUDIT_PAGES } from "../data/mockProjects";
@@ -83,8 +82,8 @@ export const onboardingSteps: OnboardingStep[] = [
     tag: "Required",
     icon: Rocket,
     prompts: [
-      { id: "site-goal", label: "Primary goal", prompt: "What should the website make easier for the buyer?", type: "Conversion goal", kind: "textarea", required: true, placeholder: "The site should help people..." },
-      { id: "pages", label: "Pages", prompt: "Which pages or sections are needed for launch?", type: "Launch map", kind: "checklist", required: true, options: ["Home", "About", "Services", "Sales page", "Contact", "FAQ", "Testimonials"] },
+      { id: "site-goal", label: "Primary goal", prompt: "What should the single-page funnel make easier for the buyer?", type: "Conversion goal", kind: "textarea", required: true, placeholder: "The funnel should help people..." },
+      { id: "pages", label: "Funnel sections", prompt: "Which sections are needed for the single-page funnel?", type: "Launch map", kind: "checklist", required: true, options: ["Hero", "Offer", "Proof", "Process", "FAQ", "Testimonials", "Final CTA"] },
       { id: "calls-to-action", label: "Calls to action", prompt: "What should visitors do next?", type: "Buttons and next steps", kind: "textarea", required: true, placeholder: "Book a call, buy, inquire, join the list..." },
       { id: "launch-date", label: "Launch timing", prompt: "What date, event, or deadline is the site supporting?", type: "Deadline", kind: "text", required: true, placeholder: "Launch week, campaign date, event date..." },
     ],
@@ -96,7 +95,7 @@ export const onboardingSteps: OnboardingStep[] = [
     tag: "Recommended",
     icon: LinkIcon,
     prompts: [
-      { id: "current-site", label: "Current site", prompt: "Where can Cocoon review what exists now?", type: "URL", kind: "url", placeholder: "https://yourbrand.com" },
+      { id: "current-site", label: "Current site or funnel", prompt: "Where can Cocoon review what exists now?", type: "URL", kind: "url", placeholder: "https://yourbrand.com" },
       { id: "social-links", label: "Social links", prompt: "Where can we see how the brand shows up now?", type: "Links", kind: "textarea", placeholder: "Instagram, TikTok, LinkedIn, YouTube..." },
       { id: "assets", label: "Assets", prompt: "What brand material, photos, decks, or copy already exists?", type: "Materials list", kind: "textarea", required: true, placeholder: "Logo files, photos, brand guide, copy doc, testimonials..." },
       { id: "references", label: "References", prompt: "What sites, styles, or examples should shape the direction?", type: "Reference links", kind: "textarea", placeholder: "Links plus what you like about each one..." },
@@ -359,7 +358,7 @@ export function ClientOverviewTab({ project, onNavChange, role = "client" }: { p
   const projectTimelineEvents = [
     { id: "cocoon-consult", title: "Cocoon Consult", status: "complete" as MilestoneStatus, dateNum: "1", dateMon: "Jun", detail: "Audit · consult call · build path" },
     { id: foundationMilestone.id, title: `Phase 2 — ${foundationMilestone.title}`, status: foundationMilestone.status, dateNum: "3", dateMon: "Jun", detail: "Intake · Audit · Strategy · Copy" },
-    { id: buildMilestone.id, title: `Phase 3 — ${buildMilestone.title}`, status: buildMilestone.status, dateNum: "5", dateMon: "Jun", detail: "Design · Build · QA · 2 Approval Gates" },
+    { id: buildMilestone.id, title: `Phase 3 — ${buildMilestone.title}`, status: buildMilestone.status, dateNum: "5", dateMon: "Jun", detail: "Initial design · build · functionality test · 3 approval windows" },
     { id: launchMilestone.id, title: `Phase 4 — ${launchMilestone.title}`, status: launchMilestone.status, dateNum: "10", dateMon: "Jun", detail: "Launch · DNS · handoff package" },
     { id: "in-full-flight", title: "Phase 5 — In Full Flight", status: inFullFlightStatus, dateNum: "17", dateMon: "Jun", detail: "Post-launch support · optimization · next flight", marker: "rocket" as const },
   ];
@@ -646,15 +645,15 @@ export function ClientMilestonesTab({ project, auditMode = false, onTaskStatusCh
         ),
       },
       {
-        id: "cocoon-next-build", number: 2, title: "Design & Build", clientLabel: "Design & Build", status: auditMilestoneStatuses["cocoon-next-build"] ?? "locked",
+        id: "cocoon-next-build", number: 2, title: "Funnel Design & Build", clientLabel: "Funnel Design & Build", status: auditMilestoneStatuses["cocoon-next-build"] ?? "locked",
         phases: [
-          { id: "cocoon-next-build-design", title: "2.1 Design", tasks: [
-            t("d6-1", "Design homepage"), t("d6-2", "Design Services page"),
-            t("d6-3", "Design About page"),
+          { id: "cocoon-next-build-design", title: "2.1 Initial Funnel Design", tasks: [
+            t("d6-1", "Design hero and offer sections"), t("d6-2", "Design proof and process sections"),
+            t("d6-3", "Studio Admin approves initial design"),
           ]},
-          { id: "cocoon-next-build-build", title: "2.2 Build", tasks: [
-            t("d7-1", "Build homepage"), t("d7-2", "Build Services page"),
-            t("d7-3", "Build About page"),
+          { id: "cocoon-next-build-build", title: "2.2 Funnel Build", tasks: [
+            t("d7-1", "Build single-page funnel"), t("d7-2", "Connect form and tracking"),
+            t("d7-3", "Studio Admin approves functionality test"),
           ]},
         ],
       },
@@ -1009,7 +1008,7 @@ export function ClientReviewsTab({ project, onSubmitFeedback }: { project: Proje
               <div className="client-review-header">
                 <div>
                   <h3>{gate.clientLabel}</h3>
-                  <p>{isLocked ? "Unlocks once this phase wraps." : "Studio is preparing this for your review."}</p>
+                  <p>{isLocked ? "Unlocks once this phase wraps." : "Studio Admin is reviewing this before it goes to you."}</p>
                 </div>
                 <StatusBadge status={gateStatusClass(gate.status)} label={gateStatusLabel(gate.status)} />
               </div>
@@ -1044,7 +1043,7 @@ export function ClientReviewsTab({ project, onSubmitFeedback }: { project: Proje
                     <div className="review-step">
                       <div className="review-step-num">1</div>
                       <div className="review-step-body">
-                        <div className="review-step-label">Review the design</div>
+                        <div className="review-step-label">Review the deliverable</div>
                         <a href={`https://${gate.deliverableLink}`} target="_blank" rel="noopener noreferrer" className="review-step-link is-primary">
                           <Globe size={12} />
                           Open preview
@@ -1780,9 +1779,8 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
   const isCollaborationLocked = collaborationLocked ?? access.buildLocked;
   const showAuditMode = access.showAuditMilestones;
   const isDeleted = access.isDeleted;
-  const initialClientNav = initialNav === "audit" || initialNav === "support" ? undefined : initialNav;
+  const initialClientNav = initialNav === "support" ? undefined : initialNav;
   const [clientNav, setClientNavRaw] = useState<ClientNav>(initialClientNav ?? (isPreCocoon ? "cocoon" : "overview"));
-  const [contractOpen, setContractOpen] = useState(false);
   const pendingReviews = useMemo(() => allGates(project).filter(g => g.gate.status === "sent").length, [project]);
 
   const canOpenClientNav = (nav: ClientNav) => {
@@ -1790,19 +1788,15 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
     if (nav === "overview") return access.overview;
     if (nav === "milestones") return access.milestones;
     if (nav === "reviews") return access.tasks;
-    if (nav === "files" || nav === "brand") return access.assets;
-    if (nav === "brand-guidelines") return access.brandGuidelines;
-    if (nav === "contract") return access.contract;
+    if (nav === "files") return access.assets;
     if (nav === "notifications") return access.notifications;
     if (nav === "billing") return access.billing;
     if (nav === "support") return access.support;
-    if (nav === "settings") return !isDeleted;
     return false;
   };
 
   const setClientNav = (nav: ClientNav) => {
     if (!canOpenClientNav(nav)) return;
-    if (nav === "contract") { setContractOpen(true); return; }
     if (nav === "support") {
       window.dispatchEvent(new CustomEvent("iff-widget:open"));
       return;
@@ -1819,7 +1813,7 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
       setClientNavRaw(isPreCocoon ? "cocoon" : "overview");
     }
   }, [clientNav, isPreCocoon, access.stage]);
-  const titles: Record<ClientNav, string> = { cocoon: "Cocoon Consult", overview: "Overview", milestones: "Milestones", reviews: "Tasks", files: "Files", brand: "Files", "brand-guidelines": "Files", contract: "Contract", audit: "Audit", support: "Support", notifications: "Notifications", billing: "Plan & Billing", settings: "Settings" };
+  const titles: Record<ClientNav, string> = { cocoon: "Cocoon Consult", overview: "Overview", milestones: "Milestones", reviews: "Reviews", files: "Files", support: "Support", notifications: "Notifications", billing: "Plan & Billing" };
 
   // Notification state lifted here so the Notifications nav page can use it
   const notifications = deriveClientNotifications(project);
@@ -1832,17 +1826,11 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
   const [notificationPhaseId, setNotificationPhaseId] = useState<string | null>(null);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<"notifications" | "general" | "profile">("notifications");
   const [cocoonSidebarOpen, setCocoonSidebarOpen] = useState(false);
-  const settingsTabs: Array<{ key: "notifications" | "general" | "profile"; label: string; icon: LucideIcon }> = [
-    { key: "notifications", label: "Notifications", icon: Bell },
-    { key: "general", label: "General", icon: Settings },
-    { key: "profile", label: "Profile", icon: User },
-  ];
 
   // When pre-Cocoon, always force nav to cocoon
   const activeNav = isPreCocoon ? "cocoon" : clientNav;
-  const clientFileHubFocus: FileHubSectionId | undefined = clientNav === "brand" ? "assets" : clientNav === "brand-guidelines" ? "brand-guidelines" : clientNav === "files" ? "assets" : undefined;
+  const clientFileHubFocus: FileHubSectionId | undefined = clientNav === "files" ? "assets" : undefined;
   const mobilePlanLabel = project.workflow?.planLabel ?? project.plan?.name ?? "Winged in a Week";
 
   // ── Mobile bottom-nav (replaces the sidebar at ≤768px) ──
@@ -1874,13 +1862,13 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
         { key: "cocoon",         label: "Home",           icon: Compass },
         { key: "notifications",  label: "Notifications",  icon: Bell, count: unread, locked: true },
         { key: "assistant",      label: "In Full Flight", icon: Plus, locked: true },
-        { key: "reviews",        label: "Tasks",          icon: CheckCircle2, locked: true },
+        { key: "reviews",        label: "Reviews",        icon: CheckCircle2, locked: true },
       ]
     : [
         { key: "overview",       label: "Home",           icon: LayoutDashboard, locked: !access.overview },
         { key: "notifications",  label: "Notifications",  icon: Bell, count: unread, locked: !access.notifications },
         { key: "assistant",      label: assistantOpen ? "Close In Full Flight" : "In Full Flight", icon: Plus, action: toggleInFullFlightAssistant, toggled: assistantOpen },
-        { key: "reviews",        label: "Tasks",          icon: CheckCircle2, count: pendingReviews, locked: !access.tasks },
+        { key: "reviews",        label: "Reviews",        icon: CheckCircle2, count: pendingReviews, locked: !access.tasks },
       ];
   const clientMobileCenterActions: MobileNavCenterAction[] = isPreCocoon
     ? []
@@ -1908,17 +1896,15 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
       { id: "cocoon", label: "Cocoon Consult", icon: Compass, iconSize: 16 },
     ]}] : []),
     { label: "Workspace", items: [
-      { id: "overview",   label: "Overview",   icon: LayoutDashboard, locked: !access.overview },
-      { id: "reviews",    label: "Tasks",      icon: CheckCircle2, count: pendingReviews, locked: !access.tasks },
+      { id: "overview",      label: "Overview",      icon: LayoutDashboard, locked: !access.overview },
+      { id: "reviews",       label: "Reviews",       icon: CheckCircle2, count: pendingReviews, locked: !access.tasks },
+      { id: "notifications", label: "Notifications", icon: Bell, count: unread, locked: !access.notifications },
     ]},
     { label: "Collaboration", items: [
       { id: "milestones",    label: "Milestones",    icon: Flag, locked: !access.milestones },
-      { id: "files",         label: "Files",         icon: Folder,       locked: !access.files, children: FILE_WORKSPACE_ITEMS.map(item => ({
-        ...item,
-        id: item.id === "assets" ? "brand" : item.id,
-        locked: item.id === "assets" ? !access.assets : !access.brandGuidelines,
-      })) },
+      { id: "files",         label: "Files",         icon: Folder, locked: !access.files },
       { id: "support",       label: "Support",       icon: MessageSquare, locked: !access.support },
+      { id: "billing",       label: "Plan & Billing", icon: CreditCard, locked: !access.billing },
     ]},
   ];
 
@@ -1943,7 +1929,6 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
           footerSub={project.clientEmail}
           footerItems={[
             { key: "billing", label: "Plan & Billing", icon: CreditCard,    onClick: () => setClientNav("billing"),      locked: !access.billing },
-            { key: "settings", label: "Settings",      icon: Settings,      onClick: () => setClientNav("settings") },
           ]}
           footerShowPrivacyLinks
         />
@@ -1988,7 +1973,7 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
                 collapsed
                 placement="bottom"
                 items={[
-                  { key: "settings", label: "Settings", icon: Settings, onClick: () => setClientNav("settings") },
+                  { key: "billing", label: "Plan & Billing", icon: CreditCard, onClick: () => setClientNav("billing"), locked: !access.billing },
                 ]}
               />
             </div>
@@ -2027,28 +2012,13 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
           />
         ) : (
         <>
-          {/* Settings sub-tabbar — mirrors the admin project tabbar pattern */}
-          {clientNav === "settings" && (
-            <div className="dashboard-tabbar settings-tabbar">
-              {settingsTabs.map(tab => {
-                const Icon = tab.icon;
-                return (
-                  <button key={tab.key} type="button" className={`dashboard-tab ${settingsTab === tab.key ? "is-active" : ""}`} onClick={() => setSettingsTab(tab.key)}>
-                    <Icon size={12} />{tab.label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
           <div className="dashboard-main">
             {clientNav === "overview" && <ClientOverviewTab project={project} onNavChange={setClientNav} />}
             {clientNav === "milestones" && <ClientMilestonesTab project={project} auditMode={showAuditMode} onTaskStatusChange={onTaskStatusChange} onFinishMilestone={onFinishMilestone} />}
             {clientNav === "reviews" && <ClientReviewsTab project={project} onSubmitFeedback={onSubmitFeedback} />}
-            {(isClientFileHubView(clientNav) || clientNav === "brand-guidelines") && (
+            {isClientFileHubView(clientNav) && (
               <FileAssetHub project={project} role="client" focusSection={clientFileHubFocus} />
             )}
-            {/* contract opens as modal, not a page */}
-            {clientNav === "settings" && <ClientSettingsTab tab={settingsTab} ownerName={ownerName} ownerEmail={ownerEmail} />}
             {clientNav === "billing" && <ClientBillingTab project={project} />}
             {clientNav === "notifications" && (
               <NotificationsPage
@@ -2071,10 +2041,6 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
           onClose={() => setNotificationPhaseId(null)}
           onTaskStatusChange={onTaskStatusChange}
         />
-      )}
-
-      {contractOpen && (
-        <ContractModal project={project} onClose={() => setContractOpen(false)} />
       )}
 
       {isMobile && (

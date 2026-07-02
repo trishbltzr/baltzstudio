@@ -5,7 +5,7 @@ import { allGates, bucketTaskStatus, isTaskOverdue, clientColorFor, clientColorV
 import { AssigneeBadge, Panel, PanelHeader, StatusBadge, TruncatedText } from "./shared";
 
 type TaskBucket = "action" | "progress" | "upcoming" | "complete";
-type TaskAudienceRole = "admin" | "manager" | "client";
+type TaskAudienceRole = "admin" | "developer" | "client";
 
 type TaskRow = {
   task: Task;
@@ -57,7 +57,7 @@ function deriveTaskRows(project: Project, role: TaskAudienceRole, milestoneFilte
   for (const milestone of milestones) {
     for (const phase of milestone.phases) {
       for (const task of phase.tasks) {
-        if (role === "manager" && task.assignee !== "human") continue;
+        if (role === "developer" && task.assignee !== "human") continue;
         rows.push({ task, phase, milestone, bucket: taskBucket(task, milestone, role) });
       }
     }

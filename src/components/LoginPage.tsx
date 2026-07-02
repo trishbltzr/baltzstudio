@@ -10,16 +10,16 @@ type LoginUser = {
 
 export const MOCK_USERS = [
   { email: "trisha@baltazarstudio.co", password: "studio123", role: "admin" as const, name: "Trisha Baltazar" },
-  { email: "manager@baltazarstudio.co", password: "manager123", role: "manager" as const, name: "Studio Manager" },
+  { email: "developer@baltazarstudio.co", password: "developer123", role: "developer" as const, name: "Studio Developer" },
   { email: "team@floraandco.com", password: "flora123", role: "client" as const, name: "Flora & Co." },
   { email: "hazel@houseofhazel.co", password: "hazel123", role: "client" as const, name: "House of Hazel" },
 ];
 
 const PREVIEW_LOGIN_OPTIONS = [
-  { label: "Admin", detail: "Studio owner", email: "trisha@baltazarstudio.co", ariaLabel: "Preview admin dashboard" },
-  { label: "Manager", detail: "Studio team", email: "manager@baltazarstudio.co", ariaLabel: "Preview manager dashboard" },
-  { label: "Flora & Co.", detail: "Client portal", email: "team@floraandco.com", ariaLabel: "Preview Flora and Co. client dashboard" },
-  { label: "House of Hazel", detail: "Client portal", email: "hazel@houseofhazel.co", ariaLabel: "Preview House of Hazel client dashboard" },
+  { label: "Studio Admin", detail: "Owner workspace", email: "trisha@baltazarstudio.co", ariaLabel: "Preview studio admin dashboard" },
+  { label: "Developer", detail: "Delivery workspace", email: "developer@baltazarstudio.co", ariaLabel: "Preview developer dashboard" },
+  { label: "Flora & Co.", detail: "Client-safe portal", email: "team@floraandco.com", ariaLabel: "Preview Flora and Co. client dashboard" },
+  { label: "House of Hazel", detail: "Client-safe portal", email: "hazel@houseofhazel.co", ariaLabel: "Preview House of Hazel client dashboard" },
 ] as const;
 
 export function LoginPage({ onLogin }: { onLogin: (user: LoginUser) => void }) {

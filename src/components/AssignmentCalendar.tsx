@@ -6,7 +6,7 @@ import type { Project, TaskAssignee, TaskStatus } from "../types";
 import { type ClientColor, clientColorFor, clientColorVars, hashId } from "../lib/projectUtils";
 import { Panel } from "./shared";
 
-type CalendarRole = "admin" | "manager";
+type CalendarRole = "admin" | "developer";
 
 type Assignment = {
   id: string;
@@ -200,7 +200,7 @@ export function AssignmentCalendar({
       <div className="assignment-cal-head">
         <div className="assignment-cal-title">
           <CalendarDays size={15} aria-hidden="true" />
-          <h2>{role === "manager" ? "My assignments" : "Assignment calendar"}</h2>
+          <h2>{role === "developer" ? "My assignments" : "Assignment calendar"}</h2>
         </div>
         <div className="assignment-cal-nav">
           <span className="assignment-cal-month">{monthLabel}</span>
@@ -244,7 +244,7 @@ export function AssignmentCalendar({
               <span className="assignment-cal-daynum">{cell.getDate()}</span>
               <span className="assignment-cal-chips">
                 {items.slice(0, 3).map(a => (
-                  <span key={a.id} className={`assignment-cal-chip ${assigneeClass(a.assignee)} ${statusClass(a.status)}`} style={clientColorVars(a.clientColor)}>
+                  <span key={`${a.projectId}-${a.id}`} className={`assignment-cal-chip ${assigneeClass(a.assignee)} ${statusClass(a.status)}`} style={clientColorVars(a.clientColor)}>
                     <span className="assignment-cal-chip-dot" />
                     <span className="assignment-cal-chip-text">{a.title}</span>
                   </span>
@@ -277,7 +277,7 @@ export function AssignmentCalendar({
         ) : (
           <ul className="assignment-cal-detail-list">
             {selectedAssignments.map(a => (
-              <li key={a.id} className={`assignment-cal-detail-item ${statusClass(a.status)}`} style={clientColorVars(a.clientColor)}>
+              <li key={`${a.projectId}-${a.id}`} className={`assignment-cal-detail-item ${statusClass(a.status)}`} style={clientColorVars(a.clientColor)}>
                 <span className={`assignment-cal-client-dot ${assigneeClass(a.assignee)}`}>{a.clientInitials}</span>
                 <div className="assignment-cal-detail-body">
                   <span className="assignment-cal-detail-title">{a.title}</span>

@@ -178,8 +178,8 @@ export function projectNextMoves(project: Project, role: NextMoveRole) {
   if (readyGate) {
     return [
       { label: "Current task", value: currentStudioTask?.title ?? readyGate.gate.label },
-      { label: "Up next", value: nextStudioTask?.title ?? "Client review" },
-      { label: "Waiting on", value: nextClientTask?.title ?? "Studio to send" },
+      { label: "Up next", value: nextStudioTask?.title ?? "Admin approval" },
+      { label: "Waiting on", value: nextClientTask?.title ?? "Studio decision" },
     ];
   }
 
@@ -252,15 +252,15 @@ export function gateStatusClass(status: GateStatus) {
 }
 
 export function gateStatusLabel(status: GateStatus) {
-  return { locked: "Locked", ready: "Ready to send", sent: "Awaiting client", approved: "Approved", revision: "Notes received" }[status];
+  return { locked: "Locked", ready: "Studio review", sent: "Awaiting client", approved: "Approved", revision: "Notes received" }[status];
 }
 
 // See taskStatusDetail — same purpose, for approval-gate statuses.
 export function gateStatusDetail(status: GateStatus) {
   return {
     locked: "Unlocks once this phase wraps up.",
-    ready: "Ready for the studio to send for your review.",
-    sent: "Awaiting your decision in the Tasks tab.",
+    ready: "Studio Admin reviews and approves before this goes to the client.",
+    sent: "Awaiting your decision in the Reviews tab.",
     approved: "Approved — no further action needed.",
     revision: "Feedback received; the studio is making updates.",
   }[status];

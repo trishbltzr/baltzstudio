@@ -11,8 +11,8 @@ import { SwatchPopover } from "../components/SwatchPopover";
 export function AdminMilestonesTab({ project, onTaskStatusChange, onSendGate, onApproveGate, onFinishMilestone }: {
   project: Project;
   onTaskStatusChange: (taskId: string, status: TaskStatus) => void;
-  onSendGate: (gateId: string) => void;
-  onApproveGate: (gateId: string) => void;
+  onSendGate?: (gateId: string) => void;
+  onApproveGate?: (gateId: string) => void;
   onFinishMilestone?: (milestoneId: string) => void;
 }) {
   // Only one milestone can be expanded at a time (accordion behavior)
@@ -142,8 +142,8 @@ export function AdminMilestonesTab({ project, onTaskStatusChange, onSendGate, on
                       gate={phase.gate!}
                       isAdmin
                       phaseDone={allTasksComplete(phase.tasks)}
-                      onSend={() => onSendGate(phase.gate!.id)}
-                      onApprove={() => onApproveGate(phase.gate!.id)}
+                      onSend={onSendGate ? () => onSendGate(phase.gate!.id) : undefined}
+                      onApprove={onApproveGate ? () => onApproveGate(phase.gate!.id) : undefined}
                     />
                   ))}
                 </div>
@@ -365,12 +365,12 @@ export function AdminReviewsTab({ project, onSendGate, onApproveGate, onTaskStat
           <div style={{ padding: "1rem 1.5rem 1.25rem", borderTop: "1px solid var(--border)", flexShrink: 0, display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
             {selectedGate.gate.status === "ready" && allTasksComplete(selectedGate.phase.tasks) && (
               <Btn variant="primary" size="sm" onClick={() => { onSendGate(selectedGate.gate.id); setSelectedGateId(null); }}>
-                <Send size={12} />Send to client
+                <Send size={12} />Approve for client review
               </Btn>
             )}
             {selectedGate.gate.status === "revision" && (
               <Btn variant="primary" size="sm" onClick={() => { onApproveGate(selectedGate.gate.id); setSelectedGateId(null); }}>
-                <Check size={12} />Approve
+                <Check size={12} />Approve after revisions
               </Btn>
             )}
             <Btn variant="ghost" size="sm" onClick={() => setSelectedGateId(null)}>Close</Btn>
@@ -384,7 +384,7 @@ export function AdminReviewsTab({ project, onSendGate, onApproveGate, onTaskStat
 }
 
 type PortfolioTaskBucket = "action" | "progress" | "upcoming" | "complete";
-type PortfolioTaskRole = "admin" | "manager";
+type PortfolioTaskRole = "admin" | "developer";
 type PortfolioTaskRow = {
   project: Project;
   milestone: Milestone;
@@ -417,7 +417,7 @@ function derivePortfolioTasks(projects: Project[], role: PortfolioTaskRole = "ad
       for (const phase of milestone.phases) {
         for (const task of phase.tasks) {
           if (task.assignee === "client") continue;
-          if (role === "manager" && task.assignee !== "human") continue;
+          if (role === "developer" && task.assignee !== "human") continue;
           rows.push({ project, milestone, phase, task, bucket: portfolioTaskBucket(task, milestone) });
         }
       }
@@ -567,7 +567,7 @@ export function AdminPortfolioTasks({
   return (
     <div className="task-center">
       <Panel>
-        <PanelHeader title={role === "manager" ? "Assigned manager tasks" : "All studio tasks"} icon={CalendarDays} action={<StatusBadge status="is-progress" label={`${progress}% complete`} />} />
+        <PanelHeader title={role === "developer" ? "Assigned developer tasks" : "All studio tasks"} icon={CalendarDays} action={<StatusBadge status="is-progress" label={`${progress}% complete`} />} />
         <div className="task-center-summary">
           <div className="task-summary-item">
             <span>{counts.upcoming}</span>
@@ -588,7 +588,7 @@ export function AdminPortfolioTasks({
         </div>
       </Panel>
       <div className="task-center-milestone-label">
-        {role === "manager" ? "Tasks reassigned to the manager across active clients" : "Studio-side work across all active clients"}
+        {role === "developer" ? "Tasks assigned to the developer across active clients" : "Studio-side work across all active clients"}
       </div>
       <div className="task-center-groups">
         {portfolioTaskBuckets.map(bucket => (

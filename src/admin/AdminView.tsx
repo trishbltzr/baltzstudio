@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { ClientLifecycleStage, Project, TaskStatus, BrandIdentity, AdminNav, ProjectTab, ClientNav } from "../types";
 import { planAccess } from "../lib/projectUtils";
 import { can } from "../lib/rolePermissions";
-import { ProgressBar, PanelHeader, Panel, RoleBadge } from "../components/shared";
+import { ProgressBar, PanelHeader, Panel, RoleBadge, Btn } from "../components/shared";
 import { type MobileNavCenterAction, type MobileNavItem, type ClientSwitcherOption, MobileTabBar, ClientSwitcherSheet } from "../components/mobileNav";
 import { DEFAULT_NOTIFICATION_PREFERENCES, NotificationSettingsPanel, type NotificationPreferences, deriveAdminNotifications, NotificationBell } from "../components/notifications";
 import { useIsMobile } from "../hooks/use-mobile";
@@ -32,6 +32,42 @@ const ClientOverviewTab = dynamic(() => import("../client/ClientTabs").then(mod 
 const ContractModal = dynamic(() => import("../components/ContractModal").then(mod => mod.ContractModal), { loading: DashboardPanelLoading });
 const FileAssetHub = dynamic(() => import("../components/FileAssetHub").then(mod => mod.FileAssetHub), { loading: DashboardPanelLoading });
 const NotificationsPage = dynamic(() => import("../components/notifications").then(mod => mod.NotificationsPage), { loading: DashboardPanelLoading });
+const DEVELOPER_EMAIL = "developer@baltazarstudio.co";
+const LEGACY_MANAGER_EMAIL = "manager@baltazarstudio.co";
+const DEVELOPER_ASSIGNMENT_OPTIONS = [
+  { label: "Studio Developer", email: DEVELOPER_EMAIL, name: "Studio Developer" },
+  { label: "Unassigned", email: null, name: null },
+] as const;
+
+function developerAssignmentValue(project: Project) {
+  const assignedEmail = project.assignedDeveloperEmail ?? project.assignedManagerEmail;
+  if (assignedEmail === LEGACY_MANAGER_EMAIL) return DEVELOPER_EMAIL;
+  return assignedEmail ?? "__unassigned__";
+}
+
+const ROLE_PERMISSION_GROUPS = [
+  {
+    role: "Admin",
+    detail: "Studio owner · ideates, approves, suggests",
+    tone: "studio" as const,
+    allowed: ["All clients", "Plans & billing", "Roles & access", "Assignments", "Global settings", "Final approvals"],
+    blocked: [],
+  },
+  {
+    role: "Developer",
+    detail: "Delivery coordinator · day-to-day execution",
+    tone: "developer" as const,
+    allowed: ["Assigned clients", "My Tasks", "Client messages", "Files & deliverables", "Review prep", "Internal notes"],
+    blocked: ["Billing", "Roles & access", "Client preview", "Final approvals"],
+  },
+  {
+    role: "Client",
+    detail: "Client-safe portal",
+    tone: "client" as const,
+    allowed: ["Own project", "Progress", "Milestones", "Approvals", "Shared files", "Billing status", "Support"],
+    blocked: ["Internal tasks", "Other clients", "Studio notes"],
+  },
+];
 
 // ─────────────────────────────────────────────
 // ADMIN — MAIN VIEW
@@ -39,7 +75,7 @@ const NotificationsPage = dynamic(() => import("../components/notifications").th
 
 function accessForAdminAccountRole(role: string) {
   if (role === "Studio admin") return "Can manage project";
-  if (role === "Studio manager") return "Can manage project work";
+  if (role === "Studio developer") return "Can manage project work";
   if (role === "Client owner") return "Can review and approve";
   return "Can view client portal";
 }
@@ -133,12 +169,13 @@ function AdminWorkspacePane({
   );
 }
 
-export function AdminView({ workspaceRole = "admin", projects, selectedProjectId, projectContextOpened = false, onSelectProject, onTaskStatusChange, onProjectTaskStatusChange, onSendGate, onApproveGate, onDenyGate, onFinishMilestone, onBrandChange, onChangeProjectStage, onLogout, onViewAsClient, initialNav }: {
-  workspaceRole?: "admin" | "manager";
+export function AdminView({ workspaceRole = "admin", projects, selectedProjectId, projectContextOpened = false, onSelectProject, onAssignProjectDeveloper, onTaskStatusChange, onProjectTaskStatusChange, onSendGate, onApproveGate, onDenyGate, onFinishMilestone, onBrandChange, onChangeProjectStage, onLogout, onViewAsClient, initialNav }: {
+  workspaceRole?: "admin" | "developer";
   projects: Project[];
   selectedProjectId: string;
   projectContextOpened?: boolean;
   onSelectProject: (id: string) => void;
+  onAssignProjectDeveloper: (projectId: string, assignedDeveloperEmail: string | null, assignedDeveloperName: string | null) => void;
   onTaskStatusChange: (taskId: string, status: TaskStatus) => void;
   onProjectTaskStatusChange: (projectId: string, taskId: string, status: TaskStatus) => void;
   onSendGate: (gateId: string) => void;
@@ -151,11 +188,15 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
   onViewAsClient?: (projectId: string) => void;
   initialNav?: string;
 }) {
-  const isManager = workspaceRole === "manager";
+  const isDeveloper = workspaceRole === "developer";
   const canManageClientAssignments = can(workspaceRole, "manageClientAssignments");
   const canChangeClientPlan = can(workspaceRole, "changeClientPlan");
+  const canManageRoleAccess = can(workspaceRole, "manageRoleAccess");
   const canEditGlobalConfigurations = can(workspaceRole, "editGlobalConfigurations");
-  const [adminNav, setAdminNav] = useState<AdminNav>(() => isProjectTab(initialNav) ? "projects" : isAdminTopNav(initialNav) ? initialNav : isManager ? "reviews" : "home");
+  const canSendReviewGates = can(workspaceRole, "sendReviewGates");
+  const canApproveReviewGates = can(workspaceRole, "approveReviewGates");
+  const canViewClientWorkspacePreview = can(workspaceRole, "viewClientWorkspacePreview");
+  const [adminNav, setAdminNav] = useState<AdminNav>(() => isProjectTab(initialNav) ? "projects" : isAdminTopNav(initialNav) ? initialNav : isDeveloper ? "reviews" : "home");
   const [projectTab, setProjectTab] = useState<ProjectTab>(() => isProjectTab(initialNav) ? initialNav : "overview");
   const [hasSelectedLaunchpadClient, setHasSelectedLaunchpadClient] = useState(() => projectContextOpened || isProjectTab(initialNav) || initialNav === "projects");
   const [contractOpen, setContractOpen] = useState(false);
@@ -167,9 +208,6 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
   ]);
   const [addingAccountUser, setAddingAccountUser] = useState(false);
   const [newAccountUser, setNewAccountUser] = useState({ name: "", email: "", role: "Collaborator" });
-  const [clientAssignments, setClientAssignments] = useState<Record<string, string>>(() =>
-    Object.fromEntries(projects.map(item => [item.id, isManager ? "Studio Manager" : "Trisha Baltazar"])),
-  );
   const handleAccountUserSubmit = () => {
     const name = newAccountUser.name.trim();
     const email = newAccountUser.email.trim();
@@ -185,15 +223,6 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
       return [clientOwner, ...rest];
     });
   }, [project.clientEmail, project.clientName]);
-  useEffect(() => {
-    setClientAssignments(prev => {
-      const next = { ...prev };
-      for (const item of projects) {
-        if (!next[item.id]) next[item.id] = isManager ? "Studio Manager" : "Trisha Baltazar";
-      }
-      return next;
-    });
-  }, [projects, isManager]);
   // Notification state lifted here so the Notifications nav page can use it
   const notifications = deriveAdminNotifications(project);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
@@ -201,7 +230,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
   const unread = notifications.filter(n => !readIds.has(n.id) && !dismissedIds.has(n.id)).length;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const adminFileHubFocus: FileHubSectionId | undefined = projectTab === "brand-guidelines" ? "brand-guidelines" : adminNav === "assets" || projectTab === "assets" ? "assets" : undefined;
-  const [settingsTab, setSettingsTab] = useState<"general" | "clients" | "notifications">("general");
+  const [settingsTab, setSettingsTab] = useState<"general" | "clients" | "team" | "notifications">("general");
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
   useEffect(() => {
     if (projectContextOpened) setHasSelectedLaunchpadClient(true);
@@ -209,7 +238,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
   const toggleNotificationPref = (key: keyof NotificationPreferences) => {
     setNotificationPrefs(current => ({ ...current, [key]: !current[key] }));
   };
-  const openAdminSettings = (tab: "general" | "clients" | "notifications" = "general") => {
+  const openAdminSettings = (tab: "general" | "clients" | "team" | "notifications" = "general") => {
     if (!canEditGlobalConfigurations) return;
     setSettingsTab(tab);
     setAdminNav("settings");
@@ -232,7 +261,14 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
     window.dispatchEvent(new CustomEvent("iff-widget:toggle"));
   };
   const desktopNotificationBell = !isMobile
-    ? <NotificationBell notifications={notifications} readIds={readIds} setReadIds={setReadIds} onViewAll={() => setAdminNav("notifications")} onApproveGate={onApproveGate} onDenyGate={onDenyGate} />
+    ? <NotificationBell
+        notifications={notifications}
+        readIds={readIds}
+        setReadIds={setReadIds}
+        onViewAll={() => setAdminNav("notifications")}
+        onApproveGate={canApproveReviewGates ? onApproveGate : undefined}
+        onDenyGate={canApproveReviewGates ? onDenyGate : undefined}
+      />
     : null;
   const defaultTopbarActions = desktopNotificationBell ? (
     <div className="dashboard-topbar-actions">
@@ -245,7 +281,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
     { key: "home",          label: "Home",           icon: LayoutDashboard },
     { key: "notifications", label: "Notifications",  icon: Bell, count: unread },
     { key: "assistant",     label: assistantOpen ? "Close In Full Flight" : "In Full Flight", icon: Plus, action: toggleInFullFlightAssistant, toggled: assistantOpen },
-    ...(access.tasks ? [{ key: "reviews", label: "Tasks", icon: CheckCircle2 }] : [{ key: "inbox", label: "Inbox", icon: Inbox }]),
+    ...(access.tasks ? [{ key: "reviews", label: isDeveloper ? "My Tasks" : "Tasks", icon: CheckCircle2 }] : [{ key: "inbox", label: isDeveloper ? "Messages" : "Inbox", icon: Inbox }]),
   ];
   function openProjectContext(tab: ProjectTab = "overview") {
     setHasSelectedLaunchpadClient(true);
@@ -405,19 +441,9 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
       openProjectContext("milestones");
       return;
     }
-    if (nav === "contract") {
-      if (!access.contract) return;
-      setContractOpen(true);
-      return;
-    }
-    if (nav === "files" || nav === "brand") {
+    if (nav === "files") {
       if (!access.assets) return;
       openProjectContext("assets");
-      return;
-    }
-    if (nav === "brand-guidelines") {
-      if (!access.brandGuidelines) return;
-      openProjectContext("brand-guidelines");
       return;
     }
     openProjectContext("overview");
@@ -425,17 +451,18 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
 
   const adminSidebarNavSections = [
     { label: "Workspace", items: [
-      { id: "overview",   label: "Launch Pad", icon: LayoutDashboard },
+      { id: "overview",   label: "Snapshot", icon: LayoutDashboard },
       { id: "notifications", label: "Notifications", icon: Bell, count: unread },
     ]},
     { label: "Manage", items: [
-      ...(access.tasks ? [{ id: "reviews", label: isManager ? "My Tasks" : "Tasks", icon: CheckCircle2 }] : []),
-      { id: "inbox", label: isManager ? "Agent queue" : "Inbox", icon: Inbox },
+      ...(access.tasks ? [{ id: "reviews", label: isDeveloper ? "My Tasks" : "Tasks", icon: CheckCircle2 }] : []),
+      { id: "inbox", label: isDeveloper ? "Messages" : "Inbox", icon: Inbox },
     ]},
   ].filter(section => section.items.length > 0);
-  const adminSettingsTabs: Array<{ key: "general" | "clients" | "notifications"; label: string; icon: typeof Settings }> = [
+  const adminSettingsTabs: Array<{ key: "general" | "clients" | "team" | "notifications"; label: string; icon: typeof Settings }> = [
     { key: "general", label: "General", icon: Settings },
     ...(canManageClientAssignments ? [{ key: "clients" as const, label: "Clients", icon: Users }] : []),
+    ...(canManageRoleAccess ? [{ key: "team" as const, label: "Team & Access", icon: User }] : []),
     { key: "notifications", label: "Notifications", icon: Bell },
   ];
 
@@ -463,7 +490,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
   const blockedAgentTasks = agentLaunchpadTasks.filter(task => task.status === "blocked").length;
   const inProgressAgentTasks = agentLaunchpadTasks.filter(task => task.status === "in_progress").length;
   const launchpadAgentTaskCount = agentLaunchpadTasks.length + floraDemoDeadlineCount;
-  const launchpadGreetingName = isManager ? "Studio Manager" : "Trisha";
+  const launchpadGreetingName = isDeveloper ? "Studio Developer" : "Trisha";
 
   return (
     <div className={`client-dashboard-shell ${sidebarCollapsed ? "is-collapsed" : ""}`}>
@@ -476,7 +503,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
           onLogout={onLogout}
           brandMark="BS"
           brandName="Baltazar Studio"
-          brandSub={isManager ? "Manager workspace" : "Admin workspace"}
+          brandSub={isDeveloper ? "Developer workspace" : "Admin workspace"}
           projects={hasSelectedLaunchpadClient ? projects : undefined}
           selectedProjectId={hasSelectedLaunchpadClient ? selectedProjectId : undefined}
           onSelectProject={(id) => {
@@ -485,9 +512,9 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
             openProjectContext("overview");
           }}
           projectNavItems={hasSelectedLaunchpadClient ? projectNavItems : undefined}
-          footerAvatarLabel={isManager ? "SM" : "T"}
-          footerName={isManager ? "Studio Manager" : "Trisha Baltazar"}
-          footerSub={isManager ? "Studio manager" : "Studio admin"}
+          footerAvatarLabel={isDeveloper ? "SD" : "T"}
+          footerName={isDeveloper ? "Studio Developer" : "Trisha Baltazar"}
+          footerSub={isDeveloper ? "Studio developer" : "Studio admin"}
           footerItems={[
             ...(canEditGlobalConfigurations ? [{ key: "settings", label: "Settings", icon: Settings, onClick: () => openAdminSettings("general") }] : []),
           ]}
@@ -506,7 +533,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
 
       <section className="dashboard-workspace">
         {adminNav === "home" && (
-          <AdminWorkspacePane title="Launch Pad" actions={defaultTopbarActions}>
+          <AdminWorkspacePane title="Snapshot" actions={defaultTopbarActions}>
             <div className="launch-pad-stack">
               <Panel className="welcome-card launch-pad-greeting">
                 <div className="welcome-card-main">
@@ -515,7 +542,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
                     <h2>Good to see you, {launchpadGreetingName}</h2>
                     <p>Track clients, tasks, and upcoming deadlines.</p>
                   </div>
-                  <div className="launch-pad-greeting-summary" aria-label="Launch Pad summary">
+                  <div className="launch-pad-greeting-summary" aria-label="Snapshot summary">
                     <div className="launch-pad-greeting-stat">
                       <span>Active clients</span>
                       <strong>{activeLaunchpadProjects.length}</strong>
@@ -571,7 +598,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
                           </div>
                           <ProgressBar {...prog} />
                         </button>
-                        {onViewAsClient && (
+                        {canViewClientWorkspacePreview && onViewAsClient && (
                           <button
                             type="button"
                             className="portfolio-project-preview-btn"
@@ -587,7 +614,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
                   })}
                 </div>
               </Panel>
-              <AssignmentCalendar projects={projects} role={isManager ? "manager" : "admin"} onProjectTaskStatusChange={onProjectTaskStatusChange} />
+              <AssignmentCalendar projects={projects} role={isDeveloper ? "developer" : "admin"} onProjectTaskStatusChange={onProjectTaskStatusChange} />
             </div>
           </AdminWorkspacePane>
         )}
@@ -598,7 +625,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
               <div className="dashboard-topbar-left">
                 <div className="dashboard-topbar-heading-row">
                   <div className="dashboard-topbar-title">{projectViewTitles[projectTab]}</div>
-                  {onViewAsClient && (
+                  {canViewClientWorkspacePreview && onViewAsClient && (
                     <button
                       type="button"
                       className="view-as-client-btn view-as-client-btn--mobile"
@@ -612,9 +639,9 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
                 </div>
               </div>
               <div className="dashboard-topbar-actions admin-project-actions">
-                {isManager && <RoleBadge label="Manager" tone="manager" />}
+                {isDeveloper && <RoleBadge label="Developer" tone="developer" />}
                 {canChangeClientPlan && <AdminPlanSelector stage={project.workflow?.stage ?? "wiaw-active"} onChange={onChangeProjectStage} />}
-                {onViewAsClient && (
+                {canViewClientWorkspacePreview && onViewAsClient && (
                   <button
                     type="button"
                     className="view-as-client-btn"
@@ -633,7 +660,13 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
               {projectTab === "milestones" && (
                 access.showAuditMilestones
                   ? <ClientMilestonesTab project={project} auditMode onTaskStatusChange={onTaskStatusChange} onFinishMilestone={onFinishMilestone} />
-                  : <AdminMilestonesTab project={project} onTaskStatusChange={onTaskStatusChange} onSendGate={onSendGate} onApproveGate={onApproveGate} onFinishMilestone={onFinishMilestone} />
+                  : <AdminMilestonesTab
+                      project={project}
+                      onTaskStatusChange={onTaskStatusChange}
+                      onSendGate={canSendReviewGates ? onSendGate : undefined}
+                      onApproveGate={canApproveReviewGates ? onApproveGate : undefined}
+                      onFinishMilestone={onFinishMilestone}
+                    />
               )}
               {(projectTab === "assets" || projectTab === "brand-guidelines") && (
                 <FileAssetHub project={project} role="admin" focusSection={adminFileHubFocus} />
@@ -644,8 +677,8 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
         )}
 
         {adminNav === "reviews" && (
-          <AdminWorkspacePane title={isManager ? "My Tasks" : "Tasks"} actions={defaultTopbarActions}>
-            <AdminPortfolioTasks projects={projects} role={isManager ? "manager" : "admin"} onProjectTaskStatusChange={onProjectTaskStatusChange} />
+          <AdminWorkspacePane title={isDeveloper ? "My Tasks" : "Tasks"} actions={defaultTopbarActions}>
+            <AdminPortfolioTasks projects={projects} role={isDeveloper ? "developer" : "admin"} onProjectTaskStatusChange={onProjectTaskStatusChange} />
           </AdminWorkspacePane>
         )}
 
@@ -656,8 +689,8 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
         )}
 
         {adminNav === "inbox" && (
-          <AdminWorkspacePane title={isManager ? "Agent queue" : "Inbox"} actions={defaultTopbarActions}>
-            <AdminAgentQueue role={isManager ? "manager" : "admin"} focusClientName={hasSelectedLaunchpadClient ? project.clientName : undefined} />
+          <AdminWorkspacePane title={isDeveloper ? "Client Messages" : "Inbox"} actions={defaultTopbarActions}>
+            <AdminAgentQueue role={isDeveloper ? "developer" : "admin"} focusClientName={hasSelectedLaunchpadClient ? project.clientName : undefined} />
           </AdminWorkspacePane>
         )}
 
@@ -703,6 +736,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
                     <div className="account-access-body">
                       {projects.map(item => {
                         const activeMilestone = item.milestones.find(milestone => milestone.status === "active") ?? item.milestones[0];
+                        const selectedDeveloperEmail = developerAssignmentValue(item);
                         return (
                           <div key={item.id} className="account-user-row">
                             <span className="account-user-avatar">{item.clientInitials}</span>
@@ -713,13 +747,20 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
                             <div className="account-user-meta">
                               <select
                                 className="dashboard-select"
-                                value={clientAssignments[item.id] ?? "Unassigned"}
+                                value={selectedDeveloperEmail}
                                 aria-label={`Assign ${item.clientName}`}
-                                onChange={event => setClientAssignments(prev => ({ ...prev, [item.id]: event.target.value }))}
+                                onChange={event => {
+                                  const selection = DEVELOPER_ASSIGNMENT_OPTIONS.find(option =>
+                                    (option.email ?? "__unassigned__") === event.target.value,
+                                  );
+                                  onAssignProjectDeveloper(item.id, selection?.email ?? null, selection?.name ?? null);
+                                }}
                               >
-                                <option>Trisha Baltazar</option>
-                                <option>Studio Manager</option>
-                                <option>Unassigned</option>
+                                {DEVELOPER_ASSIGNMENT_OPTIONS.map(option => (
+                                  <option key={option.email ?? "__unassigned__"} value={option.email ?? "__unassigned__"}>
+                                    {option.label}
+                                  </option>
+                                ))}
                               </select>
                               <small>{item.platform} · M{activeMilestone?.number ?? 1} {activeMilestone?.clientLabel ?? "Foundation"}</small>
                             </div>
@@ -729,25 +770,58 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
                     </div>
                   </Panel>
 
+                </div>
+              )}
+
+              {settingsTab === "team" && canManageRoleAccess && (
+                <div style={{ display: "grid", gap: "0.75rem" }}>
+                  <div className="settings-section-intro">
+                    <span>Admin · Access</span>
+                    <h2>Team & Access</h2>
+                    <p>People, roles and what each can do.</p>
+                  </div>
                   <Panel>
-                    <PanelHeader title={`${project.clientName} role access`} icon={User} />
+                    <PanelHeader
+                      title="People"
+                      icon={Users}
+                      action={(
+                        <Btn variant="primary" size="sm" onClick={() => setAddingAccountUser(true)}>
+                          <Plus size={13} /> Invite member
+                        </Btn>
+                      )}
+                    />
                     <div className="account-access-body">
-                      {accountUsers.map(person => (
-                        <div key={person.email} className="account-user-row">
-                          <span className="account-user-avatar">{person.name.slice(0, 2).toUpperCase()}</span>
+                      {[
+                        { name: "Trisha Baltazar", email: "studio@baltazarstudio.co", role: "Studio Admin", scope: "All clients", status: "Active", initials: "TB" },
+                        { name: "Studio Developer", email: DEVELOPER_EMAIL, role: "Developer", scope: "Assigned clients", status: "Active", initials: "SD" },
+                        { name: project.clientName, email: project.clientEmail, role: "Client", scope: "Own project", status: "Active", initials: project.clientInitials },
+                        ...accountUsers
+                          .filter(person => person.email !== project.clientEmail && person.email !== "studio@baltazarstudio.co")
+                          .map(person => ({
+                            name: person.name,
+                            email: person.email,
+                            role: person.role.replace("Studio developer", "Developer").replace("Studio admin", "Studio Admin"),
+                            scope: person.access,
+                            status: "Invited",
+                            initials: person.name.slice(0, 2).toUpperCase(),
+                          })),
+                      ].map(person => (
+                        <div key={`${person.email}-${person.role}`} className="account-user-row account-user-row--team">
+                          <span className="account-user-avatar">{person.initials}</span>
                           <div className="account-user-main">
                             <strong>{person.name}</strong>
                             <span>{person.email}</span>
                           </div>
                           <div className="account-user-meta">
                             <span>{person.role}</span>
-                            <small>{person.access}</small>
+                            <small>{person.scope}</small>
                           </div>
+                          <span className={`account-status-pill is-${person.status.toLowerCase()}`}>{person.status}</span>
                         </div>
                       ))}
                     </div>
                     <div className="users-modal-body">
-                      {addingAccountUser ? (
+                      {addingAccountUser && (
                         <form
                           className="account-setup-form"
                           onSubmit={event => {
@@ -761,36 +835,36 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
                             <select className="dashboard-select" value={newAccountUser.role} onChange={event => setNewAccountUser({ ...newAccountUser, role: event.target.value })}>
                               <option>Collaborator</option>
                               <option>Client owner</option>
-                              <option>Studio manager</option>
+                              <option>Studio developer</option>
                               <option>Studio admin</option>
                             </select>
                           </div>
                           <div className="account-setup-actions">
                             <button type="button" className="btn" onClick={() => setAddingAccountUser(false)}>Cancel</button>
-                            <button type="submit" className="btn btn-primary">Add access</button>
+                            <button type="submit" className="btn btn-primary">Invite member</button>
                           </div>
                         </form>
-                      ) : (
-                        <button type="button" className="users-modal-add" onClick={() => setAddingAccountUser(true)}>
-                          <Plus size={13} />
-                          Add role access
-                        </button>
                       )}
                     </div>
                   </Panel>
 
                   <Panel>
-                    <PanelHeader title="Role settings" icon={Settings} />
-                    <div style={{ padding: "0.75rem 1.25rem 1rem" }}>
-                      {[
-                        ["Studio admin", "Can manage plans, files, milestones, roles, and notifications."],
-                        ["Studio manager", "Can manage active project work and client communication."],
-                        ["Client owner", "Can review deliverables, complete client tasks, and access shared files."],
-                        ["Collaborator", "Can view assigned project information."],
-                      ].map(([role, detail]) => (
-                        <div key={role} style={{ display: "grid", gap: "0.18rem", padding: "0.75rem 0", borderBottom: "1px solid var(--border-soft)" }}>
-                          <strong style={{ fontSize: "var(--text-md)", fontWeight: 500 }}>{role}</strong>
-                          <span style={{ color: "var(--fg-muted)", fontSize: "var(--text-sm)", lineHeight: 1.5 }}>{detail}</span>
+                    <PanelHeader title="Roles & permissions" icon={Settings} />
+                    <div style={{ display: "grid" }}>
+                      {ROLE_PERMISSION_GROUPS.map(group => (
+                        <div key={group.role} style={{ display: "grid", gap: "0.85rem", padding: "1.1rem 1.25rem", borderTop: "1px solid var(--border-soft)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", flexWrap: "wrap" }}>
+                            <RoleBadge label={group.role} tone={group.tone} />
+                            <span style={{ color: "var(--fg-muted)", fontSize: "var(--text-md)" }}>{group.detail}</span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
+                            {group.allowed.map(item => (
+                              <span key={item} className="role-badge role-badge--client">{item}</span>
+                            ))}
+                            {group.blocked.map(item => (
+                              <span key={item} className="role-badge role-badge--preview" style={{ textDecoration: "line-through" }}>{item}</span>
+                            ))}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -819,14 +893,14 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
         {isMobile && (
           <div className="dashboard-mobile-topbar-account">
             <AccountMenu
-              avatarLabel={isManager ? "SM" : "T"}
-              name={isManager ? "Studio Manager" : "Trisha Baltazar"}
-              subtitle={isManager ? "Studio manager" : "Studio owner"}
+              avatarLabel={isDeveloper ? "SD" : "T"}
+              name={isDeveloper ? "Studio Developer" : "Trisha Baltazar"}
+              subtitle={isDeveloper ? "Studio developer" : "Studio owner"}
               onLogout={onLogout}
               collapsed
               placement="bottom"
               items={[
-                ...(access.tasks ? [{ key: "reviews", label: isManager ? "My Tasks" : "Tasks", icon: CheckCircle2, onClick: () => setAdminNav("reviews") }] : []),
+                ...(access.tasks ? [{ key: "reviews", label: isDeveloper ? "My Tasks" : "Tasks", icon: CheckCircle2, onClick: () => setAdminNav("reviews") }] : []),
                 ...(canEditGlobalConfigurations ? [{ key: "settings", label: "Settings", icon: Settings, onClick: () => openAdminSettings("general") }] : []),
               ]}
             />

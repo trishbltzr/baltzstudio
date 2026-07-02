@@ -44,16 +44,16 @@ const WORKSPACES: Record<string, InFullFlightWorkspace> = {
     supportTier: "In Full Flight Hypercare",
     launchDate: "May 12, 2026",
     liveUrl: "flora-and-co.example",
-    revisionPolicy: "Fast content edits and light layout refinements are in scope. Bigger repositioning opens a new studio round.",
-    autoPreviewRule: "Copy, images, testimonials, banners, and section order can auto-preview. Structural redesign requests pause for studio review.",
+    revisionPolicy: "Fast content edits and light funnel refinements are in scope. Bigger repositioning opens a new studio round.",
+    autoPreviewRule: "Copy, images, testimonials, banners, and single-page section order can auto-preview. Structural redesign requests pause for studio review.",
     allowedEdits: [
-      "Homepage and announcement copy updates",
+      "Funnel hero and announcement copy updates",
       "Image swaps for approved sections",
       "Testimonial, FAQ, and service card refreshes",
-      "Light section reordering inside approved page templates",
+      "Light section reordering inside the approved funnel template",
     ],
     pushbackRules: [
-      "Whole-site redesign requests become a separate scope",
+      "Multi-page site or full redesign requests become a separate scope",
       "Brand repositioning needs studio review before preview",
       "Post-approval structural changes open a new round",
     ],
@@ -69,7 +69,7 @@ const SNAPSHOTS: Record<string, PrototypeSnapshot> = {
     pageTitle: "Flora & Co. Studio",
     eyebrow: "Small-batch floral styling for intimate events",
     headline: "Elegant florals, now paired with this week's complimentary setup styling.",
-    body: "We refreshed the homepage message to spotlight your current offer without changing the overall visual direction or site structure.",
+    body: "We refreshed the funnel message to spotlight your current offer without changing the overall visual direction or approved structure.",
     primaryCta: "Book the offer",
     secondaryCta: "View packages",
     announcement: "This week only: complimentary setup styling with new event bookings.",
@@ -105,7 +105,7 @@ const SNAPSHOTS: Record<string, PrototypeSnapshot> = {
     id: "hero-copy-refresh",
     label: "Hero copy refresh",
     stageLabel: "Preview ready",
-    changeSummary: "Adjusted the homepage headline and supporting paragraph to feel warmer while preserving the current layout.",
+    changeSummary: "Adjusted the funnel headline and supporting paragraph to feel warmer while preserving the current layout.",
     pageTitle: "Flora & Co. Studio",
     eyebrow: "Wedding florals with calm direction from first inquiry to setup",
     headline: "Warm, artful florals for celebrations that still feel like you.",
@@ -151,7 +151,7 @@ export function classifyPrototypeRequest(input: string): PrototypePlan {
     };
   }
 
-  if (/homepage redesign|new homepage|different layout|move everything/.test(normalized)) {
+  if (/homepage redesign|new homepage|funnel redesign|different layout|move everything/.test(normalized)) {
     return {
       decision: "new_revision_round",
       summary: "Structural direction change detected.",
@@ -173,9 +173,9 @@ export function classifyPrototypeRequest(input: string): PrototypePlan {
   if (/banner|announcement|promo|offer|sale|special/.test(normalized)) {
     return {
       decision: "accepted",
-      summary: "Content-only homepage refresh.",
+      summary: "Content-only funnel refresh.",
       assistantReply:
-        "This request stays within the current homepage structure, so I'm generating a fresh preview with the updated offer messaging now.",
+        "This request stays within the current funnel structure, so I'm generating a fresh preview with the updated offer messaging now.",
       previewSnapshotId: "weekly-offer-refresh",
     };
   }
@@ -185,7 +185,7 @@ export function classifyPrototypeRequest(input: string): PrototypePlan {
       decision: "accepted",
       summary: "Hero copy refinement within approved direction.",
       assistantReply:
-        "This fits the post-launch support lane. I'll adjust the hero copy and prepare a preview without changing the page structure.",
+        "This fits the post-launch support lane. I'll adjust the hero copy and prepare a preview without changing the funnel structure.",
       previewSnapshotId: "hero-copy-refresh",
     };
   }

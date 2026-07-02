@@ -13,6 +13,6 @@ export const FILE_WORKSPACE_TITLES: Record<FileWorkspacePageView, string> = {
   "brand-guidelines": "Files",
 };
 
-export function isClientFileHubView(value: string): value is "files" | "brand" {
-  return value === "files" || value === "brand";
+export function isClientFileHubView(value: string): value is "files" {
+  return value === "files";
 }
