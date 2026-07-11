@@ -215,8 +215,8 @@ function Calendar({ state, actions, tasks }: { state: PortalState; actions: Port
   return (
     <>
       <ActiveMsBanner />
-      <div style={css("display:grid;grid-template-columns:minmax(0,1fr);gap:0.85rem;align-items:start")}>
-        <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden;order:2")}>
+      <div style={css("display:grid;grid-template-columns:" + (state.isMobile ? "minmax(0,1fr)" : "minmax(0,1fr) minmax(0,2.4fr)") + ";gap:0.85rem;align-items:start")}>
+        <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden;order:" + (state.isMobile ? "1" : "2"))}>
           <div style={css("padding:" + (state.isMobile ? "0.82rem" : "0.9rem 1rem 0.82rem") + ";border-bottom:1px solid var(--border-soft);background:color-mix(in srgb,var(--surface) 78%,var(--surface-alt) 22%)")}>
             <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:0.8rem;flex-wrap:" + (state.isMobile ? "wrap" : "nowrap"))}>
               <div>
@@ -294,32 +294,29 @@ function Calendar({ state, actions, tasks }: { state: PortalState; actions: Port
             ))}
           </div>
         </div>
-        <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:" + TASK_VIEW_SHELL_BG + ";overflow:hidden;order:1")}>
-          <div style={css("padding:" + (state.isMobile ? "0.95rem" : "1rem 1.05rem 0.95rem") + ";border-bottom:1px solid var(--border-soft);display:flex;flex-direction:column;gap:var(--space-3)")}>
+        <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:" + TASK_VIEW_SHELL_BG + ";overflow:hidden;order:" + (state.isMobile ? "2" : "1") + ";" + (state.isMobile ? "" : "position:sticky;top:0.5rem"))}>
+          <div style={css("padding:" + (state.isMobile ? "0.95rem" : "1rem 1.05rem 0.95rem") + ";border-bottom:1px solid var(--border-soft);display:flex;flex-direction:column;gap:0.7rem")}>
             <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:0.7rem")}>
               <div>
                 <div style={css("font-size:0.62rem;font-weight:500;letter-spacing:0.02em;color:var(--fg-faint);margin-bottom:0.18rem")}>Selected Date</div>
                 <div style={css("font-weight:500;font-size:0.94rem;line-height:1.2;color:var(--fg)")}>{selLabel}</div>
               </div>
+              <span style={css("height:1.65rem;padding:0 0.62rem;border-radius:999px;background:var(--surface-alt);color:var(--fg-muted);font-size:0.66rem;font-weight:500;display:inline-flex;align-items:center;white-space:nowrap;flex-shrink:0")}>{selTasks.length} due</span>
             </div>
-            <div style={css("display:grid;grid-template-columns:" + (state.isMobile ? "repeat(3,minmax(0,1fr))" : "repeat(3,minmax(0,10rem))") + ";gap:var(--space-2)")}>
-              <div style={css("border:1px solid var(--border-soft);border-radius:0.85rem;background:color-mix(in srgb,var(--surface-alt) 52%,white 48%);padding:0.62rem 0.72rem")}>
-                <div style={css("font-size:0.58rem;font-weight:500;letter-spacing:0.02em;color:var(--fg-faint)")}>Due</div>
-                <div style={css("margin-top:0.15rem;font-size:1rem;font-weight:500;color:var(--fg)")}>{selTasks.length}</div>
-              </div>
-              <div style={css("border:1px solid var(--border-soft);border-radius:0.85rem;background:color-mix(in srgb,var(--surface-alt) 52%,white 48%);padding:0.62rem 0.72rem")}>
+            <div style={css("display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.45rem")}>
+              <div style={css("border:1px solid var(--border-soft);border-radius:0.85rem;background:color-mix(in srgb,var(--surface-alt) 52%,white 48%);padding:0.6rem 0.68rem")}>
                 <div style={css("font-size:0.58rem;font-weight:500;letter-spacing:0.02em;color:var(--fg-faint)")}>Open</div>
-                <div style={css("margin-top:0.15rem;font-size:1rem;font-weight:500;color:var(--fg)")}>{selectedOpen}</div>
+                <div style={css("margin-top:0.15rem;font-size:0.95rem;font-weight:500;color:var(--fg)")}>{selectedOpen}</div>
               </div>
-              <div style={css("border:1px solid var(--border-soft);border-radius:0.85rem;background:color-mix(in srgb,var(--surface-alt) 52%,white 48%);padding:0.62rem 0.72rem")}>
+              <div style={css("border:1px solid var(--border-soft);border-radius:0.85rem;background:color-mix(in srgb,var(--surface-alt) 52%,white 48%);padding:0.6rem 0.68rem")}>
                 <div style={css("font-size:0.58rem;font-weight:500;letter-spacing:0.02em;color:var(--fg-faint)")}>Done</div>
-                <div style={css("margin-top:0.15rem;font-size:1rem;font-weight:500;color:var(--fg)")}>{selectedDone}</div>
+                <div style={css("margin-top:0.15rem;font-size:0.95rem;font-weight:500;color:var(--fg)")}>{selectedDone}</div>
               </div>
             </div>
           </div>
           <div style={css("padding:" + (state.isMobile ? "0.85rem" : "0.9rem 1rem 1rem"))}>
             {selTasks.length ? (
-              <div style={css("display:flex;flex-direction:column;gap:var(--space-2)")}>
+              <div style={css("display:flex;flex-direction:column;gap:0.5rem")}>
                 {selTasks.map(t => (
                   <div key={t.id} onClick={() => actions.patch({ taskModal: t.id })} className="pt-card-soft" style={css("display:flex;align-items:flex-start;gap:0.65rem;padding:0.7rem 0.75rem;border:1px solid var(--border-soft);border-radius:var(--radius);cursor:pointer;transition:border-color .12s")}>
                     <span style={css("width:0.55rem;height:0.55rem;border-radius:50%;flex-shrink:0;margin-top:0.28rem;background:" + laneMeta(t.owner).c)} />

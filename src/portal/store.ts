@@ -8,6 +8,7 @@ import {
   normalizePersistedPortalWorkspaceState,
   portalClientId,
   type PortalApprovalRecord,
+  type PortalClientNoteRecord,
   type PortalClientWorkspace,
   type PortalCollaboratorRecord,
   type PortalProposalRecord,
@@ -251,6 +252,8 @@ export interface PortalActions {
   sendApproval: (approvalId: string) => void;
   sendProposal: (clientName: string, proposal: { iffOn: boolean }) => void;
   inviteCollaborator: (clientName: string, collaborator: { name: string; email: string; access: string }) => void;
+  addClientNote: (clientName: string, text: string) => void;
+  deleteClientNote: (clientName: string, noteId: string) => void;
   uploadPortalFiles: (payload: { clientName: string; folder: string; files: FileList | File[]; threadId?: string }) => Promise<void>;
   openThreadClientDetail: (threadId: string) => void;
   escalateDecision: (payload: { clientName: string; title: string; reason: string; by: string }) => void;
@@ -464,6 +467,36 @@ export function usePortal(seedRole: Role) {
       openClientDetail: name => setState(s => ({ ...s, view: "clients", clientDetail: name, fileBrand: "all", navOpen: false, notifOpen: false, pop: null, playbookDoc: null })),
       backToClients: () => setState(s => ({ ...s, clientDetail: null })),
       workspaceForClient: clientName => workspaceForClient(clientName, stateRef.current.clientWorkspaces),
+      addClientNote: (clientName, text) => {
+        const clean = text.trim();
+        if (!clean) return;
+        const clientId = portalClientId(clientName);
+        const note: PortalClientNoteRecord = {
+          id: `${clientId}-note-${Date.now()}`,
+          text: clean,
+          author: actorName(stateRef.current.role),
+          createdAt: new Date().toISOString(),
+        };
+        setState(s => ({
+          ...s,
+          clientWorkspaces: withClientWorkspace(s, clientId, workspace => ({
+            ...workspace,
+            notes: [note, ...workspace.notes],
+          })),
+        }));
+        showToast("Note saved for " + clientName);
+      },
+      deleteClientNote: (clientName, noteId) => {
+        const clientId = portalClientId(clientName);
+        setState(s => ({
+          ...s,
+          clientWorkspaces: withClientWorkspace(s, clientId, workspace => ({
+            ...workspace,
+            notes: workspace.notes.filter(note => note.id !== noteId),
+          })),
+        }));
+        showToast("Note removed");
+      },
       blockerOf: id => blockerOf(id, state.tasks),
       advanceTask: id => {
         const L: Record<string, string> = { todo: "To Do", in_progress: "In Progress", review: "In Review", done: "Done" };

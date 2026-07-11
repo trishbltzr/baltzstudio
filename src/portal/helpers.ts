@@ -159,7 +159,7 @@ const HEAD: Record<string, Partial<Record<Role, [string, string]>>> = {
   team: { admin: ["Studio", "Team"] },
   playbooks: { admin: ["Studio", "Playbooks"], dev: ["Delivery", "Playbooks"] },
   billing: { admin: ["Studio", "Billing · Wise"] },
-  invoices: { admin: ["Studio", "Create Invoice"], dev: ["Delivery", "Create Invoice"] },
+  invoices: { admin: ["Studio", "New Invoice"], dev: ["Delivery", "New Invoice"] },
   escalations: { admin: ["Studio", "Inbox · Escalations"] },
   settings: { admin: ["Studio", "Settings"], dev: ["Delivery", "Settings"] },
   review: { dev: ["Delivery", "Approvals"] },
