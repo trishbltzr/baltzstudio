@@ -46,11 +46,10 @@
   border: 1px solid var(--border-soft);
 }
 .contract-eyebrow {
-  font-size: var(--text-2xs);
+  font-size: calc(var(--text-2xs) + 0.08rem);
   font-weight: 500;
   color: var(--fg-faint);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
   margin-bottom: 0.2rem;
 }
 .contract-intro {

@@ -16,13 +16,13 @@ type TaskRow = {
 
 const bucketMeta: Record<TaskBucket, { title: string; icon: LucideIcon; emptyClient: string; emptyAdmin: string }> = {
   action: {
-    title: "Action needed",
+    title: "Action Needed",
     icon: AlertCircle,
     emptyClient: "No client tasks are waiting on you. Approval requests will appear below when they need your response.",
     emptyAdmin: "No client blockers or blocked tasks right now.",
   },
   progress: {
-    title: "In progress",
+    title: "In Progress",
     icon: Clock3,
     emptyClient: "No studio work is currently marked in progress.",
     emptyAdmin: "No active work is marked in progress.",
@@ -219,7 +219,7 @@ export function TaskActionCenter({
     <div className="task-center">
       <Panel>
         <PanelHeader
-          title="Task action center"
+          title="Task Action Center"
           icon={ClipboardList}
           action={<StatusBadge status="is-progress" label={`${progress}% complete`} />}
         />
@@ -230,7 +230,7 @@ export function TaskActionCenter({
           </div>
           <div className="task-summary-item">
             <span>{bucketCounts.progress}</span>
-            <p>In progress</p>
+            <p>In Progress</p>
           </div>
           <div className="task-summary-item">
             <span>{bucketCounts.complete}</span>
@@ -238,7 +238,7 @@ export function TaskActionCenter({
           </div>
           <div className="task-summary-item is-priority">
             <span>{visibleActionCount}</span>
-            <p>Action needed</p>
+            <p>Action Needed</p>
           </div>
         </div>
       </Panel>

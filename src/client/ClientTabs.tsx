@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowRight, Bell, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, Clock, Compass, CreditCard, Flag, ExternalLink, Eye, FileSearch, FileText, Folder, Globe, LayoutDashboard, Link as LinkIcon, Lock, LockKeyhole, MessageSquare, Paperclip, PenLine, Pencil, Plus, Rocket, Send, Settings, ThumbsDown, ThumbsUp, User, Wand2, X, Zap, type LucideIcon } from "lucide-react";
+import { AlertCircle, ArrowRight, Bell, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Clock, Compass, CreditCard, Flag, ExternalLink, Eye, FileSearch, FileText, Folder, Globe, LayoutDashboard, Link as LinkIcon, Lock, LockKeyhole, MessageSquare, PanelLeft, PanelRight, Paperclip, PenLine, Pencil, Plus, Rocket, Send, Settings, ThumbsDown, ThumbsUp, User, Wand2, X, Zap, type LucideIcon } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import type { AuditPriority, Project, BrandIdentity, ClientNav, GateFeedback, Milestone, MilestoneStatus, Task } from "../types";
 import { DashboardSidebar } from "../components/DashboardSidebar";
@@ -318,7 +318,7 @@ export function ClientOverviewTab({ project, onNavChange, role = "client" }: { p
   const auditStatusLabel = workflow?.audit.status === "reviewed" ? "Reviewed" : workflow?.audit.status === "stale" ? "Stale" : "Generated and ready for review";
   const workflowStats = showPremiumCocoonAdmin
     ? [
-        { label: "Client audit", value: auditStatusLabel, icon: FileSearch },
+        { label: "Client Audit", value: auditStatusLabel, icon: FileSearch },
         { label: "Wise payment", value: compactPaymentStatus(workflow), icon: CreditCard },
         { label: "Booking", value: compactBookingDate(workflow), icon: CalendarDays },
         { label: "Access", value: compactAccessWindow(workflow), icon: Lock },
@@ -463,7 +463,7 @@ export function ClientOverviewTab({ project, onNavChange, role = "client" }: { p
                     </div>
                     <span className="stage-name">{m.clientLabel}</span>
                     <span className="stage-status">
-                      {m.status === "complete" ? "Complete" : m.status === "active" ? ("marker" in m && m.marker === "rocket" ? "In flight" : showAuditOverview ? "In review" : "Active") : "Locked"}
+                      {m.status === "complete" ? "Complete" : m.status === "active" ? ("marker" in m && m.marker === "rocket" ? "In Flight" : showAuditOverview ? "In Review" : "Active") : "Locked"}
                     </span>
                   </div>
                 ))}
@@ -495,7 +495,7 @@ export function ClientOverviewTab({ project, onNavChange, role = "client" }: { p
               </div>
               <StatusBadge
                 status={status === "complete" ? "is-success" : status === "active" ? ("marker" in eventMeta && eventMeta.marker === "rocket" ? "is-success" : "is-progress") : "is-locked"}
-                label={status === "complete" ? "Complete" : status === "active" ? ("marker" in eventMeta && eventMeta.marker === "rocket" ? "In flight" : showAuditOverview ? "In review" : "Active") : (showAuditOverview ? "Locked" : "Upcoming")}
+                label={status === "complete" ? "Complete" : status === "active" ? ("marker" in eventMeta && eventMeta.marker === "rocket" ? "In Flight" : showAuditOverview ? "In Review" : "Active") : (showAuditOverview ? "Locked" : "Upcoming")}
               />
             </div>
           ))}
@@ -1380,9 +1380,9 @@ export function ClientAuditTab({ project, isAdmin = false }: { project?: Project
                   }}
                   onMouseEnter={e => { e.currentTarget.style.background = "var(--border)"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = "var(--surface-alt)"; }}
-                  aria-label={`View details for ${section.category}`}
+                  aria-label={`View Details for ${section.category}`}
                 >
-                  <Eye size={12} /> View details
+                  <Eye size={12} /> View Details
                 </button>
               </div>
             </div>
@@ -1675,7 +1675,7 @@ export function ClientSettingsTab({ tab, ownerName, ownerEmail }: { tab: "notifi
       <Panel>
         <div style={panelHead}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
-            <div style={{ width: "3rem", height: "3rem", borderRadius: "50%", background: "linear-gradient(135deg, oklch(0.78 0.11 22), oklch(0.7 0.13 18))", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 500, fontSize: "1rem", flexShrink: 0 }}>
+            <div style={{ width: "3rem", height: "3rem", borderRadius: "50%", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 500, fontSize: "1rem", flexShrink: 0 }}>
               {initials}
             </div>
             <div>
@@ -1774,7 +1774,7 @@ export function ClientSettingsTab({ tab, ownerName, ownerEmail }: { tab: "notifi
   );
 }
 
-export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskStatusChange, onFinishMilestone, onConfirmCocoonPayment, onLogout, cocoonComplete, collaborationLocked, ownerName, ownerEmail, initialNav, devOnboardingSeed, devOnboardingStorageMode = "default" }: { project: Project; onSubmitFeedback: (gateId: string, feedback: GateFeedback) => void; onBrandChange: (b: BrandIdentity) => void; onTaskStatusChange?: (taskId: string, status: Task["status"]) => void; onFinishMilestone?: (milestoneId: string) => void; onConfirmCocoonPayment?: () => void; onLogout: () => void; cocoonComplete?: boolean; collaborationLocked?: boolean; ownerName?: string; ownerEmail?: string; initialNav?: ClientNav; devOnboardingSeed?: OnboardingSeed; devOnboardingStorageMode?: OnboardingStorageMode; }) {
+export function ClientView({ project, onSubmitFeedback, onBrandChange: _onBrandChange, onTaskStatusChange, onFinishMilestone, onConfirmCocoonPayment, onLogout, cocoonComplete, collaborationLocked, ownerName, ownerEmail, initialNav, devOnboardingSeed, devOnboardingStorageMode = "default" }: { project: Project; onSubmitFeedback: (gateId: string, feedback: GateFeedback) => void; onBrandChange: (b: BrandIdentity) => void; onTaskStatusChange?: (taskId: string, status: Task["status"]) => void; onFinishMilestone?: (milestoneId: string) => void; onConfirmCocoonPayment?: () => void; onLogout: () => void; cocoonComplete?: boolean; collaborationLocked?: boolean; ownerName?: string; ownerEmail?: string; initialNav?: ClientNav; devOnboardingSeed?: OnboardingSeed; devOnboardingStorageMode?: OnboardingStorageMode; }) {
   const access = planAccess(project);
   const isPreCocoon = access.isPreCocoon || cocoonComplete === false;
   const isCollaborationLocked = collaborationLocked ?? access.buildLocked;
@@ -1956,7 +1956,7 @@ export function ClientView({ project, onSubmitFeedback, onBrandChange, onTaskSta
           onClick={() => setSidebarCollapsed(c => !c)}
           title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          {sidebarCollapsed ? <ChevronsRight size={13} /> : <ChevronsLeft size={13} />}
+          {sidebarCollapsed ? <PanelRight size={13} /> : <PanelLeft size={13} />}
         </button>
       )}
       <section className="dashboard-workspace">
@@ -2357,7 +2357,7 @@ export function ClientCocoonEmbedTab({
                       <h3 style={{ fontSize: "var(--text-lg)", fontWeight: 500, color: "var(--fg)", marginBottom: "0.35rem" }}>Ready for Cocoon magic?</h3>
                       <p style={{ fontSize: "var(--text-base)", color: "var(--fg-muted)", maxWidth: "300px", margin: "0 auto" }}>Generate your personalized prep list and brand audit.</p>
                     </div>
-                    <button onClick={generateAudit} style={{ padding: "0.65rem 1.3rem", background: "linear-gradient(90deg, oklch(0.78 0.11 22), oklch(0.7 0.13 18))", color: "white", border: "none", borderRadius: "var(--radius)", fontSize: "var(--text-md)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.45rem" }}>
+                    <button onClick={generateAudit} style={{ padding: "0.65rem 1.3rem", background: "var(--accent-grad)", color: "white", border: "none", borderRadius: "var(--radius)", fontSize: "var(--text-md)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.45rem" }}>
                       Generate audit <Wand2 size={15} />
                     </button>
                   </div>
@@ -2450,7 +2450,7 @@ export function ClientBillingTab({ project }: { project: Project; collaborationL
         <div style={{ padding: "1.25rem 1.5rem" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "1rem" }}>
             <div>
-              <div style={{ fontSize: "var(--text-xs)", color: "var(--fg-muted)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "0.35rem" }}>Current plan</div>
+              <div style={{ fontSize: "var(--text-xs)", color: "var(--fg-muted)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "0.35rem" }}>Current Plan</div>
               <div style={{ display: "flex", alignItems: "center", gap: "0.55rem", flexWrap: "wrap", marginBottom: "0.3rem" }}>
                 <span style={{ fontSize: "var(--text-2xl)", fontWeight: 500, color: "var(--fg)" }}>{workflow?.planLabel ?? plan?.name ?? "—"}</span>
                 {cocoonTier && <span className={`plan-tier-badge plan-tier-badge--${cocoonTier.toLowerCase()}`}>{cocoonTier}</span>}
@@ -2504,14 +2504,14 @@ export function ClientBillingTab({ project }: { project: Project; collaborationL
               <div style={{ padding: "0.8rem", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg)" }}>
                 <div style={{ fontSize: "var(--text-xs)", color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: "0.25rem" }}>Dashboard</div>
                 <div style={{ fontSize: "var(--text-md)", fontWeight: 500, color: "var(--fg)" }}>{access.label}</div>
-                <div style={{ fontSize: "var(--text-sm)", color: "var(--fg-muted)", marginTop: "0.2rem" }}>{access.startsAt ? `Starts ${access.startsAt}` : "Not started"}{access.endsAt ? ` · Ends ${access.endsAt}` : ""}</div>
+                <div style={{ fontSize: "var(--text-sm)", color: "var(--fg-muted)", marginTop: "0.2rem" }}>{access.startsAt ? `Starts ${access.startsAt}` : "Not Started"}{access.endsAt ? ` · Ends ${access.endsAt}` : ""}</div>
               </div>
             )}
             {guidance && (
               <div style={{ padding: "0.8rem", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--bg)" }}>
                 <div style={{ fontSize: "var(--text-xs)", color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: "0.25rem" }}>Studio guidance</div>
                 <div style={{ fontSize: "var(--text-md)", fontWeight: 500, color: "var(--fg)" }}>{guidance.label}</div>
-                <div style={{ fontSize: "var(--text-sm)", color: "var(--fg-muted)", marginTop: "0.2rem" }}>{guidance.startsAt ? `Starts ${guidance.startsAt}` : "Not started"}{guidance.endsAt ? ` · Ends ${guidance.endsAt}` : ""}</div>
+                <div style={{ fontSize: "var(--text-sm)", color: "var(--fg-muted)", marginTop: "0.2rem" }}>{guidance.startsAt ? `Starts ${guidance.startsAt}` : "Not Started"}{guidance.endsAt ? ` · Ends ${guidance.endsAt}` : ""}</div>
               </div>
             )}
           </div>

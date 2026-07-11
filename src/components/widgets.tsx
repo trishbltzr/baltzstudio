@@ -179,7 +179,7 @@ export function ClientStageStepper({ project }: { project: Project }) {
   return (
     <Panel>
       <div className="stage-stepper">
-        <div className="stage-stepper-label">Your project stage</div>
+        <div className="stage-stepper-label">Your Project Stage</div>
         <div className="stage-track">
           {project.milestones.map((m) => (
             <div key={m.id} className={`stage-item is-${m.status}`}>
@@ -188,7 +188,7 @@ export function ClientStageStepper({ project }: { project: Project }) {
               </div>
               <span className="stage-name">{m.clientLabel}</span>
               <span className="stage-status">
-                {m.status === "complete" ? "Complete" : m.status === "active" ? "In progress" : "Coming up"}
+                {m.status === "complete" ? "Complete" : m.status === "active" ? "In Progress" : "Coming Up"}
               </span>
             </div>
           ))}

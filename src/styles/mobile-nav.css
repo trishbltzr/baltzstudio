@@ -152,11 +152,10 @@
 .dashboard-mobile-context-item span {
   flex: 0 0 auto;
   color: var(--fg-faint);
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   font-weight: 500;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.025em;
   line-height: 1;
-  text-transform: uppercase;
 }
 
 .dashboard-mobile-context-item strong {
@@ -351,10 +350,9 @@
 .dashboard-client-switcher-plan-label span {
   flex: 0 0 auto;
   color: var(--fg-faint);
-  font-size: 0.58rem;
+  font-size: 0.64rem;
   font-weight: 500;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  letter-spacing: 0.025em;
 }
 .dashboard-client-switcher-plan-label strong {
   overflow: hidden;
@@ -410,8 +408,7 @@
   transform: translateX(-50%);
   border: 1px solid color-mix(in srgb, var(--border-soft) 82%, white 18%);
   border-radius: 999px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, white 99%, var(--accent-soft) 1%), color-mix(in srgb, white 96%, var(--surface) 4%));
+  background: color-mix(in srgb, white 97%, var(--surface) 3%);
   box-shadow:
     0 12px 28px color-mix(in srgb, var(--accent-soft) 10%, transparent 90%),
     0 5px 14px color-mix(in srgb, var(--fg) 4%, transparent 96%),
@@ -480,8 +477,7 @@
   padding: 0.42rem 0.78rem;
   border: 1px solid color-mix(in srgb, var(--accent-soft) 45%, white 55%);
   border-radius: 999px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, white 96%, var(--accent-soft) 4%), color-mix(in srgb, white 91%, var(--surface) 9%));
+  background: color-mix(in srgb, white 94%, var(--surface) 6%);
   box-shadow:
     0 12px 24px color-mix(in srgb, var(--fg) 8%, transparent 92%),
     0 1px 0 color-mix(in srgb, white 88%, transparent 12%) inset;
@@ -635,7 +631,7 @@
   background: currentColor;
 }
 
-/* ── Active bubble — gradient circle that floats above the bar ─────────────── */
+/* ── Active bubble — raised accent circle that floats above the bar ────────── */
 .dashboard-tabbar-mobile-bubble {
   position: relative;
   display: flex;

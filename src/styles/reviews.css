@@ -163,11 +163,10 @@
   line-height: 1.35;
 }
 .review-step-optional {
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   font-weight: 500;
   color: var(--fg-faint);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
   margin-left: 0.3rem;
 }
 .review-step-link {

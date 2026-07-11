@@ -245,13 +245,9 @@
   --dropdown-background: oklch(0.975 0.01 54);
   --dropdown-border: transparent;
   border-radius: var(--radius-pill);
-  background-image:
-    linear-gradient(45deg, transparent 50%, currentColor 50%),
-    linear-gradient(135deg, currentColor 50%, transparent 50%);
-  background-position:
-    calc(100% - 15px) 50%,
-    calc(100% - 10px) 50%;
-  background-size: 5px 5px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='currentColor' stroke-width='1.25' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: calc(100% - 12px) 50%;
+  background-size: 10px 6px;
   background-repeat: no-repeat;
   color: var(--fg);
   font: inherit;
@@ -271,11 +267,10 @@
 }
 .task-center-milestone-label {
   grid-column: 1 / -1;
-  font-size: var(--text-xs);
+  font-size: calc(var(--text-xs) + 0.04rem);
   font-weight: 500;
   color: var(--fg-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   padding: 0.1rem 0.1rem 0.05rem;
 }
 .task-row-title[data-tooltip]::after {

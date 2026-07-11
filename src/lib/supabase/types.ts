@@ -74,6 +74,78 @@ export type Database = {
           },
         ];
       };
+      portal_access_requests: {
+        Row: {
+          business_name: string | null;
+          id: string;
+          note: string | null;
+          requested_at: string;
+          requested_email: string;
+          requested_name: string;
+          status: string;
+        };
+        Insert: {
+          business_name?: string | null;
+          id?: string;
+          note?: string | null;
+          requested_at?: string;
+          requested_email: string;
+          requested_name: string;
+          status?: string;
+        };
+        Update: {
+          business_name?: string | null;
+          id?: string;
+          note?: string | null;
+          requested_at?: string;
+          requested_email?: string;
+          requested_name?: string;
+          status?: string;
+        };
+        Relationships: [];
+      };
+      portal_audit_runs: {
+        Row: {
+          client_id: string;
+          run: Json;
+          run_id: string;
+          state: Json;
+          updated_at: string;
+        };
+        Insert: {
+          client_id: string;
+          run: Json;
+          run_id: string;
+          state: Json;
+          updated_at?: string;
+        };
+        Update: {
+          client_id?: string;
+          run?: Json;
+          run_id?: string;
+          state?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      portal_workspace_state: {
+        Row: {
+          state: Json;
+          updated_at: string;
+          workspace_id: string;
+        };
+        Insert: {
+          state: Json;
+          updated_at?: string;
+          workspace_id: string;
+        };
+        Update: {
+          state?: Json;
+          updated_at?: string;
+          workspace_id?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

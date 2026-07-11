@@ -102,7 +102,7 @@ export function CocoonPromptForm({
         </button>
         <button type="submit" disabled={!canUsePrimaryAction}
           className="cocoon-prompt-action cocoon-prompt-action--primary"
-          style={{ padding: "0.7rem 1.4rem", background: "linear-gradient(90deg, oklch(0.78 0.11 22), oklch(0.7 0.13 18))", color: "white", border: "none", borderRadius: "var(--radius)", fontSize: "var(--text-lg)", fontWeight: 500, cursor: canUsePrimaryAction ? "pointer" : "not-allowed", fontFamily: "inherit", opacity: canUsePrimaryAction ? 1 : 0.4, transition: "opacity 0.15s" }}>
+          style={{ padding: "0.7rem 1.4rem", background: "var(--accent-grad)", color: "white", border: "none", borderRadius: "var(--radius)", fontSize: "var(--text-lg)", fontWeight: 500, cursor: canUsePrimaryAction ? "pointer" : "not-allowed", fontFamily: "inherit", opacity: canUsePrimaryAction ? 1 : 0.4, transition: "opacity 0.15s" }}>
           {isLastPrompt ? "Complete step" : "Continue"}
         </button>
         {canUsePrimaryAction && (

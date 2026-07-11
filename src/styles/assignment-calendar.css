@@ -77,11 +77,10 @@
 .assignment-cal-weekday {
   padding: 0 0.3rem;
   color: var(--fg-faint);
-  font-size: 0.6rem;
+  font-size: 0.66rem;
   font-weight: 600;
-  text-transform: uppercase;
   text-align: center;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
 }
 
 .assignment-cal-grid {

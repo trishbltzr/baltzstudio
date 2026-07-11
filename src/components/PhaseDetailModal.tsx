@@ -256,13 +256,13 @@ export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTas
                   onClick={e => e.stopPropagation()}
                   style={{ maxWidth: "10rem" }}
                 >
-                  <option value="not_started">Not started</option>
+                  <option value="not_started">Not Started</option>
                   <option value="in_progress">In Progress</option>
                   <option value="complete">Done</option>
                   <option value="blocked">Blocked</option>
                 </select>
               ) : (
-                <StatusBadge status={displayStatus === "complete" ? "is-success" : displayStatus === "blocked" ? "is-review" : displayStatus === "not_started" ? "is-waiting" : "is-progress"} label={displayStatus === "complete" ? "Done" : displayStatus === "blocked" ? "Blocked" : displayStatus === "not_started" ? "Not started" : "In Progress"} detail={taskStatusDetail(displayStatus)} size="sm" />
+                <StatusBadge status={displayStatus === "complete" ? "is-success" : displayStatus === "blocked" ? "is-review" : displayStatus === "not_started" ? "is-waiting" : "is-progress"} label={displayStatus === "complete" ? "Done" : displayStatus === "blocked" ? "Blocked" : displayStatus === "not_started" ? "Not Started" : "In Progress"} detail={taskStatusDetail(displayStatus)} size="sm" />
               )}
               <span style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "var(--text-base)", color: "var(--fg-muted)", fontWeight: 400 }}>
                 <CalendarDays size={12} />

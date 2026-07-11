@@ -293,10 +293,9 @@
 }
 .brand-swatch-popover-head strong {
   color: var(--fg);
-  font-size: var(--text-2xs);
+  font-size: calc(var(--text-2xs) + 0.08rem);
   font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.025em;
 }
 .brand-swatch-popover-head button {
   width: 1.55rem;
@@ -367,10 +366,10 @@
   border-radius: var(--radius-sm);
   color: var(--fg-muted);
   font-size: var(--text-2xs);
+  font-size: calc(var(--text-2xs) + 0.08rem);
   font-weight: 500;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   text-align: center;
-  text-transform: uppercase;
 }
 .brand-swatch-contrast span {
   padding: 0.45rem 0.5rem;
@@ -441,10 +440,9 @@
 }
 .brand-style-summary span {
   color: var(--fg-muted);
-  font-size: var(--text-2xs);
+  font-size: calc(var(--text-2xs) + 0.08rem);
   font-weight: 500;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 .brand-style-summary strong {
   color: var(--fg);

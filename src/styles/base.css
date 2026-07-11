@@ -2,8 +2,9 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 body {
@@ -16,6 +17,17 @@ body {
   -webkit-font-smoothing: antialiased;
   /* Mallory ships only 400 + 500 — never synthesize a heavier (faux-bold) face */
   font-synthesis-weight: none;
+}
+
+:root {
+  --ring-soft: none;
+}
+
+body *,
+body *::before,
+body *::after {
+  box-shadow: none !important;
+  text-shadow: none !important;
 }
 
 :root {
@@ -98,9 +110,9 @@ select,
   cursor: pointer;
   outline: none;
   appearance: none;
-  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
-  background-position: calc(100% - 0.8rem) 50%, calc(100% - 0.55rem) 50%;
-  background-size: 0.25rem 0.25rem, 0.25rem 0.25rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='currentColor' stroke-width='1.25' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: calc(100% - 0.65rem) 50%;
+  background-size: 0.55rem 0.35rem;
   background-repeat: no-repeat;
 }
 

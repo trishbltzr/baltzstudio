@@ -232,7 +232,7 @@ export function bucketTaskStatus(bucket: "upcoming" | "progress" | "complete" | 
 }
 
 export function taskStatusLabel(status: TaskStatus) {
-  return { not_started: "Not started", in_progress: "In progress", complete: "Complete", blocked: "Blocked" }[status];
+  return { not_started: "Not Started", in_progress: "In Progress", complete: "Complete", blocked: "Blocked" }[status];
 }
 
 // Short explanatory sentence shown beneath the label in a status badge's
@@ -252,7 +252,7 @@ export function gateStatusClass(status: GateStatus) {
 }
 
 export function gateStatusLabel(status: GateStatus) {
-  return { locked: "Locked", ready: "Ready to send", sent: "Awaiting client", approved: "Approved", revision: "Notes received" }[status];
+  return { locked: "Locked", ready: "Ready to Send", sent: "Awaiting Client", approved: "Approved", revision: "Notes Received" }[status];
 }
 
 // See taskStatusDetail — same purpose, for approval-gate statuses.

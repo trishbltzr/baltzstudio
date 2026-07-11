@@ -2,10 +2,7 @@
 .iff-preview-page {
   min-height: 100vh;
   overflow: auto;
-  background:
-    radial-gradient(circle at top, color-mix(in srgb, var(--accent-soft) 72%, white 28%), transparent 30%),
-    radial-gradient(circle at bottom right, color-mix(in srgb, var(--accent-dim) 35%, white 65%), transparent 26%),
-    linear-gradient(180deg, #f8f2ee 0%, #f4eeea 100%);
+  background: color-mix(in srgb, var(--surface-alt) 72%, white 28%);
 }
 
 .iff-app-shell--canvas {
@@ -46,9 +43,8 @@
 .iff-kicker {
   margin-bottom: 0.35rem;
   color: var(--fg-muted);
-  font-size: var(--text-xs);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: calc(var(--text-xs) + 0.06rem);
+  letter-spacing: 0.03em;
 }
 
 .iff-preview-topbar h1 {
@@ -97,9 +93,8 @@
   margin-top: 0.75rem;
   padding: 0.8rem 0.15rem 1rem;
   color: var(--fg-muted);
-  font-size: var(--text-xs);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: calc(var(--text-xs) + 0.04rem);
+  letter-spacing: 0.02em;
 }
 
 .iff-faux-dashboard {
@@ -146,9 +141,8 @@
 
 .iff-surface-card--metric span {
   color: var(--fg-muted);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: calc(var(--text-xs) + 0.04rem);
+  letter-spacing: 0.025em;
 }
 
 .iff-surface-card--metric strong {
@@ -171,9 +165,7 @@
 
 .iff-chart-lines span {
   border-radius: 999px;
-  background:
-    linear-gradient(105deg, transparent 0 12%, color-mix(in srgb, var(--accent) 55%, white 45%) 12% 28%, transparent 28% 44%, color-mix(in srgb, var(--accent) 30%, white 70%) 44% 62%, transparent 62% 100%),
-    color-mix(in srgb, var(--surface-alt) 70%, white 30%);
+  background: color-mix(in srgb, var(--accent-soft) 46%, white 54%);
 }
 
 .iff-surface-card--list {
@@ -337,12 +329,7 @@
   flex-direction: column;
   overflow: auto;
   min-height: 0;
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--accent-soft) 12%, white 88%) 0%,
-      white 40%
-    );
+  background: color-mix(in srgb, var(--accent-soft) 12%, white 88%);
 }
 
 .iff-intro-greeting {
@@ -371,10 +358,9 @@
   display: block;
   padding: 0.65rem 0.2rem 0.3rem;
   color: var(--fg-faint);
-  font-size: 0.58rem;
+  font-size: 0.64rem;
   font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .iff-intro-suggestions {
@@ -666,9 +652,8 @@
 .iff-section-label {
   margin-bottom: 0.42rem;
   color: var(--fg-muted);
-  font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: calc(var(--text-xs) + 0.04rem);
+  letter-spacing: 0.025em;
 }
 
 .iff-preview-actions,
@@ -1098,9 +1083,8 @@
 .iff-site-section-kicker {
   margin-bottom: 0.55rem;
   color: var(--fg-muted);
-  font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: calc(var(--text-xs) + 0.04rem);
+  letter-spacing: 0.025em;
 }
 
 .iff-site-copy h2 {
@@ -1147,18 +1131,14 @@
   place-items: center;
   min-height: 22rem;
   padding: 1rem;
-  background:
-    radial-gradient(circle at top, color-mix(in srgb, var(--accent-soft) 72%, white 28%), transparent 48%),
-    color-mix(in srgb, var(--surface) 88%, white 12%);
+  background: color-mix(in srgb, var(--surface) 88%, white 12%);
 }
 
 .iff-site-photo-card {
   width: min(100%, 18rem);
   height: 18rem;
   border-radius: 1.25rem;
-  background:
-    linear-gradient(145deg, color-mix(in srgb, var(--accent) 42%, white 58%), transparent 62%),
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-alt) 62%, white 38%), color-mix(in srgb, var(--surface) 78%, white 22%));
+  background: color-mix(in srgb, var(--surface-alt) 66%, white 34%);
   border: 1px solid color-mix(in srgb, var(--accent) 18%, white 82%);
 }
 

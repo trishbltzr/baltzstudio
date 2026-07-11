@@ -54,10 +54,9 @@
   display: block;
   margin-bottom: 0.25rem;
   color: var(--accent);
-  font-size: var(--text-2xs);
+  font-size: calc(var(--text-2xs) + 0.08rem);
   font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.025em;
 }
 .cocoon-payment-popup h3 {
   margin: 0;
@@ -122,11 +121,10 @@
   overflow: hidden;
 }
 .cocoon-next-steps-title {
-  font-size: var(--text-xs);
+  font-size: calc(var(--text-xs) + 0.04rem);
   font-weight: 500;
   color: var(--fg-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
   margin: 0 0 0.55rem;
   padding: 0 0.15rem;
 }
@@ -286,10 +284,9 @@
 .cocoon-premium-outcome > span {
   display: block;
   color: var(--accent);
-  font-size: var(--text-2xs);
+  font-size: calc(var(--text-2xs) + 0.08rem);
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 .cocoon-premium-outcome strong {
   display: block;
@@ -314,7 +311,7 @@
   padding: 0 0.85rem;
   border: 0;
   border-radius: var(--radius);
-  background: linear-gradient(90deg, oklch(0.78 0.11 22), oklch(0.7 0.13 18));
+  background: var(--accent-grad);
   color: white;
   font: inherit;
   font-size: var(--text-sm);
@@ -610,7 +607,7 @@
   gap: 0.45rem;
   border: 0;
   border-radius: var(--radius);
-  background: linear-gradient(90deg, oklch(0.78 0.11 22), oklch(0.7 0.13 18));
+  background: var(--accent-grad);
   color: white;
   font: inherit;
   font-size: var(--text-lg);
@@ -651,7 +648,7 @@
 
 .cocoon-step-progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, oklch(0.66 0.12 155), oklch(0.54 0.11 165));
+  background: oklch(0.6 0.11 160);
   transition: width 0.3s ease;
 }
 
@@ -716,7 +713,7 @@
   min-height: 4.8rem;
   padding: 1rem 1.15rem;
   border-bottom: 1px solid var(--border-soft);
-  background: linear-gradient(180deg, oklch(0.995 0.003 55), oklch(0.982 0.006 50));
+  background: var(--surface-alt);
 }
 .cocoon-payment-popup {
   max-width: 430px;

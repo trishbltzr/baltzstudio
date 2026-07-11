@@ -26,6 +26,54 @@ Note: use `[~]` only when code has landed but TypeScript/build/browser verificat
 
 ---
 
+## Active Batch: Audit Builder Final Upsell
+
+Source: Browser Comment 1 on the legacy Cocoon Consult client final screen at `http://localhost:3412/dashboard`.
+
+Target: `/dashboard?view=audits` audit builder completion screen in `/Users/trishabltzr/baltazarstudio`.
+
+### Comment Checklist
+
+- [x] **1. Carry the Cocoon Consult upgrade into the audit builder final screen**
+  - [x] Reuse the existing Premium Cocoon inclusion and outcome content rather than duplicating the offer copy.
+  - [x] Place the upgrade card after the audit intake completion summary without replacing the report-generation action.
+  - [x] Keep the CTA preview-safe and avoid implementing payment or billing automation.
+  - [x] Stabilize the audit draft autosave effect so the completed screen does not trigger a recursive render loop.
+  - [x] Prevent the reused upsell panel from flex-shrinking inside the builder scroll area on narrow screens.
+  - [x] Render the same shared Cocoon Consult upsell after the generated Action plan content.
+  - [x] Verify the completed audit builder shows the upgrade clearly on desktop and remains readable at a narrow viewport.
+
+- [ ] **2. Revise Prep List and Preview Audit**
+  - [ ] Treat the legacy Prep List and Preview Audit as placeholders, not approved final content or behavior.
+  - [ ] Confirm the revised information, actions, and destination for each control before implementation.
+  - [ ] Update both surfaces together so their handoff into the final upsell remains coherent.
+  - [ ] Verify the revised Prep List and Preview Audit in the Cocoon client flow and audit-builder handoff.
+
+- [x] **3. Restyle the audit pipeline rail like the Cocoon intake checklist**
+  - [x] Keep the existing Audit intake, Audit report, and Action plan stages and their current lock/approval behavior.
+  - [x] Reorganize the rail into a Cocoon-style card with a distinct header, checklist-like stage body, and dedicated progress footer.
+  - [x] Use the active green treatment, completed check states, and muted locked states consistently with the Cocoon intake hierarchy.
+  - [x] Verify the rail remains sticky/readable on desktop and stacks cleanly above the builder on narrow screens.
+
+- [x] **4. Remove the Action plan score-back callout**
+  - [x] Remove the “areas are holding your score back” summary card from the Action plan.
+  - [x] Let the remaining score summary occupy the full top row without leaving an empty column.
+  - [x] Verify the Action plan recommendations and Cocoon Consult upsell remain intact.
+
+### Verification Checklist
+
+- [x] `tsc --noEmit` passes.
+- [x] `next build --webpack` passes.
+- [x] Audit builder completion screen loads without console/runtime errors.
+- [x] Existing report-generation flow remains available.
+- [x] No Cocoon Consult landing-page URL or iframe is reintroduced.
+
+### Execution Rules
+
+Proceed one checklist item at a time: implement, verify, update this batch, then move on.
+
+---
+
 ## Active Batch: Cocoon Consult Polish + Notification Workflow
 
 Source: five browser comments on `http://localhost:3412/dashboard` plus user request for notification trigger logic and a markdown workflow file.

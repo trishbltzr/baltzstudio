@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { Archive, Bot, Check, ChevronDown, ChevronLeft, ChevronsLeft, ChevronsRight, CircleDashed, Clock3, CornerUpLeft, Eye, Filter, Lock, MessageSquare, MessageSquareText, Paperclip, Plus, Search, Send, Shield, User, X } from "lucide-react";
+import { Archive, Bot, Check, ChevronDown, ChevronLeft, CircleDashed, Clock3, CornerUpLeft, Eye, Filter, Lock, MessageSquare, MessageSquareText, PanelLeft, PanelRight, Paperclip, Plus, Search, Send, Shield, User, X } from "lucide-react";
 
 type ThreadSource = "cocoon" | "wiaw" | "in_full_flight";
 type ThreadStatus = "unread" | "open" | "waiting" | "preview_ready" | "resolved" | "escalated";
@@ -430,7 +430,7 @@ export function AdminAgentQueue({ role = "admin", focusClientName }: { role?: "a
               aria-label={listCollapsed ? "Expand conversations" : "Collapse conversations"}
               aria-expanded={!listCollapsed}
             >
-              {listCollapsed ? <ChevronsRight size={14} /> : <ChevronsLeft size={14} />}
+              {listCollapsed ? <PanelRight size={14} /> : <PanelLeft size={14} />}
             </button>
           </div>
         </div>
@@ -463,7 +463,7 @@ export function AdminAgentQueue({ role = "admin", focusClientName }: { role?: "a
               <div className="inbox-filter-group">
                 <label className="inbox-filter-label">Client</label>
                 <select className="dashboard-select inbox-filter-select" value={clientFilter} onChange={e => setClientFilter(e.target.value)}>
-                  <option value="all">All clients</option>
+                  <option value="all">All Clients</option>
                   {clients.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>

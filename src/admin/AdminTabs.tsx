@@ -1,7 +1,7 @@
 import { AlertCircle, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight, Clock3, Globe, Lock, Paperclip, Pencil, Plus, Send, X } from "lucide-react";
 import { useState } from "react";
 import type { Milestone, Phase, Project, Task, TaskStatus, BrandIdentity } from "../types";
-import { allTasksComplete, phaseProgress, phaseProgressMarkers, milestoneProgress, allGates, taskStatusDetail, gateStatusClass, gateStatusLabel, taskStatusClass, taskStatusLabel, bucketTaskStatus, isTaskOverdue, clientColorFor, clientColorVars } from "../lib/projectUtils";
+import { allTasksComplete, phaseProgress, phaseProgressMarkers, milestoneProgress, allGates, taskStatusDetail, gateStatusClass, gateStatusLabel, bucketTaskStatus, isTaskOverdue, clientColorFor, clientColorVars } from "../lib/projectUtils";
 import { StatusBadge, MilestoneDot, Panel, PanelHeader, Btn, ProgressDots, ProgressRing, TruncatedText } from "../components/shared";
 import { GateBlock } from "../components/widgets";
 import { PhaseDetailModal } from "../components/PhaseDetailModal";
@@ -396,8 +396,8 @@ type PortfolioTaskRow = {
 const portfolioTaskBuckets: PortfolioTaskBucket[] = ["upcoming", "progress", "complete", "action"];
 
 const portfolioBucketMeta: Record<PortfolioTaskBucket, { title: string; icon: typeof CalendarDays; empty: string }> = {
-  action: { title: "Action needed", icon: AlertCircle, empty: "No studio blockers right now." },
-  progress: { title: "In progress", icon: Clock3, empty: "No studio tasks are marked in progress." },
+  action: { title: "Action Needed", icon: AlertCircle, empty: "No studio blockers right now." },
+  progress: { title: "In Progress", icon: Clock3, empty: "No studio tasks are marked in progress." },
   upcoming: { title: "Upcoming", icon: CalendarDays, empty: "No queued studio tasks yet." },
   complete: { title: "Completed", icon: CheckCircle2, empty: "Completed studio tasks will collect here." },
 };
@@ -567,7 +567,7 @@ export function AdminPortfolioTasks({
   return (
     <div className="task-center">
       <Panel>
-        <PanelHeader title={role === "manager" ? "Assigned manager tasks" : "All studio tasks"} icon={CalendarDays} action={<StatusBadge status="is-progress" label={`${progress}% complete`} />} />
+        <PanelHeader title={role === "manager" ? "Assigned Manager Tasks" : "All Studio Tasks"} icon={CalendarDays} action={<StatusBadge status="is-progress" label={`${progress}% Complete`} />} />
         <div className="task-center-summary">
           <div className="task-summary-item">
             <span>{counts.upcoming}</span>
@@ -575,7 +575,7 @@ export function AdminPortfolioTasks({
           </div>
           <div className="task-summary-item">
             <span>{counts.progress}</span>
-            <p>In progress</p>
+            <p>In Progress</p>
           </div>
           <div className="task-summary-item">
             <span>{counts.complete}</span>
@@ -583,7 +583,7 @@ export function AdminPortfolioTasks({
           </div>
           <div className="task-summary-item is-priority">
             <span>{counts.action}</span>
-            <p>Action needed</p>
+            <p>Action Needed</p>
           </div>
         </div>
       </Panel>

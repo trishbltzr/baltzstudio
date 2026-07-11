@@ -17,6 +17,45 @@ const paidCocoonBenefits = [
   },
 ];
 
+export function CocoonConsultUpgradeCard({
+  onUpgrade,
+  ctaLabel = "Upgrade to Premium",
+}: {
+  onUpgrade: () => void;
+  ctaLabel?: string;
+}) {
+  return (
+    <div className="cocoon-step-card is-highlight">
+      <div className="cocoon-step-card-num">2</div>
+      <div className="cocoon-step-card-body">
+        <strong className="cocoon-premium-name">
+          Upgrade to Cocoon Consult <span className="cocoon-premium-badge">Premium</span>
+        </strong>
+        <p>Choose the guided review path. We will send the Wise payment details after you confirm.</p>
+        <div className="cocoon-inclusions">
+          <span className="cocoon-inclusions-label">What&apos;s included:</span>
+          <ul className="cocoon-inclusions-list">
+            {paidCocoonBenefits.map(item => (
+              <li key={item.title}>
+                <strong>{item.title}{item.emphasis && <span className="cocoon-unlimited-label">{item.emphasis}</span>}</strong>
+                <span>{item.detail}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="cocoon-premium-outcome">
+            <span>Final outcome</span>
+            <strong>Full-funnel clarity call + complete funnel strategy</strong>
+            <p>Leave with the priorities, documents, and branded visual direction gathered into one practical next-step plan.</p>
+            <button type="button" onClick={onUpgrade} className="cocoon-outcome-cta">
+              {ctaLabel} <ArrowRight size={15} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function CocoonFinalStepPanel({
   callScheduled,
   scheduledMeeting,
@@ -53,34 +92,7 @@ export function CocoonFinalStepPanel({
           </div>
         </div>
 
-        <div className="cocoon-step-card is-highlight">
-          <div className="cocoon-step-card-num">2</div>
-          <div className="cocoon-step-card-body">
-            <strong className="cocoon-premium-name">
-              Upgrade to Cocoon Consult <span className="cocoon-premium-badge">Premium</span>
-            </strong>
-            <p>Choose the guided review path. We will send the Wise payment details after you confirm.</p>
-            <div className="cocoon-inclusions">
-              <span className="cocoon-inclusions-label">What's included:</span>
-              <ul className="cocoon-inclusions-list">
-                {paidCocoonBenefits.map(item => (
-                  <li key={item.title}>
-                    <strong>{item.title}{item.emphasis && <span className="cocoon-unlimited-label">{item.emphasis}</span>}</strong>
-                    <span>{item.detail}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="cocoon-premium-outcome">
-                <span>Final outcome</span>
-                <strong>Full-funnel clarity call + complete funnel strategy</strong>
-                <p>Leave with the priorities, documents, and branded visual direction gathered into one practical next-step plan.</p>
-                <button type="button" onClick={onOpenPaymentPreview} className="cocoon-outcome-cta">
-                  Upgrade to Premium <ArrowRight size={15} />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <CocoonConsultUpgradeCard onUpgrade={onOpenPaymentPreview} />
 
         <div className="cocoon-step-card">
           <div className="cocoon-step-card-num">3</div>

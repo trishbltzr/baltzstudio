@@ -25,14 +25,14 @@ import type { TaskAssignee, MilestoneStatus, TaskStatus } from "../types";
 // STATUS DESIGN SYSTEM — single source of truth for the icon + canonical label
 // that pairs with each status class. Colours live in src/styles/status.css.
 // Every status surface (phase cards, gates, milestones, tasks) reads from here
-// so "Done / In progress / Awaiting / Soon / Locked / Blocked" stay consistent.
+// so "Done / In Progress / Awaiting / Soon / Locked / Blocked" stay consistent.
 // Context-specific wording (e.g. "Approved" vs "Done") is still supplied by the
 // caller's `label`; this map only guarantees an icon + a sensible default.
 export const STATUS_META: Record<string, { icon: LucideIcon; label: string }> = {
   "is-success":  { icon: Check,         label: "Done" },
   "is-complete": { icon: Check,         label: "Complete" },
-  "is-progress": { icon: LoaderCircle,  label: "In progress" },
-  "is-active":   { icon: LoaderCircle,  label: "In progress" },
+  "is-progress": { icon: LoaderCircle,  label: "In Progress" },
+  "is-active":   { icon: LoaderCircle,  label: "In Progress" },
   "is-review":   { icon: Clock,         label: "Awaiting" },
   "is-waiting":  { icon: CircleDashed,  label: "Soon" },
   "is-pending":  { icon: CircleDashed,  label: "Soon" },

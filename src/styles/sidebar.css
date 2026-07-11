@@ -160,9 +160,8 @@
   color: var(--fg-muted);
   font-size: 0.68rem;
   font-weight: 500;
-  letter-spacing: 0.055em;
+  letter-spacing: 0.02em;
   line-height: 1;
-  text-transform: uppercase;
 }
 
 .dashboard-project-switcher {
@@ -241,8 +240,7 @@
   font-weight: 500;
   color: var(--fg-muted);
   padding: 0.6rem 0.75rem 0.2rem;
-  letter-spacing: 0.055em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 /* Divider on all sections after the first */
 .dashboard-nav-section.has-divider {
@@ -277,7 +275,7 @@
 .dashboard-nav-item:hover { background: oklch(0.96 0.008 50); }
 .dashboard-nav-item.is-active {
   padding: 0.3rem 0.85rem;
-  background: linear-gradient(90deg, oklch(0.78 0.11 22), oklch(0.7 0.13 18));
+  background: var(--accent-grad);
   color: white;
 }
 .dashboard-nav-item.is-active svg { color: white; }
@@ -377,7 +375,7 @@
   top: 0;
   width: 1.5px;
   height: 100%;
-  background: linear-gradient(180deg, oklch(0.78 0.11 22), oklch(0.7 0.13 18));
+  background: var(--accent);
   border-radius: 1px;
   pointer-events: none;
 }
@@ -426,10 +424,9 @@
   min-width: 0;
 }
 .sidebar-upgrade-eyebrow {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
   color: var(--accent);
 }
 .sidebar-upgrade-plan {
@@ -512,7 +509,7 @@
   width: 2.4rem;
   height: 2.4rem;
   border-radius: 50%;
-  background: linear-gradient(135deg, oklch(0.78 0.11 22), oklch(0.7 0.13 18));
+  background: var(--accent-grad);
   border: none;
   cursor: pointer;
   display: flex;
@@ -555,8 +552,7 @@
   font-size: 0.72rem;
   font-weight: 500;
   color: var(--fg-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   padding: 0.4rem 0.85rem 0.25rem;
 }
 .sidebar-child-popover-item {
@@ -672,9 +668,8 @@
   color: var(--fg-faint);
   font-size: 0.62rem;
   font-weight: 500;
-  letter-spacing: 0.11em;
+  letter-spacing: 0.03em;
   line-height: 1;
-  text-transform: uppercase;
 }
 .dashboard-account-popover-client small {
   display: block;

@@ -1,8 +1,8 @@
-const MONTH_NAME_PATTERN = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}(?:,\s*\d{4})?(?:\s+at\s+.+)?$/i;
+const MONTH_NAME_PATTERN = /^(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}(?:,\s*\d{4})?(?:\s+at\s+.+)?$/i;
 
 export function currentDashboardTimestamp(date = new Date()) {
   return date.toLocaleString("en-US", {
-    month: "short",
+    month: "long",
     day: "numeric",
     year: "numeric",
     hour: "numeric",
@@ -59,7 +59,7 @@ export function formatDashboardDate(raw?: string, fallback = "No date", now = ne
   }
 
   return parsed.date.toLocaleDateString("en-US", {
-    month: "short",
+    month: "long",
     day: "numeric",
   });
 }

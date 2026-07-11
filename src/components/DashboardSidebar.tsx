@@ -106,7 +106,7 @@ export function DashboardSidebar({
   const workflowNudge = clientProject?.workflow;
   const nudgeTitle = workflowNudge?.sidebarNudgeTitle ?? "Turn the audit into a build";
   const nudgeBody = workflowNudge?.sidebarNudgeBody ?? "Move from insight to launch with Winged in a Week™.";
-  const nudgeButton = workflowNudge?.nextStepLabel ?? "Upgrade to WIAW";
+  const nudgeButton = workflowNudge?.nextStepLabel ?? "Upgrade to Winged in a Week";
   const nudgeHasPremiumBadge = nudgeButton.endsWith(" Premium");
   const nudgeButtonLabel = nudgeHasPremiumBadge ? nudgeButton.replace(/\s+Premium$/, "") : nudgeButton;
   const renderUpgradeButtonLabel = () => {
@@ -116,7 +116,7 @@ export function DashboardSidebar({
   // ── Locked-item toast ──────────────────────
   const [lockedToast, setLockedToast] = useState<string | null>(null);
   const showLockedToast = (label: string) => {
-    setLockedToast(`Avail Winged in a Week to unlock ${label}`);
+    setLockedToast(`Use Winged in a Week to unlock ${label}`);
     setTimeout(() => setLockedToast(null), 3500);
   };
 

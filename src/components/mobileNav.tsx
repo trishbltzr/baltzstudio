@@ -21,7 +21,7 @@ export type MobileNavCenterAction = {
 
 export function MobileTabBar({ items, centerKey, activeKey, onSelect, centerActions = [], endItem, quickActionHint }: {
   items: MobileNavItem[];
-  /** The nav key whose active state shows the raised gradient bubble (center slot). */
+  /** The nav key whose active state shows the raised accent bubble (center slot). */
   centerKey: string;
   activeKey: string;
   onSelect: (key: string) => void;

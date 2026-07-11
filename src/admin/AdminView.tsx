@@ -1,5 +1,5 @@
 import dynamic from "next/dynamic";
-import { ArrowDownCircle, ArrowUpCircle, Bell, Bot, CheckCircle2, ChevronDown, Eye, Flag, Folder, Inbox, LayoutDashboard, ChevronsLeft, ChevronsRight, Plus, Settings, User, Users } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Bell, CheckCircle2, ChevronDown, Eye, Flag, Folder, Inbox, LayoutDashboard, PanelLeft, PanelRight, Plus, Settings, User, Users } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import type { ClientLifecycleStage, Project, TaskStatus, BrandIdentity, AdminNav, ProjectTab, ClientNav } from "../types";
 import { planAccess } from "../lib/projectUtils";
@@ -78,8 +78,8 @@ function AdminPlanSelector({
 
   return (
     <div className="admin-plan-selector">
-      <span className="admin-plan-selector-label">Current plan</span>
-      <div className="admin-plan-status" aria-label={`Current plan: ${planLabelForStage(stage)}${selectedTier ? ` ${selectedTier}` : ""}`}>
+      <span className="admin-plan-selector-label">Current Plan</span>
+      <div className="admin-plan-status" aria-label={`Current Plan: ${planLabelForStage(stage)}${selectedTier ? ` ${selectedTier}` : ""}`}>
         <span className="admin-plan-trigger-text">{planLabelForStage(stage)}</span>
         {selectedTier && <span className={`plan-tier-badge plan-tier-badge--${selectedTier.toLowerCase()}`}>{selectedTier}</span>}
       </div>
@@ -133,7 +133,7 @@ function AdminWorkspacePane({
   );
 }
 
-export function AdminView({ workspaceRole = "admin", projects, selectedProjectId, projectContextOpened = false, onSelectProject, onTaskStatusChange, onProjectTaskStatusChange, onSendGate, onApproveGate, onDenyGate, onFinishMilestone, onBrandChange, onChangeProjectStage, onLogout, onViewAsClient, initialNav }: {
+export function AdminView({ workspaceRole = "admin", projects, selectedProjectId, projectContextOpened = false, onSelectProject, onTaskStatusChange, onProjectTaskStatusChange, onSendGate, onApproveGate, onDenyGate, onFinishMilestone, onBrandChange: _onBrandChange, onChangeProjectStage, onLogout, onViewAsClient, initialNav }: {
   workspaceRole?: "admin" | "manager";
   projects: Project[];
   selectedProjectId: string;
@@ -380,7 +380,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
     const milestoneLabel = milestone ? `M${milestone.number} ${milestone.title}` : "No milestone";
     const milestoneState = milestone
       ? milestone.status === "complete" ? "Complete" : milestone.status === "active" ? "Active" : "Locked"
-      : "Not started";
+      : "Not Started";
     return {
       id: p.id,
       initials: p.clientInitials,
@@ -500,7 +500,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
           onClick={() => setSidebarCollapsed(c => !c)}
           title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          {sidebarCollapsed ? <ChevronsRight size={13} /> : <ChevronsLeft size={13} />}
+          {sidebarCollapsed ? <PanelRight size={13} /> : <PanelLeft size={13} />}
         </button>
       )}
 
@@ -529,7 +529,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
                       <strong>{blockedAgentTasks}</strong>
                     </div>
                     <div className="launch-pad-greeting-stat">
-                      <span>In progress</span>
+                      <span>In Progress</span>
                       <strong>{inProgressAgentTasks}</strong>
                     </div>
                   </div>
@@ -549,7 +549,7 @@ export function AdminView({ workspaceRole = "admin", projects, selectedProjectId
                     const completedMilestones = p.milestones.filter(m => m.status === "complete");
                     const milestone = p.milestones.find(m => m.status === "active") ?? p.milestones.find(m => m.status === "locked") ?? completedMilestones[completedMilestones.length - 1];
                     const milestoneLabel = milestone ? `M${milestone.number} - ${milestone.title}` : "No milestone";
-                    const milestoneState = milestone ? milestone.status === "complete" ? "Complete" : milestone.status === "active" ? "Active" : "Locked" : "Not started";
+                    const milestoneState = milestone ? milestone.status === "complete" ? "Complete" : milestone.status === "active" ? "Active" : "Locked" : "Not Started";
                     return (
                       <Panel key={p.id} className="portfolio-project-card">
                         <button

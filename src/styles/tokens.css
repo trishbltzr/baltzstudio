@@ -38,6 +38,22 @@
   --accent:      oklch(0.66 0.13 18);
   --accent-soft: oklch(0.94 0.025 20);
   --accent-dim:  oklch(0.88 0.05 20);
+  --accent-grad: linear-gradient(90deg, oklch(0.78 0.11 22), oklch(0.7 0.13 18));
+
+  /* Task-owner lanes (who owns a task — card accents/badges) */
+  --lane-studio:      oklch(0.66 0.13 18);
+  --lane-studio-soft: oklch(0.94 0.03 20);
+  --lane-ai:          oklch(0.7 0.12 82);
+  --lane-ai-soft:     oklch(0.95 0.05 88);
+  --lane-client:      oklch(0.64 0.1 155);
+  --lane-client-soft: oklch(0.94 0.05 155);
+  --lane-gate:        oklch(0.71 0.14 58);
+  --lane-gate-soft:   oklch(0.95 0.06 62);
+
+  /* Lifecycle stage colours */
+  --cocoon: oklch(0.62 0.085 152);
+  --wiaw:   oklch(0.71 0.14 58);
+  --iff:    oklch(0.64 0.1 155);
 
   /* Semantic colours — minimal, only where meaning matters */
   --success:     oklch(0.72 0.09 155);
@@ -62,10 +78,17 @@
   --text-3xl:  1.5rem;    /* stat figures */
   --text-4xl:  2rem;      /* page hero figures */
 
-  /* Elevation — soft, low-contrast, used sparingly */
-  --shadow-xs: none;
-  --shadow-soft: none;
-  --shadow-popover: none;
-  --shadow-modal: none;
+  /* Spacing scale — the canonical rhythm steps. Only the on-scale values are
+     tokenized (gap/padding); the many off-scale ad-hoc values stay literal so
+     nothing shifts, and get snapped to a step during normal design work. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  /* Focus ring */
   --ring-soft: 0 0 0 1px oklch(0.9 0.02 20 / 0.55);
 }

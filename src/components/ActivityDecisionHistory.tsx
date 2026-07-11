@@ -117,7 +117,7 @@ function workflowActivityTitle(type: string, target: string) {
     wise_payment_confirmed: "Wise payment confirmed",
     booking_unlocked: "Booking link unlocked",
     access_updated: "Dashboard access updated",
-    wiaw_unlocked: "WIAW workspace opened",
+    wiaw_unlocked: "Winged in a Week workspace opened",
     in_full_flight: "In Full Flight opened",
     dashboard_deleted: "Dashboard access ended",
   };
@@ -176,7 +176,7 @@ function buildActivity(project: Project, role: HistoryRole): ActivityItem[] {
         items.push({
           id: `gate-sent-${gate.id}`,
           title: role === "admin" ? `Sent ${gate.label}` : gate.clientLabel,
-          detail: role === "admin" ? "Awaiting client decision" : "Ready for your review",
+          detail: role === "admin" ? "Awaiting Client Decision" : "Ready for Your Review",
           date: readableDate(gate.sentAt),
           sort: sortDate(gate.sentAt),
           icon: Send,
