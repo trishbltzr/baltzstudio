@@ -28,9 +28,11 @@ interface BizProfile {
   id: string; name: string; logo: string; address: string; email: string; phone: string;
   website: string; taxId: string; currency: string; instructions: string; account: string;
 }
+const WISE_PAYMENT_URL = "https://wise.com/pay/me/trishajoanbaquiranb";
+const WISE_INSTRUCTIONS = "Pay securely via Wise using the link or QR code below.";
 const BUSINESS_PROFILES: BizProfile[] = [
-  { id: "baltz", name: "Baltazar Studio", logo: "BS", address: "12 Atelier Row, London, EC1V 9BT, UK", email: "billing@baltazar.studio", phone: "+44 20 7946 0112", website: "baltazar.studio", taxId: "GB 428 1193 55", currency: "GBP", instructions: "Payment due within 14 days by bank transfer or Wise.", account: "Wise · Baltazar Studio Ltd · IBAN GB29 NWBK 6016 1331 9268 19" },
-  { id: "cocoon", name: "Cocoon Audits", logo: "CA", address: "12 Atelier Row, London, EC1V 9BT, UK", email: "hello@cocoonaudits.co", phone: "+44 20 7946 0112", website: "cocoonaudits.co", taxId: "GB 428 1193 55", currency: "GBP", instructions: "Payment due on receipt via Stripe or bank transfer.", account: "Stripe · pay.cocoonaudits.co" },
+  { id: "baltz", name: "Baltazar Studio", logo: "BS", address: "12 Atelier Row, London, EC1V 9BT, UK", email: "billing@baltazar.studio", phone: "+44 20 7946 0112", website: "baltazar.studio", taxId: "GB 428 1193 55", currency: "GBP", instructions: WISE_INSTRUCTIONS, account: WISE_PAYMENT_URL },
+  { id: "cocoon", name: "Cocoon Audits", logo: "CA", address: "12 Atelier Row, London, EC1V 9BT, UK", email: "hello@cocoonaudits.co", phone: "+44 20 7946 0112", website: "cocoonaudits.co", taxId: "GB 428 1193 55", currency: "GBP", instructions: WISE_INSTRUCTIONS, account: WISE_PAYMENT_URL },
 ];
 
 interface SavedService { name: string; unit: string; rate: number; desc: string; taxable: boolean }
@@ -60,10 +62,10 @@ const UNITS = ["Project", "Hour", "Day", "Page", "Section", "Month", "Milestone"
 const BILLING_TYPES = ["Fixed project fee", "Milestone payment", "Hourly work", "Monthly retainer", "Recurring maintenance", "Deposit", "Final payment", "Reimbursement", "Custom service invoice"];
 const STATUSES: [string, string][] = [["Draft", "waiting"], ["Sent", "progress"], ["Viewed", "progress"], ["Partially Paid", "review"], ["Paid", "done"], ["Overdue", "blocked"], ["Cancelled", "locked"]];
 const NUMBER_FORMATS = ["INV-0001", "CLIENT-2026-001", "PROJECT-001", "YYYY-MM-001"];
-const PAYMENT_METHODS = ["Bank transfer", "PayPal", "Credit or debit card", "Wise", "Cash", "Check", "Custom"];
 const MILESTONE_PRESETS: [string, number][] = [["Project deposit", 25], ["Design approval", 20], ["Development completion", 25], ["Testing and QA", 10], ["Website launch", 15], ["Final handoff", 5]];
 const EXPENSE_PRESETS = ["Premium theme", "Shopify app", "WordPress plugin", "Stock photos", "Fonts", "Hosting", "Domain registration", "Third-party software", "Contractor costs"];
-const DEFAULT_TERMS = "Payment is due by the date shown on this invoice. Work may be paused if payment becomes overdue. Final files, website access, ownership, or project handoff may be withheld until the outstanding balance has been paid in full.";
+const STANDARD_NOTE = "Thank you for your business. Please pay via Wise by the due date.";
+const DEFAULT_TERMS = "Payment is due by the date shown. Work may pause if overdue, and final files are released after full payment.";
 
 interface InvClient { id: string; name: string; company: string; email: string; phone: string; country: string; currency: string; address: string; taxId: string }
 const CLIENTS: InvClient[] = STUDIO_CLIENTS.map((c, i) => ({
@@ -125,11 +127,11 @@ function initState(): Inv {
     retainer: { pkg: "Growth retainer", includedHours: 20, hoursUsed: 14, overageRate: 85, rollover: true, period: "July 2026", nextBilling: "2026-08-01" },
     discountType: "pct", discountValue: 0, processingType: "pct", processingValue: 0, additionalFee: 0, amountPaid: 0,
     deposit: { projectValue: 0, depositRequired: 0, depositPaid: 0, prevMilestones: 0, isFinal: false },
-    notes: "", terms: DEFAULT_TERMS, internalNotes: "",
-    methods: ["Bank transfer", "Wise"], instructions: biz.instructions, paymentLink: "",
+    notes: STANDARD_NOTE, terms: DEFAULT_TERMS, internalNotes: "",
+    methods: ["Wise"], instructions: WISE_INSTRUCTIONS, paymentLink: WISE_PAYMENT_URL,
     recurring: { enabled: false, frequency: "Monthly", start: "2026-08-01", end: "", occurrences: 12, autoCreate: true, autoSend: false },
     attachments: [],
-    template: "Classic", accent: "#c2544d", showLogo: true, showProject: true, showTax: true, footer: "Thank you for partnering with Baltazar Studio.", thankYou: "We appreciate your business — thank you!",
+    template: "Modern", accent: "#c2544d", showLogo: true, showProject: true, showTax: true, footer: "Thank you for partnering with Baltazar Studio.", thankYou: "We appreciate your business — thank you!",
   };
 }
 
@@ -185,18 +187,22 @@ function reducer(s: Inv, a: Action): Inv {
 }
 
 // ── small building blocks ────────────────────────────────────────────────────
-function Section({ icon, title, hint, children, right }: { icon: string; title: string; hint?: string; children: ReactNode; right?: ReactNode }) {
+function Section({ icon, title, hint, children, right, defaultOpen = true, flat = false, last = false }: { icon: string; title: string; hint?: string; children: ReactNode; right?: ReactNode; defaultOpen?: boolean; flat?: boolean; last?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <div style={css(CARD)}>
-      <div style={css("display:flex;align-items:center;gap:0.6rem;margin-bottom:0.85rem")}>
-        <span style={css("width:1.9rem;height:1.9rem;border-radius:0.55rem;flex-shrink:0;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center")}><Icon name={icon} size={14} /></span>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={css("font-size:0.9rem;font-weight:500;color:var(--fg);line-height:1.2")}>{title}</div>
-          {hint && <div style={css("font-size:0.72rem;color:var(--fg-faint);margin-top:0.1rem")}>{hint}</div>}
-        </div>
-        {right}
+    <div style={css(flat ? "padding:1rem 0" + (last ? "" : ";border-bottom:1px solid var(--border-soft)") : CARD)}>
+      <div style={css("display:flex;align-items:center;gap:0.6rem")}>
+        <button type="button" onClick={() => setOpen(o => !o)} style={css("display:flex;align-items:center;gap:0.6rem;flex:1;min-width:0;border:0;background:transparent;cursor:pointer;text-align:left;padding:0")}>
+          {!flat && <span style={css("width:1.9rem;height:1.9rem;border-radius:0.55rem;flex-shrink:0;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center")}><Icon name={icon} size={14} /></span>}
+          <span style={{ minWidth: 0, flex: 1 }}>
+            <span style={css("display:block;font-size:" + (flat ? "0.95rem" : "0.9rem") + ";font-weight:500;color:var(--fg);line-height:1.2")}>{title}</span>
+            {hint && open && <span style={css("display:block;font-size:0.72rem;color:var(--fg-faint);margin-top:0.1rem")}>{hint}</span>}
+          </span>
+        </button>
+        {right && open && <span style={{ display: "inline-flex", flexShrink: 0 }}>{right}</span>}
+        <button type="button" onClick={() => setOpen(o => !o)} aria-label={open ? "Collapse" : "Expand"} className="pt-iconbtn" style={css("width:1.7rem;height:1.7rem;border-radius:0.45rem;border:1px solid var(--border-soft);background:transparent;color:var(--fg-muted);display:grid;place-items:center;cursor:pointer;flex-shrink:0;transition:transform .15s ease;transform:rotate(" + (open ? "0" : "-90") + "deg)")}><Icon name="chev" size={13} /></button>
       </div>
-      {children}
+      {open && <div style={{ marginTop: "0.85rem" }}>{children}</div>}
     </div>
   );
 }
@@ -219,10 +225,10 @@ function sel(v: string, options: string[], on: (val: string) => void) {
 // ── main ─────────────────────────────────────────────────────────────────────
 export function Invoices({ state, actions }: { state: PortalState; actions: PortalActions }) {
   const [inv, dispatch] = useReducer(reducer, undefined, initState);
-  const [modal, setModal] = useState<null | "send" | "payment" | "cancel" | "delete" | "profile">(null);
+  const [modal, setModal] = useState<null | "send" | "payment" | "cancel" | "delete" | "profile" | "preview">(null);
   const [dirty, setDirty] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
-  const [saveOpen, setSaveOpen] = useState(false);
+  const [showPreview, setShowPreview] = useState(true);
   const mobile = state.isMobile;
   const set = (v: Partial<Inv>) => { dispatch({ t: "patch", v }); setDirty(true); };
 
@@ -288,7 +294,7 @@ export function Invoices({ state, actions }: { state: PortalState; actions: Port
     const b = BUSINESS_PROFILES.find(x => x.id === id) || biz;
     set({ businessId: id, currency: b.currency, instructions: b.instructions, footer: "Thank you for partnering with " + b.name + "." });
   };
-  const doSave = (label: string) => { setSaveOpen(false); setDirty(false); actions.showToast(label); };
+  const doSave = (label: string) => { setDirty(false); actions.showToast(label); };
   const send = () => { setShowErrors(true); if (errors.length) { actions.showToast("Fix " + errors.length + " issue" + (errors.length > 1 ? "s" : "") + " before sending"); return; } setModal("send"); };
 
   const showMilestones = inv.billingType === "Milestone payment";
@@ -303,29 +309,12 @@ export function Invoices({ state, actions }: { state: PortalState; actions: Port
       <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap")}>
         <div style={{ minWidth: 0 }}>
           <span style={css(eyebrowStyle("var(--accent)"))}>Invoicing</span>
-          <h2 style={css("margin:0.35rem 0 0;font-size:1.35rem;font-weight:500;line-height:1.15")}>Create Invoice</h2>
-          <p style={css("margin:0.3rem 0 0;font-size:0.82rem;color:var(--fg-muted);line-height:1.5;max-width:38rem")}>Create and send invoices for projects, retainers, and digital services.</p>
+          <h2 style={css("margin:0.35rem 0 0;font-size:1.35rem;font-weight:500;line-height:1.15")}>New Invoice</h2>
+          <p style={css("margin:0.3rem 0 0;font-size:0.82rem;color:var(--fg-muted);line-height:1.5;max-width:38rem")}>Generate and send a new invoice.</p>
         </div>
         <div style={css("display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;flex-shrink:0")}>
-          <div style={{ position: "relative" }}>
-            <button type="button" onClick={() => setSaveOpen(o => !o)} style={css(BTN_GHOST)}><Icon name="file" size={14} />Save Draft<Icon name="chev" size={13} /></button>
-            {saveOpen && (
-              <>
-                <div onClick={() => setSaveOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
-                <div style={{ ...css("position:absolute;top:2.5rem;right:0;width:14rem;padding:0.35rem;border:1px solid var(--border);border-radius:0.9rem;background:var(--surface);z-index:41;box-shadow:0 12px 30px -14px rgba(0,0,0,.25)"), animation: "pt-ddin .16s ease" }}>
-                  {[["Save as draft", "file"], ["Save and close", "check"], ["Duplicate invoice", "layers"], ["Download PDF", "arrowup"], ["Print invoice", "file"], ["Copy shareable link", "send"]].map(([l, ic]) => (
-                    <button key={l} type="button" onClick={() => doSave(l)} className="pt-menuitem" style={css("display:flex;align-items:center;gap:0.55rem;width:100%;padding:0.5rem 0.55rem;border:0;border-radius:0.5rem;background:transparent;color:var(--fg);font-size:0.78rem;cursor:pointer;text-align:left")}><Icon name={ic} size={14} />{l}</button>
-                  ))}
-                  <div style={css("height:1px;background:var(--border-soft);margin:0.25rem 0")} />
-                  {[["Cancel invoice", "cancel"], ["Delete invoice", "delete"]].map(([l, m]) => (
-                    <button key={l} type="button" onClick={() => { setSaveOpen(false); setModal(m as "cancel" | "delete"); }} className="pt-menuitem" style={css("display:flex;align-items:center;gap:0.55rem;width:100%;padding:0.5rem 0.55rem;border:0;border-radius:0.5rem;background:transparent;color:var(--danger);font-size:0.78rem;cursor:pointer;text-align:left")}><Icon name="x" size={14} />{l}</button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-          <button type="button" onClick={() => { const el = document.getElementById("inv-preview"); el?.scrollIntoView({ behavior: "smooth", block: "start" }); }} style={css(BTN_GHOST)}><Icon name="eye" size={14} />Preview</button>
-          <button type="button" onClick={() => setModal("payment")} style={css(BTN_GHOST)}><Icon name="wallet" size={14} />Record Payment</button>
+          {!mobile && <button type="button" onClick={() => setShowPreview(v => !v)} style={css(BTN_GHOST)}><Icon name="eye" size={14} />{showPreview ? "Hide Preview" : "Show Preview"}</button>}
+          <button type="button" onClick={() => doSave("Invoice saved as draft")} style={css(BTN_GHOST)}><Icon name="file" size={14} />Save as Draft</button>
           <button type="button" onClick={send} style={css(BTN_PRIMARY)}><Icon name="send" size={14} />Send Invoice</button>
         </div>
       </div>
@@ -338,9 +327,8 @@ export function Invoices({ state, actions }: { state: PortalState; actions: Port
         </div>
       )}
 
-      {/* two-column */}
-      <div style={css("display:grid;grid-template-columns:" + (mobile ? "minmax(0,1fr)" : "minmax(0,1.15fr) minmax(0,0.85fr)") + ";gap:1rem;align-items:start")}>
-        {/* ── LEFT: form ── */}
+      {/* split: editable form + sticky live preview */}
+      <div style={css("display:grid;grid-template-columns:" + (mobile || !showPreview ? "minmax(0,1fr)" : "minmax(0,1.1fr) minmax(0,0.9fr)") + ";gap:1rem;align-items:start")}>
         <div style={css("display:flex;flex-direction:column;gap:0.9rem;min-width:0")}>
           <FormBody inv={inv} set={set} dispatch={dispatch} setDirty={setDirty} biz={biz} client={client} project={project}
             applyClient={applyClient} applyProject={applyProject} applyBiz={applyBiz} calc={calc} money={(n: number) => money(n, cur)}
@@ -348,17 +336,23 @@ export function Invoices({ state, actions }: { state: PortalState; actions: Port
             openProfile={() => setModal("profile")} actions={actions}
             flags={{ showMilestones, showTime, showRetainer, showDeposit, showRecurring }} />
         </div>
-
-        {/* ── RIGHT: sticky live preview ── */}
-        <div id="inv-preview" style={css("min-width:0;position:" + (mobile ? "static" : "sticky") + ";top:4.5rem")}>
-          <Preview inv={inv} biz={biz} client={client} project={project} calc={calc} money={(n: number) => money(n, cur)} lineAmount={lineAmount} expenseAmount={expenseAmount} />
-        </div>
+        {(mobile || showPreview) && <div id="inv-preview" style={css("min-width:0;position:" + (mobile ? "static" : "sticky") + ";top:4.5rem")}>
+          <Preview inv={inv} biz={biz} client={client} project={project} calc={calc} money={(n: number) => money(n, cur)} lineAmount={lineAmount} expenseAmount={expenseAmount} onTemplate={t => set({ template: t })} />
+        </div>}
       </div>
 
       {modal === "send" && <SendModal inv={inv} client={client} project={project} calc={calc} money={(n: number) => money(n, cur)} onClose={() => setModal(null)} onSend={() => { setModal(null); set({ status: "Sent" }); setDirty(false); actions.showToast("Invoice " + inv.number + " sent to " + (client?.email || "client")); }} />}
       {modal === "payment" && <PaymentModal inv={inv} calc={calc} money={(n: number) => money(n, cur)} onClose={() => setModal(null)} onRecord={(amt) => { const paid = (inv.amountPaid || 0) + amt; set({ amountPaid: paid, status: paid >= calc.total ? "Paid" : "Partially Paid" }); setModal(null); actions.showToast("Payment of " + money(amt, cur) + " recorded"); }} />}
       {(modal === "cancel" || modal === "delete") && <ConfirmModal kind={modal} number={inv.number} onClose={() => setModal(null)} onConfirm={() => { set({ status: modal === "cancel" ? "Cancelled" : "Draft" }); setModal(null); actions.showToast("Invoice " + (modal === "cancel" ? "cancelled" : "deleted")); }} />}
       {modal === "profile" && <ProfileModal biz={biz} onClose={() => setModal(null)} onSave={() => { setModal(null); actions.showToast("Business profile saved"); }} />}
+      {modal === "preview" && (
+        <Shell label="Invoice preview" onClose={() => setModal(null)} wide>
+          <ModalHead title="Invoice preview" onClose={() => setModal(null)} />
+          <div style={css("padding:1rem;background:var(--bg)")}>
+            <Preview inv={inv} biz={biz} client={client} project={project} calc={calc} money={(n: number) => money(n, cur)} lineAmount={lineAmount} expenseAmount={expenseAmount} onTemplate={t => set({ template: t })} />
+          </div>
+        </Shell>
+      )}
     </div>
   );
 }
@@ -374,96 +368,58 @@ function FormBody(p: {
   openProfile: () => void; actions: PortalActions; flags: Flags;
 }) {
   const { inv, set, dispatch, biz, client, project, applyClient, applyProject, applyBiz, calc, money, lineAmount, mobile, flags, actions } = p;
-  const [clientQuery, setClientQuery] = useState("");
+  const [lineOptionsId, setLineOptionsId] = useState<string | null>(null);
+  const [showInvoiceOptions, setShowInvoiceOptions] = useState(false);
   const grid2 = "display:grid;grid-template-columns:" + (mobile ? "minmax(0,1fr)" : "minmax(0,1fr) minmax(0,1fr)") + ";gap:0.6rem";
   const grid3 = "display:grid;grid-template-columns:" + (mobile ? "minmax(0,1fr)" : "repeat(3,minmax(0,1fr))") + ";gap:0.6rem";
-  const filteredClients = CLIENTS.filter(c => (c.name + c.company + c.email).toLowerCase().includes(clientQuery.toLowerCase()));
+  const lineItemGrid = "minmax(7.5rem,2fr) 2.7rem 3.8rem 4.5rem 5.3rem 5.2rem";
 
   return (
     <>
-      {/* Business profile */}
-      <Section icon="briefcase" title="Business profile" hint="Prepopulated from your saved business information"
-        right={<button type="button" onClick={p.openProfile} style={css(CHIP + ";border:1px solid var(--border);color:var(--fg-muted)")}><Icon name="edit" size={12} />Edit</button>}>
-        <div style={css("display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.7rem")}>
-          {BUSINESS_PROFILES.map(b => (
-            <button key={b.id} type="button" onClick={() => applyBiz(b.id)} style={css(CHIP + ";border:1px solid " + (b.id === inv.businessId ? "var(--accent)" : "var(--border)") + ";background:" + (b.id === inv.businessId ? "var(--accent-soft)" : "var(--surface)") + ";color:" + (b.id === inv.businessId ? "var(--accent)" : "var(--fg-muted)"))}>
-              <span style={css("width:1.2rem;height:1.2rem;border-radius:0.3rem;background:var(--fg);color:#fff;display:grid;place-items:center;font-size:0.56rem;font-weight:500")}>{b.logo}</span>{b.name}
-            </button>
-          ))}
-          <button type="button" onClick={() => actions.showToast("Add another business brand")} style={css(CHIP + ";border:1px dashed var(--border);color:var(--fg-faint)")}><Icon name="plus" size={12} />Add brand</button>
+      <div style={css(CARD + ";padding:0 1.1rem")}>
+        <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:1.15rem 0 1rem")}>
+          <div>
+            <div style={css("font-size:1rem;font-weight:500;color:var(--fg)")}>Invoice details</div>
+            <div style={css("font-size:0.72rem;color:var(--fg-faint);margin-top:0.15rem")}>Enter invoice and client information.</div>
+          </div>
+          <div style={css("display:flex;gap:0.4rem;width:" + (mobile ? "100%" : "14rem") + ";max-width:100%")}>
+            <select className="pt-input" aria-label="Client" value={inv.clientId} onChange={e => applyClient(e.target.value)} style={css(INPUT + ";cursor:pointer;background:var(--surface)")}>
+              <option value="">Select a client…</option>
+              {CLIENTS.map(c => <option key={c.id} value={c.id}>{c.company}</option>)}
+            </select>
+            <button type="button" aria-label="Add client" title="Add client" onClick={() => actions.showToast("New client form opened inline")} className="pt-iconbtn" style={css("width:2.25rem;flex-shrink:0;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--fg-muted);display:grid;place-items:center;cursor:pointer")}><Icon name="plus" size={14} /></button>
+          </div>
         </div>
         <div style={css(grid2)}>
-          <Field label="Business name">{txt(biz.name, () => {})}</Field>
-          <Field label="Business email">{txt(biz.email, () => {})}</Field>
-          <Field label="Phone">{txt(biz.phone, () => {})}</Field>
-          <Field label="Website">{txt(biz.website, () => {})}</Field>
-          <Field label="Tax ID / VAT">{txt(biz.taxId, () => {})}</Field>
-          <Field label="Default currency">{sel(inv.currency, Object.keys(CURRENCIES), v => set({ currency: v }))}</Field>
-          <Field label="Business address" span>{txt(biz.address, () => {})}</Field>
-          <Field label="Bank / payment account" span>{txt(biz.account, () => {})}</Field>
-        </div>
-      </Section>
-
-      {/* Client & project */}
-      <Section icon="user" title="Client & project" hint="Select or add a client and link a project">
-        <div style={css(grid2)}>
-          <Field label="Search client by name, company, email or project">
-            <input className="pt-input" value={clientQuery} placeholder="Search clients…" onChange={e => setClientQuery(e.target.value)} style={css(INPUT)} />
+          <Field label="Contact name"><input className="pt-input" value={client?.name || ""} readOnly placeholder="Client contact" style={css(INPUT)} /></Field>
+          <Field label="Email address"><input className="pt-input" value={client?.email || ""} readOnly placeholder="client@email.com" style={css(INPUT)} /></Field>
+          <Field label="Billing address" span><input className="pt-input" value={client?.address || ""} readOnly placeholder="Street, city, country" style={css(INPUT)} /></Field>
+          <Field label="Invoice number">{txt(inv.number, v => set({ number: v }))}</Field>
+          <Field label="Currency">{sel(inv.currency, Object.keys(CURRENCIES), v => set({ currency: v }))}</Field>
+          <Field label="Issued date">{txt(inv.issueDate, v => set({ issueDate: v }), { type: "date" })}</Field>
+          <Field label="Due date">{txt(inv.dueDate, v => set({ dueDate: v }), { type: "date" })}</Field>
+          <Field label="Project (optional)">
+            <select className="pt-input" aria-label="Project" value={inv.projectId} onChange={e => applyProject(e.target.value)} style={css(INPUT + ";cursor:pointer")}>
+              <option value="">No project — standalone invoice</option>
+              {PROJECTS.filter(pr => !inv.clientId || pr.clientId === inv.clientId).map(pr => <option key={pr.id} value={pr.id}>{pr.name}</option>)}
+            </select>
           </Field>
-          <Field label="Client">
-            <div style={css("display:flex;gap:0.4rem")}>
-              <select className="pt-input" value={inv.clientId} onChange={e => applyClient(e.target.value)} style={css(INPUT + ";cursor:pointer")}>
-                <option value="">Select a client…</option>
-                {filteredClients.map(c => <option key={c.id} value={c.id}>{c.company}</option>)}
-              </select>
-              <button type="button" onClick={() => actions.showToast("New client form opened inline")} style={css(BTN_GHOST + ";height:auto;padding:0 0.6rem;flex-shrink:0")}><Icon name="plus" size={14} /></button>
-            </div>
-          </Field>
+          <Field label="Payment terms">{sel(inv.paymentTerms, ["Due on receipt", "Net 7", "Net 14", "Net 30", "Net 45"], v => set({ paymentTerms: v }))}</Field>
         </div>
-        {client && (
-          <div style={css(grid3 + ";margin-top:0.6rem")}>
-            <Field label="Company">{txt(client.company, () => {})}</Field>
-            <Field label="Email">{txt(client.email, () => {})}</Field>
-            <Field label="Phone">{txt(client.phone, () => {})}</Field>
-            <Field label="Country">{txt(client.country, () => {})}</Field>
-            <Field label="Preferred currency">{txt(client.currency, () => {})}</Field>
-            <Field label="Tax ID">{txt(client.taxId, () => {})}</Field>
-            <Field label="Billing address" span>{txt(client.address, () => {})}</Field>
+        <button type="button" onClick={() => setShowInvoiceOptions(v => !v)} style={css("display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:0.75rem;padding:0.55rem 0;border:0;border-top:1px solid var(--border-soft);background:transparent;color:var(--fg-muted);font-size:0.72rem;font-weight:500;cursor:pointer")}><span>More invoice options</span><span style={css("transform:rotate(" + (showInvoiceOptions ? "0" : "-90") + "deg);transition:transform .15s ease")}><Icon name="chev" size={13} /></span></button>
+        {showInvoiceOptions && (
+          <div style={css(grid3 + ";padding:0.2rem 0 0.85rem")}>
+            <Field label="Status"><select className="pt-input" value={inv.status} onChange={e => set({ status: e.target.value })} style={css(INPUT + ";cursor:pointer")}>{STATUSES.map(([s]) => <option key={s} value={s}>{s}</option>)}</select></Field>
+            <Field label="PO number">{txt(inv.poNumber, v => set({ poNumber: v }), { ph: "Optional" })}</Field>
+            <Field label="Contract / proposal ref">{txt(inv.contractRef, v => set({ contractRef: v }), { ph: "Optional" })}</Field>
+            <Field label="Numbering format">{sel(inv.numberFormat, NUMBER_FORMATS, v => set({ numberFormat: v, number: v.replace("YYYY", "2026").replace("MM", "07").replace(/0+1$/, "001") }))}</Field>
+            <Field label="Billed by"><select className="pt-input" value={inv.businessId} onChange={e => applyBiz(e.target.value)} style={css(INPUT + ";cursor:pointer")}>{BUSINESS_PROFILES.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></Field>
+            <div style={css("display:flex;align-items:end")}><button type="button" onClick={p.openProfile} style={css(BTN_GHOST + ";width:100%;justify-content:center")}><Icon name="edit" size={12} />Edit business profile</button></div>
           </div>
         )}
-        <div style={css(grid2 + ";margin-top:0.6rem")}>
-          <Field label="Linked project">
-            <div style={css("display:flex;gap:0.4rem")}>
-              <select className="pt-input" value={inv.projectId} onChange={e => applyProject(e.target.value)} style={css(INPUT + ";cursor:pointer")}>
-                <option value="">No project</option>
-                {PROJECTS.filter(pr => !inv.clientId || pr.clientId === inv.clientId).map(pr => <option key={pr.id} value={pr.id}>{pr.name}</option>)}
-              </select>
-              <button type="button" onClick={() => actions.showToast("New project form opened inline")} style={css(BTN_GHOST + ";height:auto;padding:0 0.6rem;flex-shrink:0")}><Icon name="plus" size={14} /></button>
-            </div>
-          </Field>
-          {project && <Field label="Project manager · contract value">{txt(project.manager + " · " + money(project.value), () => {})}</Field>}
-        </div>
-      </Section>
-
-      {/* Invoice info */}
-      <Section icon="card" title="Invoice details">
-        <div style={css(grid3)}>
-          <Field label="Invoice number">{txt(inv.number, v => set({ number: v }))}</Field>
-          <Field label="Numbering format">{sel(inv.numberFormat, NUMBER_FORMATS, v => set({ numberFormat: v, number: v.replace("YYYY", "2026").replace("MM", "07").replace(/0+1$/, "001") }))}</Field>
-          <Field label="Status">
-            <select className="pt-input" value={inv.status} onChange={e => set({ status: e.target.value })} style={css(INPUT + ";cursor:pointer")}>{STATUSES.map(([s]) => <option key={s} value={s}>{s}</option>)}</select>
-          </Field>
-          <Field label="Issue date">{txt(inv.issueDate, v => set({ issueDate: v }), { type: "date" })}</Field>
-          <Field label="Due date">{txt(inv.dueDate, v => set({ dueDate: v }), { type: "date" })}</Field>
-          <Field label="Payment terms">{sel(inv.paymentTerms, ["Due on receipt", "Net 7", "Net 14", "Net 30", "Net 45"], v => set({ paymentTerms: v }))}</Field>
-          <Field label="PO number">{txt(inv.poNumber, v => set({ poNumber: v }), { ph: "Optional" })}</Field>
-          <Field label="Contract / proposal ref">{txt(inv.contractRef, v => set({ contractRef: v }), { ph: "Optional" })}</Field>
-          <Field label="Currency">{sel(inv.currency, Object.keys(CURRENCIES), v => set({ currency: v }))}</Field>
-        </div>
-      </Section>
 
       {/* Billing type */}
-      <Section icon="sliders" title="Billing type" hint="Fields adapt to how the client is billed">
+      <Section icon="sliders" title="Billing setup" hint="Choose how this work is billed" defaultOpen={false} flat>
         <div style={css("display:flex;flex-wrap:wrap;gap:0.4rem")}>
           {BILLING_TYPES.map(t => (
             <button key={t} type="button" onClick={() => set({ billingType: t })} style={css(CHIP + ";border:1px solid " + (t === inv.billingType ? "var(--accent)" : "var(--border-soft)") + ";background:" + (t === inv.billingType ? "var(--accent-soft)" : "var(--surface)") + ";color:" + (t === inv.billingType ? "var(--accent)" : "var(--fg-muted)"))}>{t}</button>
@@ -490,35 +446,42 @@ function FormBody(p: {
       </Section>
 
       {/* Line items */}
-      <Section icon="checklist" title="Service line items" hint="Add services, adjust quantity, rate, discount & tax"
+      <Section icon="checklist" title="Product details" hint="Add services, quantities, rates, discounts, and tax" flat last
         right={<SavedServicePicker onPick={s => { dispatch({ t: "item", op: "add", service: s }); }} />}>
         <div style={css("overflow-x:auto")}>
-          <div style={{ minWidth: mobile ? "38rem" : "auto" }}>
-            <div style={css("display:grid;grid-template-columns:1.6fr 2fr 0.6fr 0.8fr 0.9fr 0.8fr 0.7fr 0.9fr auto;gap:0.4rem;padding:0 0.1rem 0.4rem;" + eyebrowStyle("var(--fg-faint)"))}>
-              <span>Service</span><span>Description</span><span>Qty</span><span>Unit</span><span>Rate</span><span>Disc%</span><span>Tax%</span><span style={{ textAlign: "right" }}>Amount</span><span></span>
+          <div style={{ minWidth: mobile ? "32rem" : "auto" }}>
+            <div data-line-item-grid="header" style={css("display:grid;grid-template-columns:" + lineItemGrid + ";gap:0.45rem;padding:0 0.1rem 0.45rem;align-items:end;" + eyebrowStyle("var(--fg-faint)"))}>
+              <span>Item</span><span style={{ textAlign: "center" }}>Qty</span><span style={{ textAlign: "center" }}>Unit</span><span style={{ textAlign: "right" }}>Cost</span><span style={{ textAlign: "right" }}>Total</span><span aria-hidden="true"></span>
             </div>
-            {inv.items.map((i, idx) => (
-              <div key={i.id} style={css("display:grid;grid-template-columns:1.6fr 2fr 0.6fr 0.8fr 0.9fr 0.8fr 0.7fr 0.9fr auto;gap:0.4rem;align-items:center;padding:0.35rem 0.1rem;border-top:1px solid var(--border-soft)")}>
-                <input className="pt-input" value={i.service} placeholder="Service" onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { service: e.target.value } })} style={css(INPUT + ";padding:0.4rem 0.5rem;font-size:0.78rem")} />
-                <input className="pt-input" value={i.description} placeholder="Description" onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { description: e.target.value } })} style={css(INPUT + ";padding:0.4rem 0.5rem;font-size:0.78rem")} />
-                <input className="pt-input" type="number" value={i.qty} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { qty: +e.target.value } })} style={css(INPUT + ";padding:0.4rem 0.4rem;font-size:0.78rem")} />
-                <select className="pt-input" value={i.unit} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { unit: e.target.value } })} style={css(INPUT + ";padding:0.4rem 0.3rem;font-size:0.74rem;cursor:pointer")}>{UNITS.map(u => <option key={u}>{u}</option>)}</select>
-                <input className="pt-input" type="number" value={i.rate} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { rate: +e.target.value } })} style={css(INPUT + ";padding:0.4rem 0.4rem;font-size:0.78rem")} />
-                <input className="pt-input" type="number" value={i.discount} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { discount: +e.target.value } })} style={css(INPUT + ";padding:0.4rem 0.4rem;font-size:0.78rem")} />
-                <input className="pt-input" type="number" value={i.taxable ? i.taxRate : 0} disabled={!i.taxable} title={i.taxable ? "Tax %" : "Non-taxable"} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { taxRate: +e.target.value } })} style={css(INPUT + ";padding:0.4rem 0.4rem;font-size:0.78rem;opacity:" + (i.taxable ? "1" : "0.5"))} />
-                <span style={css("font-size:0.8rem;font-weight:500;text-align:right;white-space:nowrap")}>{money(lineAmount(i))}</span>
-                <div style={css("display:flex;gap:0.15rem;flex-shrink:0")}>
-                  <button type="button" title="Non-taxable toggle" onClick={() => dispatch({ t: "item", op: "update", id: i.id, v: { taxable: !i.taxable } })} className="pt-iconbtn" style={css("width:1.5rem;height:1.5rem;border:1px solid var(--border-soft);border-radius:0.4rem;background:transparent;color:" + (i.taxable ? "var(--accent)" : "var(--fg-faint)") + ";display:grid;place-items:center;cursor:pointer")}><Icon name="hash" size={12} /></button>
-                  <button type="button" title="Duplicate" onClick={() => dispatch({ t: "item", op: "dup", id: i.id })} className="pt-iconbtn" style={css("width:1.5rem;height:1.5rem;border:1px solid var(--border-soft);border-radius:0.4rem;background:transparent;color:var(--fg-muted);display:grid;place-items:center;cursor:pointer")}><Icon name="layers" size={12} /></button>
-                  <button type="button" title="Move up" onClick={() => dispatch({ t: "item", op: "up", id: i.id })} disabled={idx === 0} className="pt-iconbtn" style={css("width:1.5rem;height:1.5rem;border:1px solid var(--border-soft);border-radius:0.4rem;background:transparent;color:var(--fg-muted);display:grid;place-items:center;cursor:pointer;opacity:" + (idx === 0 ? "0.4" : "1"))}><Icon name="arrowup" size={12} /></button>
-                  <button type="button" title="Remove" onClick={() => dispatch({ t: "item", op: "remove", id: i.id })} className="pt-iconbtn" style={css("width:1.5rem;height:1.5rem;border:1px solid var(--border-soft);border-radius:0.4rem;background:transparent;color:var(--danger);display:grid;place-items:center;cursor:pointer")}><Icon name="x" size={12} /></button>
+            {inv.items.map(i => (
+              <div key={i.id} style={css("padding:0.45rem 0.1rem;border-top:1px solid var(--border-soft)")}>
+                <div data-line-item-grid="row" style={css("display:grid;grid-template-columns:" + lineItemGrid + ";gap:0.45rem;align-items:center")}>
+                  <input className="pt-input" value={i.service} placeholder="Item" onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { service: e.target.value } })} style={css(INPUT + ";padding:0.4rem 0.5rem;font-size:0.78rem")} />
+                  <input className="pt-input" aria-label="Quantity" type="number" value={i.qty} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { qty: +e.target.value } })} style={css(INPUT + ";padding:0.4rem;font-size:0.78rem;text-align:center")} />
+                  <select className="pt-input" aria-label="Unit" value={i.unit} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { unit: e.target.value } })} style={css(INPUT + ";padding:0.4rem 0.2rem;font-size:0.72rem;cursor:pointer;text-align:center")}>{UNITS.map(u => <option key={u}>{u}</option>)}</select>
+                  <input className="pt-input" aria-label="Cost" type="number" value={i.rate} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { rate: +e.target.value } })} style={css(INPUT + ";padding:0.4rem;font-size:0.78rem;text-align:right")} />
+                  <span style={css("font-size:0.8rem;font-weight:500;text-align:right;white-space:nowrap")}>{money(lineAmount(i))}</span>
+                  <div style={css("display:flex;justify-content:flex-end;gap:0.15rem;flex-shrink:0")}>
+                    <button type="button" aria-label="Line item options" title="Description, discount & tax" onClick={() => setLineOptionsId(lineOptionsId === i.id ? null : i.id)} className="pt-iconbtn" style={css("width:1.6rem;height:1.6rem;border:1px solid var(--border-soft);border-radius:0.4rem;background:" + (lineOptionsId === i.id ? "var(--accent-soft)" : "transparent") + ";color:" + (lineOptionsId === i.id ? "var(--accent)" : "var(--fg-muted)") + ";display:grid;place-items:center;cursor:pointer")}><Icon name="sliders" size={12} /></button>
+                    <button type="button" title="Duplicate" onClick={() => dispatch({ t: "item", op: "dup", id: i.id })} className="pt-iconbtn" style={css("width:1.6rem;height:1.6rem;border:1px solid var(--border-soft);border-radius:0.4rem;background:transparent;color:var(--fg-muted);display:grid;place-items:center;cursor:pointer")}><Icon name="layers" size={12} /></button>
+                    <button type="button" title="Remove" onClick={() => dispatch({ t: "item", op: "remove", id: i.id })} className="pt-iconbtn" style={css("width:1.6rem;height:1.6rem;border:1px solid var(--border-soft);border-radius:0.4rem;background:transparent;color:var(--danger);display:grid;place-items:center;cursor:pointer")}><Icon name="x" size={12} /></button>
+                  </div>
                 </div>
+                {lineOptionsId === i.id && (
+                  <div style={css("display:grid;grid-template-columns:2fr 0.75fr 0.75fr auto;gap:0.45rem;align-items:end;margin-top:0.45rem;padding:0.55rem;border-radius:var(--radius);background:var(--surface-alt)")}>
+                    <Field label="Description"><input className="pt-input" value={i.description} placeholder="Description" onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { description: e.target.value } })} style={css(INPUT + ";padding:0.4rem 0.5rem;font-size:0.78rem;background:var(--surface)")} /></Field>
+                    <Field label="Discount %"><input className="pt-input" type="number" value={i.discount} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { discount: +e.target.value } })} style={css(INPUT + ";padding:0.4rem;font-size:0.78rem;background:var(--surface)")} /></Field>
+                    <Field label="Tax %"><input className="pt-input" type="number" value={i.taxable ? i.taxRate : 0} disabled={!i.taxable} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { taxRate: +e.target.value } })} style={css(INPUT + ";padding:0.4rem;font-size:0.78rem;background:var(--surface);opacity:" + (i.taxable ? "1" : "0.5"))} /></Field>
+                    <button type="button" onClick={() => dispatch({ t: "item", op: "update", id: i.id, v: { taxable: !i.taxable } })} style={css(CHIP + ";height:2rem;border:1px solid " + (i.taxable ? "var(--accent)" : "var(--border)") + ";background:" + (i.taxable ? "var(--accent-soft)" : "var(--surface)") + ";color:" + (i.taxable ? "var(--accent)" : "var(--fg-muted)"))}>{i.taxable ? "Taxable" : "Non-taxable"}</button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </div>
         <button type="button" onClick={() => dispatch({ t: "item", op: "add" })} style={css(BTN_GHOST + ";margin-top:0.7rem")}><Icon name="plus" size={14} />Add line item</button>
       </Section>
+      </div>
 
       {/* Time-based billing */}
       {flags.showTime && (
@@ -574,7 +537,7 @@ function FormBody(p: {
       )}
 
       {/* Expenses */}
-      <Section icon="wallet" title="Expenses & reimbursements" hint="Bill back themes, apps, plugins, hosting & contractor costs"
+      <Section icon="wallet" title="Expenses & reimbursements" hint="Bill back themes, apps, plugins, hosting & contractor costs" defaultOpen={false}
         right={<button type="button" onClick={() => dispatch({ t: "expense", op: "add" })} style={css(CHIP + ";border:1px solid var(--border);color:var(--fg-muted)")}><Icon name="plus" size={12} />Add expense</button>}>
         {inv.expenses.length === 0 ? (
           <div style={css("display:flex;flex-wrap:wrap;gap:0.35rem")}>{EXPENSE_PRESETS.map(x => <button key={x} type="button" onClick={() => dispatch({ t: "expense", op: "add", v: { description: x } })} style={css(CHIP + ";border:1px dashed var(--border);color:var(--fg-faint)")}><Icon name="plus" size={11} />{x}</button>)}</div>
@@ -640,97 +603,31 @@ function FormBody(p: {
         </Section>
       )}
 
-      {/* Discounts, fees & payments */}
-      <Section icon="target" title="Discounts, fees & payments received">
-        <div style={css(grid3)}>
-          <Field label="Discount">
-            <div style={css("display:flex;gap:0.3rem")}>
-              <input className="pt-input" type="number" value={inv.discountValue} onChange={e => set({ discountValue: +e.target.value })} style={css(INPUT)} />
-              <button type="button" onClick={() => set({ discountType: inv.discountType === "pct" ? "fixed" : "pct" })} style={css(BTN_GHOST + ";height:auto;padding:0 0.6rem;flex-shrink:0")}>{inv.discountType === "pct" ? "%" : inv.currency}</button>
-            </div>
-          </Field>
-          <Field label="Processing fee">
-            <div style={css("display:flex;gap:0.3rem")}>
-              <input className="pt-input" type="number" value={inv.processingValue} onChange={e => set({ processingValue: +e.target.value })} style={css(INPUT)} />
-              <button type="button" onClick={() => set({ processingType: inv.processingType === "pct" ? "fixed" : "pct" })} style={css(BTN_GHOST + ";height:auto;padding:0 0.6rem;flex-shrink:0")}>{inv.processingType === "pct" ? "%" : inv.currency}</button>
-            </div>
-          </Field>
-          <Field label="Additional fee">{txt(inv.additionalFee, v => set({ additionalFee: +v }), { type: "number" })}</Field>
-          <Field label="Amount already paid">{txt(inv.amountPaid, v => set({ amountPaid: +v }), { type: "number" })}</Field>
-        </div>
-        <TotalsBlock calc={calc as Record<string, number>} inv={inv} money={money} showDeposit={flags.showDeposit} />
-      </Section>
-
-      {/* Payment methods */}
-      <Section icon="card" title="Payment methods & instructions">
-        <div style={css("display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.6rem")}>
-          {PAYMENT_METHODS.map(m => {
-            const on = inv.methods.includes(m);
-            return <button key={m} type="button" onClick={() => set({ methods: on ? inv.methods.filter(x => x !== m) : [...inv.methods, m] })} style={css(CHIP + ";border:1px solid " + (on ? "var(--accent)" : "var(--border-soft)") + ";background:" + (on ? "var(--accent-soft)" : "var(--surface)") + ";color:" + (on ? "var(--accent)" : "var(--fg-muted)"))}>{on && <Icon name="check" size={11} />}{m}</button>;
-          })}
-        </div>
-        <div style={css(grid2)}>
-          <Field label="Payment instructions" span><textarea className="pt-input" value={inv.instructions} onChange={e => set({ instructions: e.target.value })} rows={2} style={css(INPUT + ";resize:vertical;line-height:1.45")} /></Field>
-          <Field label="Payment link">{txt(inv.paymentLink, v => set({ paymentLink: v }), { ph: "https://pay.baltazar.studio/…" })}</Field>
-          <Field label="QR code"><button type="button" onClick={() => actions.showToast("Payment QR generated")} style={css(BTN_GHOST + ";width:100%;justify-content:center")}><Icon name="grid" size={14} />Generate QR</button></Field>
+      {/* Wise payment */}
+      <Section icon="card" title="Payment — Wise only" defaultOpen={false}>
+        <div style={css("display:grid;grid-template-columns:" + (mobile ? "minmax(0,1fr)" : "minmax(0,1fr) 7.5rem") + ";gap:0.85rem;align-items:center;padding:0.8rem;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface-alt)")}>
+          <div style={{ minWidth: 0 }}>
+            <span style={css("display:inline-flex;align-items:center;gap:0.3rem;padding:0.28rem 0.5rem;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:0.7rem;font-weight:500")}><Icon name="check" size={11} />Wise only</span>
+            <div style={css("margin-top:0.55rem;font-size:0.78rem;color:var(--fg-muted);line-height:1.45")}>{WISE_INSTRUCTIONS}</div>
+            <a href={WISE_PAYMENT_URL} target="_blank" rel="noreferrer" style={css("display:inline-flex;align-items:center;gap:0.35rem;margin-top:0.45rem;max-width:100%;font-size:0.75rem;color:var(--accent);text-decoration:none;overflow-wrap:anywhere")}><Icon name="send" size={12} />{WISE_PAYMENT_URL}</a>
+          </div>
+          <img src="/wise-payment-qr.jpeg" alt="Wise payment QR code" style={css("display:block;width:100%;aspect-ratio:1;border-radius:0.7rem;border:1px solid var(--border-soft);object-fit:cover;background:#fff")} />
         </div>
       </Section>
 
       {/* Notes & terms */}
-      <Section icon="file" title="Notes & terms" hint="Internal notes never appear on the client invoice">
+      <Section icon="file" title="Standard note & terms" hint="Short, consistent wording for every invoice" defaultOpen={false}>
         <div style={css("display:flex;flex-direction:column;gap:0.6rem")}>
-          <Field label="Client-facing notes"><textarea className="pt-input" value={inv.notes} onChange={e => set({ notes: e.target.value })} rows={2} placeholder="A short message to the client…" style={css(INPUT + ";resize:vertical;line-height:1.45")} /></Field>
-          <Field label="Payment terms & policies">
-            <textarea className="pt-input" value={inv.terms} onChange={e => set({ terms: e.target.value })} rows={4} style={css(INPUT + ";resize:vertical;line-height:1.5")} />
+          <Field label="Standard invoice note"><textarea className="pt-input" value={inv.notes} onChange={e => set({ notes: e.target.value })} rows={2} style={css(INPUT + ";resize:vertical;line-height:1.45")} /></Field>
+          <Field label="Standard terms">
+            <textarea className="pt-input" value={inv.terms} onChange={e => set({ terms: e.target.value })} rows={2} style={css(INPUT + ";resize:vertical;line-height:1.45")} />
           </Field>
           <div style={css("display:flex;gap:0.4rem;flex-wrap:wrap")}>
-            <button type="button" onClick={() => set({ terms: DEFAULT_TERMS })} style={css(CHIP + ";border:1px solid var(--border);color:var(--fg-muted)")}><Icon name="replay" size={12} />Reset to default</button>
-            <button type="button" onClick={() => actions.showToast("Terms saved as template")} style={css(CHIP + ";border:1px solid var(--border);color:var(--fg-muted)")}><Icon name="file" size={12} />Save as template</button>
+            <button type="button" onClick={() => set({ notes: STANDARD_NOTE, terms: DEFAULT_TERMS })} style={css(CHIP + ";border:1px solid var(--border);color:var(--fg-muted)")}><Icon name="replay" size={12} />Reset standard wording</button>
           </div>
-          <Field label="Internal notes (never shown to client)"><textarea className="pt-input" value={inv.internalNotes} onChange={e => set({ internalNotes: e.target.value })} rows={2} placeholder="Private notes for your team…" style={css(INPUT + ";resize:vertical;line-height:1.45;background:color-mix(in srgb,var(--warn) 6%,var(--surface-alt))")} /></Field>
         </div>
       </Section>
 
-      {/* Attachments */}
-      <Section icon="clip" title="Attachments" hint="Proposal, contract, SOW, receipts, reports & more"
-        right={<button type="button" onClick={() => dispatch({ t: "patch", v: { attachments: [...inv.attachments, { id: uid(), name: "proposal-v2.pdf", kind: "PDF", size: "248 KB" }] } })} style={css(CHIP + ";border:1px solid var(--border);color:var(--fg-muted)")}><Icon name="plus" size={12} />Attach</button>}>
-        {inv.attachments.length === 0 ? (
-          <div style={css("font-size:0.78rem;color:var(--fg-faint)")}>No documents attached yet.</div>
-        ) : (
-          <div style={css("display:flex;flex-direction:column;gap:0.4rem")}>
-            {inv.attachments.map(f => (
-              <div key={f.id} style={css("display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.6rem;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface)")}>
-                <span style={css("width:1.9rem;height:1.9rem;border-radius:0.4rem;background:var(--surface-alt);color:var(--accent);display:grid;place-items:center;font-size:0.56rem;font-weight:500;flex-shrink:0")}>{f.kind}</span>
-                <span style={css("flex:1;min-width:0;font-size:0.8rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{f.name}</span>
-                <span style={css("font-size:0.72rem;color:var(--fg-faint)")}>{f.size}</span>
-                <button type="button" onClick={() => actions.showToast("Preview " + f.name)} className="pt-iconbtn" style={css("width:1.6rem;height:1.6rem;border:1px solid var(--border-soft);border-radius:0.4rem;background:transparent;color:var(--fg-muted);display:grid;place-items:center;cursor:pointer")}><Icon name="eye" size={12} /></button>
-                <button type="button" onClick={() => dispatch({ t: "patch", v: { attachments: inv.attachments.filter(x => x.id !== f.id) } })} className="pt-iconbtn" style={css("width:1.6rem;height:1.6rem;border:1px solid var(--border-soft);border-radius:0.4rem;background:transparent;color:var(--danger);display:grid;place-items:center;cursor:pointer")}><Icon name="x" size={12} /></button>
-              </div>
-            ))}
-          </div>
-        )}
-      </Section>
-
-      {/* Preview settings */}
-      <Section icon="palette" title="Invoice appearance">
-        <div style={css(grid3)}>
-          <Field label="Template">{sel(inv.template, ["Classic", "Modern", "Minimal"], v => set({ template: v }))}</Field>
-          <Field label="Accent color">
-            <div style={css("display:flex;gap:0.35rem;align-items:center")}>
-              {["#c2544d", "#2f6f4f", "#3a5ba0", "#8a5cb4", "#1f2937"].map(c => (
-                <button key={c} type="button" onClick={() => set({ accent: c })} aria-label={c} style={css("width:1.6rem;height:1.6rem;border-radius:50%;cursor:pointer;border:2px solid " + (inv.accent === c ? "var(--fg)" : "transparent") + ";background:" + c)} />
-              ))}
-            </div>
-          </Field>
-          <Field label="Thank-you message">{txt(inv.thankYou, v => set({ thankYou: v }))}</Field>
-          <Field label="Custom footer" span>{txt(inv.footer, v => set({ footer: v }))}</Field>
-        </div>
-        <div style={css("display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.6rem")}>
-          {[["Logo", "showLogo"], ["Project details", "showProject"], ["Tax fields", "showTax"]].map(([l, k]) => (
-            <button key={k} type="button" onClick={() => set({ [k]: !inv[k as "showLogo" | "showProject" | "showTax"] } as Partial<Inv>)} style={css(CHIP + ";border:1px solid " + (inv[k as "showLogo" | "showProject" | "showTax"] ? "var(--accent)" : "var(--border)") + ";color:" + (inv[k as "showLogo" | "showProject" | "showTax"] ? "var(--accent)" : "var(--fg-muted)"))}>{inv[k as "showLogo" | "showProject" | "showTax"] ? <Icon name="eye" size={11} /> : <Icon name="x" size={11} />}{l}</button>
-          ))}
-        </div>
-      </Section>
     </>
   );
 }
@@ -757,135 +654,167 @@ function SavedServicePicker({ onPick }: { onPick: (s: SavedService) => void }) {
   );
 }
 
-function TotalsBlock({ calc, inv, money, showDeposit }: { calc: Record<string, number>; inv: Inv; money: (n: number) => string; showDeposit: boolean }) {
-  const row = (l: string, v: number, opts: { strong?: boolean; muted?: boolean; neg?: boolean } = {}) => (
-    <div style={css("display:flex;justify-content:space-between;align-items:baseline;padding:" + (opts.strong ? "0.5rem 0 0" : "0.2rem 0"))}>
-      <span style={css("font-size:" + (opts.strong ? "0.9rem" : "0.8rem") + ";font-weight:" + (opts.strong ? "500" : "400") + ";color:" + (opts.muted ? "var(--fg-faint)" : "var(--fg-muted)"))}>{l}</span>
-      <span style={css("font-size:" + (opts.strong ? "1.02rem" : "0.82rem") + ";font-weight:500;color:" + (opts.neg ? "var(--success)" : "var(--fg)"))}>{opts.neg ? "− " : ""}{money(Math.abs(v))}</span>
-    </div>
-  );
-  return (
-    <div style={css("margin-top:0.85rem;border-top:1px solid var(--border-soft);padding-top:0.6rem;max-width:22rem;margin-left:auto")}>
-      {row("Service subtotal", calc.serviceSubtotal)}
-      {calc.timeSubtotal > 0 && row("Time subtotal", calc.timeSubtotal)}
-      {calc.expenseSubtotal > 0 && row("Expense subtotal", calc.expenseSubtotal)}
-      {calc.discount > 0 && row("Discount", calc.discount, { neg: true })}
-      {inv.showTax && row("Tax", calc.tax)}
-      {calc.processing > 0 && row("Processing fee", calc.processing)}
-      {inv.additionalFee > 0 && row("Additional fee", inv.additionalFee)}
-      {row("Total", calc.total, { strong: true })}
-      {inv.amountPaid > 0 && row("Amount paid", inv.amountPaid, { neg: true })}
-      <div style={css("display:flex;justify-content:space-between;align-items:baseline;margin-top:0.5rem;padding:0.55rem 0.7rem;border-radius:var(--radius);background:var(--accent-soft)")}>
-        <span style={css("font-size:0.82rem;font-weight:500;color:var(--accent)")}>Balance due</span>
-        <span style={css("font-size:1.1rem;font-weight:500;color:var(--accent)")}>{money(calc.balance)}</span>
-      </div>
-      {showDeposit && inv.deposit.projectValue > 0 && (
-        <div style={css("display:flex;justify-content:space-between;margin-top:0.4rem;font-size:0.74rem;color:var(--fg-muted)")}>
-          <span>Remaining project balance</span><span style={css("font-weight:500;color:var(--fg)")}>{money(calc.remainingProject)}</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── LIVE PREVIEW ──────────────────────────────────────────────────────────────
-function Preview({ inv, biz, client, project, calc, money, lineAmount, expenseAmount }: {
+function Preview({ inv, biz, client, project, calc, money, lineAmount, expenseAmount, onTemplate }: {
   inv: Inv; biz: BizProfile; client: InvClient | null; project: typeof PROJECTS[number] | null;
   calc: Record<string, number>; money: (n: number) => string; lineAmount: (i: Item) => number; expenseAmount: (e: Expense) => number;
+  onTemplate?: (t: string) => void;
 }) {
   const A = inv.accent;
   const statusTone = STATUSES.find(([s]) => s === inv.status)?.[1] || "waiting";
+  const items = inv.items.filter(i => i.service || lineAmount(i) > 0);
+  const subtotal = calc.serviceSubtotal + calc.expenseSubtotal + calc.timeSubtotal;
+  const metaRows = ([["Issue date", inv.issueDate], ["Due date", inv.dueDate], ["Terms", inv.paymentTerms], inv.showProject && project ? ["Project", project.name] : ["Billing", inv.billingType], inv.poNumber ? ["PO", inv.poNumber] : null].filter(Boolean)) as [string, string][];
+
+  const clientBlock = client
+    ? <div style={css("font-size:0.76rem;line-height:1.5")}><b style={css("font-weight:500")}>{client.company}</b><br />{client.name}<br />{client.address}<br />{client.email}</div>
+    : <div style={css("font-size:0.76rem;color:var(--fg-faint)")}>Select a client…</div>;
+
+  const metaPanel = (
+    <div data-invoice-meta-layout style={css("display:grid;grid-template-columns:1fr 1fr;gap:0.6rem") }>
+      <div style={css("padding:0.7rem 0.8rem;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface)")}>
+        <div style={css(eyebrowStyle("var(--fg-faint)") + ";margin-bottom:0.3rem")}>Billed to</div>
+        {clientBlock}
+      </div>
+      <div style={css("padding:0.7rem 0.8rem;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface)")}>
+        <div style={css(eyebrowStyle("var(--fg-faint)") + ";margin-bottom:0.3rem")}>Details</div>
+        {metaRows.map(([l, v]) => <div key={l} style={css("display:flex;justify-content:space-between;gap:0.5rem;font-size:0.72rem;margin-bottom:0.12rem")}><span style={css("color:var(--fg-faint)")}>{l}</span><span style={css("font-weight:500;text-align:right")}>{v}</span></div>)}
+      </div>
+    </div>
+  );
+
+  const itemRows = (
+    <>
+      {items.map(i => (
+        <div key={i.id} style={css("display:grid;grid-template-columns:2.2fr 0.5fr 1fr;gap:0.4rem;padding:0.45rem 0;border-bottom:1px solid var(--border-soft)")}>
+          <div style={{ minWidth: 0 }}><div style={css("font-size:0.78rem;font-weight:500")}>{i.service || "Service"}</div>{i.description && <div style={css("font-size:0.7rem;color:var(--fg-muted);margin-top:0.1rem")}>{i.description}</div>}</div>
+          <span style={css("font-size:0.76rem;text-align:center;color:var(--fg-muted)")}>{i.qty} {i.unit.toLowerCase()}</span>
+          <span style={css("font-size:0.78rem;font-weight:500;text-align:right")}>{money(lineAmount(i))}</span>
+        </div>
+      ))}
+      {inv.expenses.map(e => (
+        <div key={e.id} style={css("display:grid;grid-template-columns:2.2fr 0.5fr 1fr;gap:0.4rem;padding:0.45rem 0;border-bottom:1px solid var(--border-soft)")}>
+          <div style={css("font-size:0.78rem")}>{e.description || "Expense"}{e.vendor && <span style={css("color:var(--fg-faint)")}> · {e.vendor}</span>}</div>
+          <span style={css("text-align:center;color:var(--fg-faint);font-size:0.72rem")}>exp</span>
+          <span style={css("font-size:0.78rem;font-weight:500;text-align:right")}>{money(expenseAmount(e))}</span>
+        </div>
+      ))}
+    </>
+  );
+  const itemHead = (
+    <div style={css("display:grid;grid-template-columns:2.2fr 0.5fr 1fr;gap:0.4rem;padding-bottom:0.35rem;border-bottom:1px solid var(--border-soft);" + eyebrowStyle("var(--fg-faint)"))}>
+      <span>Service</span><span style={{ textAlign: "center" }}>Qty</span><span style={{ textAlign: "right" }}>Amount</span>
+    </div>
+  );
+  const totals = (
+    <div style={css("display:flex;flex-direction:column;gap:0.15rem;padding:0.5rem 0;max-width:16rem;margin-left:auto")}>
+      <PRow l="Subtotal" v={money(subtotal)} />
+      {calc.discount > 0 && <PRow l="Discount" v={"− " + money(calc.discount)} />}
+      {inv.showTax && <PRow l="Tax" v={money(calc.tax)} />}
+      {calc.processing > 0 && <PRow l="Processing" v={money(calc.processing)} />}
+      <div style={css("display:flex;justify-content:space-between;margin-top:0.3rem;padding-top:0.4rem;border-top:2px solid " + A)}>
+        <span style={css("font-size:0.85rem;font-weight:500")}>Balance due</span>
+        <span style={css("font-size:0.98rem;font-weight:500;color:" + A)}>{money(calc.balance)}</span>
+      </div>
+    </div>
+  );
+  const foot = (
+    <>
+      {inv.showProject && inv.deposit.projectValue > 0 && (
+        <div style={css("margin-top:0.7rem;padding:0.6rem 0.7rem;border-radius:var(--radius);background:var(--surface-alt);font-size:0.72rem;color:var(--fg-muted)")}>
+          <div style={css("display:flex;justify-content:space-between")}><span>Total project value</span><b style={css("color:var(--fg);font-weight:500")}>{money(inv.deposit.projectValue)}</b></div>
+          <div style={css("display:flex;justify-content:space-between;margin-top:0.15rem")}><span>Remaining project balance</span><b style={css("color:var(--fg);font-weight:500")}>{money(calc.remainingProject)}</b></div>
+        </div>
+      )}
+      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;margin-top:0.8rem")}>
+        <div style={{ minWidth: 0 }}>
+          <div style={css(eyebrowStyle("var(--fg-faint)") + ";margin-bottom:0.25rem")}>Payment · Wise only</div>
+          <div style={css("font-size:0.72rem;color:var(--fg-muted);line-height:1.5")}>{WISE_INSTRUCTIONS}</div>
+          <a href={WISE_PAYMENT_URL} target="_blank" rel="noreferrer" style={css("display:inline-block;margin-top:0.25rem;font-size:0.72rem;color:" + A + ";text-decoration:none")}>Pay with Wise</a>
+        </div>
+        <img src="/wise-payment-qr.jpeg" alt="Wise payment QR code" style={css("width:4.5rem;height:4.5rem;flex-shrink:0;border-radius:0.55rem;border:1px solid var(--border-soft);object-fit:cover;background:#fff")} />
+      </div>
+      {inv.notes && <div style={css("margin-top:0.7rem;font-size:0.72rem;color:var(--fg-muted);line-height:1.5")}>{inv.notes}</div>}
+      <div style={css("margin-top:0.7rem;font-size:0.66rem;color:var(--fg-faint);line-height:1.5")}>{inv.terms}</div>
+      {inv.thankYou && <div style={css("margin-top:0.8rem;text-align:center;font-size:0.78rem;font-weight:500;color:" + A)}>{inv.thankYou}</div>}
+      <div style={css("margin-top:0.7rem;padding-top:0.6rem;border-top:1px solid var(--border-soft);text-align:center;font-size:0.66rem;color:var(--fg-faint)")}>{inv.footer}</div>
+    </>
+  );
+
+  // ── Classic — centered masthead, ruled sections ──
+  const classic = (
+    <div style={css("padding:1.2rem 1.25rem;font-size:0.8rem;color:var(--fg)")}>
+      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding-bottom:1rem;border-bottom:2px solid " + A)}>
+        <div style={css("display:flex;align-items:center;gap:0.6rem;min-width:0")}>
+          {inv.showLogo && <span style={css("width:2.4rem;height:2.4rem;border-radius:0.5rem;flex-shrink:0;background:" + A + ";color:#fff;display:grid;place-items:center;font-size:0.8rem;font-weight:500")}>{biz.logo}</span>}
+          <div style={{ minWidth: 0 }}><div style={css("font-size:0.95rem;font-weight:500;line-height:1.2")}>{biz.name}</div><div style={css("font-size:0.68rem;color:var(--fg-muted);line-height:1.4;margin-top:0.15rem")}>{biz.address}<br />{biz.email} · {biz.website}</div></div>
+        </div>
+        <div style={css("text-align:right;flex-shrink:0")}><div style={css("font-size:1.05rem;font-weight:500;letter-spacing:0.02em;color:" + A)}>INVOICE</div><div style={css("font-size:0.72rem;color:var(--fg-muted);margin-top:0.2rem")}>{inv.number}</div></div>
+      </div>
+      <div style={css("margin:0.9rem 0")}>{metaPanel}</div>
+      <div style={css("padding:0.6rem 0")}>{itemHead}{itemRows}</div>
+      {totals}
+      {foot}
+    </div>
+  );
+
+  // ── Modern — full-bleed accent header, carded meta & totals ──
+  const modern = (
+    <div style={css("font-size:0.8rem;color:var(--fg)")}>
+      <div style={css("display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.1rem 1.25rem;background:" + A + ";color:#fff")}>
+        <div style={css("display:flex;align-items:center;gap:0.65rem;min-width:0")}>
+          {inv.showLogo && <span style={css("width:2.5rem;height:2.5rem;border-radius:0.55rem;flex-shrink:0;background:rgba(255,255,255,.18);color:#fff;display:grid;place-items:center;font-size:0.82rem;font-weight:500")}>{biz.logo}</span>}
+          <div style={{ minWidth: 0 }}><div style={css("font-size:1rem;font-weight:500;line-height:1.2")}>{biz.name}</div><div style={css("font-size:0.68rem;color:rgba(255,255,255,.82);margin-top:0.1rem")}>{biz.website} · {biz.email}</div></div>
+        </div>
+        <div style={css("text-align:right;flex-shrink:0")}><div style={css("font-size:1.3rem;font-weight:500;letter-spacing:0.04em")}>INVOICE</div><div style={css("font-size:0.72rem;color:rgba(255,255,255,.85);margin-top:0.15rem")}>{inv.number}</div></div>
+      </div>
+      <div style={css("padding:1.1rem 1.2rem")}>
+        <div style={css("margin-bottom:0.9rem")}>{metaPanel}</div>
+        <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius);overflow:hidden")}>
+          <div style={css("display:grid;grid-template-columns:2.2fr 0.5fr 1fr;gap:0.4rem;padding:0.5rem 0.75rem;background:color-mix(in srgb," + A + " 12%,white 88%);" + eyebrowStyle(A))}><span>Service</span><span style={{ textAlign: "center" }}>Qty</span><span style={{ textAlign: "right" }}>Amount</span></div>
+          <div style={css("padding:0 0.75rem")}>{itemRows}</div>
+        </div>
+        <div style={css("margin-top:0.7rem;padding:0.35rem 0.85rem;border-radius:var(--radius);background:color-mix(in srgb," + A + " 8%,white 92%)")}>{totals}</div>
+        {foot}
+      </div>
+    </div>
+  );
+
+  // ── Minimal — hairlines, generous whitespace, understated ──
+  const minimal = (
+    <div style={css("padding:1.5rem 1.5rem;font-size:0.8rem;color:var(--fg)")}>
+      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem")}>
+        <div style={css("display:flex;align-items:center;gap:0.55rem;min-width:0")}>
+          {inv.showLogo && <span style={css("width:2rem;height:2rem;border-radius:0.45rem;flex-shrink:0;background:var(--surface-alt);color:var(--fg);display:grid;place-items:center;font-size:0.72rem;font-weight:500")}>{biz.logo}</span>}
+          <div style={{ minWidth: 0 }}><div style={css("font-size:0.9rem;font-weight:500")}>{biz.name}</div><div style={css("font-size:0.66rem;color:var(--fg-faint);margin-top:0.1rem")}>{biz.email}</div></div>
+        </div>
+        <div style={css("text-align:right;flex-shrink:0")}><div style={css(eyebrowStyle("var(--fg-faint)"))}>Invoice</div><div style={css("font-size:0.82rem;font-weight:500;margin-top:0.15rem")}>{inv.number}</div></div>
+      </div>
+      <div style={css("height:1px;background:var(--border-soft);margin:1rem 0")} />
+      {metaPanel}
+      <div style={css("height:1px;background:var(--border-soft);margin:1rem 0")} />
+      {itemHead}{itemRows}
+      {totals}
+      {foot}
+    </div>
+  );
+
   return (
     <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden")}>
-      <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.6rem 0.8rem;border-bottom:1px solid var(--border-soft);background:var(--surface-alt)")}>
+      <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.5rem;padding:0.5rem 0.7rem;border-bottom:1px solid var(--border-soft);background:var(--surface-alt);flex-wrap:wrap")}>
         <span style={css(eyebrowStyle("var(--fg-faint)"))}>Live preview</span>
-        <span style={css(statusPill(statusTone))}>{inv.status}</span>
+        <div style={css("display:flex;align-items:center;gap:0.5rem")}>
+          {onTemplate && (
+            <div style={css("display:inline-flex;padding:0.15rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);gap:0.1rem")}>
+              {["Classic", "Modern", "Minimal"].map(t => (
+                <button key={t} type="button" onClick={() => onTemplate(t)} aria-pressed={inv.template === t} style={css("padding:0.24rem 0.6rem;border:0;border-radius:var(--radius-pill);font-size:0.68rem;font-weight:500;cursor:pointer;background:" + (inv.template === t ? "var(--accent)" : "transparent") + ";color:" + (inv.template === t ? "#fff" : "var(--fg-muted)"))}>{t}</button>
+              ))}
+            </div>
+          )}
+          <span style={css(statusPill(statusTone))}>{inv.status}</span>
+        </div>
       </div>
-      <div style={css("padding:1.2rem 1.25rem;font-size:0.8rem;color:var(--fg)")}>
-        {/* head */}
-        <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding-bottom:1rem;border-bottom:2px solid " + A)}>
-          <div style={css("display:flex;align-items:center;gap:0.6rem;min-width:0")}>
-            {inv.showLogo && <span style={css("width:2.4rem;height:2.4rem;border-radius:0.5rem;flex-shrink:0;background:" + A + ";color:#fff;display:grid;place-items:center;font-size:0.8rem;font-weight:500")}>{biz.logo}</span>}
-            <div style={{ minWidth: 0 }}>
-              <div style={css("font-size:0.95rem;font-weight:500;line-height:1.2")}>{biz.name}</div>
-              <div style={css("font-size:0.68rem;color:var(--fg-muted);line-height:1.4;margin-top:0.15rem")}>{biz.address}<br />{biz.email} · {biz.website}</div>
-            </div>
-          </div>
-          <div style={css("text-align:right;flex-shrink:0")}>
-            <div style={css("font-size:1.05rem;font-weight:500;letter-spacing:0.02em;color:" + A)}>INVOICE</div>
-            <div style={css("font-size:0.72rem;color:var(--fg-muted);margin-top:0.2rem")}>{inv.number}</div>
-          </div>
-        </div>
-
-        {/* meta */}
-        <div style={css("display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;padding:0.9rem 0;border-bottom:1px solid var(--border-soft)")}>
-          <div>
-            <div style={css(eyebrowStyle("var(--fg-faint)") + ";margin-bottom:0.25rem")}>Billed to</div>
-            {client ? (
-              <div style={css("font-size:0.76rem;line-height:1.5")}><b style={css("font-weight:500")}>{client.company}</b><br />{client.name}<br />{client.address}<br />{client.email}</div>
-            ) : <div style={css("font-size:0.76rem;color:var(--fg-faint)")}>Select a client…</div>}
-          </div>
-          <div style={css("text-align:right")}>
-            {[["Issue date", inv.issueDate], ["Due date", inv.dueDate], ["Terms", inv.paymentTerms], inv.showProject && project ? ["Project", project.name] : ["Billing", inv.billingType], inv.poNumber ? ["PO", inv.poNumber] : null].filter(Boolean).map((r) => {
-              const [l, v] = r as [string, string];
-              return <div key={l} style={css("font-size:0.72rem;margin-bottom:0.15rem")}><span style={css("color:var(--fg-faint)")}>{l}: </span><span style={css("font-weight:500")}>{v}</span></div>;
-            })}
-          </div>
-        </div>
-
-        {/* line items */}
-        <div style={css("padding:0.6rem 0")}>
-          <div style={css("display:grid;grid-template-columns:2.2fr 0.5fr 1fr;gap:0.4rem;padding-bottom:0.35rem;border-bottom:1px solid var(--border-soft);" + eyebrowStyle("var(--fg-faint)"))}>
-            <span>Service</span><span style={{ textAlign: "center" }}>Qty</span><span style={{ textAlign: "right" }}>Amount</span>
-          </div>
-          {inv.items.filter(i => i.service || lineAmount(i) > 0).map(i => (
-            <div key={i.id} style={css("display:grid;grid-template-columns:2.2fr 0.5fr 1fr;gap:0.4rem;padding:0.4rem 0;border-bottom:1px solid var(--border-soft)")}>
-              <div style={{ minWidth: 0 }}><div style={css("font-size:0.78rem;font-weight:500")}>{i.service || "Service"}</div>{i.description && <div style={css("font-size:0.7rem;color:var(--fg-muted);margin-top:0.1rem")}>{i.description}</div>}</div>
-              <span style={css("font-size:0.76rem;text-align:center;color:var(--fg-muted)")}>{i.qty} {i.unit.toLowerCase()}</span>
-              <span style={css("font-size:0.78rem;font-weight:500;text-align:right")}>{money(lineAmount(i))}</span>
-            </div>
-          ))}
-          {inv.expenses.map(e => (
-            <div key={e.id} style={css("display:grid;grid-template-columns:2.2fr 0.5fr 1fr;gap:0.4rem;padding:0.4rem 0;border-bottom:1px solid var(--border-soft)")}>
-              <div style={css("font-size:0.78rem")}>{e.description || "Expense"}{e.vendor && <span style={css("color:var(--fg-faint)")}> · {e.vendor}</span>}</div>
-              <span style={css("text-align:center;color:var(--fg-faint);font-size:0.72rem")}>exp</span>
-              <span style={css("font-size:0.78rem;font-weight:500;text-align:right")}>{money(expenseAmount(e))}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* totals */}
-        <div style={css("display:flex;flex-direction:column;gap:0.15rem;padding:0.5rem 0;max-width:16rem;margin-left:auto")}>
-          <PRow l="Subtotal" v={money(calc.serviceSubtotal + calc.expenseSubtotal + calc.timeSubtotal)} />
-          {calc.discount > 0 && <PRow l="Discount" v={"− " + money(calc.discount)} />}
-          {inv.showTax && <PRow l="Tax" v={money(calc.tax)} />}
-          {calc.processing > 0 && <PRow l="Processing" v={money(calc.processing)} />}
-          <div style={css("display:flex;justify-content:space-between;margin-top:0.3rem;padding-top:0.4rem;border-top:2px solid " + A)}>
-            <span style={css("font-size:0.85rem;font-weight:500")}>Balance due</span>
-            <span style={css("font-size:0.95rem;font-weight:500;color:" + A)}>{money(calc.balance)}</span>
-          </div>
-        </div>
-
-        {/* project summary */}
-        {inv.showProject && inv.deposit.projectValue > 0 && (
-          <div style={css("margin-top:0.5rem;padding:0.6rem 0.7rem;border-radius:var(--radius);background:var(--surface-alt);font-size:0.72rem;color:var(--fg-muted)")}>
-            <div style={css("display:flex;justify-content:space-between")}><span>Total project value</span><b style={css("color:var(--fg);font-weight:500")}>{money(inv.deposit.projectValue)}</b></div>
-            <div style={css("display:flex;justify-content:space-between;margin-top:0.15rem")}><span>Remaining project balance</span><b style={css("color:var(--fg);font-weight:500")}>{money(calc.remainingProject)}</b></div>
-          </div>
-        )}
-
-        {/* payment + terms */}
-        {inv.methods.length > 0 && (
-          <div style={css("margin-top:0.8rem")}>
-            <div style={css(eyebrowStyle("var(--fg-faint)") + ";margin-bottom:0.25rem")}>Payment</div>
-            <div style={css("font-size:0.72rem;color:var(--fg-muted);line-height:1.5")}>{inv.methods.join(" · ")}<br />{inv.instructions}<br />{biz.account}</div>
-          </div>
-        )}
-        {inv.notes && <div style={css("margin-top:0.7rem;font-size:0.72rem;color:var(--fg-muted);line-height:1.5")}>{inv.notes}</div>}
-        <div style={css("margin-top:0.7rem;font-size:0.66rem;color:var(--fg-faint);line-height:1.5")}>{inv.terms}</div>
-        {inv.thankYou && <div style={css("margin-top:0.8rem;text-align:center;font-size:0.78rem;font-weight:500;color:" + A)}>{inv.thankYou}</div>}
-        <div style={css("margin-top:0.7rem;padding-top:0.6rem;border-top:1px solid var(--border-soft);text-align:center;font-size:0.66rem;color:var(--fg-faint)")}>{inv.footer}</div>
-      </div>
+      {inv.template === "Modern" ? modern : inv.template === "Minimal" ? minimal : classic}
     </div>
   );
 }
@@ -955,7 +884,7 @@ function PaymentModal({ inv, calc, money, onClose, onRecord }: { inv: Inv; calc:
         <div style={css("display:grid;grid-template-columns:1fr 1fr;gap:0.5rem")}>
           <Field label="Payment amount"><input className="pt-input" type="number" value={amount} onChange={e => setAmount(e.target.value)} style={css(INPUT)} /></Field>
           <Field label="Payment date">{txt(inv.issueDate, () => {}, { type: "date" })}</Field>
-          <Field label="Method">{sel("Bank transfer", PAYMENT_METHODS, () => {})}</Field>
+          <Field label="Method">{sel("Wise", ["Wise"], () => {})}</Field>
           <Field label="Transaction reference">{txt("", () => {}, { ph: "TXN-…" })}</Field>
           <Field label="Processing fee">{txt("0", () => {}, { type: "number" })}</Field>
           <Field label="Notes">{txt("", () => {}, { ph: "Optional" })}</Field>

@@ -66,12 +66,20 @@ export type PortalFunnelPlanRecord = {
   content: unknown;
 };
 
+export type PortalClientNoteRecord = {
+  id: string;
+  text: string;
+  author: string;
+  createdAt: string;
+};
+
 export type PortalClientWorkspace = {
   approvals: PortalApprovalRecord[];
   proposal: PortalProposalRecord | null;
   collaborators: PortalCollaboratorRecord[];
   files: PortalWorkspaceFile[];
   funnelPlans: PortalFunnelPlanRecord[];
+  notes: PortalClientNoteRecord[];
 };
 
 export type PersistedPortalWorkspaceState = {
@@ -140,6 +148,7 @@ export function emptyPortalClientWorkspace(clientId: string): PortalClientWorksp
     collaborators: [],
     files: [],
     funnelPlans: [],
+    notes: [],
   };
 }
 
@@ -157,6 +166,7 @@ export function mergePortalClientWorkspace(clientId: string, workspace?: Partial
     collaborators: asArray<PortalCollaboratorRecord>(workspace?.collaborators),
     files: asArray<PortalWorkspaceFile>(workspace?.files),
     funnelPlans: asArray<PortalFunnelPlanRecord>(workspace?.funnelPlans),
+    notes: asArray<PortalClientNoteRecord>(workspace?.notes),
   };
 }
 

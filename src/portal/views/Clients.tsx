@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Icon } from "../icons";
 import { css, healthMap, initials, statusPill, svcBadge } from "../helpers";
 import { SVC_META } from "../data";
@@ -15,6 +16,20 @@ export function Clients({ state, actions }: { state: PortalState; actions: Porta
   const filterActive = cf.service !== "all" || cf.health !== "all";
   const svcLabel = SVC_LABELS.find(([k]) => k === cf.service)?.[1] || "All Services";
   const canManage = state.role === "admin";
+  const [notesClient, setNotesClient] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
+  const notesWorkspace = notesClient ? actions.workspaceForClient(notesClient) : null;
+
+  const closeNotes = () => {
+    setNotesClient(null);
+    setNoteDraft("");
+  };
+
+  const saveNote = () => {
+    if (!notesClient || !noteDraft.trim()) return;
+    actions.addClientNote(notesClient, noteDraft);
+    setNoteDraft("");
+  };
 
   const svMatch = (f: { service: string; health: string }) => f.service === cf.service && f.health === cf.health;
   const canSave = filterActive && !state.savedViews.clients.some(v => svMatch(v.filter));
@@ -58,6 +73,7 @@ export function Clients({ state, actions }: { state: PortalState; actions: Porta
       <div style={css("display:grid;grid-template-columns:repeat(auto-fit,minmax(17rem,1fr));gap:var(--space-3)")}>
         {projects.map(p => {
           const hm = healthMap(p.health); const sm = SVC_META[p.service];
+          const noteCount = actions.workspaceForClient(p.client).notes.length;
           return (
             <div key={p.id} style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden;display:flex;flex-direction:column")}>
               <div aria-hidden="true" style={css("height:0.24rem;background:linear-gradient(90deg," + sm.color + " 0%,color-mix(in srgb," + sm.color + " 72%,var(--surface) 28%) 72%,color-mix(in srgb," + sm.color + " 20%,var(--surface) 80%) 100%);flex-shrink:0")} />
@@ -84,16 +100,54 @@ export function Clients({ state, actions }: { state: PortalState; actions: Porta
                 {canManage ? (
                   <>
                     <button onClick={() => actions.openClientDetail(p.client)} className="pt-softbtn" style={css("flex:1;padding:0.6rem;border:none;border-right:1px solid var(--border-soft);background:transparent;color:var(--fg-muted);font-size:0.74rem;font-weight:500;cursor:pointer")}>View Details</button>
-                    <button onClick={actions.previewAsClient} className="pt-softbtn" style={css("flex:1;padding:0.6rem;border:none;background:transparent;color:var(--fg-muted);font-size:0.74rem;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.3rem")}><Icon name="eye" size={15} />Preview</button>
+                    <button onClick={() => setNotesClient(p.client)} className="pt-softbtn" style={css("flex:1;padding:0.6rem;border:none;border-right:1px solid var(--border-soft);background:transparent;color:var(--fg-muted);font-size:0.74rem;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.3rem")}><Icon name="file" size={14} />Notes{noteCount > 0 ? ` · ${noteCount}` : ""}</button>
+                    <button onClick={actions.previewAsClient} aria-label={`Preview ${p.client}`} className="pt-softbtn" style={css("width:2.7rem;padding:0.6rem;border:none;background:transparent;color:var(--fg-muted);cursor:pointer;display:grid;place-items:center")}><Icon name="eye" size={15} /></button>
                   </>
                 ) : (
-                  <button onClick={() => actions.openClientDetail(p.client)} className="pt-softbtn" style={css("flex:1;padding:0.6rem;border:none;background:transparent;color:var(--fg-muted);font-size:0.74rem;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.3rem")}>Open Workspace <Icon name="arrow" size={13} /></button>
+                  <>
+                    <button onClick={() => actions.openClientDetail(p.client)} className="pt-softbtn" style={css("flex:1;padding:0.6rem;border:none;border-right:1px solid var(--border-soft);background:transparent;color:var(--fg-muted);font-size:0.74rem;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.3rem")}>Open Workspace <Icon name="arrow" size={13} /></button>
+                    <button onClick={() => setNotesClient(p.client)} className="pt-softbtn" style={css("flex:1;padding:0.6rem;border:none;background:transparent;color:var(--fg-muted);font-size:0.74rem;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.3rem")}><Icon name="file" size={14} />Notes{noteCount > 0 ? ` · ${noteCount}` : ""}</button>
+                  </>
                 )}
               </div>
             </div>
           );
         })}
       </div>
+
+      {notesClient && notesWorkspace && (
+        <div role="presentation" onClick={closeNotes} style={css("position:fixed;inset:0;z-index:80;background:rgba(35,24,22,.28);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:1rem")}>
+          <section role="dialog" aria-modal="true" aria-label={`${notesClient} notes`} onClick={e => e.stopPropagation()} style={css("width:min(36rem,100%);max-height:min(44rem,calc(100vh - 2rem));display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius-panel);background:var(--surface);box-shadow:0 24px 70px rgba(35,24,22,.22);overflow:hidden")}>
+            <div style={css("display:flex;align-items:flex-start;gap:0.75rem;padding:1rem 1.1rem;border-bottom:1px solid var(--border-soft)")}>
+              <span style={css("width:2rem;height:2rem;border-radius:var(--radius-sm);background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:500;font-size:0.78rem;flex-shrink:0")}>{notesClient[0]}</span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={css("font-size:0.95rem;font-weight:500;color:var(--fg)")}>{notesClient} notes</div>
+                <div style={css("font-size:0.72rem;color:var(--fg-faint);margin-top:0.12rem")}>Shared client memory for decisions, preferences, and important context.</div>
+              </div>
+              <button type="button" aria-label="Close notes" onClick={closeNotes} className="pt-iconbtn" style={css("width:1.9rem;height:1.9rem;border:1px solid var(--border-soft);border-radius:50%;background:transparent;color:var(--fg-muted);display:grid;place-items:center;cursor:pointer;flex-shrink:0")}><Icon name="x" size={13} /></button>
+            </div>
+
+            <div style={css("padding:1rem 1.1rem;border-bottom:1px solid var(--border-soft);background:var(--surface-alt)")}>
+              <label style={css("display:block;font-size:0.72rem;font-weight:500;color:var(--fg-muted);margin-bottom:0.35rem")}>Add a note</label>
+              <textarea value={noteDraft} onChange={e => setNoteDraft(e.target.value)} placeholder="Add a preference, decision, reminder, or useful client context…" rows={4} style={css("width:100%;box-sizing:border-box;resize:vertical;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--fg);font:inherit;font-size:0.8rem;line-height:1.5;padding:0.65rem 0.7rem;outline:none")} />
+              <div style={css("display:flex;justify-content:flex-end;margin-top:0.55rem")}>
+                <button type="button" disabled={!noteDraft.trim()} onClick={saveNote} style={css("display:inline-flex;align-items:center;gap:0.35rem;height:2rem;padding:0 0.85rem;border:0;border-radius:var(--radius-pill);background:var(--accent);color:#fff;font-size:0.74rem;font-weight:500;cursor:pointer;opacity:" + (noteDraft.trim() ? "1" : "0.45"))}><Icon name="plus" size={12} />Save note</button>
+              </div>
+            </div>
+
+            <div style={css("overflow:auto;padding:0.9rem 1.1rem;display:flex;flex-direction:column;gap:0.55rem") }>
+              {notesWorkspace.notes.length === 0 ? (
+                <div style={css("padding:1.4rem 1rem;text-align:center;border:1px dashed var(--border);border-radius:var(--radius);color:var(--fg-faint);font-size:0.76rem")}>No notes yet. Add the first piece of client context above.</div>
+              ) : notesWorkspace.notes.map(note => (
+                <article key={note.id} style={css("padding:0.72rem 0.8rem;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface)")}>
+                  <div style={css("font-size:0.78rem;color:var(--fg);line-height:1.55;white-space:pre-wrap")}>{note.text}</div>
+                  <div style={css("display:flex;align-items:center;gap:0.55rem;margin-top:0.5rem;font-size:0.66rem;color:var(--fg-faint)")}><span>{note.author}</span><time dateTime={note.createdAt}>{new Date(note.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</time><button type="button" aria-label="Delete note" onClick={() => actions.deleteClientNote(notesClient, note.id)} style={css("margin-left:auto;border:0;background:transparent;color:var(--fg-faint);font-size:0.66rem;cursor:pointer;padding:0.1rem 0.2rem")}>Delete</button></div>
+                </article>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
