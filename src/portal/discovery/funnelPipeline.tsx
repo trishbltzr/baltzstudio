@@ -452,7 +452,7 @@ function introPreview(): ReactNode {
     <div style={css("position:absolute;top:1.5rem;left:1.5rem;right:-2.5rem;bottom:-1.4rem;background:#fff;border:1px solid var(--border-soft);border-radius:12px 0 0 0;box-shadow:0 24px 60px -30px rgba(60,40,30,0.5);padding:1.2rem 1.4rem;display:flex;flex-direction:column;overflow:hidden")}>
       <div style={css("display:flex;align-items:center;gap:0.65rem;padding-bottom:0.75rem")}>
         <span style={css("width:1.85rem;height:1.85rem;border-radius:7px;background:color-mix(in srgb,var(--accent) 14%,white 86%);color:" + ACCENT + ";display:grid;place-items:center;font-weight:600;font-size:var(--text-base);flex-shrink:0")}>A</span>
-        <div style={css("flex:1;min-width:0")}><div style={css("font-size:0.9rem;font-weight:600;line-height:1.2")}>Aurora Skincare Launch</div><div style={css("font-size:0.68rem;color:var(--fg-muted);margin-top:0.08rem")}>Development plan · Prepared by Baltz Studio</div></div>
+        <div style={css("flex:1;min-width:0")}><div style={css("font-size:0.9rem;font-weight:600;line-height:1.2")}>Client</div><div style={css("font-size:0.68rem;color:var(--fg-muted);margin-top:0.08rem")}>Development plan · Prepared by Baltz Studio</div></div>
       </div>
       <div style={css("height:2px;background:" + ACCENT + ";border-radius:2px;margin-bottom:0.9rem")} />
       <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:" + ACCENT + ";margin-bottom:0.5rem")}>Final design</div>

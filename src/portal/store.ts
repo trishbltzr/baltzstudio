@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DEFAULT_PORTAL_APPROVALS,
+  PORTAL_WORKSPACE_DATA_VERSION,
   mergePortalApprovals,
   mergePortalClientWorkspace,
   normalizePersistedPortalWorkspaceState,
@@ -14,15 +15,17 @@ import {
   type PortalProposalRecord,
   type PortalWorkspaceFile,
 } from "@/lib/portalWorkspacePersistence";
-import type { Escalation, JourneyGate, JourneyRequestSeverity, Priority, Role, Service, Task, TaskFilter, TaskStatus, Thread, View } from "./types";
+import type { Escalation, JourneyGate, JourneyRequestSeverity, Priority, Role, Service, Task, TaskFilter, TaskImportDraft, TaskStatus, Thread, View } from "./types";
 import type { ProgressChatMessage, ProgressChatSession } from "./types";
 import { seedEscalations, seedJourneyGates, seedTasks, seedThreads } from "./data";
 import { STATUS_ORDER } from "./helpers";
 import { progressChatReply, progressChatTranscript, summarizeProgressChatTitle } from "./progressChat";
+import { DEFAULT_CLIENT_NAME } from "./clients";
 
-export type TaskView = "board" | "calendar" | "milestone";
+export type TaskView = "board" | "calendar";
+export const NEW_TASK_DRAFT_ID = "__new_task_draft__";
 export type SavedView<F> = { name: string; filter: F };
-type PersistedPortalState = Pick<PortalState, "tasks" | "journeyGates" | "threads" | "escalations" | "ticketSeq" | "clientWorkspaces" | "progressChatSessions" | "activeProgressChatId">;
+type PersistedPortalState = Pick<PortalState, "tasks" | "journeyGates" | "threads" | "escalations" | "ticketSeq" | "clientWorkspaces" | "progressChatSessions" | "activeProgressChatId"> & { dataVersion: string };
 
 export type JourneyRequestPayload = {
   existingThreadId?: string;
@@ -58,6 +61,7 @@ export interface PortalState {
   // tasks
   tasks: Task[];
   taskModal: string | null;
+  taskDraft: Task | null;
   taskView: TaskView;
   draggingId: string | null;
   dragOverCol: TaskStatus | null;
@@ -99,11 +103,12 @@ export interface PortalState {
   progressChatHistoryOpen: boolean;
   ticketSeq: number;
   clientWorkspaces: Record<string, PortalClientWorkspace>;
+  invoiceClientName: string | null;
 }
 
 function loadSavedViews(): PortalState["savedViews"] {
   try {
-    const v = JSON.parse(localStorage.getItem("baltz.savedViews") || "null");
+    const v = JSON.parse(localStorage.getItem("baltz.clientSlate.v2.savedViews") || "null");
     if (v && typeof v === "object") return { clients: v.clients || [], tasks: v.tasks || [] };
   } catch { /* ignore */ }
   return { clients: [], tasks: [] };
@@ -111,7 +116,7 @@ function loadSavedViews(): PortalState["savedViews"] {
 
 function loadPersistedPortalState(): Partial<PersistedPortalState> {
   try {
-    const value = JSON.parse(localStorage.getItem("baltz.portalState") || "null");
+    const value = JSON.parse(localStorage.getItem("baltz.clientSlate.v2.portalState") || "null");
     const normalized = normalizePersistedPortalWorkspaceState(value);
     if (normalized) return normalized as Partial<PersistedPortalState>;
   } catch { /* ignore */ }
@@ -155,6 +160,7 @@ function syncPortalViewUrl(view: View) {
 function persistPortalState(state: PortalState) {
   try {
     const snapshot: PersistedPortalState = {
+      dataVersion: PORTAL_WORKSPACE_DATA_VERSION,
       tasks: state.tasks,
       journeyGates: state.journeyGates,
       threads: state.threads,
@@ -164,7 +170,7 @@ function persistPortalState(state: PortalState) {
       progressChatSessions: state.progressChatSessions,
       activeProgressChatId: state.activeProgressChatId,
     };
-    localStorage.setItem("baltz.portalState", JSON.stringify(snapshot));
+    localStorage.setItem("baltz.clientSlate.v2.portalState", JSON.stringify(snapshot));
   } catch { /* ignore */ }
 }
 
@@ -183,26 +189,26 @@ export function initialState(role: Role, requestedView?: View | null): PortalSta
   return {
     role, view: requestedView ?? "progress", previewFrom: null, clientDetail: null,
     isMobile: false, navOpen: false, notifOpen: false, pop: null, sidePop: null, sidebarCollapsed: false, guidedSidebarActive: false, guidedSidebarExitTick: 0, guidedTopBarInfo: null, toast: null,
-    tasks: seedTasks(), taskModal: null, taskView: "board", draggingId: null, dragOverCol: null,
+    tasks: seedTasks(), taskModal: null, taskDraft: null, taskView: "board", draggingId: null, dragOverCol: null,
     boardSelect: false, selTasks: [], taskChecks: {}, taskComments: {}, taskCommentDraft: "",
     taskFilter: { owner: "all", priority: "all" }, clientFilter: { service: "all", health: "all" },
     savedViews: { clients: [], tasks: [] },
     calY: 2026, calM: 6, calSel: "2026-6-2",
     journeyGates: seedJourneyGates(),
     funExpanded: null, subModal: null, playbookDoc: null,
-    threads: seedThreads(), selectedThreadId: "th1", draft: "", inboxSearch: "", inboxFilter: "all", statusMenuOpen: false, assignMenuOpen: false,
+    threads: seedThreads(), selectedThreadId: "", draft: "", inboxSearch: "", inboxFilter: "all", statusMenuOpen: false, assignMenuOpen: false,
     escalations: seedEscalations(),
     paletteOpen: false, paletteQuery: "",
     fileBrand: "all",
     chatDraft: "", progressChatSessions: [], activeProgressChatId: null, progressChatHistoryOpen: false, ticketSeq: 1042,
-    clientWorkspaces: {},
+    clientWorkspaces: {}, invoiceClientName: null,
   };
 }
 
 const ROLE_VIEWS: Record<Role, Set<View>> = {
-  admin: new Set(["progress", "clients", "tasks", "inbox", "audits_new", "funnels", "activity", "team", "playbooks", "billing", "profile", "settings", "onboarding"]),
+  admin: new Set(["progress", "clients", "tasks", "inbox", "audits_new", "funnels", "activity", "team", "playbooks", "invoices", "billing", "profile", "settings", "onboarding"]),
   dev: new Set(["progress", "clients", "tasks", "review", "inbox", "audits_new", "funnels", "playbooks", "profile", "settings", "onboarding"]),
-  client: new Set(["progress", "milestones", "tasks", "inbox", "activity", "audit", "funnels", "files", "assistant", "billing", "profile", "settings"]),
+  client: new Set(["progress", "milestones", "tasks", "inbox", "activity", "audit", "funnels", "files", "assistant", "profile", "settings"]),
 };
 
 export interface PortalActions {
@@ -217,8 +223,12 @@ export interface PortalActions {
   advanceTask: (id: string) => void;
   moveTask: (id: string, status: TaskStatus) => void;
   assignTask: (id: string, assignee: string) => void;
+  updateTask: (id: string, patch: Partial<Task>) => void;
+  deleteTask: (id: string) => void;
+  bulkImportTasks: (drafts: TaskImportDraft[]) => void;
   toggleCheck: (taskId: string, idx: number) => void;
   addTaskComment: (taskId: string, who: string) => void;
+  addTaskCommentText: (taskId: string, who: string, text: string) => void;
   dragStart: (id: string) => void;
   dragEnd: () => void;
   dropOn: (status: TaskStatus) => void;
@@ -234,6 +244,8 @@ export interface PortalActions {
   togglePop: (id: string) => void;
   closePop: () => void;
   createQuickTask: () => void;
+  saveTaskDraft: () => void;
+  cancelTaskDraft: () => void;
   setTaskView: (v: TaskView) => void;
   calNav: (d: number) => void;
   sendMsg: () => void;
@@ -307,8 +319,8 @@ export function usePortal(seedRole: Role) {
         const payload = await response.json().catch(() => null);
         if (!response.ok) throw new Error(typeof payload?.error === "string" ? payload.error : "Unable to load the portal workspace state.");
         const persisted = normalizePersistedPortalWorkspaceState(payload?.state);
-        if (!cancelled && persisted) {
-          setState(s => ({
+        if (!cancelled) {
+          setState(s => persisted ? ({
             ...s,
             tasks: persisted.tasks as Task[],
             journeyGates: persisted.journeyGates as JourneyGate[],
@@ -318,6 +330,17 @@ export function usePortal(seedRole: Role) {
             clientWorkspaces: persisted.clientWorkspaces,
             progressChatSessions: persisted.progressChatSessions as ProgressChatSession[],
             activeProgressChatId: persisted.activeProgressChatId,
+          }) : ({
+            ...s,
+            tasks: seedTasks(),
+            journeyGates: seedJourneyGates(),
+            threads: seedThreads(),
+            selectedThreadId: "",
+            escalations: seedEscalations(),
+            ticketSeq: 1,
+            clientWorkspaces: {},
+            progressChatSessions: [],
+            activeProgressChatId: null,
           }));
         }
       } catch (error) {
@@ -336,6 +359,7 @@ export function usePortal(seedRole: Role) {
   useEffect(() => {
     if (!hasHydrated || !workspaceLoaded) return;
     const snapshot = {
+      dataVersion: PORTAL_WORKSPACE_DATA_VERSION,
       tasks: state.tasks,
       journeyGates: state.journeyGates,
       threads: state.threads,
@@ -398,8 +422,8 @@ export function usePortal(seedRole: Role) {
       const b = tasks.find(x => x.id === t.blockedBy);
       return b && b.status !== "done" ? b : null;
     };
-    const persist = (v: PortalState["savedViews"]) => { try { localStorage.setItem("baltz.savedViews", JSON.stringify(v)); } catch { /* ignore */ } };
-    const actorName = (role: Role) => role === "client" ? "Flora Bennett" : role === "dev" ? "Noa Vega" : "Trish Baltazar";
+    const persist = (v: PortalState["savedViews"]) => { try { localStorage.setItem("baltz.clientSlate.v2.savedViews", JSON.stringify(v)); } catch { /* ignore */ } };
+    const actorName = (role: Role) => role === "client" ? "Client" : role === "dev" ? "Kier Mangibin" : "Trish Baltazar";
     const actorShort = (role: Role) => actorName(role).split(" ")[0];
     const displayDate = () => new Date().toLocaleDateString("en-US", { month: "long", day: "numeric" });
     const workspaceForClient = (clientName: string, clientWorkspaces: Record<string, PortalClientWorkspace>) => {
@@ -408,7 +432,7 @@ export function usePortal(seedRole: Role) {
     };
     const nextThreadId = (prefix: string, value: number) => `${prefix}${value}`;
     const createClientMessage = (text: string, by: string) => ({ from: "studio" as const, text, time: "Now", by });
-    const progressChatWorkspaceName = (role: Role) => role === "client" ? "Flora & Co." : role === "dev" ? "Delivery Workspace" : "Baltazar Studio";
+    const progressChatWorkspaceName = (role: Role) => role === "client" ? DEFAULT_CLIENT_NAME : role === "dev" ? "Delivery Workspace" : "Baltazar Studio";
     const newProgressChatSession = (): ProgressChatSession => {
       const now = new Date().toISOString();
       return { id: "pc-" + Date.now(), title: "New Snapshot chat", messages: [], createdAt: now, updatedAt: now, status: "draft" };
@@ -460,7 +484,8 @@ export function usePortal(seedRole: Role) {
         setState(s => ({ ...s, role: r, view: "progress", previewFrom: null, navOpen: false, notifOpen: false, pop: null, playbookDoc: null }));
       },
       setView: v => {
-        const nextView = v === "escalations" ? "inbox" : v;
+        const requestedView = v === "escalations" ? "inbox" : v;
+        const nextView = ROLE_VIEWS[stateRef.current.role].has(requestedView) ? requestedView : "progress";
         syncPortalViewUrl(nextView);
         setState(s => ({ ...s, view: nextView, navOpen: false, notifOpen: false, pop: null, sidePop: null, playbookDoc: null }));
       },
@@ -536,8 +561,53 @@ export function usePortal(seedRole: Role) {
         if (changed) setTimeout(() => showToast("Assigned to " + assignee), 0);
         return changed ? { ...s, tasks } : s;
       }),
+      updateTask: (id, taskPatch) => setState(s => id === NEW_TASK_DRAFT_ID && s.taskDraft ? ({
+        ...s,
+        taskDraft: { ...s.taskDraft, ...taskPatch, id: NEW_TASK_DRAFT_ID },
+      }) : ({
+        ...s,
+        tasks: s.tasks.map(task => task.id === id ? { ...task, ...taskPatch, id: task.id } : task),
+      })),
+      deleteTask: id => setState(s => {
+        if (id === NEW_TASK_DRAFT_ID) return { ...s, taskDraft: null, taskModal: null };
+        const task = s.tasks.find(item => item.id === id);
+        if (task) setTimeout(() => showToast("Task deleted"), 0);
+        return {
+          ...s,
+          tasks: s.tasks.filter(item => item.id !== id),
+          taskModal: s.taskModal === id ? null : s.taskModal,
+          selTasks: s.selTasks.filter(item => item !== id),
+        };
+      }),
+      bulkImportTasks: drafts => setState(s => {
+        const existingSourceIds = new Set(s.tasks.map(task => task.sourceId).filter(Boolean));
+        const uniqueDrafts = drafts.filter(draft => !draft.sourceId || !existingSourceIds.has(draft.sourceId));
+        const maxTaskNumber = Math.max(0, ...s.tasks.map(task => Number.parseInt(task.id.replace(/\D/g, ""), 10) || 0));
+        const imported = uniqueDrafts.map((draft, index): Task => ({
+          ...draft,
+          id: "k" + (maxTaskNumber + index + 1),
+          status: draft.status || "todo",
+        }));
+        setTimeout(() => showToast(imported.length
+          ? `${imported.length} audit task${imported.length === 1 ? "" : "s"} imported`
+          : "Those audit tasks are already in To-do"), 0);
+        return imported.length ? {
+          ...s,
+          view: "tasks",
+          taskView: "board",
+          tasks: [...imported, ...s.tasks],
+          taskModal: null,
+          boardSelect: false,
+          selTasks: [],
+        } : s;
+      }),
       toggleCheck: (taskId, idx) => setState(s => { const cur = s.taskChecks[taskId] || {}; return { ...s, taskChecks: { ...s.taskChecks, [taskId]: { ...cur, [idx]: !cur[idx] } } }; }),
       addTaskComment: (taskId, who) => setState(s => { const t = (s.taskCommentDraft || "").trim(); if (!t) return s; return { ...s, taskCommentDraft: "", taskComments: { ...s.taskComments, [taskId]: [...(s.taskComments[taskId] || []), { who, text: t, time: "Just now", me: true }] } }; }),
+      addTaskCommentText: (taskId, who, text) => setState(s => {
+        const clean = text.trim();
+        if (!clean) return s;
+        return { ...s, taskComments: { ...s.taskComments, [taskId]: [...(s.taskComments[taskId] || []), { who, text: clean, time: "Just now", me: true }] } };
+      }),
       dragStart: id => { dragRef.current = id; setState(s => ({ ...s, draggingId: id })); },
       dragEnd: () => { dragRef.current = null; setState(s => ({ ...s, draggingId: null, dragOverCol: null })); },
       dropOn: status => { const id = dragRef.current; dragRef.current = null; setState(s => ({ ...s, draggingId: null, dragOverCol: null })); if (id) actionsRef.current.moveTask(id, status); },
@@ -584,46 +654,75 @@ export function usePortal(seedRole: Role) {
       closePop: () => setState(s => ({ ...s, pop: null })),
       createQuickTask: () => {
         const s = stateRef.current;
-        const nextNum = Math.max(0, ...s.tasks.map(task => Number.parseInt(task.id.replace(/\D/g, ""), 10) || 0)) + 1;
-        const id = "k" + nextNum;
-        const project = s.clientDetail || s.threads.find(thread => thread.id === s.selectedThreadId)?.clientName || (s.role === "client" ? "Flora & Co." : "Flora & Co.");
-        const assignee = s.role === "admin" ? "Trish Baltazar" : s.role === "dev" ? "Noa Vega" : "Flora Bennett";
+        const project = s.clientDetail || s.threads.find(thread => thread.id === s.selectedThreadId)?.clientName || DEFAULT_CLIENT_NAME;
+        const assignee = s.role === "admin" ? "Trish Baltazar" : s.role === "dev" ? "Kier Mangibin" : "Client";
         const owner = s.role === "client" ? "client" : "studio";
         const task: Task = {
-          id,
+          id: NEW_TASK_DRAFT_ID,
           title: "New To-do Draft",
           project,
           assignee,
           owner,
           status: "todo",
           priority: "med",
-          due: "July 8",
+          due: displayDate(),
+          source: "manual",
+          milestone: "General",
         };
         setState(prev => ({
           ...prev,
           view: "tasks",
           taskView: "board",
-          taskModal: id,
+          taskModal: NEW_TASK_DRAFT_ID,
+          taskDraft: task,
           boardSelect: false,
           selTasks: [],
           pop: null,
           navOpen: false,
-          tasks: [task, ...prev.tasks],
         }));
-        showToast("New to-do draft opened");
+        showToast("New to-do draft opened — it has not been created yet");
       },
+      saveTaskDraft: () => setState(s => {
+        const draft = s.taskDraft;
+        if (!draft) return s;
+        if (!draft.title.trim() || !draft.project.trim()) {
+          setTimeout(() => showToast("Add a task name and client before creating it"), 0);
+          return s;
+        }
+        const nextNum = Math.max(0, ...s.tasks.map(task => Number.parseInt(task.id.replace(/\D/g, ""), 10) || 0)) + 1;
+        const id = "k" + nextNum;
+        const task: Task = { ...draft, id, title: draft.title.trim(), project: draft.project.trim() };
+        const draftChecks = s.taskChecks[NEW_TASK_DRAFT_ID];
+        const draftComments = s.taskComments[NEW_TASK_DRAFT_ID];
+        const { [NEW_TASK_DRAFT_ID]: _discardChecks, ...remainingChecks } = s.taskChecks;
+        const { [NEW_TASK_DRAFT_ID]: _discardComments, ...remainingComments } = s.taskComments;
+        setTimeout(() => showToast("Task created for " + task.project), 0);
+        return {
+          ...s,
+          tasks: [task, ...s.tasks],
+          taskDraft: null,
+          taskModal: null,
+          taskChecks: draftChecks ? { ...remainingChecks, [id]: draftChecks } : remainingChecks,
+          taskComments: draftComments ? { ...remainingComments, [id]: draftComments } : remainingComments,
+        };
+      }),
+      cancelTaskDraft: () => setState(s => {
+        const { [NEW_TASK_DRAFT_ID]: _discardChecks, ...remainingChecks } = s.taskChecks;
+        const { [NEW_TASK_DRAFT_ID]: _discardComments, ...remainingComments } = s.taskComments;
+        return { ...s, taskDraft: null, taskModal: null, taskChecks: remainingChecks, taskComments: remainingComments };
+      }),
       setTaskView: v => setState(s => ({ ...s, taskView: v })),
       calNav: d => setState(s => { let m = s.calM + d, y = s.calY; if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; } return { ...s, calM: m, calY: y }; }),
       sendMsg: () => setState(s => {
         const d = s.draft.trim(); if (!d) return s;
         const from = s.role === "client" ? "client" : "studio";
-        const by = (s.role === "client" ? "Flora Bennett" : s.role === "dev" ? "Noa Vega" : "Trish Baltazar").split(" ")[0];
+        const by = (s.role === "client" ? "Client" : s.role === "dev" ? "Kier Mangibin" : "Trish Baltazar").split(" ")[0];
         const tid = s.role === "client" ? "th1" : s.selectedThreadId;
         return { ...s, draft: "", threads: s.threads.map(t => t.id === tid ? { ...t, messages: [...t.messages, { from, text: d, time: "Now", by }] } : t) };
       }),
       insertCanned: text => setState(s => {
         const from = s.role === "client" ? "client" : "studio";
-        const by = (s.role === "client" ? "Flora Bennett" : s.role === "dev" ? "Noa Vega" : "Trish Baltazar").split(" ")[0];
+        const by = (s.role === "client" ? "Client" : s.role === "dev" ? "Kier Mangibin" : "Trish Baltazar").split(" ")[0];
         const tid = s.role === "client" ? "th1" : s.selectedThreadId;
         return { ...s, threads: s.threads.map(t => t.id === tid ? { ...t, messages: [...t.messages, { from, text, time: "Now", by }] } : t) };
       }),
@@ -735,7 +834,7 @@ export function usePortal(seedRole: Role) {
         const firstUserMessage = session.messages.find(message => message.from === "user")?.text || session.title;
         const title = session.title === "New Snapshot chat" ? summarizeProgressChatTitle(firstUserMessage) : session.title;
         const clientName = progressChatWorkspaceName(s.role);
-        const assignee = s.role === "dev" ? "Noa Vega" : "Trish Baltazar";
+        const assignee = s.role === "dev" ? "Kier Mangibin" : "Trish Baltazar";
         const transcript = progressChatTranscript(session.messages);
         const thread: Thread = {
           id: threadId,
@@ -937,7 +1036,7 @@ export function usePortal(seedRole: Role) {
       createJourneyRequest: payload => {
         const s = stateRef.current;
         const existing = payload.existingThreadId ? s.threads.find(t => t.id === payload.existingThreadId) : null;
-        const assignee = existing?.assignee || "Noa Vega";
+        const assignee = existing?.assignee || "Kier Mangibin";
         const summary = (payload.tags.length ? "[" + payload.tags.join(", ") + "] " : "") + payload.note + (payload.severity === "refine" ? " (nice to refine)" : "");
 
         if (existing && existing.ticketId) {
@@ -948,7 +1047,7 @@ export function usePortal(seedRole: Role) {
               status: "open",
               unread: t.unread + 1,
               escalated: payload.severity === "blocking" ? true : t.escalated,
-              messages: [...t.messages, { from: "client", text: summary, time: "Now", by: "Flora" }],
+              messages: [...t.messages, { from: "client", text: summary, time: "Now", by: "Client" }],
             } : t),
           }));
           return { ticketId: existing.ticketId, threadId: existing.id, assignee };
@@ -958,7 +1057,7 @@ export function usePortal(seedRole: Role) {
         const threadId = "jr" + s.ticketSeq;
         const ticket: Thread = {
           id: threadId,
-          name: "Flora Bennett",
+          name: "Client",
           clientName: payload.clientName,
           unread: 1,
           isTicket: true,
@@ -969,7 +1068,7 @@ export function usePortal(seedRole: Role) {
           escalated: payload.severity === "blocking",
           tzLabel: "London",
           tzOff: 1,
-          messages: [{ from: "client", text: payload.title + " — " + summary, time: "Now", by: "Flora" }],
+          messages: [{ from: "client", text: payload.title + " — " + summary, time: "Now", by: "Client" }],
         };
         setState(prev => ({
           ...prev,

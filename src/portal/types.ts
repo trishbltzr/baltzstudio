@@ -32,6 +32,8 @@ export type Health = "on_track" | "at_risk" | "delayed";
 export interface Task {
   id: string;
   title: string;
+  description?: string;
+  attachments?: string[];
   project: string;
   assignee: string;
   owner: Owner;
@@ -39,7 +41,21 @@ export interface Task {
   priority: Priority;
   due: string;
   blockedBy?: string;
+  source?: "audit" | "manual" | "inbox";
+  sourceId?: string;
+  milestone?: string;
+  subtasks?: TaskSubtask[];
 }
+
+export interface TaskSubtask {
+  id: string;
+  title: string;
+  status: TaskStatus;
+}
+
+export type TaskImportDraft = Omit<Task, "id" | "status"> & {
+  status?: TaskStatus;
+};
 
 export interface ClientProject {
   id: string;

@@ -1,9 +1,10 @@
 import { STUDIO_CLIENTS } from "@/portal/clients";
 
-export const PORTAL_WORKSPACE_ROW_ID = "default";
-export const PORTAL_WORKSPACE_FALLBACK_RUN_ID = "__portal_workspace__";
-export const PORTAL_WORKSPACE_FALLBACK_CLIENT_ID = "__portal_workspace__";
+export const PORTAL_WORKSPACE_ROW_ID = "client-slate-v2";
+export const PORTAL_WORKSPACE_FALLBACK_RUN_ID = "__portal_workspace_client_slate_v2__";
+export const PORTAL_WORKSPACE_FALLBACK_CLIENT_ID = "__portal_workspace_client_slate_v2__";
 export const PORTAL_UPLOAD_BUCKET = "portal-uploads";
+export const PORTAL_WORKSPACE_DATA_VERSION = "client-slate-v2";
 
 export type PortalApprovalRecord = {
   id: string;
@@ -83,6 +84,7 @@ export type PortalClientWorkspace = {
 };
 
 export type PersistedPortalWorkspaceState = {
+  dataVersion: string;
   tasks: unknown[];
   journeyGates: unknown[];
   threads: unknown[];
@@ -93,32 +95,7 @@ export type PersistedPortalWorkspaceState = {
   activeProgressChatId: string | null;
 };
 
-export const DEFAULT_PORTAL_APPROVALS: PortalApprovalRecord[] = [
-  {
-    id: "approval-flora-full-site",
-    clientId: "flora",
-    clientName: "Flora & Co.",
-    title: "Milestone 2 — Full Site",
-    thumb: "oklch(0.8 0.1 70)",
-    sent: false,
-  },
-  {
-    id: "approval-plume-handoff",
-    clientId: "plume",
-    clientName: "Plume Studio",
-    title: "Milestone 3 — Handoff",
-    thumb: "oklch(0.8 0.07 165)",
-    sent: false,
-  },
-  {
-    id: "approval-saffron-readout",
-    clientId: "saffron",
-    clientName: "Saffron & Sage",
-    title: "Cocoon readout",
-    thumb: "oklch(0.8 0.1 40)",
-    sent: false,
-  },
-];
+export const DEFAULT_PORTAL_APPROVALS: PortalApprovalRecord[] = [];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -172,6 +149,7 @@ export function mergePortalClientWorkspace(clientId: string, workspace?: Partial
 
 export function normalizePersistedPortalWorkspaceState(value: unknown): PersistedPortalWorkspaceState | null {
   if (!isRecord(value)) return null;
+  if (value.dataVersion !== PORTAL_WORKSPACE_DATA_VERSION) return null;
 
   const clientWorkspaces = asRecord<PortalClientWorkspace>(value.clientWorkspaces);
   const mergedClientWorkspaces = Object.fromEntries(
@@ -185,6 +163,7 @@ export function normalizePersistedPortalWorkspaceState(value: unknown): Persiste
   });
 
   return {
+    dataVersion: PORTAL_WORKSPACE_DATA_VERSION,
     tasks: asArray(value.tasks),
     journeyGates: asArray(value.journeyGates),
     threads: asArray(value.threads),

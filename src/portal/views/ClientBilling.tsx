@@ -9,10 +9,7 @@ const BANNER: Record<string, [string, string, string]> = {
   awaiting_studio: ["Awaiting studio confirmation", "var(--lane-ai)", "var(--lane-ai-soft)"],
   confirmed: ["Payment confirmed", "var(--success)", "var(--success-soft)"],
 };
-const INVOICES = [
-  { id: "Wise · Winged in a Week deposit", date: "June 23, 2026", amount: "£1,200", status: "Confirmed" },
-  { id: "Wise · Cocoon Consult", date: "June 2, 2026", amount: "£450", status: "Confirmed" },
-];
+const INVOICES: { id: string; date: string; amount: string; status: string }[] = [];
 
 // 21×21 QR-like matrix (deterministic), ported from the prototype qrMatrix().
 function qrMatrix(): boolean[] {
@@ -34,6 +31,10 @@ export function ClientBilling({ state, actions }: { state: PortalState; actions:
   const banner = BANNER[status];
   const grid = useMemo(() => qrMatrix(), []);
   const cols = state.isMobile ? "minmax(0,1fr)" : "minmax(0,1.55fr) minmax(0,1fr)";
+
+  if (INVOICES.length === 0) {
+    return <div style={css("padding:2.5rem 1rem;text-align:center;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);color:var(--fg-faint);font-size:0.8rem")}>No invoices or payment activity yet.</div>;
+  }
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: cols, gap: "0.85rem" }}>

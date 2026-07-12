@@ -1,13 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import { Icon } from "../icons";
 import { css, initials, laneMeta, prioColor, prioTag, statusPill, STATUS_LABEL, STATUS_MAP } from "../helpers";
-import { FUNNEL, MY_CLIENTS } from "../data";
 import { roleTasks } from "../selectors";
 import { FilterDropdown } from "../components/FilterDropdown";
-import type { PortalActions, PortalState, TaskView } from "../store";
-import type { FunnelState } from "../data";
+import type { PortalActions, PortalState } from "../store";
 import type { Owner, Task, TaskStatus } from "../types";
 
 const COLS: [TaskStatus, string, string][] = [["todo", "To Do", "var(--fg-faint)"], ["in_progress", "In Progress", "var(--accent)"], ["review", "In Review", "var(--warn)"], ["done", "Done", "var(--success)"]];
@@ -42,30 +39,29 @@ function dueToDate(due: string): { m: number; d: number } | null {
 
 function LaneTag({ owner }: { owner: Owner }) {
   const lm = laneMeta(owner);
-  return <span style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:0.58rem;font-weight:500;letter-spacing:0.02em;padding:0.1rem 0.4rem;border-radius:5px;background:" + lm.s + ";color:color-mix(in srgb," + lm.c + " 60%,black 40%)")}><span style={css("width:0.45rem;height:0.45rem;border-radius:50%;flex-shrink:0;background:" + lm.c)} />{lm.label}</span>;
+  return <span style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:0.58rem;font-weight:500;letter-spacing:0.02em;padding:0.12rem 0.48rem;border-radius:999px;background:" + lm.s + ";color:color-mix(in srgb," + lm.c + " 60%,black 40%)")}><span style={css("width:0.45rem;height:0.45rem;border-radius:50%;flex-shrink:0;background:" + lm.c)} />{lm.label}</span>;
 }
 
 export function Tasks({ state, actions }: { state: PortalState; actions: PortalActions }) {
   const tasks = roleTasks(state);
-  const tabs: [TaskView, string, string][] = [["board", "Board", "grid"], ["calendar", "Calendar", "cal"], ["milestone", "Milestone", "flag"]];
 
   return (
     <div>
       <div style={css("display:flex;align-items:" + (state.isMobile ? "flex-start" : "center") + ";gap:" + (state.isMobile ? "0.75rem" : "1rem") + ";flex-wrap:wrap;margin:0 0 0.9rem")}>
-        <div style={css("display:inline-flex;gap:0.15rem;background:oklch(0.94 0.006 50);border-radius:var(--radius-pill);padding:0.2rem;max-width:100%;overflow-x:auto")}>
-          {tabs.map(([id, label, ic]) => {
-            const on = state.taskView === id;
-            return <button key={id} onClick={() => actions.setTaskView(id)} style={css("display:inline-flex;align-items:center;gap:0.35rem;padding:" + (state.isMobile ? "0.34rem 0.62rem" : "0.35rem 0.72rem") + ";border-radius:var(--radius-pill);border:none;cursor:pointer;font-size:" + (state.isMobile ? "0.76rem" : "0.78rem") + ";font-weight:500;white-space:nowrap;" + (on ? "background:var(--surface);color:var(--fg)" : "background:transparent;color:var(--fg-muted)"))}><Icon name={ic} size={14} />{label}</button>;
-          })}
+        <div style={css("min-width:0;flex:" + (state.isMobile ? "1 1 100%" : "1 1 auto"))}>
+          <h2 style={css("margin:0;font-size:var(--text-lg);font-weight:500;line-height:1.2;color:var(--fg)")}>Task board</h2>
+          <div style={css("margin-top:0.15rem;font-size:var(--text-xs);color:var(--fg-muted)")}>Plan, assign, and track every to-do.</div>
         </div>
-        <div style={css("display:flex;align-items:center;gap:" + (state.isMobile ? "0.65rem" : "0.9rem") + ";margin-left:" + (state.isMobile ? "0" : "auto") + ";width:" + (state.isMobile ? "100%" : "auto") + ";flex-wrap:wrap")}>
+        {state.role !== "client" && <div style={css("display:flex;align-items:center;gap:.45rem;margin-left:" + (state.isMobile ? "0" : "auto") + ";width:" + (state.isMobile ? "100%" : "auto"))}>
+          <button type="button" onClick={actions.createQuickTask} className="pt-op" style={css("display:inline-flex;align-items:center;justify-content:center;gap:.35rem;height:2rem;padding:0 .78rem;border-radius:999px;border:none;background:var(--accent);color:#fff;font-size:.74rem;font-weight:500;cursor:pointer;flex:" + (state.isMobile ? "1" : "0 0 auto"))}><Icon name="plus" size={13} />New to-do</button>
+          <button type="button" onClick={() => { actions.setView("audits_new"); actions.showToast("Open a completed audit to import its recommendations"); }} style={css("display:inline-flex;align-items:center;justify-content:center;gap:.35rem;height:2rem;padding:0 .78rem;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);font-size:.74rem;font-weight:500;cursor:pointer;flex:" + (state.isMobile ? "1" : "0 0 auto"))}><Icon name="checkmark" size={13} />Import from audit</button>
+        </div>}
+        <div style={css("display:flex;align-items:center;gap:" + (state.isMobile ? "0.65rem" : "0.9rem") + ";margin-left:" + (state.isMobile ? "0" : (state.role === "client" ? "auto" : "0")) + ";width:" + (state.isMobile ? "100%" : "auto") + ";flex-wrap:wrap")}>
           {LANE_LEGEND.map(([k, l]) => { const lm = laneMeta(k); return <span key={k} style={css("display:inline-flex;align-items:center;gap:0.32rem;font-size:" + (state.isMobile ? "0.68rem" : "0.72rem") + ";color:var(--fg-muted);white-space:nowrap")}><span style={css("width:0.5rem;height:0.5rem;border-radius:50%;background:" + lm.c)} />{l}</span>; })}
         </div>
       </div>
 
-      {state.taskView === "board" && <Board state={state} actions={actions} tasks={tasks} />}
-      {state.taskView === "calendar" && <Calendar state={state} actions={actions} tasks={tasks} />}
-      {state.taskView === "milestone" && <Milestones state={state} actions={actions} />}
+      <Board state={state} actions={actions} tasks={tasks} />
     </div>
   );
 }
@@ -101,7 +97,7 @@ function Board({ state, actions, tasks }: { state: PortalState; actions: PortalA
 
   return (
     <>
-      <ActiveMsBanner />
+      {tasks.length > 0 && <ActiveMsBanner />}
       <div style={css("display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin:-0.1rem 0 0.75rem")}>
         <div style={css("display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap")}>
           <FilterDropdown id="towner" label="Owner" valueLabel={ownerVal} state={state} actions={actions} options={OWNER_L.map(([k, l]) => ({ label: l, active: tf.owner === k, onClick: () => actions.setTaskFilter("owner", k) }))} />
@@ -185,7 +181,7 @@ function dateFromCalendarKey(key: string) {
   return new Date(y, m, d);
 }
 
-function Calendar({ state, actions, tasks }: { state: PortalState; actions: PortalActions; tasks: Task[] }) {
+export function TaskCalendar({ state, actions, tasks, showBanner = false }: { state: PortalState; actions: PortalActions; tasks: Task[]; showBanner?: boolean }) {
   const tByDay: Record<string, Task[]> = {};
   tasks.forEach(t => { const dd = dueToDate(t.due); if (!dd) return; const k = "2026-" + dd.m + "-" + dd.d; (tByDay[k] = tByDay[k] || []).push(t); });
   const first = new Date(state.calY, state.calM, 1);
@@ -214,7 +210,7 @@ function Calendar({ state, actions, tasks }: { state: PortalState; actions: Port
 
   return (
     <>
-      <ActiveMsBanner />
+      {showBanner && tasks.length > 0 && <ActiveMsBanner />}
       <div style={css("display:grid;grid-template-columns:" + (state.isMobile ? "minmax(0,1fr)" : "minmax(0,1fr) minmax(0,2.4fr)") + ";gap:0.85rem;align-items:start")}>
         <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden;order:" + (state.isMobile ? "1" : "2"))}>
           <div style={css("padding:" + (state.isMobile ? "0.82rem" : "0.9rem 1rem 0.82rem") + ";border-bottom:1px solid var(--border-soft);background:color-mix(in srgb,var(--surface) 78%,var(--surface-alt) 22%)")}>
@@ -333,102 +329,6 @@ function Calendar({ state, actions, tasks }: { state: PortalState; actions: Port
               </div>
             ) : <p style={css("margin:0;font-size:0.8rem;color:var(--fg-faint);text-align:center;padding:1.35rem 0")}>No tasks due on this day.</p>}
           </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
-const SUB_STATUS_META: Record<string, [string, string]> = { active: ["", "var(--accent)"], soon: ["Soon", "var(--fg-faint)"], locked: ["Locked", "var(--fg-faint)"] };
-function dotRow(pct: number, status: FunnelState) {
-  const filled = Math.round(pct / 20);
-  return Array.from({ length: 5 }, (_, i) => "width:0.42rem;height:0.42rem;border-radius:50%;flex-shrink:0;box-sizing:border-box;" + (i < filled ? "background:var(--accent)" : (i === filled && status === "active" ? "border:1.4px dotted var(--accent)" : "background:oklch(0.88 0.008 50)")));
-}
-
-// The "Milestone" view is the funnel: phases → expandable sub-phase cards (ported
-// from the design's funPhases / isMilestoneView).
-function Milestones({ state, actions }: { state: PortalState; actions: PortalActions }) {
-  const [client, setClient] = useState(MY_CLIENTS[0]);
-  const brandMenuOpen = state.pop === "milestone-brand-menu";
-
-  return (
-    <>
-      <div style={css("background:" + TASK_VIEW_SHELL_BG + ";border:1px solid var(--border-soft);border-radius:var(--radius-panel);padding:0.8rem")}>
-        <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);flex-wrap:wrap;margin:0.05rem 0.15rem 0.65rem")}>
-          <div style={css("display:flex;align-items:center;gap:0.38rem;min-width:0;position:relative")}>
-            <span style={css("font-size:0.8rem;color:var(--fg-muted);white-space:nowrap")}>funnel milestones for</span>
-              <button
-                onClick={() => actions.togglePop("milestone-brand-menu")}
-                style={css("display:inline-flex;align-items:center;gap:0.32rem;min-width:0;padding:0;border:none;background:transparent;color:var(--fg);font:inherit;font-size:0.9rem;font-weight:500;cursor:pointer")}
-              >
-                <span style={css("overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{client}</span>
-                <span style={css("display:flex;flex-shrink:0;color:var(--fg-faint)")}>
-                  <Icon name="chev" size={14} />
-                </span>
-              </button>
-              {brandMenuOpen && (
-                <>
-                  <div onClick={() => actions.closePop()} style={{ position: "fixed", inset: 0, zIndex: 54 }} />
-                  <div style={{ ...css("position:absolute;top:calc(100% + 0.45rem);left:0;min-width:12.5rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);z-index:55;padding:0.3rem"), animation: "pt-ddin .15s ease" }}>
-                    {MY_CLIENTS.map(name => (
-                      <button
-                        key={name}
-                        onClick={() => { actions.closePop(); setClient(name); }}
-                        style={css("display:flex;align-items:center;justify-content:space-between;gap:0.9rem;width:100%;text-align:left;padding:0.5rem 0.7rem;border:none;border-radius:calc(var(--radius) - 3px);background:" + (name === client ? "var(--accent-soft)" : "transparent") + ";color:" + (name === client ? "var(--accent)" : "var(--fg)") + ";font-size:0.79rem;font-weight:500;cursor:pointer")}
-                      >
-                        {name}
-                        {name === client && <span style={{ display: "flex" }}><Icon name="checkmark" size={13} /></span>}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-          </div>
-        </div>
-        <div style={css("display:flex;flex-direction:column;gap:var(--space-2)")}>
-          {FUNNEL.map((p, pi) => {
-            const locked = p.status === "locked";
-            const pct = Math.round((p.done / p.total) * 100);
-            const expanded = (state.funExpanded === null ? pi === 0 : state.funExpanded === p.id) && !locked;
-            return (
-              <div key={p.id} style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden")}>
-                <button onClick={() => locked ? actions.showToast(p.title + " unlocks after the previous phase") : actions.patch({ funExpanded: expanded ? "__none" : p.id })} style={css("width:100%;display:flex;align-items:center;gap:0.7rem;padding:0.7rem 0.9rem;border:none;background:transparent;cursor:pointer;text-align:left")}>
-                  <span style={css("width:1.5rem;height:1.5rem;border-radius:50%;flex-shrink:0;box-sizing:border-box;display:grid;place-items:center;font-size:0.7rem;font-weight:500;" + (locked ? "background:oklch(0.94 0.004 50);color:var(--fg-faint)" : "border:1.5px dotted var(--accent);color:var(--accent)"))}>{pi + 1}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={css("font-size:0.58rem;font-weight:500;letter-spacing:0.02em;color:var(--fg-faint)")}>Milestone {pi + 1}</div>
-                    <div style={css("font-weight:500;font-size:0.9rem;line-height:1.2;color:" + (locked ? "var(--fg-faint)" : "var(--fg)"))}>{p.title}</div>
-                  </div>
-                  <span style={css("font-size:var(--text-xs);color:var(--fg-muted);flex-shrink:0")}>{p.done}/{p.total}</span>
-                  <div style={css("width:4.5rem;height:0.35rem;border-radius:999px;background:oklch(0.93 0.006 50);overflow:hidden;flex-shrink:0")}><div style={css("width:" + pct + "%;height:100%;background:" + (locked ? "var(--border)" : "var(--accent)") + ";border-radius:999px")} /></div>
-                  <span style={{ transition: "transform .18s", transform: "rotate(" + (expanded ? "180deg" : "0deg") + ")", color: "var(--fg-faint)", flexShrink: 0, display: "flex" }}><Icon name="chev" size={15} /></span>
-                </button>
-                {expanded && (
-                  <div style={css("padding:0 0.9rem 0.9rem")}>
-                    <div style={css("display:grid;grid-template-columns:" + (state.isMobile ? "repeat(2,1fr)" : "repeat(3,1fr)") + ";gap:var(--space-2)")}>
-                      {p.subs.map(s => {
-                        const active = s.status === "active";
-                        const meta = SUB_STATUS_META[s.status] || SUB_STATUS_META.locked;
-                        return (
-                          <div key={s.id} onClick={() => actions.patch({ subModal: s.id })} className="pt-card-soft" style={css("border:1px solid " + (active ? "var(--border)" : "var(--border-soft)") + ";border-radius:var(--radius);padding:0.85rem 0.95rem;cursor:pointer;display:flex;flex-direction:column;gap:0.7rem;background:" + (active ? "var(--surface-alt)" : "var(--surface)") + ";opacity:" + (s.status === "soon" ? "0.72" : "1") + ";transition:border-color .12s")}>
-                            <div style={css("display:flex;align-items:center;gap:var(--space-2)")}>
-                              <span style={css("font-size:var(--text-2xs);font-weight:500;padding:0.15rem 0.5rem;border-radius:999px;background:oklch(0.94 0.004 50);color:var(--fg-muted);flex-shrink:0")}>{s.code}</span>
-                              <div style={{ flex: 1, minWidth: 0 }}><span style={css("font-weight:500;font-size:0.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;color:" + (active ? "var(--fg)" : "var(--fg-muted)"))}>{s.title}</span></div>
-                              {active && <span style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:var(--text-xs);font-weight:500;padding:0.15rem 0.55rem;border-radius:999px;background:var(--accent-soft);color:var(--accent);flex-shrink:0")}>{s.pct}%</span>}
-                              {!active && <span style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:var(--text-xs);font-weight:500;color:var(--fg-faint);flex-shrink:0")}><Icon name={s.status === "locked" ? "lock" : "target"} size={12} />{meta[0]}</span>}
-                            </div>
-                            <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)")}>
-                              <div style={css("display:flex;gap:0.28rem")}>{dotRow(s.pct, s.status).map((d, di) => <span key={di} style={css(d)} />)}</div>
-                              <span style={css("display:inline-flex;align-items:center;gap:var(--space-1);font-size:0.68rem;color:var(--fg-faint)")}>✓ {s.done}/{s.total}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
         </div>
       </div>
     </>

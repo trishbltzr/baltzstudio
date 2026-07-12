@@ -12,9 +12,8 @@ export type DemoUser = LoginUser & {
 
 export const DEMO_USERS: DemoUser[] = [
   { email: "trisha@baltazarstudio.co", password: "studio123", role: "admin", name: "Trisha Baltazar" },
-  { email: "manager@baltazarstudio.co", password: "manager123", role: "manager", name: "Development Team" },
-  { email: "team@floraandco.com", password: "flora123", role: "client", name: "Flora & Co." },
-  { email: "hazel@houseofhazel.co", password: "hazel123", role: "client", name: "House of Hazel" },
+  { email: "kier@baltazarstudio.co", password: "member123", role: "manager", name: "Kier Mangibin" },
+  { email: "client@baltazarstudio.co", password: "client123", role: "client", name: "Blue Ribbon" },
 ];
 
 export function findDemoUserByRole(role: string | null) {

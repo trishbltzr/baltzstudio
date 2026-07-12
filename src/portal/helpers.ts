@@ -62,7 +62,7 @@ export function roleBadgeStyle(kind: string): string {
 
 // Canonical eyebrow — matches the sidebar section labels. Only colour varies.
 export function eyebrowStyle(color = "var(--fg-muted)"): string {
-  return `text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:${color}`;
+  return `text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.01em;line-height:1.2;color:${color}`;
 }
 
 export function sidebarEyebrowStyle(color = "var(--fg-muted)"): string {

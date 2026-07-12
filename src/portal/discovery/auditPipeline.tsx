@@ -152,6 +152,22 @@ function CatCard({ c, accent, big }: { c: AuditCat; accent: string; big?: boolea
   );
 }
 
+function BrandDirectionPanel({ cats }: { cats: AuditCat[] }) {
+  const brandCats = cats.filter(cat => cat.key === "brand" || cat.key === "msg" || cat.key === "vis");
+  const brandScore = brandCats.length ? Math.round(brandCats.reduce((total, cat) => total + cat.score, 0) / brandCats.length) : 0;
+  return (
+    <section data-brand-audit style={css("border:1px solid color-mix(in srgb,var(--cocoon) 24%,var(--border-soft) 76%);border-radius:16px;background:linear-gradient(135deg,color-mix(in srgb,var(--cocoon) 7%,white 93%),var(--surface));padding:1.15rem 1.25rem") }>
+      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem")}>
+        <div><div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--cocoon)")}>Brand audit</div><div style={css("font-size:1.05rem;font-weight:500;margin-top:0.3rem")}>Suggested brand direction</div><div style={css("font-size:0.76rem;color:var(--fg-muted);line-height:1.45;margin-top:0.25rem")}>Positioning, voice, and visual guidance to carry into the next version of the brand.</div></div>
+        <div style={css("min-width:4rem;padding:0.5rem 0.65rem;border:1px solid var(--border-soft);border-radius:0.78rem;background:rgba(255,255,255,.72);text-align:center")}><div style={css("font-size:1.2rem;font-weight:500;color:var(--cocoon)")}>{brandScore}</div><div style={css("font-size:0.6rem;color:var(--fg-faint)")}>brand score</div></div>
+      </div>
+      <div style={css("display:grid;grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));gap:0.55rem;margin-top:0.85rem")}>
+        {brandCats.map(cat => <div key={cat.key} style={css("padding:0.72rem 0.78rem;border:1px solid var(--border-soft);border-radius:0.8rem;background:rgba(255,255,255,.72)")}><div style={css("font-size:0.76rem;font-weight:500")}>{cat.label}</div><div style={css("font-size:0.73rem;color:var(--fg-muted);line-height:1.45;margin-top:0.35rem")}>{cat.rec}</div></div>)}
+      </div>
+    </section>
+  );
+}
+
 function OverallBand({ d, accent }: { d: AuditDocs; accent: string }) {
   return (
     <div style={css("display:grid;grid-template-columns:1fr 1fr;gap:0.7rem;animation:cocoonFade .4s ease both")}>
@@ -206,6 +222,7 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
         )}
         {showOverall && <OverallBand d={d} accent={accent} />}
         {showOverall && <NeedCallout d={d} accent={accent} onSeePlan={onAdvance} />}
+        {reveal === Number.POSITIVE_INFINITY && <BrandDirectionPanel cats={d.cats} />}
         <div style={css("display:grid;grid-template-columns:1fr;gap:var(--space-3)")}>
           {catsShown.map(c => <CatCard key={c.key} c={c} accent={accent} />)}
         </div>
@@ -231,6 +248,7 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
         </div>
       </div>
       <div style={css("display:flex;flex-direction:column;gap:var(--space-4)")}>
+        <BrandDirectionPanel cats={d.cats} />
         {needShown.map(c => <CatCard key={c.key} c={c} accent={accent} big />)}
       </div>
       {reveal === Number.POSITIVE_INFINITY && strong.length > 0 && (
@@ -288,7 +306,7 @@ function introPreview(): ReactNode {
     <div style={css("position:absolute;top:1.5rem;left:1.5rem;right:-2.5rem;bottom:-1.4rem;background:#fff;border:1px solid var(--border-soft);border-radius:12px 0 0 0;box-shadow:0 24px 60px -30px rgba(60,40,30,0.5);padding:1.2rem 1.4rem;display:flex;flex-direction:column;overflow:hidden")}>
       <div style={css("display:flex;align-items:flex-start;gap:0.65rem;padding-bottom:0.75rem")}>
         <span style={css("width:1.85rem;height:1.85rem;border-radius:7px;background:var(--success-soft);color:var(--success);display:grid;place-items:center;font-weight:500;font-size:var(--text-base);flex-shrink:0")}>B</span>
-        <div style={css("flex:1;min-width:0")}><div style={css("font-size:0.9rem;font-weight:500;line-height:1.2")}>Bloom &amp; Root Wellness</div><div style={css("font-size:0.68rem;color:var(--fg-muted);margin-top:0.08rem")}>Website Audit — Discovery Report</div></div>
+        <div style={css("flex:1;min-width:0")}><div style={css("font-size:0.9rem;font-weight:500;line-height:1.2")}>Client</div><div style={css("font-size:0.68rem;color:var(--fg-muted);margin-top:0.08rem")}>Website Audit — Discovery Report</div></div>
       </div>
       <div style={css("height:2px;background:var(--success);border-radius:2px;margin-bottom:0.9rem")} />
       <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint);margin-bottom:0.55rem")}>Overall score</div>
@@ -311,9 +329,9 @@ function introPreview(): ReactNode {
 
 const STAGE_PROMPT: Record<string, string> = {
   report: "Score all six areas with AI, drawn from everything you shared in intake.",
-  plan: "Turn the lowest-scoring areas into a prioritised, done-for-you action plan.",
+  plan: "Turn the findings into a prioritised action plan and a suggested brand direction.",
 };
-const STAGE_CTA: Record<string, string> = { report: "Score my site", plan: "Build action plan" };
+const STAGE_CTA: Record<string, string> = { report: "Score my site", plan: "Build action + brand plan" };
 
 export const AUDIT_PIPELINE: Pipeline = {
   railTitle: "Audit pipeline",

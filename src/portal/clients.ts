@@ -29,35 +29,46 @@ export interface StudioClient {
   funnels: ClientFacet[];
 }
 
+const NOT_ASSIGNED_TO_KIER = new Set([
+  "Creator IQ",
+  "Porky's Lechon",
+  "Therapy Mobz",
+]);
+
 export const STUDIO_CLIENTS: StudioClient[] = [
-  { id: "bloom", name: "Bloom & Root Wellness", owner: "Noa Vega", audited: true,
-    audit: { id: "audit-bloom", subtitle: "Cocoon Consult", statusLabel: "Report ready", statusTone: "success", stage: "Audit · Delivered", progress: 100, due: "Jun 28" },
-    funnels: [
-      { id: "funnel-bloom-main", subtitle: "Lead-Gen Funnel", statusLabel: "In review", statusTone: "warn", stage: "Build · Persona", progress: 55, due: "July 8" },
-      { id: "funnel-bloom-webinar", subtitle: "Webinar Funnel", statusLabel: "Draft", statusTone: "muted", stage: "Build · Copy", progress: 42, due: "July 16" },
-    ] },
-  { id: "flora", name: "Flora & Co.", owner: "Emet Rowe", audited: true,
-    audit: { id: "audit-flora", subtitle: "Cocoon Consult", statusLabel: "Report ready", statusTone: "success", stage: "Audit · Delivered", progress: 100, due: "Jun 2" },
-    funnels: [
-      { id: "funnel-flora-main", subtitle: "Lead-Gen Funnel", statusLabel: "Draft", statusTone: "muted", stage: "Intake · Audience", progress: 22, due: "July 12" },
-    ] },
-  { id: "hazel", name: "House of Hazel", owner: "Noa Vega", audited: true,
-    audit: { id: "audit-hazel", subtitle: "Cocoon Consult", statusLabel: "Delivered", statusTone: "success", stage: "Audit · Delivered", progress: 100, due: "May 20" },
-    funnels: [
-      { id: "funnel-hazel-main", subtitle: "Lead-Gen Funnel", statusLabel: "Live", statusTone: "success", stage: "Live", progress: 100, due: "Jun 2" },
-    ] },
-  { id: "wren", name: "Wren & Willow", owner: "Emet Rowe", audited: true,
-    audit: { id: "audit-wren", subtitle: "Cocoon Consult", statusLabel: "Report ready", statusTone: "success", stage: "Audit · Delivered", progress: 100, due: "Jun 14" },
-    funnels: [
-      { id: "funnel-wren-main", subtitle: "Lead-Gen Funnel", statusLabel: "In review", statusTone: "warn", stage: "Intake · Business", progress: 30, due: "July 6" },
-    ] },
-  { id: "marigold", name: "Marigold Lane", owner: "Emet Rowe", audited: true,
-    audit: { id: "audit-marigold", subtitle: "Cocoon Consult", statusLabel: "Delivered", statusTone: "success", stage: "Audit · Delivered", progress: 100, due: "Jun 30" },
-    funnels: [] },
-  { id: "saffron", name: "Saffron & Sage", owner: "Emet Rowe", audited: false,
-    audit: { id: "audit-saffron", subtitle: "Cocoon Consult", statusLabel: "Auditing", statusTone: "warn", stage: "Audit · In progress", progress: 65, due: "July 3" },
-    funnels: [] },
-  { id: "plume", name: "Plume Studio", owner: "Noa Vega", audited: false,
-    audit: { id: "audit-plume", subtitle: "Cocoon Consult", statusLabel: "Not started", statusTone: "muted", stage: "Audit · Not started", progress: 0, due: "—" },
-    funnels: [] },
-];
+  "Blue Ribbon",
+  "Concertina",
+  "Creator IQ",
+  "Enterprise Growth System",
+  "Feather & Tail",
+  "Kaya Services",
+  "Kreamer Feed",
+  "La Femme",
+  "Nature's Best Organic",
+  "Porky's Lechon",
+  "Therapy Mobz",
+  "The Winged Palette",
+  "Trisha Baltazar & Co.",
+  "Yona Signo",
+  "ZODA",
+].sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" })).map(name => {
+  const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return {
+    id,
+    name,
+    owner: NOT_ASSIGNED_TO_KIER.has(name) ? "Unassigned" : "Kier Mangibin",
+    audited: false,
+    audit: {
+      id: `audit-${id}`,
+      subtitle: "Cocoon Consult",
+      statusLabel: "Not started",
+      statusTone: "muted" as const,
+      stage: "Audit · Not started",
+      progress: 0,
+      due: "—",
+    },
+    funnels: [],
+  };
+});
+
+export const DEFAULT_CLIENT_NAME = STUDIO_CLIENTS[0].name;

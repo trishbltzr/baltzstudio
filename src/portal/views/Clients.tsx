@@ -4,16 +4,39 @@ import { useState } from "react";
 import { Icon } from "../icons";
 import { css, healthMap, initials, statusPill, svcBadge } from "../helpers";
 import { SVC_META } from "../data";
+import { DEFAULT_CLIENT_NAME, STUDIO_CLIENTS } from "../clients";
 import { roleProjects } from "../selectors";
 import { FilterDropdown } from "../components/FilterDropdown";
 import type { PortalActions, PortalState } from "../store";
+import type { ClientProject } from "../types";
 
-const SVC_LABELS: [string, string][] = [["all", "All Services"], ["cocoon", "Cocoon"], ["wiaw", "Winged in a Week"], ["iff", "In Full Flight"]];
+const SVC_LABELS: [string, string][] = [["all", "All Services"], ["cocoon", "Cocoon Consult"], ["wiaw", "Winged in a Week"], ["iff", "In Full Flight"]];
 
 export function Clients({ state, actions }: { state: PortalState; actions: PortalActions }) {
   const projects = roleProjects(state);
   const cf = state.clientFilter;
   const filterActive = cf.service !== "all" || cf.health !== "all";
+  const roster = state.role === "client" ? STUDIO_CLIENTS.filter(client => client.name === DEFAULT_CLIENT_NAME) : STUDIO_CLIENTS;
+  const projectRows = roster
+    .map(client => {
+      const project = projects.find(item => item.client === client.name);
+      if (project) return { ...project, placeholder: false };
+      return {
+        id: `client-${client.id}`,
+        client: client.name,
+        name: "No active project",
+        service: "cocoon",
+        stage: "Not started",
+        progress: 0,
+        dev: client.owner,
+        health: "on_track",
+        due: "—",
+        amount: "—",
+        wise: "awaiting",
+        placeholder: true,
+      } satisfies ClientProject & { placeholder: boolean };
+    })
+    .filter(project => !filterActive || !project.placeholder);
   const svcLabel = SVC_LABELS.find(([k]) => k === cf.service)?.[1] || "All Services";
   const canManage = state.role === "admin";
   const [notesClient, setNotesClient] = useState<string | null>(null);
@@ -47,7 +70,7 @@ export function Clients({ state, actions }: { state: PortalState; actions: Porta
         <FilterDropdown id="csvc" label="Service" valueLabel={svcLabel} state={state} actions={actions}
           options={SVC_LABELS.map(([k, l]) => ({ label: l, active: cf.service === k, onClick: () => actions.setClientFilter("service", k) }))} />
         <div style={css("display:flex;align-items:center;gap:var(--space-2);margin-left:auto")}>
-          <span style={css("font-size:0.74rem;color:var(--fg-faint)")}>{projects.length}{projects.length === 1 ? " client" : " clients"}</span>
+          <span style={css("font-size:0.74rem;color:var(--fg-faint)")}>{projectRows.length}{projectRows.length === 1 ? " client" : " clients"}</span>
           {canSave && <button onClick={() => actions.saveView("clients", viewName(), { service: cf.service, health: cf.health })} style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:0.74rem;font-weight:500;padding:0.32rem 0.75rem;border-radius:var(--radius-pill);border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);cursor:pointer")}>Save View</button>}
           {filterActive && <button onClick={() => actions.patch({ clientFilter: { service: "all", health: "all" } })} style={css("font-size:0.74rem;font-weight:500;padding:0.32rem 0.7rem;border-radius:var(--radius-pill);border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);cursor:pointer")}>Clear</button>}
         </div>
@@ -71,12 +94,12 @@ export function Clients({ state, actions }: { state: PortalState; actions: Porta
 
       {/* card grid */}
       <div style={css("display:grid;grid-template-columns:repeat(auto-fit,minmax(17rem,1fr));gap:var(--space-3)")}>
-        {projects.map(p => {
-          const hm = healthMap(p.health); const sm = SVC_META[p.service];
+        {projectRows.map(p => {
+          const hm = p.placeholder ? ["muted", "Not started"] : healthMap(p.health); const sm = SVC_META[p.service];
           const noteCount = actions.workspaceForClient(p.client).notes.length;
           return (
             <div key={p.id} style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden;display:flex;flex-direction:column")}>
-              <div aria-hidden="true" style={css("height:0.24rem;background:linear-gradient(90deg," + sm.color + " 0%,color-mix(in srgb," + sm.color + " 72%,var(--surface) 28%) 72%,color-mix(in srgb," + sm.color + " 20%,var(--surface) 80%) 100%);flex-shrink:0")} />
+              <div aria-hidden="true" style={css("height:0.24rem;background:" + (p.placeholder ? "var(--border-soft)" : "linear-gradient(90deg," + sm.color + " 0%,color-mix(in srgb," + sm.color + " 72%,var(--surface) 28%) 72%,color-mix(in srgb," + sm.color + " 20%,var(--surface) 80%) 100%)") + ";flex-shrink:0")} />
               <div style={css("padding:1rem 1.1rem")}>
                 <div style={css("display:flex;align-items:center;gap:0.65rem;margin-bottom:0.85rem")}>
                   <span style={css("width:1.95rem;height:1.95rem;border-radius:var(--radius-sm);background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:500;font-size:0.8rem;flex-shrink:0")}>{p.client[0]}</span>
@@ -87,7 +110,7 @@ export function Clients({ state, actions }: { state: PortalState; actions: Porta
                   <span style={css(statusPill(hm[0]))}>{hm[1]}</span>
                 </div>
                 <div style={css("display:flex;align-items:center;gap:0.6rem;margin-bottom:0.85rem")}>
-                  <span style={css(svcBadge(p.service))}>{p.stage}</span>
+                  <span style={p.placeholder ? css("font-size:0.68rem;font-weight:500;color:var(--fg-faint)") : css(svcBadge(p.service))}>{p.stage}</span>
                   <div style={css("flex:1;height:0.35rem;border-radius:999px;background:oklch(0.94 0.006 50);overflow:hidden")}><div style={css("width:" + p.progress + "%;height:100%;background:" + sm.color)} /></div>
                   <span style={css("font-size:0.7rem;color:var(--fg-muted)")}>{p.progress}%</span>
                 </div>

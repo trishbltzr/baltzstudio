@@ -13,6 +13,7 @@ import { STUDIO_CLIENTS, type ClientFacet } from "../clients";
 import { ClientPickerGrid } from "../components/ClientPickerGrid";
 import { GuidedIntakeShell, GuidedOptionPill, GuidedPipelinePanel, GuidedUnsureToggle } from "../components/GuidedIntakeShell";
 import { DiscoveryBuilder } from "../discovery/DiscoveryBuilder";
+import { getKnowledge, recordKnowledge, mergeKnow, type Know } from "../discovery/knowledge";
 import { FUNNEL_WIZARD, FUNNEL_STAGES, FUNNEL_INTRO_STEPS, FUNNEL_DEMO } from "../discovery/discoveryData";
 import { FUNNEL_PIPELINE, FunnelFlowHero } from "../discovery/funnelPipeline";
 import type { FunnelDocs } from "../discovery/funnelPipeline";
@@ -198,8 +199,10 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
   const [s, dispatch] = useReducer(reducer, init);
   const [builds, setBuilds] = useState<FunnelBuild[]>(() => seedFunnelBuilds());
   const [launchOpen, setLaunchOpen] = useState(false);
+  const [deleteBuildConfirm, setDeleteBuildConfirm] = useState(false);
   const [exitingToPicker, setExitingToPicker] = useState(false);
   const [activePlanPost, setActivePlanPost] = useState<FunnelPlanPost | null>(null);
+  const [quickKnow, setQuickKnow] = useState<Know>({ data: {}, sources: {} });
   const client = STUDIO_CLIENTS.find(c => c.id === s.clientId) || null;
   const build = builds.find(item => item.id === s.buildId) || null;
   const auditedClients = useMemo(() => STUDIO_CLIENTS.filter(c => c.audited), []);
@@ -224,6 +227,9 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
     // Secondary sidebar abandoned — the DiscoveryBuilder carries its own rail.
     actions.patch({ guidedSidebarActive: false, guidedTopBarInfo: null });
   }, [actions]);
+
+  // Reset any pasted-brief / link ingestion when switching clients.
+  useEffect(() => { setQuickKnow({ data: {}, sources: {} }); }, [s.clientId]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -381,6 +387,24 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
     startFunnel(source.id, id);
     actions.showToast("New funnel draft ready for " + source.name);
   };
+  const deleteFunnel = (item: FunnelBuild) => {
+    setBuilds(current => current.filter(buildItem => buildItem.id !== item.id));
+    if (activePlanPost?.buildId === item.id || activePlanPost?.id === item.id) setActivePlanPost(null);
+    if (s.buildId === item.id) dispatch({ t: "toPicker" });
+    actions.update(current => {
+      const workspace = mergePortalClientWorkspace(item.clientId, current.clientWorkspaces[item.clientId]);
+      return {
+        clientWorkspaces: {
+          ...current.clientWorkspaces,
+          [item.clientId]: {
+            ...workspace,
+            funnelPlans: workspace.funnelPlans.filter(plan => plan.buildId !== item.id && plan.id !== item.id),
+          },
+        },
+      };
+    });
+    actions.showToast("Funnel deleted");
+  };
   const openClientOnboarding = () => {
     setLaunchOpen(false);
     actions.setView("onboarding");
@@ -418,7 +442,7 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
                   <div style={{ ...css("position:absolute;top:2.7rem;right:0;width:min(24rem,calc(100vw - 2rem));padding:0.45rem;border:1px solid var(--border);border-radius:1rem;background:color-mix(in srgb,var(--surface) 94%,white 6%);z-index:35"), animation: "pt-ddin .16s ease" }}>
                     <div style={css("padding:0.5rem 0.65rem 0.45rem")}>
                       <div style={css("font-size:0.8rem;font-weight:500;color:var(--fg)")}>Choose an audited client</div>
-                      <div style={css("font-size:0.69rem;color:var(--fg-faint);margin-top:0.18rem")}>A completed Cocoon audit is required before a funnel can be generated.</div>
+                      <div style={css("font-size:0.69rem;color:var(--fg-faint);margin-top:0.18rem")}>A completed Cocoon Consult audit is required before a funnel can be generated.</div>
                     </div>
                     <div style={css("display:flex;flex-direction:column;gap:0.2rem")}>
                       <button
@@ -489,7 +513,10 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
                 stage: item.stage,
                 assignee: item.owner,
                 due: item.due,
-                onOpen: () => previewFunnel(item.clientId, item.id),
+                actions: [
+                  { label: "Open", onClick: () => previewFunnel(item.clientId, item.id) },
+                  { label: "Delete", onClick: () => deleteFunnel(item) },
+                ],
               })),
               primaryLabel: "Open latest",
               onPrimary: () => latest && startFunnel(latest.clientId, latest.id),
@@ -563,8 +590,16 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
     );
   })();
 
+  const funnelKnow = mergeKnow(getKnowledge(client.id), quickKnow);
   return (
-    <div style={css("width:100%;padding:" + (mobile ? "1rem 0.9rem 1.5rem" : "1.4rem 1.5rem"))}>
+    <div style={css("width:100%;padding:" + (mobile ? "1rem 0.9rem 1.5rem" : "1.4rem 1.5rem") + ";display:flex;flex-direction:column;gap:0.9rem")}>
+      {build && <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:.45rem")}>
+        {deleteBuildConfirm ? <>
+          <span style={css("margin-right:.2rem;font-size:.72rem;color:var(--danger)")}>Delete this funnel?</span>
+          <button type="button" onClick={() => setDeleteBuildConfirm(false)} style={css("height:2rem;padding:0 .75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--fg-muted);font-size:.72rem;font-weight:500;cursor:pointer")}>Cancel</button>
+          <button type="button" onClick={() => { setDeleteBuildConfirm(false); deleteFunnel(build); }} style={css("height:2rem;padding:0 .75rem;border:none;border-radius:999px;background:var(--danger);color:#fff;font-size:.72rem;font-weight:500;cursor:pointer")}>Delete funnel</button>
+        </> : <button type="button" onClick={() => setDeleteBuildConfirm(true)} style={css("height:2rem;padding:0 .75rem;border:1px solid color-mix(in srgb,var(--danger) 35%,var(--border) 65%);border-radius:999px;background:var(--surface);color:var(--danger);font-size:.72rem;font-weight:500;cursor:pointer")}>Delete funnel</button>}
+      </div>}
       <DiscoveryBuilder
         mobile={mobile}
         accent="var(--accent)"
@@ -576,12 +611,16 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
         introSteps={FUNNEL_INTRO_STEPS}
         completeMsg="That’s everything I need. I’ll draft the funnel flow, copy, wireframe and development plan from your answers."
         completeCta="Generate the plan →"
-        demo={FUNNEL_DEMO}
         pipeline={FUNNEL_PIPELINE}
         showToast={actions.showToast}
+        prefill={funnelKnow.data}
+        prefillSources={funnelKnow.sources}
+        quickStartMode="funnel"
+        onIngest={delta => setQuickKnow(k => mergeKnow(k, delta))}
         onExit={exitToPicker}
         onComplete={data => {
           if (build) persistPlanPost(buildPlanPost(build, data));
+          recordKnowledge(client.id, data, "Funnel intake");
           exitToPicker();
         }}
       />
@@ -720,7 +759,7 @@ function FunnelPlanDoc() {
       <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:22px 24px 16px;border-bottom:2px solid var(--accent)")}>
         <div style={css("display:flex;align-items:center;gap:10px")}>
           <span style={css("width:30px;height:30px;border-radius:7px;flex-shrink:0;background:color-mix(in srgb,var(--accent) 12%,white 88%);color:var(--accent);display:grid;place-items:center;font-size:14px;font-weight:500")}>B</span>
-          <div><div style={css("font-size:15px;font-weight:500;line-height:1.15")}>Bloom &amp; Root Wellness</div><div style={css("font-size:11px;color:var(--fg-faint)")}>Lead-Gen Funnel — Build Plan</div></div>
+          <div><div style={css("font-size:15px;font-weight:500;line-height:1.15")}>Client</div><div style={css("font-size:11px;color:var(--fg-faint)")}>Funnel Build Plan</div></div>
         </div>
         <div style={css("text-align:right;flex-shrink:0")}><div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;font-size:9.5px;color:var(--fg-faint)")}>Plan</div><div style={css("font-size:11px;color:var(--fg-muted);margin-top:2px")}>Jul 2026</div></div>
       </div>

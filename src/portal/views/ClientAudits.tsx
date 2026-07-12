@@ -7,7 +7,7 @@ import { STUDIO_CLIENTS } from "../clients";
 import type { PortalActions, PortalState } from "../store";
 import { AuditReportView, getAuditReportDetail, getAuditReportSummary, recommendationPlan } from "./AuditReportView";
 
-const CLIENT_ID = "flora";
+const CLIENT_ID = STUDIO_CLIENTS[0].id;
 type AuditTheme = ReturnType<typeof getAuditReportDetail>["themes"][number];
 
 function auditBandColor(band: string) {
@@ -154,7 +154,10 @@ function AuditUpsellScreen({
 
 export function ClientAudits({ state, actions }: { state: PortalState; actions: PortalActions }) {
   const [reportOpen, setReportOpen] = useState(false);
-  const client = STUDIO_CLIENTS.find(item => item.id === CLIENT_ID) || STUDIO_CLIENTS.find(item => item.name === "Flora & Co.") || STUDIO_CLIENTS[0];
+  const client = STUDIO_CLIENTS.find(item => item.id === CLIENT_ID) || STUDIO_CLIENTS[0];
+  if (!client.audited) {
+    return <div style={css("padding:2.5rem 1rem;text-align:center;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);color:var(--fg-faint);font-size:0.8rem")}>No completed audit yet.</div>;
+  }
   const report = getAuditReportDetail(client.id);
   const summary = getAuditReportSummary(client.id);
   const lift = summary.target - summary.overall;
@@ -171,9 +174,9 @@ export function ClientAudits({ state, actions }: { state: PortalState; actions: 
       <div style={css("display:flex;flex-direction:column;gap:1.1rem")}>
         <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap;padding:1rem 1.1rem;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface)")}>
           <div style={{ minWidth: 0 }}>
-            <span style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;display:block;color:var(--cocoon);margin-bottom:0.45rem")}>Cocoon plan</span>
+            <span style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;display:block;color:var(--cocoon);margin-bottom:0.45rem")}>Cocoon Consult plan</span>
             <h2 style={css("margin:0;font-size:1.22rem;font-weight:500;line-height:1.15")}>Your audit plan is ready</h2>
-            <p style={css("margin:0.45rem 0 0;font-size:var(--text-base);color:var(--fg-muted);line-height:1.55;max-width:36rem")}>Review the current score, target lift, and the recommended fixes from your latest Cocoon audit.</p>
+            <p style={css("margin:0.45rem 0 0;font-size:var(--text-base);color:var(--fg-muted);line-height:1.55;max-width:36rem")}>Review the current score, target lift, and the recommended fixes from your latest Cocoon Consult audit.</p>
           </div>
           <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2);flex-wrap:wrap;flex-shrink:0")}>
             <span style={css("display:inline-flex;align-items:center;gap:0.35rem;padding:0.45rem 0.75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:0.73rem;color:var(--fg-muted)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--cocoon)")} />{summary.overall} current</span>

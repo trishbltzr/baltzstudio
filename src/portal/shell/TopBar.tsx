@@ -17,7 +17,7 @@ export function TopBar({ state, actions, onCollapse }: { state: PortalState; act
   const { role, view, isMobile, notifOpen } = state;
   const [, title] = headFor(view, role);
   const taskViewLabel = view === "tasks"
-    ? ({ board: "Board", calendar: "Calendar", milestone: "Milestone" }[state.taskView] || "Board")
+    ? ({ board: "Board", calendar: "Calendar" }[state.taskView] || "Board")
     : "";
   const notificationSummary = portalNotificationSummary(state);
   const quickOpen = state.pop === "quick";

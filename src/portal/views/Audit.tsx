@@ -42,7 +42,7 @@ export function Audit({ state, actions }: { state: PortalState; actions: PortalA
         eyebrow="Cocoon Consult"
         eyebrowColor="var(--cocoon)"
         title="Generate or reopen an audit"
-        description="Start a new audit intake for any client, or reopen a completed Cocoon report when you need to turn it into the next step."
+        description="Start a new audit intake for any client, or reopen a completed Cocoon Consult report when you need to turn it into the next step."
         controls={
           <>
             <span style={css("display:inline-flex;align-items:center;gap:0.35rem;padding:0.45rem 0.75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:0.73rem;color:var(--fg-muted)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--success)")} />{auditReadyCount} completed</span>

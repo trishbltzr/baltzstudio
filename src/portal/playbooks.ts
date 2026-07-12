@@ -41,7 +41,7 @@ export const PB_SEED: PlaybookSeed[] = [
     outputs: ["Audit report", "Theme score cards"] },
   { id: "cc-intake", svc: "cocoon", fn: "Intake", icon: "checklist", dur: "1–2 days", tag: "Discovery",
     purpose: "How the six prep themes are collected from the client before the audit runs.",
-    steps: [{ o: "admin", t: "Send the Cocoon intake questionnaire" }, { o: "client", t: "Complete the six prep themes" }, { o: "client", t: "Mark unsure items for a follow-up call" }, { o: "dev", t: "Review answers and flag gaps" }],
+    steps: [{ o: "admin", t: "Send the Cocoon Consult intake questionnaire" }, { o: "client", t: "Complete the six prep themes" }, { o: "client", t: "Mark unsure items for a follow-up call" }, { o: "dev", t: "Review answers and flag gaps" }],
     outputs: ["Completed intake", "Gap list"] },
   { id: "cc-proposal", svc: "cocoon", fn: "Proposal", icon: "file", dur: "1 day", tag: "Scoping",
     purpose: "How audit findings become a scoped Winged in a Week or In Full Flight proposal.",

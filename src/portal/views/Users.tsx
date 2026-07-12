@@ -8,10 +8,8 @@ import type { Health } from "../types";
 
 interface Member { name: string; access: string; load: number; prod: number; invited?: boolean; oversight?: boolean }
 const TEAM: Member[] = [
-  { name: "Trish Baltazar", access: "Admin · Studio owner", load: 46, prod: 96, oversight: true },
-  { name: "Noa Vega", access: "Development · Delivery", load: 84, prod: 88 },
-  { name: "Emet Rowe", access: "Development · Delivery", load: 62, prod: 91 },
-  { name: "Juno Park", access: "Development · Delivery", load: 18, prod: 0, invited: true },
+  { name: "Trisha Baltazar", access: "Owner", load: 0, prod: 0, oversight: true },
+  { name: "Kier Mangibin", access: "Member", load: 0, prod: 0 },
 ];
 
 function workband(load: number): [string, string] {

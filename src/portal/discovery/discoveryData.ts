@@ -3,7 +3,7 @@ import type { DiscoveryStage, DiscoveryTopic, DiscoveryIntroStep } from "./Disco
 // ── Funnel discovery (ported from the Funnel Builder handoff) ──────────────────
 export const FUNNEL_WIZARD: DiscoveryTopic[] = [
   { id: "you", num: "01", title: "About you", icon: "users", qs: [
-    { key: "nickname", label: "What should we call you?", hint: "Your first name or nickname — we’ll use it throughout.", kind: "text", ph: "e.g. Sam" },
+    { key: "nickname", label: "What should we call you?", hint: "Your first name or nickname — we’ll use it throughout.", kind: "text", ph: "Name or nickname" },
     { key: "clientEmail", label: "Best email for updates", hint: "Where we’ll send the drafts and the final brief.", kind: "text", ph: "you@company.com" },
   ] },
   { id: "goal", num: "02", title: "Goal & funnel type", icon: "target", qs: [
@@ -61,9 +61,9 @@ export const FUNNEL_INTRO_STEPS: DiscoveryIntroStep[] = [
 // ── Audit discovery (ported from the Audit Builder handoff) ────────────────────
 export const AUDIT_WIZARD: DiscoveryTopic[] = [
   { id: "you", num: "01", title: "About you", icon: "users", qs: [
-    { key: "nickname", label: "What should we call you?", hint: "Your first name or nickname — we’ll use it throughout.", kind: "text", ph: "e.g. Sam" },
-    { key: "name", label: "Business or site name", hint: "How the report will be titled.", kind: "text", ph: "e.g. Bloom & Root Wellness" },
-    { key: "url", label: "Website URL", kind: "text", ph: "e.g. bloomandroot.co" },
+    { key: "nickname", label: "What should we call you?", hint: "Your first name or nickname — we’ll use it throughout.", kind: "text", ph: "Name or nickname" },
+    { key: "name", label: "Business or site name", hint: "How the report will be titled.", kind: "text", ph: "Client business name" },
+    { key: "url", label: "Website URL", kind: "text", ph: "Website URL" },
   ] },
   { id: "conv", num: "02", title: "Conversion Path", icon: "target", qs: [
     { key: "convM", label: "How clear is the primary next step on your site?", kind: "single", opts: ["No obvious action", "Buried below the fold", "One CTA, competing with others", "Clear on most pages", "One unmistakable CTA everywhere"] },
@@ -94,7 +94,7 @@ export const AUDIT_WIZARD: DiscoveryTopic[] = [
 export const AUDIT_STAGES: DiscoveryStage[] = [
   { key: "discovery", label: "Audit intake", icon: "inbox" },
   { key: "report", label: "Audit report", icon: "chart" },
-  { key: "plan", label: "Action plan", icon: "checklist" },
+  { key: "plan", label: "Action + brand plan", icon: "checklist" },
 ];
 
 export const AUDIT_INTRO_STEPS: DiscoveryIntroStep[] = [
@@ -106,15 +106,5 @@ export const AUDIT_INTRO_STEPS: DiscoveryIntroStep[] = [
   { title: "Brand Foundation", tag: "Positioning", icon: "grid" },
 ];
 
-export const FUNNEL_DEMO = { nickname: "Sam", name: "Aurora Skincare Launch", offer: "A 3-step ritual set with a 30-day guarantee", persona: "Women 28-45 who care about clean beauty", problem: "Dull, reactive skin", action: "Claim my launch bundle", domain: "get.aurora.co" };
-export const AUDIT_DEMO = {
-  nickname: "Sam", name: "Bloom & Root Wellness", url: "bloomandroot.co",
-  diff: "The only nutrition studio built around real-life takeout habits.",
-  // scored answers spread across the range so the preview reads like a real audit (~65 overall)
-  convM: "No obvious action",
-  expM: "Works but dated",
-  msgM: "Clear once you read a while",
-  findM: "Some traffic, no strategy",
-  visM: "Mostly systematic",
-  brandM: "Owns a category in one line",
-};
+export const FUNNEL_DEMO: Record<string, string | string[]> = {};
+export const AUDIT_DEMO: Record<string, string | string[]> = {};

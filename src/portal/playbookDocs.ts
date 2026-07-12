@@ -53,7 +53,7 @@ export const PLAYBOOK_DOCS: PlaybookDoc[] = [
         title: "Function",
         body: "This playbook governs the diagnostic part of Cocoon Consult. It keeps every audit tied to the same intake, checklist, review, and client-safe delivery rules.",
         bullets: [
-          "Use the canonical Cocoon audit categories before writing client-facing findings.",
+          "Use the canonical Cocoon Consult audit categories before writing client-facing findings.",
           "Run intake and website review before any summary or recommendation is treated as ready.",
           "Use human review to resolve weak or conflicting AI findings."
         ]
@@ -79,7 +79,7 @@ export const PLAYBOOK_DOCS: PlaybookDoc[] = [
     sections: [
       {
         title: "Function",
-        body: "This playbook translates Cocoon findings into the next commercial or delivery step without skipping the strategy layer.",
+        body: "This playbook translates Cocoon Consult findings into the next commercial or delivery step without skipping the strategy layer.",
         bullets: [
           "Start from approved audit findings and readiness signals.",
           "Separate consult guidance from implementation scope.",
@@ -121,12 +121,12 @@ export const PLAYBOOK_DOCS: PlaybookDoc[] = [
     page: "wiaw",
     title: "Winged In A Week - Implementation",
     kicker: "Build sprint",
-    summary: "How an approved Cocoon strategy becomes foundation, design, build, QA, launch, and handoff.",
+    summary: "How an approved Cocoon Consult strategy becomes foundation, design, build, QA, launch, and handoff.",
     sourceFiles: ["BALTZ_SERVICE_WORKFLOW_MAP.md", "BALTZ_DASHBOARD_WORKFLOW_ALIGNMENT_TASKS.md"],
     sections: [
       {
         title: "Function",
-        body: "This playbook governs the implementation sprint after Cocoon has clarified the right strategy.",
+        body: "This playbook governs the implementation sprint after Cocoon Consult has clarified the right strategy.",
         bullets: [
           "Begin with access, assets, audit notes, and setup.",
           "Move through strategy, sitemap, copy, design, and build.",
@@ -223,7 +223,7 @@ export const PLAYBOOK_DOCS: PlaybookDoc[] = [
         title: "Function",
         body: "This playbook keeps the end of access clear so old audits and stale dashboards do not drive future strategy.",
         bullets: [
-          "Use nurture emails when a client does not continue after Cocoon or Winged in a Week.",
+          "Use nurture emails when a client does not continue after Cocoon Consult or Winged in a Week.",
           "Delete access after the approved no-action window.",
           "Require a new paid Cocoon Consult before restarting later."
         ]

@@ -5,9 +5,11 @@ import { portalClientId } from "@/lib/portalWorkspacePersistence";
 import { Icon } from "../icons";
 import { css } from "../helpers";
 import { ScoreGauge } from "../components/ScoreGauge";
+import { STUDIO_CLIENTS } from "../clients";
 import type { PortalActions, PortalState } from "../store";
+import type { Priority, TaskImportDraft } from "../types";
 
-interface Theme { name: string; score: number; target: number; band: string; summary: string; findings: string[]; rec: string }
+export interface Theme { name: string; score: number; target: number; band: string; summary: string; findings: string[]; rec: string }
 interface AuditReportData {
   overall: number;
   target: number;
@@ -105,7 +107,7 @@ const REPORTS: Record<string, AuditReportData> = {
     overall: 54,
     target: 79,
     headline: "Early-stage foundation",
-    sprintIntro: "This report should stay anchored to Plume Studio’s current reality: clarify the offer, simplify the path, and build trust before scaling anything else.",
+    sprintIntro: "This report should stay anchored to the client’s confirmed priorities and current reality.",
     themes: [
       { name: "Brand Foundation", score: 71, target: 86, band: "Good", summary: "The creative taste is there, but the strategic frame still feels early.", findings: ["The studio aesthetic is recognizable", "The offer promise is not yet distilled into one memorable line", "The brand story needs a stronger point of differentiation"], rec: "Lock a sharper brand promise before expanding the site further." },
       { name: "Messaging & Voice", score: 49, target: 80, band: "Priority", summary: "The site hints at the right tone, but the message is still too vague to sell.", findings: ["Headlines describe atmosphere more than the actual offer", "The core service promise is inconsistent across pages", "Proof language is too light for a premium studio"], rec: "Rewrite the top-line message around one clear offer and one clear outcome." },
@@ -198,6 +200,88 @@ export function recommendationPlan(theme: Theme) {
   return plans[theme.name] || [theme.rec, ...theme.findings.slice(0, 2)];
 }
 
+function auditTaskPriority(band: string): Priority {
+  if (band === "Priority") return "high";
+  if (band === "Needs work") return "high";
+  if (band === "Good") return "med";
+  return "low";
+}
+
+function auditTaskDue(index: number) {
+  const due = new Date();
+  due.setDate(due.getDate() + 3 + index * 2);
+  return due.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+}
+
+export function getAuditTaskDrafts(clientId: string, clientName: string, themes: Theme[]): TaskImportDraft[] {
+  const client = STUDIO_CLIENTS.find(item => item.id === clientId || item.name === clientName);
+  const assignee = client?.owner && client.owner !== "Unassigned" ? client.owner : "Trish Baltazar";
+  return themes.flatMap((theme, themeIndex) => recommendationPlan(theme).map((title, itemIndex) => {
+    const index = themeIndex * 3 + itemIndex;
+    return {
+      title,
+      project: clientName,
+      assignee,
+      owner: "studio" as const,
+      priority: auditTaskPriority(theme.band),
+      due: auditTaskDue(index),
+      source: "audit" as const,
+      sourceId: `audit:${clientId}:${theme.name}:${itemIndex}`,
+      milestone: theme.name,
+    };
+  }));
+}
+
+function AuditTaskImportModal({
+  clientName,
+  drafts,
+  selected,
+  onToggle,
+  onSelectAll,
+  onClose,
+  onImport,
+}: {
+  clientName: string;
+  drafts: TaskImportDraft[];
+  selected: Set<string>;
+  onToggle: (sourceId: string) => void;
+  onSelectAll: () => void;
+  onClose: () => void;
+  onImport: () => void;
+}) {
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Import audit tasks" onClick={onClose} style={css("position:fixed;inset:0;z-index:100;background:rgba(30,22,15,.42);display:flex;align-items:center;justify-content:center;padding:1rem")}>
+      <div onClick={event => event.stopPropagation()} style={css("width:min(42rem,100%);max-height:88vh;overflow:hidden;display:flex;flex-direction:column;border-radius:var(--radius-panel);background:var(--surface);box-shadow:0 1.4rem 4rem rgba(48,34,31,.2)")}>
+        <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:1.2rem 1.3rem;border-bottom:1px solid var(--border-soft)")}>
+          <div>
+            <div style={css("font-size:var(--text-2xs);font-weight:500;letter-spacing:.03em;color:var(--cocoon);text-transform:uppercase")}>Audit to To-do</div>
+            <h2 style={css("margin:.18rem 0 0;font-size:1.25rem;font-weight:500")}>Import recommendations for {clientName}</h2>
+            <p style={css("margin:.35rem 0 0;font-size:.8rem;line-height:1.45;color:var(--fg-muted)")}>Selected items become real tasks in Board and Calendar, with milestones shown inside the client details.</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="pt-iconbtn" style={css("width:2rem;height:2rem;border-radius:50%;border:1px solid var(--border-soft);background:var(--surface);display:grid;place-items:center;cursor:pointer;color:var(--fg-muted);flex-shrink:0")}><Icon name="x" size={15} /></button>
+        </div>
+        <div style={css("display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.75rem 1.3rem;border-bottom:1px solid var(--border-soft);background:var(--surface-alt)")}>
+          <span style={css("font-size:.76rem;color:var(--fg-muted)")}>{selected.size} of {drafts.length} selected</span>
+          <button type="button" onClick={onSelectAll} style={css("border:none;background:transparent;color:var(--accent);font-size:.76rem;font-weight:500;cursor:pointer")}>{selected.size === drafts.length ? "Clear all" : "Select all"}</button>
+        </div>
+        <div style={css("overflow-y:auto;padding:.65rem 1.3rem")}>{drafts.map(draft => {
+          const sourceId = draft.sourceId || draft.title;
+          const checked = selected.has(sourceId);
+          return <button key={sourceId} type="button" onClick={() => onToggle(sourceId)} style={css("width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:.75rem;padding:.72rem .2rem;border:none;border-bottom:1px solid var(--border-soft);background:transparent;text-align:left;cursor:pointer;color:var(--fg)")}>
+            <span style={css("width:1.15rem;height:1.15rem;margin-top:.08rem;border-radius:.32rem;border:1.5px solid " + (checked ? "var(--accent)" : "var(--border)") + ";background:" + (checked ? "var(--accent)" : "var(--surface)") + ";color:#fff;display:grid;place-items:center")}>{checked && <Icon name="checkmark" size={12} />}</span>
+            <span><span style={css("display:block;font-size:.82rem;font-weight:500;line-height:1.35")}>{draft.title}</span><span style={css("display:block;margin-top:.18rem;font-size:.68rem;color:var(--fg-faint)")}>{draft.milestone} · due {draft.due}</span></span>
+            <span style={css("font-size:.62rem;font-weight:500;padding:.15rem .45rem;border-radius:999px;background:var(--surface-alt);color:var(--fg-muted);text-transform:capitalize")}>{draft.priority}</span>
+          </button>;
+        })}</div>
+        <div style={css("display:flex;justify-content:flex-end;gap:.55rem;padding:1rem 1.3rem;border-top:1px solid var(--border-soft)")}>
+          <button type="button" onClick={onClose} style={css("height:2.25rem;padding:0 .95rem;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);font-size:.78rem;font-weight:500;cursor:pointer")}>Cancel</button>
+          <button type="button" disabled={!selected.size} onClick={onImport} className="pt-op" style={css("height:2.25rem;padding:0 1rem;border-radius:999px;border:none;background:var(--accent);color:#fff;font-size:.78rem;font-weight:500;cursor:" + (selected.size ? "pointer" : "not-allowed") + ";opacity:" + (selected.size ? "1" : ".45"))}>Import {selected.size} task{selected.size === 1 ? "" : "s"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PriorityPlanCards({ themes, mobile }: { themes: Theme[]; mobile: boolean }) {
   return (
     <>
@@ -223,6 +307,36 @@ function PriorityPlanCards({ themes, mobile }: { themes: Theme[]; mobile: boolea
         );
       })}
     </>
+  );
+}
+
+function BrandAuditPanel({ themes, mobile }: { themes: Theme[]; mobile: boolean }) {
+  const brandThemes = ["Brand Foundation", "Messaging & Voice", "Visual Identity"]
+    .map(name => themes.find(theme => theme.name === name))
+    .filter((theme): theme is Theme => !!theme);
+  const brandScore = brandThemes.length
+    ? Math.round(brandThemes.reduce((total, theme) => total + theme.score, 0) / brandThemes.length)
+    : 0;
+
+  return (
+    <section data-brand-audit style={css("border:1px solid color-mix(in srgb,var(--cocoon) 24%,var(--border-soft) 76%);border-radius:var(--radius-panel);background:linear-gradient(135deg,color-mix(in srgb,var(--cocoon) 7%,white 93%),var(--surface));padding:" + (mobile ? "1rem" : "1.15rem 1.25rem"))}>
+      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap")}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--cocoon)")}>Brand audit</div>
+          <h3 style={css("margin:0.3rem 0 0;font-size:1.05rem;font-weight:500;color:var(--fg)")}>Suggested brand direction</h3>
+          <p style={css("margin:0.3rem 0 0;font-size:0.78rem;color:var(--fg-muted);line-height:1.5;max-width:40rem")}>A focused recommendation for how the positioning, voice, and visual system should evolve alongside the website action plan.</p>
+        </div>
+        <div style={css("min-width:4.2rem;padding:0.55rem 0.7rem;border:1px solid color-mix(in srgb,var(--cocoon) 18%,var(--border-soft) 82%);border-radius:0.8rem;background:rgba(255,255,255,.72);text-align:center")}><div style={css("font-size:1.25rem;font-weight:500;color:var(--cocoon);line-height:1")}>{brandScore}</div><div style={css("font-size:0.62rem;color:var(--fg-faint);margin-top:0.18rem")}>brand score</div></div>
+      </div>
+      <div style={css("display:grid;grid-template-columns:" + (mobile ? "minmax(0,1fr)" : "repeat(3,minmax(0,1fr))") + ";gap:0.55rem;margin-top:0.9rem")}>
+        {brandThemes.map(theme => (
+          <div key={theme.name} style={css("padding:0.75rem 0.8rem;border:1px solid var(--border-soft);border-radius:0.82rem;background:rgba(255,255,255,.72)")}>
+            <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.5rem")}><span style={css("font-size:0.78rem;font-weight:500;color:var(--fg)")}>{theme.name}</span><span style={css("font-size:0.7rem;font-weight:500;color:" + bandColor(theme.band))}>{theme.score}</span></div>
+            <div style={css("font-size:0.74rem;color:var(--fg-muted);line-height:1.45;margin-top:0.42rem")}>{theme.rec}</div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -253,6 +367,7 @@ function InlineAuditProposal({
 }) {
   const deliverables = [
     { icon: "target", title: "Priority fixes", note: "Turn the weakest audit themes into a focused implementation backlog." },
+    { icon: "palette", title: "Brand direction", note: "Package positioning, voice, and visual suggestions into a clear brand recommendation." },
     { icon: "edit", title: "Messaging pass", note: "Rewrite the high-leverage sections that are blocking clarity and conversion." },
     { icon: "map", title: "Experience pass", note: "Tighten hierarchy, proof placement, CTA rhythm, and mobile decision flow." },
     { icon: "checklist", title: "Launch handoff", note: "Package the sprint checklist so the team knows what ships and what follows." },
@@ -419,6 +534,23 @@ export function AuditReportView({
   const strongCount = report.themes.filter(t => t.band === "Strong" || t.band === "Good").length;
   const weakCount = report.themes.length - strongCount;
   const overallDelta = report.target - report.overall;
+  const importDrafts = useMemo(() => getAuditTaskDrafts(clientId || portalClientId(clientName), clientName, sorted), [clientId, clientName, sorted]);
+  const [importOpen, setImportOpen] = useState(false);
+  const [selectedImports, setSelectedImports] = useState<Set<string>>(() => new Set(importDrafts.map(draft => draft.sourceId || draft.title)));
+
+  const toggleImport = (sourceId: string) => setSelectedImports(current => {
+    const next = new Set(current);
+    if (next.has(sourceId)) next.delete(sourceId);
+    else next.add(sourceId);
+    return next;
+  });
+  const toggleAllImports = () => setSelectedImports(current => current.size === importDrafts.length
+    ? new Set()
+    : new Set(importDrafts.map(draft => draft.sourceId || draft.title)));
+  const importSelectedTasks = () => {
+    actions.bulkImportTasks(importDrafts.filter(draft => selectedImports.has(draft.sourceId || draft.title)));
+    setImportOpen(false);
+  };
 
   return (
     <div style={css("width:100%;padding:" + (mobile ? "1rem 0.9rem 1.5rem" : "1.6rem 2rem 2.4rem"))}>
@@ -431,6 +563,9 @@ export function AuditReportView({
           </div>
         )}
         <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2);flex-wrap:wrap;width:" + (mobile ? "100%" : "auto"))}>
+          {state.role !== "client" && (
+            <button type="button" onClick={() => setImportOpen(true)} className="pt-op" style={css("display:inline-flex;align-items:center;justify-content:center;gap:.4rem;height:2.1rem;padding:0 .85rem;border-radius:999px;border:none;background:var(--accent);color:#fff;font-size:.76rem;font-weight:500;cursor:pointer;flex:" + (mobile ? "1" : "0 0 auto"))}><Icon name="checkmark" size={13} />Import to To-do</button>
+          )}
           <div style={css("display:inline-flex;gap:0.2rem;padding:0.2rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill);background:var(--surface-alt);width:" + (mobile ? "100%" : "auto"))}>
             <button
               type="button"
@@ -438,7 +573,7 @@ export function AuditReportView({
               aria-current={layout === "report" ? "page" : undefined}
               style={css("appearance:none;border:none;cursor:pointer;font-size:0.76rem;font-weight:500;padding:0.32rem 0.72rem;border-radius:var(--radius-pill);flex:" + (mobile ? "1" : "0 0 auto") + ";" + (layout === "report" ? "background:var(--fg);color:#fff" : "background:transparent;color:var(--fg-muted)"))}
             >
-              Report
+              Audit report
             </button>
             <button
               type="button"
@@ -446,7 +581,7 @@ export function AuditReportView({
               aria-current={layout === "priority" ? "page" : undefined}
               style={css("appearance:none;border:none;cursor:pointer;font-size:0.76rem;font-weight:500;padding:0.32rem 0.72rem;border-radius:var(--radius-pill);flex:" + (mobile ? "1" : "0 0 auto") + ";" + (layout === "priority" ? "background:var(--fg);color:#fff" : "background:transparent;color:var(--fg-muted)"))}
             >
-              Plan
+              Action + brand plan
             </button>
           </div>
         </div>
@@ -483,6 +618,8 @@ export function AuditReportView({
               <div style={css("position:relative;height:0.45rem;border-radius:999px;background:color-mix(in srgb,var(--cocoon) 12%,white 88%);margin-top:0.85rem;overflow:hidden")}><div style={css("position:absolute;inset:0 auto 0 0;width:" + report.overall + "%;background:var(--cocoon);border-radius:999px")} /></div>
             </div>
           </div>
+
+          <BrandAuditPanel themes={report.themes} mobile={mobile} />
 
           <div style={css("display:grid;grid-template-columns:" + (mobile ? "minmax(0,1fr)" : "repeat(auto-fill,minmax(19rem,1fr))") + ";gap:" + (mobile ? "0.62rem" : "0.75rem"))}>
             {sorted.map(t => {
@@ -532,6 +669,7 @@ export function AuditReportView({
           </div>
 
           <div style={css("display:flex;flex-direction:column;gap:0.7rem;min-width:0")}>
+            <BrandAuditPanel themes={report.themes} mobile={mobile} />
             {!(showInlineProposal || initialProposalOpen) && <PriorityPlanCards themes={recommendationThemes} mobile={mobile} />}
             {(showInlineProposal || initialProposalOpen) && (
               <InlineAuditProposal
@@ -553,6 +691,17 @@ export function AuditReportView({
       )}
 
       </div>
+      {importOpen && (
+        <AuditTaskImportModal
+          clientName={clientName}
+          drafts={importDrafts}
+          selected={selectedImports}
+          onToggle={toggleImport}
+          onSelectAll={toggleAllImports}
+          onClose={() => setImportOpen(false)}
+          onImport={importSelectedTasks}
+        />
+      )}
     </div>
   );
 }

@@ -5,6 +5,8 @@ import { css } from "../helpers";
 import { Icon } from "../icons";
 import { AdminProgressBody, ManagerProgressBody, AdminStats, AdminPipeline, ManagerStats, ManagerPipeline } from "./ProgressDeliverySections";
 import { ClientProgressBody, ClientStats, ClientPipeline } from "./ClientProgressBody";
+import { TaskCalendar } from "./Tasks";
+import { roleTasks } from "../selectors";
 import type { PortalActions, PortalState } from "../store";
 import type { ProgressChatMessage, ProgressChatSession, Role } from "../types";
 
@@ -12,8 +14,8 @@ import type { ProgressChatMessage, ProgressChatSession, Role } from "../types";
 
 // ── header band — greeting · ask/search · the real snapshot cards ──────────────
 const HERO: Record<Role, { name: string; sub: string; ph: string }> = {
-  client: { name: "Flora", sub: "Here’s where your project stands — and anything that needs you.", ph: "Ask the studio, or search your project…" },
-  dev: { name: "Noa", sub: "Your active projects and what needs your attention today.", ph: "Ask, search, or jump to a client…" },
+  client: { name: "Client", sub: "Your workspace is ready for project details.", ph: "Ask the studio or search your workspace…" },
+  dev: { name: "Kier", sub: "Your active projects and what needs your attention today.", ph: "Ask, search, or jump to a client…" },
   admin: { name: "Trish", sub: "How the studio’s doing, and what needs attention today.", ph: "Ask, search, or jump to a client…" },
 };
 
@@ -423,6 +425,13 @@ export function Progress({ state, actions }: { state: PortalState; actions: Port
       <div className={chatOpen ? "pt-progress-below-fade" : undefined}>
         {progressBody}
       </div>
+      <section style={css("display:flex;flex-direction:column;gap:0.65rem")}>
+        <div style={css("display:flex;align-items:flex-end;justify-content:space-between;gap:0.8rem;padding:0 0.15rem")}>
+          <div><h3 style={css("margin:0;font-size:var(--text-lg);font-weight:500")}>Calendar</h3><div style={css("margin-top:0.15rem;font-size:var(--text-xs);color:var(--fg-muted)")}>Task deadlines across your current workspace.</div></div>
+          <button type="button" onClick={() => { actions.patch({ taskView: "board" }); actions.setView("tasks"); }} style={css("border:none;background:none;color:var(--accent);font-size:var(--text-xs);font-weight:500;cursor:pointer")}>Open board</button>
+        </div>
+        <TaskCalendar state={state} actions={actions} tasks={roleTasks(state)} />
+      </section>
     </div>
   );
 }

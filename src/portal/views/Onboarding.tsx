@@ -21,7 +21,7 @@ export function Onboarding({ state, actions }: { state: PortalState; actions: Po
         <div style={css("display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:var(--space-3);margin-top:1rem")}>
           <label style={css("display:flex;flex-direction:column;gap:0.3rem;font-size:0.76rem;font-weight:500;color:var(--fg-muted)")}>
             Client name
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="Flora & Co." className="pt-input" style={css("border:1px solid var(--border);border-radius:var(--radius);padding:0.62rem 0.75rem;font-size:0.84rem;background:var(--surface-alt);color:var(--fg)")} />
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="Client or company name" className="pt-input" style={css("border:1px solid var(--border);border-radius:var(--radius);padding:0.62rem 0.75rem;font-size:0.84rem;background:var(--surface-alt);color:var(--fg)")} />
           </label>
           <label style={css("display:flex;flex-direction:column;gap:0.3rem;font-size:0.76rem;font-weight:500;color:var(--fg-muted)")}>
             Primary email

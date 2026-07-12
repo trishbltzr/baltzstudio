@@ -10,7 +10,7 @@ import { FUNNEL_DEMO } from "../discovery/discoveryData";
 import { FunnelFlowHero, FUNNEL_PIPELINE, type FunnelDocs } from "../discovery/funnelPipeline";
 import { FunnelPlanPreviewModal, type FunnelPlanPost } from "../funnels/Funnels";
 
-const CLIENT_ID = "flora";
+const CLIENT_ID = STUDIO_CLIENTS[0].id;
 
 function planFromRecord(record: PortalFunnelPlanRecord): FunnelPlanPost {
   return { ...record, content: record.content as FunnelDocs };
@@ -44,7 +44,7 @@ function goalFromType(type: string) {
 
 export function ClientFunnels({ state, actions }: { state: PortalState; actions: PortalActions }) {
   const [activePlan, setActivePlan] = useState<FunnelPlanPost | null>(null);
-  const client = STUDIO_CLIENTS.find(item => item.id === CLIENT_ID) || STUDIO_CLIENTS.find(item => item.name === "Flora & Co.") || STUDIO_CLIENTS[0];
+  const client = STUDIO_CLIENTS.find(item => item.id === CLIENT_ID) || STUDIO_CLIENTS[0];
   const workspace = mergePortalClientWorkspace(client.id, state.clientWorkspaces[client.id]);
   const funnelPlans = workspace.funnelPlans.map(planFromRecord);
   const funnels = useMemo(() => client.funnels.map(funnel => {
@@ -68,6 +68,10 @@ export function ClientFunnels({ state, actions }: { state: PortalState; actions:
       }) as FunnelDocs,
     };
   }), [client, funnelPlans]);
+
+  if (funnels.length === 0) {
+    return <div style={css("padding:2.5rem 1rem;text-align:center;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);color:var(--fg-faint);font-size:0.8rem")}>No funnel plans yet.</div>;
+  }
 
   const latestPlan = funnels[0];
   const readyCount = funnels.filter(item => item.statusLabel !== "Draft").length;

@@ -5,7 +5,9 @@ import { Icon } from "../icons";
 import { css, initials, svcBadge } from "../helpers";
 import { formatDashboardDate } from "@/lib/dateDisplay";
 import { ALL_PROJECTS, BRAND_SYSTEMS, DETAIL_BIRTHDAYS, DETAIL_CITIES, DETAIL_NOTES, DETAIL_SINCE, STUDIO_SYSTEM, SVC_META, emailSlug } from "../data";
+import { STUDIO_CLIENTS } from "../clients";
 import type { PortalActions, PortalState } from "../store";
+import type { ClientProject } from "../types";
 
 interface AccessUser { name: string; email: string; access: string; studio: boolean }
 
@@ -20,16 +22,12 @@ function accessUsers(clientName: string, i: number, dev: string): AccessUser[] {
   return users;
 }
 
-const FOLDERS = [["Design Files", 4], ["Brand Assets", 3], ["Deliverables", 2], ["Audits", 1]] as const;
-const FILES = [
-  { name: "Homepage_v3.fig", ext: "FIG", project: "Full site", size: "8.2 MB", by: "Noa", updated: "July 1", status: "Ready" },
-  { name: "Brand_Guidelines.pdf", ext: "PDF", project: "Brand", size: "3.1 MB", by: "Trish", updated: "June 26", status: "Ready" },
-  { name: "Product_Photography.zip", ext: "ZIP", project: "Full site", size: "44 MB", by: "Flora", updated: "June 24", status: "Uploaded" },
-];
+const FOLDERS = [["Design Files", 0], ["Brand Assets", 0], ["Deliverables", 0], ["Audits", 0]] as const;
+const FILES: { name: string; ext: string; project: string; size: string; by: string; updated: string; status: string }[] = [];
 
 function AvatarRow({ u }: { u: AccessUser }) {
   return (
-    <div style={css("display:flex;align-items:center;gap:0.65rem;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius);padding:0.6rem 0.75rem")}>
+    <div style={css("display:flex;align-items:center;gap:0.7rem;min-height:3.35rem;background:var(--surface-alt);border:1px solid var(--border-soft);border-radius:var(--radius);padding:0.7rem 0.8rem")}>
       <span style={css("width:2rem;height:2rem;border-radius:50%;display:grid;place-items:center;font-size:var(--text-2xs);font-weight:500;flex-shrink:0;background:" + (u.studio ? "var(--lane-studio-soft)" : "var(--accent-soft)") + ";color:" + (u.studio ? "var(--lane-studio)" : "var(--accent)"))}>{initials(u.name).toUpperCase()}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={css("font-size:var(--text-base);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{u.name}</div>
@@ -46,16 +44,18 @@ export function ClientDetail({ state, actions }: { state: PortalState; actions: 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteAccess, setInviteAccess] = useState("Client");
   const name = state.clientDetail;
-  const pr = ALL_PROJECTS.find(p => p.client === name);
-  if (!pr || !name) return null;
-  const i = ALL_PROJECTS.indexOf(pr);
+  const rosterClient = STUDIO_CLIENTS.find(client => client.name === name);
+  const existingProject = ALL_PROJECTS.find(p => p.client === name);
+  if (!name || !rosterClient) return null;
+  const pr: ClientProject = existingProject || { id: `client-${rosterClient.id}`, client: name, name: "Client workspace", service: "cocoon", stage: "Not started", progress: 0, dev: rosterClient.owner, health: "on_track", due: "—", amount: "—", wise: "awaiting" };
+  const i = existingProject ? ALL_PROJECTS.indexOf(existingProject) : STUDIO_CLIENTS.indexOf(rosterClient);
   const slug = emailSlug(name);
   const city = DETAIL_CITIES[i % DETAIL_CITIES.length];
   const fields = [
     ["Client owner", pr.dev], ["Service · stage", pr.stage], ["Client since", DETAIL_SINCE[i % DETAIL_SINCE.length]],
     ["Birthday", DETAIL_BIRTHDAYS[i % DETAIL_BIRTHDAYS.length]], ["Email", "hello@" + slug + ".com"], ["Phone", "+44 20 7" + (100 + (i * 37) % 900) + " " + (2040 + (i * 53) % 9000)],
     ["Location", city[0]], ["Timezone", city[1]],
-  ];
+  ].filter(([, value]) => Boolean(value));
   const users = accessUsers(name, i, pr.dev);
   const workspace = actions.workspaceForClient(name);
   const usersWithCollaborators = [
@@ -67,8 +67,6 @@ export function ClientDetail({ state, actions }: { state: PortalState; actions: 
     })),
     ...users,
   ];
-  const cdAccessL = usersWithCollaborators.filter((_, ix) => ix % 2 === 0);
-  const cdAccessR = usersWithCollaborators.filter((_, ix) => ix % 2 === 1);
   const notes = DETAIL_NOTES[i % DETAIL_NOTES.length];
   const allFiles = [
     ...workspace.files.map(file => ({ name: file.name, ext: file.ext, project: file.folder, size: file.sizeLabel, by: file.by, updated: formatDashboardDate(file.updated, file.updated), status: file.status })),
@@ -86,37 +84,38 @@ export function ClientDetail({ state, actions }: { state: PortalState; actions: 
         <button onClick={actions.previewAsClient} className="pt-iconbtn" style={css("margin-left:auto;display:inline-flex;align-items:center;gap:0.35rem;padding:0.4rem 0.9rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:0.78rem;font-weight:500;cursor:pointer")}><Icon name="eye" size={15} />Preview Portal</button>
       </div>
 
+      <div style={css("display:grid;grid-template-columns:" + (state.isMobile ? "minmax(0,1fr)" : "minmax(0,1.15fr) minmax(20rem,0.85fr)") + ";gap:0.9rem;align-items:stretch")}>
       {/* details */}
-      <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface-alt);padding:0.9rem")}>
-        <div style={css("display:flex;align-items:center;gap:0.8rem;padding:0.2rem 0.35rem 0.9rem")}>
+      <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden")}>
+        <div style={css("display:flex;align-items:center;gap:0.8rem;padding:1rem 1.1rem;border-bottom:1px solid var(--border-soft)")}>
           <span style={css("width:2.6rem;height:2.6rem;border-radius:var(--radius-sm);background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:500;font-size:1rem;flex-shrink:0")}>{name[0]}</span>
-          <div style={{ flex: 1, minWidth: 0 }}><div style={css("font-weight:500;font-size:1.05rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{name}</div><div style={css("font-size:0.76rem;color:var(--fg-muted)")}>{pr.name} · {users.length} with access</div></div>
+          <div style={{ flex: 1, minWidth: 0 }}><div style={css("font-weight:500;font-size:1.05rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{name}</div><div style={css("font-size:0.76rem;color:var(--fg-muted)")}>{pr.name} · {usersWithCollaborators.length} with access</div></div>
           <span style={css(svcBadge(pr.service))}>{SVC_META[pr.service].short}</span>
         </div>
-        <div style={css("display:grid;grid-template-columns:" + (state.isMobile ? "repeat(2,minmax(0,1fr))" : "repeat(3,minmax(0,1fr))") + ";gap:0.55rem")}>
+        <div style={css("display:grid;grid-template-columns:" + (state.isMobile ? "minmax(0,1fr)" : "repeat(2,minmax(0,1fr))") + ";gap:0.55rem;padding:0.9rem")}>
           {fields.map(([label, value]) => (
-            <div key={label} style={css("background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius);padding:0.7rem 0.85rem")}>
-              <div style={css("font-size:0.62rem;letter-spacing:0.02em;color:var(--fg-faint);font-weight:500;margin-bottom:0.28rem")}>{label}</div>
+            <div key={label} style={css("display:flex;flex-direction:column;justify-content:center;min-height:3.8rem;background:var(--surface-alt);border:1px solid var(--border-soft);border-radius:var(--radius);padding:0.68rem 0.8rem")}>
+              <div style={css("font-size:0.62rem;letter-spacing:0;color:var(--fg-faint);font-weight:500;margin-bottom:0.28rem")}>{label}</div>
               <div style={css("font-size:0.85rem;color:var(--fg)")}>{value}</div>
             </div>
           ))}
-          <div style={css("grid-column:1/-1;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius);padding:0.7rem 0.85rem")}>
-            <div style={css("font-size:0.62rem;letter-spacing:0.02em;color:var(--fg-faint);font-weight:500;margin-bottom:0.28rem")}>Notes</div>
+          {notes && <div style={css("grid-column:1/-1;background:var(--surface-alt);border:1px solid var(--border-soft);border-radius:var(--radius);padding:0.7rem 0.85rem")}>
+            <div style={css("font-size:0.62rem;letter-spacing:0;color:var(--fg-faint);font-weight:500;margin-bottom:0.28rem")}>Notes</div>
             <div style={css("font-size:0.85rem;color:var(--fg);line-height:1.5")}>{notes}</div>
-          </div>
+          </div>}
         </div>
       </div>
 
       {/* access */}
-      <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface-alt);padding:0.9rem")}>
-        <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.15rem 0.35rem 0.75rem")}>
-          <span style={css("font-size:var(--text-xs);font-weight:500;letter-spacing:0.02em;color:var(--fg-faint)")}>People with Access · {usersWithCollaborators.length}</span>
+      <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden;display:flex;flex-direction:column")}>
+        <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:1rem 1.1rem;border-bottom:1px solid var(--border-soft)")}>
+          <div><div style={css("font-size:var(--text-md);font-weight:500;color:var(--fg)")}>People with access</div><div style={css("font-size:var(--text-xs);color:var(--fg-muted);margin-top:0.14rem")}>{usersWithCollaborators.length} collaborators</div></div>
           <button onClick={() => setInviteOpen(true)} className="pt-iconbtn" style={css("display:inline-flex;align-items:center;gap:0.3rem;padding:0.35rem 0.8rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:0.74rem;font-weight:500;cursor:pointer")}><Icon name="plus" size={15} />Add collaborator</button>
         </div>
-        <div style={css("display:grid;grid-template-columns:" + (state.isMobile ? "minmax(0,1fr)" : "repeat(2,minmax(0,1fr))") + ";gap:0.55rem")}>
-          <div style={css("display:flex;flex-direction:column;gap:0.55rem")}>{cdAccessL.map(u => <AvatarRow key={u.email} u={u} />)}</div>
-          <div style={css("display:flex;flex-direction:column;gap:0.55rem")}>{cdAccessR.map(u => <AvatarRow key={u.email} u={u} />)}</div>
+        <div style={css("display:flex;flex:1;flex-direction:column;gap:0.55rem;padding:0.9rem")}>
+          {usersWithCollaborators.map(u => <AvatarRow key={u.email} u={u} />)}
         </div>
+      </div>
       </div>
 
       {/* brand system */}
@@ -127,7 +126,7 @@ export function ClientDetail({ state, actions }: { state: PortalState; actions: 
         </div>
         <div style={css("display:grid;grid-template-columns:" + (state.isMobile ? "minmax(0,1fr)" : "repeat(3,minmax(0,1fr))") + ";gap:0.9rem;padding:1.1rem 1.4rem 1.4rem")}>
           <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface-alt);padding:var(--space-4)")}>
-            <div style={css("font-size:0.62rem;letter-spacing:0.02em;color:var(--fg-faint);font-weight:500;margin-bottom:0.85rem")}>Colours</div>
+            <div style={css("font-size:0.62rem;letter-spacing:0;color:var(--fg-faint);font-weight:500;margin-bottom:0.85rem")}>Colours</div>
             <div style={css("display:flex;flex-direction:column;gap:var(--space-2)")}>
               {sys.colors.map(([cn, hex], ci) => (
                 <div key={hex} style={css("display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.65rem;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface);min-width:0")}>
@@ -138,7 +137,7 @@ export function ClientDetail({ state, actions }: { state: PortalState; actions: 
             </div>
           </div>
           <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface-alt);padding:var(--space-4)")}>
-            <div style={css("font-size:0.62rem;letter-spacing:0.02em;color:var(--fg-faint);font-weight:500;margin-bottom:0.85rem")}>Typography</div>
+            <div style={css("font-size:0.62rem;letter-spacing:0;color:var(--fg-faint);font-weight:500;margin-bottom:0.85rem")}>Typography</div>
             <div style={css("display:flex;flex-direction:column;gap:0.55rem")}>
               {sys.fonts.map(([fn, frole, ff]) => (
                 <div key={fn} style={css("display:flex;align-items:center;gap:0.9rem;padding:0.65rem 0.9rem;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface)")}>
@@ -149,7 +148,7 @@ export function ClientDetail({ state, actions }: { state: PortalState; actions: 
             </div>
           </div>
           <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface-alt);padding:var(--space-4)")}>
-            <div style={css("font-size:0.62rem;letter-spacing:0.02em;color:var(--fg-faint);font-weight:500;margin-bottom:0.85rem")}>Brand Tone</div>
+            <div style={css("font-size:0.62rem;letter-spacing:0;color:var(--fg-faint);font-weight:500;margin-bottom:0.85rem")}>Brand Tone</div>
             <div style={css("display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1.15rem")}>
               {sys.tone.traits.map(t => <span key={t} style={{ fontSize: "0.74rem", fontWeight: 500, padding: "0.3rem 0.75rem", borderRadius: "999px", background: secondary + "22", color: "var(--fg)", border: "1px solid " + secondary + "66" }}>{t}</span>)}
             </div>
@@ -168,7 +167,7 @@ export function ClientDetail({ state, actions }: { state: PortalState; actions: 
       {/* files */}
       <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden;display:grid;grid-template-columns:" + (state.isMobile ? "1fr" : "15rem 1fr") + ";min-height:16rem")}>
         <aside style={css("border-right:1px solid var(--border-soft);background:var(--surface-alt);padding:1.1rem 0.9rem;display:flex;flex-direction:column;gap:0.15rem")}>
-          <div style={css("font-size:0.62rem;letter-spacing:0.02em;color:var(--fg-faint);font-weight:500;padding:0 0.3rem 0.5rem")}>Folders</div>
+          <div style={css("font-size:0.62rem;letter-spacing:0;color:var(--fg-faint);font-weight:500;padding:0 0.3rem 0.5rem")}>Folders</div>
           {FOLDERS.map(([label, count], fi) => (
             <div key={label} className="pt-menuitem" style={css("display:flex;align-items:center;gap:0.55rem;padding:0.5rem 0.55rem;border-radius:var(--radius);cursor:pointer;font-size:var(--text-base);font-weight:500;color:var(--fg);" + (fi === 0 ? "background:var(--surface)" : ""))}>
               <span style={{ display: "grid", placeItems: "center", flexShrink: 0, color: "var(--fg-muted)" }}><Icon name="folder" size={16} /></span>
@@ -183,7 +182,7 @@ export function ClientDetail({ state, actions }: { state: PortalState; actions: 
             <div style={css("display:flex;gap:1.2rem;font-size:0.74rem;color:var(--fg-muted)")}><span><strong style={css("color:var(--fg);font-weight:500")}>{allFiles.length}</strong> ready</span></div>
           </div>
           <div>
-            <div style={css("display:grid;grid-template-columns:2.6fr 1.1fr 0.7fr 0.9fr;gap:0.7rem;padding:0.55rem 1.4rem;border-bottom:1px solid var(--border-soft);font-size:0.62rem;letter-spacing:0.02em;color:var(--fg-faint);font-weight:500")}>
+            <div style={css("display:grid;grid-template-columns:2.6fr 1.1fr 0.7fr 0.9fr;gap:0.7rem;padding:0.55rem 1.4rem;border-bottom:1px solid var(--border-soft);font-size:0.62rem;letter-spacing:0;color:var(--fg-faint);font-weight:500")}>
               <span>Name</span><span>Project</span><span>Updated</span><span style={{ textAlign: "right" }}>Status</span>
             </div>
             {allFiles.map((f, index) => (
