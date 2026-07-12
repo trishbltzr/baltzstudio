@@ -17,14 +17,14 @@ const NAVSECS: Record<Role, NavSec[]> = {
     ["Delivery", [["clients", "Clients", "briefcase"], ["tasks", "To-do's", "checklist"]]],
     ["Engines", [["audits_new", "Audits", "audit"], ["funnels", "Funnels", "funnel"]]],
     ["Communication", [["inbox", "Inbox", "inbox"], ["activity", "Activity", "activity"]]],
-    ["Studio", [["team", "Team", "users"], ["playbooks", "Playbooks", "layers"], ["invoices", "Invoices", "card"], ["billing", "Billing", "wallet"]]],
+    ["Studio", [["team", "Team", "users"], ["playbooks", "Playbooks", "layers"], ["billing", "Billing", "wallet"]]],
   ],
   dev: [
     ["", [["progress", "Snapshot", "snapshot"]]],
     ["Delivery", [["clients", "Clients", "briefcase"], ["tasks", "To-do's", "checklist"], ["review", "Approvals", "flag"]]],
     ["Engines", [["audits_new", "Audits", "audit"], ["funnels", "Funnels", "funnel"]]],
     ["Communication", [["inbox", "Inbox", "inbox"]]],
-    ["Studio", [["playbooks", "Playbooks", "layers"], ["invoices", "Invoices", "card"]]],
+    ["Studio", [["playbooks", "Playbooks", "layers"]]],
   ],
   client: [
     ["", [["progress", "Snapshot", "snapshot"]]],
@@ -94,7 +94,6 @@ export function Sidebar({ state, actions, rail, onLogout }: { state: PortalState
 
   const accountMenu: { label: string; icon: string; onClick: () => void }[] = [
     { label: "Profile", icon: "user", onClick: () => { actions.patch({ sidePop: null }); actions.setView("profile"); } },
-    ...(role === "client" ? [{ label: "Billing", icon: "wallet", onClick: () => { actions.patch({ sidePop: null }); actions.setView("billing"); } }] : []),
     ...(role === "admin" || role === "dev" ? [{ label: "Settings", icon: "sliders", onClick: () => { actions.patch({ sidePop: null }); actions.setView("settings"); } }] : []),
     { label: "Log Out", icon: "logout", onClick: () => { actions.patch({ sidePop: null }); onLogout(); } },
   ];

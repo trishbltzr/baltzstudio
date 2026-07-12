@@ -6,7 +6,7 @@ import { css, statusPill, svcBadge } from "../helpers";
 import { ALL_PROJECTS, SVC_META } from "../data";
 import type { PortalActions, PortalState } from "../store";
 
-const REF_SEED: Record<string, string> = { "Wren & Willow": "WISE-4471" };
+const REF_SEED: Record<string, string> = {};
 const parseAmt = (a: string) => parseInt(a.replace(/[^0-9]/g, ""), 10) || 0;
 const isRecurring = (a: string) => a.includes("/mo");
 const fmtK = (n: number) => (n >= 1000 ? "£" + (n / 1000).toFixed(1).replace(/\.0$/, "") + "k" : "£" + n);
@@ -38,7 +38,10 @@ export function Billing({ state, actions }: { state: PortalState; actions: Porta
   ];
 
   const confirm = (client: string) => { setOver(o => ({ ...o, [client]: "paid" })); actions.showToast("Wise transfer confirmed for " + client); };
-  const remind = (client: string) => actions.showToast("Reminder sent to " + client);
+  const remind = (client: string) => {
+    actions.patch({ invoiceClientName: client });
+    actions.setView("invoices");
+  };
 
   return (
     <div style={css("display:flex;flex-direction:column;gap:0.85rem")}>
@@ -82,6 +85,7 @@ export function Billing({ state, actions }: { state: PortalState; actions: Porta
                 </span>
               </div>
             ))}
+            {rows.length === 0 && <div style={css("padding:2rem 1rem;text-align:center;color:var(--fg-faint);font-size:0.78rem")}>No invoices or Wise transfers yet.</div>}
           </div>
         </div>
       </div>

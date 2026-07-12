@@ -4,22 +4,14 @@ import { useState } from "react";
 import { Icon } from "../icons";
 import { css } from "../helpers";
 import type { PortalState } from "../store";
+import { DEFAULT_CLIENT_NAME } from "../clients";
 
 const ACT_ICON: Record<string, string> = { gate: "flag", file: "file", wise: "wallet", task: "check", msg: "msg", audit: "search", access: "users" };
 const ACT_LANE: Record<string, string> = { gate: "var(--lane-gate)", file: "var(--fg-muted)", wise: "var(--lane-ai)", task: "var(--lane-studio)", msg: "var(--lane-client)", audit: "var(--cocoon)", access: "var(--accent)" };
 type ActivityRow = { who: string; act: string; obj: string; t: string; k: string };
-const ACTIVITY = [
-  { who: "Flora Bennett", act: "is reviewing", obj: "Milestone 2 — Full Site", t: "12m ago", k: "gate" },
-  { who: "Noa Vega", act: "moved", obj: "Homepage build → In Review", t: "40m ago", k: "task" },
-  { who: "Assistant", act: "drafted", obj: "July newsletter for House of Hazel", t: "1h ago", k: "msg" },
-  { who: "Wren & Willow", act: "sent a Wise transfer of", obj: "£2,400", t: "2h ago", k: "wise" },
-  { who: "Emet Rowe", act: "uploaded", obj: "Marigold Cocoon audit", t: "3h ago", k: "audit" },
-  { who: "Noa Vega", act: "approved", obj: "Milestone 1 — Design Preview (Wren & Willow)", t: "5h ago", k: "gate" },
-  { who: "Trish Baltazar", act: "granted", obj: "billing access to Noa", t: "Yesterday", k: "access" },
-  { who: "Plume Studio", act: "downloaded", obj: "Handoff package", t: "Yesterday", k: "file" },
-];
+const ACTIVITY: ActivityRow[] = [];
 const FILTERS: [string, string][] = [["all", "All"], ["gate", "Milestones"], ["wise", "Payments"], ["task", "Tasks"], ["file", "Files"]];
-const CLIENT_PORTAL_NAME = "Flora & Co.";
+const CLIENT_PORTAL_NAME = DEFAULT_CLIENT_NAME;
 
 export function Activity({ state }: { state?: PortalState }) {
   const [filter, setFilter] = useState("all");
@@ -59,7 +51,7 @@ export function Activity({ state }: { state?: PortalState }) {
         ))}
         {rows.length === 0 && (
           <div style={css("padding:2.5rem 1rem;text-align:center;color:var(--fg-muted);font-size:var(--text-base)")}>
-            No ticket activity yet.
+            No activity yet.
           </div>
         )}
       </div>

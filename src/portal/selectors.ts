@@ -1,11 +1,12 @@
 // Role-scoped, filter-aware derived lists shared across views.
 import { ALL_PROJECTS, MY_CLIENTS } from "./data";
+import { DEFAULT_CLIENT_NAME } from "./clients";
 import { clientJourneyMessaging, journeyStageSummary } from "./helpers";
 import type { PortalState } from "./store";
 import type { ClientProject, Owner, Priority, Task, View } from "./types";
 
 function syncProjectWithJourney(project: ClientProject, state: PortalState): ClientProject {
-  if (project.client !== "Flora & Co.") return project;
+  if (project.client !== DEFAULT_CLIENT_NAME) return project;
 
   const { gate, stage, progress } = journeyStageSummary(state.journeyGates);
   if (!gate) return project;
@@ -21,15 +22,15 @@ function syncProjectWithJourney(project: ClientProject, state: PortalState): Cli
 export function roleProjects(state: PortalState): ClientProject[] {
   let src = ALL_PROJECTS.map(project => syncProjectWithJourney(project, state));
   if (state.role === "dev") src = src.filter(p => MY_CLIENTS.includes(p.client));
-  if (state.role === "client") src = src.filter(p => p.client === "Flora & Co.");
+  if (state.role === "client") src = src.filter(p => p.client === DEFAULT_CLIENT_NAME);
   const cf = state.clientFilter;
   return src.filter(p => (cf.service === "all" || p.service === cf.service) && (cf.health === "all" || p.health === cf.health));
 }
 
 export function roleTasks(state: PortalState): Task[] {
   let src = state.tasks;
-  if (state.role === "dev") src = src.filter(t => t.assignee === "Noa Vega" || t.owner === "ai");
-  if (state.role === "client") src = src.filter(t => t.project === "Flora & Co.");
+  if (state.role === "dev") src = src.filter(t => t.assignee === "Kier Mangibin" || t.owner === "ai");
+  if (state.role === "client") src = src.filter(t => t.project === DEFAULT_CLIENT_NAME);
   const tf = state.taskFilter;
   if (tf.owner !== "all") src = src.filter(t => (t.owner || "studio") === (tf.owner as Owner));
   if (tf.priority !== "all") src = src.filter(t => (t.priority || "med") === (tf.priority as Priority));
@@ -46,11 +47,7 @@ export function portalNotificationSummary(state: PortalState): { count: number; 
   const clientJourneyCopy = clientJourneyMessaging(gate);
 
   if (state.role === "client") {
-    const items = [
-      clientJourneyCopy.notificationItem,
-      stage + " is " + progress + "% complete.",
-      "The £2,400 Wise transfer is pending.",
-    ];
+    const items = gate ? [clientJourneyCopy.notificationItem, stage + " is " + progress + "% complete."] : ["Cocoon Consult has not started yet."];
     return {
       count: items.length,
       lead: clientJourneyCopy.notificationLead,
@@ -66,7 +63,7 @@ export function portalNotificationSummary(state: PortalState): { count: number; 
 
   if (state.role === "admin") {
     const items = [
-      "Flora is in " + stage + ".",
+      DEFAULT_CLIENT_NAME + " is in " + stage + ".",
       openEscalations ? openEscalations + " escalation" + (openEscalations === 1 ? " needs" : "s need") + " attention." : "Escalations are clear.",
       unreadThreads ? unreadThreads + " inbox thread" + (unreadThreads === 1 ? " is" : "s are") + " unread." : "Inbox is clear.",
     ];
@@ -81,7 +78,7 @@ export function portalNotificationSummary(state: PortalState): { count: number; 
 
   const reviewReady = roleTasks(state).filter(task => task.status === "review").length;
   const items = [
-    "Flora is in " + stage + ".",
+    DEFAULT_CLIENT_NAME + " is in " + stage + ".",
     reviewReady ? reviewReady + " task" + (reviewReady === 1 ? " is" : "s are") + " waiting for review." : "No tasks are waiting for review.",
     unreadThreads ? unreadThreads + " client thread" + (unreadThreads === 1 ? " has" : "s have") + " unread replies." : "No unread client replies.",
   ];

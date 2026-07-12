@@ -6,6 +6,7 @@ import { css, milestoneStatusFromGate, statusPill } from "../helpers";
 import { MILESTONES } from "../data";
 import type { PortalActions, PortalState } from "../store";
 import type { JourneyGate, JourneyRequest } from "../types";
+import { DEFAULT_CLIENT_NAME } from "../clients";
 
 const REQUEST_TAGS = ["Copy", "Layout", "Images", "Mobile", "Functionality"];
 
@@ -136,7 +137,7 @@ export function Journey({ state, actions }: { state: PortalState; actions: Porta
     const route = actions.createJourneyRequest({
       existingThreadId: gate?.request?.threadId,
       title: gate ? "Milestone " + gate.g + " — " + gate.title : "Milestone review",
-      clientName: "Flora & Co.",
+      clientName: DEFAULT_CLIENT_NAME,
       note,
       tags: requestTags,
       severity: requestSeverity,

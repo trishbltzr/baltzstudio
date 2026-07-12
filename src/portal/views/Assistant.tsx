@@ -7,22 +7,18 @@ import type { PortalState } from "../store";
 import type { Owner } from "../types";
 
 interface AsstMsg { lane: Owner; who: string; text: string; time: string }
-const BASE_SEED: AsstMsg[] = [
-  { lane: "client", who: "Flora", text: "Can we swap the hero photo for the new product shot?", time: "8:40 AM" },
-  { lane: "ai", who: "Assistant", text: "On it — I've queued the hero swap and optimised the image. Noa will confirm before it goes live.", time: "8:40 AM" },
-  { lane: "studio", who: "Noa · Studio", text: "Looks great with the new shot. Approving now — live in ~10 min.", time: "8:52 AM" },
-];
+const BASE_SEED: AsstMsg[] = [];
 const LEGEND: [Owner, string][] = [["studio", "Studio"], ["ai", "Assistant"], ["client", "You"], ["gate", "Milestone"]];
 
 export function Assistant({ state }: { state: PortalState }) {
   const [customMsgs, setCustomMsgs] = useState<AsstMsg[]>([]);
   const [draft, setDraft] = useState("");
   const gateCopy = clientJourneyMessaging(activeJourneyGate(state.journeyGates));
-  const msgs = useMemo(() => [...BASE_SEED, { lane: "gate" as const, who: "Milestone", text: gateCopy.assistantItem, time: "9:01 AM" }, ...customMsgs], [customMsgs, gateCopy.assistantItem]);
+  const msgs = useMemo(() => [...BASE_SEED, ...(state.journeyGates.length ? [{ lane: "gate" as const, who: "Milestone", text: gateCopy.assistantItem, time: "Now" }] : []), ...customMsgs], [customMsgs, gateCopy.assistantItem, state.journeyGates.length]);
   const send = () => {
     const t = draft.trim();
     if (!t) return;
-    setCustomMsgs(messages => [...messages, { lane: "client", who: "Flora", text: t, time: "Now" }]);
+    setCustomMsgs(messages => [...messages, { lane: "client", who: "Client", text: t, time: "Now" }]);
     setDraft("");
   };
 
@@ -34,6 +30,7 @@ export function Assistant({ state }: { state: PortalState }) {
         <div style={css("display:flex;gap:var(--space-3);flex-wrap:wrap")}>{LEGEND.map(([k, l]) => { const lm = laneMeta(k); return <span key={k} style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:0.68rem;color:var(--fg-muted)")}><span style={css("width:0.55rem;height:0.55rem;border-radius:50%;background:" + lm.c)} />{l}</span>; })}</div>
       </div>
       <div style={css("flex:1;padding:1.1rem;display:flex;flex-direction:column;gap:0.8rem;min-height:18rem;max-height:26rem;overflow-y:auto;background:var(--surface-alt)")}>
+        {msgs.length === 0 && <div style={css("margin:auto;text-align:center;color:var(--fg-faint);font-size:0.8rem")}>No messages yet.</div>}
         {msgs.map((m, i) => {
           const lm = laneMeta(m.lane);
           const mine = m.lane === "client";

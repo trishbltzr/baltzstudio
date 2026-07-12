@@ -213,7 +213,7 @@ export function LoginPage({
 
           <div className="login-journey-copy">
             <h1>Welcome back to the flight path.</h1>
-            <p>Everything from your Cocoon audit to launch and beyond, in one calm place.</p>
+            <p>Everything from your Cocoon Consult audit to launch and beyond, in one calm place.</p>
 
             <div className="login-journey-list">
               {JOURNEY_STEPS.map(step => {

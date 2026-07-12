@@ -66,7 +66,7 @@ export const onboardingSteps: OnboardingStep[] = [
   {
     id: "brand-core",
     title: "Prepare your brand core",
-    summary: "Give Cocoon the story, offer, buyer, and proof behind the brand.",
+    summary: "Give Cocoon Consult the story, offer, buyer, and proof behind the brand.",
     tag: "Required",
     icon: PenLine,
     prompts: [
@@ -96,7 +96,7 @@ export const onboardingSteps: OnboardingStep[] = [
     tag: "Recommended",
     icon: LinkIcon,
     prompts: [
-      { id: "current-site", label: "Current site", prompt: "Where can Cocoon review what exists now?", type: "URL", kind: "url", placeholder: "https://yourbrand.com" },
+      { id: "current-site", label: "Current site", prompt: "Where can Cocoon Consult review what exists now?", type: "URL", kind: "url", placeholder: "https://yourbrand.com" },
       { id: "social-links", label: "Social links", prompt: "Where can we see how the brand shows up now?", type: "Links", kind: "textarea", placeholder: "Instagram, TikTok, LinkedIn, YouTube..." },
       { id: "assets", label: "Assets", prompt: "What brand material, photos, decks, or copy already exists?", type: "Materials list", kind: "textarea", required: true, placeholder: "Logo files, photos, brand guide, copy doc, testimonials..." },
       { id: "references", label: "References", prompt: "What sites, styles, or examples should shape the direction?", type: "Reference links", kind: "textarea", placeholder: "Links plus what you like about each one..." },
@@ -370,7 +370,7 @@ export function ClientOverviewTab({ project, onNavChange, role = "client" }: { p
         <div className="welcome-card">
           <div className="welcome-card-main">
             <div className="welcome-card-copy">
-              <div className="welcome-kicker">{showPremiumCocoonAdmin ? "Premium Cocoon Admin View" : showAuditOverview ? "Audit Workspace" : role === "admin" ? "Client" : "Welcome Back"}</div>
+              <div className="welcome-kicker">{showPremiumCocoonAdmin ? "Premium Cocoon Consult Admin View" : showAuditOverview ? "Audit Workspace" : role === "admin" ? "Client" : "Welcome Back"}</div>
               <h2>
                 {showPremiumCocoonAdmin ? (
                   <>
@@ -476,7 +476,7 @@ export function ClientOverviewTab({ project, onNavChange, role = "client" }: { p
             ? [
                 { id: "audit-intake", title: "Cocoon Consult audit", status: "complete" as const, dateNum: "3", dateMon: "Jun", detail: "Inputs received · audit generated" },
                 { id: "audit-review", title: "Guided Cocoon Consult call", status: stage === "cocoon-consult" ? "active" as const : "complete" as const, dateNum: "5", dateMon: "Jun", detail: workflow?.booking.label ?? "Findings reviewed with next-step recommendations" },
-                { id: "audit-path", title: workflow?.nextStepLabel ?? "Choose next path", status: stage === "paid-cocoon" ? "active" as const : stage === "deleted" ? "locked" as const : "complete" as const, dateNum: "10", dateMon: "Jun", detail: workflow?.nextStepDetail ?? "Paid Cocoon · Winged in a Week · In Full Flight" },
+                { id: "audit-path", title: workflow?.nextStepLabel ?? "Choose next path", status: stage === "paid-cocoon" ? "active" as const : stage === "deleted" ? "locked" as const : "complete" as const, dateNum: "10", dateMon: "Jun", detail: workflow?.nextStepDetail ?? "Paid Cocoon Consult · Winged in a Week · In Full Flight" },
               ]
             : projectTimelineEvents
           ).map(({ id, title, status, dateNum, dateMon, detail, ...eventMeta }) => (
@@ -2321,7 +2321,7 @@ export function ClientCocoonEmbedTab({
         <button
           type="button"
           className="cocoon-mobile-sidebar-backdrop"
-          aria-label="Close Cocoon steps"
+          aria-label="Close Cocoon Consult steps"
           onClick={() => onCocoonSidebarOpenChange?.(false)}
         />
       )}
@@ -2354,7 +2354,7 @@ export function ClientCocoonEmbedTab({
                   <div style={{ background: "var(--surface)", borderRadius: "1rem", border: "1px dashed var(--border)", padding: "2.5rem 2rem", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "1.1rem" }}>
                     <Wand2 size={28} style={{ color: "oklch(0.75 0.15 280)" }} />
                     <div>
-                      <h3 style={{ fontSize: "var(--text-lg)", fontWeight: 500, color: "var(--fg)", marginBottom: "0.35rem" }}>Ready for Cocoon magic?</h3>
+                      <h3 style={{ fontSize: "var(--text-lg)", fontWeight: 500, color: "var(--fg)", marginBottom: "0.35rem" }}>Ready for Cocoon Consult magic?</h3>
                       <p style={{ fontSize: "var(--text-base)", color: "var(--fg-muted)", maxWidth: "300px", margin: "0 auto" }}>Generate your personalized prep list and brand audit.</p>
                     </div>
                     <button onClick={generateAudit} style={{ padding: "0.65rem 1.3rem", background: "var(--accent-grad)", color: "white", border: "none", borderRadius: "var(--radius)", fontSize: "var(--text-md)", fontWeight: 500, fontFamily: "inherit", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.45rem" }}>

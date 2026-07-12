@@ -112,7 +112,7 @@ function latestPhaseTaskDate(phase: Project["milestones"][number]["phases"][numb
 function workflowActivityTitle(type: string, target: string) {
   const labels: Record<string, string> = {
     cocoon_link_sent: "Cocoon Consult link sent",
-    audit_generated: "Cocoon report generated",
+    audit_generated: "Cocoon Consult report generated",
     wise_payment_sent: "Wise payment email sent",
     wise_payment_confirmed: "Wise payment confirmed",
     booking_unlocked: "Booking link unlocked",

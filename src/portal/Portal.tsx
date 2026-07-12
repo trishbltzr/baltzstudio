@@ -2,6 +2,7 @@
 
 import { css } from "./helpers";
 import { usePortal } from "./store";
+import { DEFAULT_CLIENT_NAME } from "./clients";
 import type { Role } from "./types";
 import { Sidebar } from "./shell/Sidebar";
 import { MobileTabBar } from "./shell/MobileTabBar";
@@ -26,7 +27,6 @@ import { ClientAudits } from "./views/ClientAudits";
 import { ClientFunnels } from "./views/ClientFunnels";
 import { Assistant } from "./views/Assistant";
 import { Files } from "./views/Files";
-import { ClientBilling } from "./views/ClientBilling";
 import { Funnels } from "./funnels/Funnels";
 import { Audits } from "./audits/Audits";
 import { Onboarding } from "./views/Onboarding";
@@ -61,9 +61,9 @@ export function Portal({ seedRole, onLogout }: { seedRole: Role; onLogout: () =>
     if (view === "inbox") return <Inbox state={state} actions={actions} />;
     if (view === "activity") return <Activity state={state} />;
     if (view === "playbooks") return <Playbooks state={state} actions={actions} />;
-    if (view === "billing") return role === "client" ? <ClientBilling state={state} actions={actions} /> : <Billing state={state} actions={actions} />;
+    if (view === "billing" && role === "admin") return <Billing state={state} actions={actions} />;
     if (view === "team") return <Users state={state} actions={actions} />;
-    if (view === "invoices") return <Invoices state={state} actions={actions} />;
+    if (view === "invoices" && role === "admin") return <Invoices state={state} actions={actions} />;
     if (view === "milestones") return <Journey state={state} actions={actions} />;
     if (view === "review") return <Approvals state={state} actions={actions} />;
     if (view === "audit") return role === "client" ? <ClientAudits state={state} actions={actions} /> : <Audit state={state} actions={actions} />;
@@ -82,7 +82,7 @@ export function Portal({ seedRole, onLogout }: { seedRole: Role; onLogout: () =>
       <main style={css("flex:1;min-width:0;height:100vh;height:100dvh;overflow-y:auto;overflow-x:clip;position:relative;background:var(--bg)")}>
         {state.previewFrom && (
           <div style={css("position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);padding:0.5rem 1rem;background:color-mix(in srgb,var(--accent-soft) 72%,white 28%);border-bottom:1px solid color-mix(in srgb,var(--accent) 22%,transparent 78%);color:color-mix(in srgb,var(--accent) 60%,black 40%);font-size:0.8rem")}>
-            <span style={css("display:inline-flex;align-items:center;gap:0.45rem;min-width:0")}><Icon name="eye" size={15} /><span>Previewing the portal as <strong style={{ fontWeight: 500 }}>Flora &amp; Co.</strong> — Read-Only Client View</span></span>
+            <span style={css("display:inline-flex;align-items:center;gap:0.45rem;min-width:0")}><Icon name="eye" size={15} /><span>Previewing the portal as <strong style={{ fontWeight: 500 }}>{DEFAULT_CLIENT_NAME}</strong> — Read-Only Client View</span></span>
             <button onClick={actions.exitPreview} style={css("flex-shrink:0;padding:0.28rem 0.7rem;border:1px solid color-mix(in srgb,var(--accent) 30%,white 70%);border-radius:999px;background:#fff;color:color-mix(in srgb,var(--accent) 58%,black 42%);font-size:0.74rem;font-weight:500;cursor:pointer")}>Exit preview</button>
           </div>
         )}

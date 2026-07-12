@@ -5,6 +5,7 @@ import { activeJourneyGate, css, journeyProgressForGate, milestoneStatusFromGate
 import { MILESTONES, SVC_META } from "../data";
 import type { PortalActions, PortalState } from "../store";
 import type { JourneyGate, View } from "../types";
+import { DEFAULT_CLIENT_NAME } from "../clients";
 
 function ov2col(mob: boolean) { return mob ? "minmax(0,1fr)" : "minmax(0,1.55fr) minmax(0,1fr)"; }
 
@@ -27,7 +28,25 @@ function msNode(st: string) {
   return { textColor: "var(--fg-muted)", pillLabel: "Upcoming", pillStyle: statusPill("waiting"), dateStyle: "background:oklch(0.95 0.004 50);color:var(--fg-faint)" };
 }
 
-function projectStateForGate(gate: JourneyGate) {
+function projectStateForGate(gate: JourneyGate | undefined) {
+  if (!gate) {
+    return {
+      actionLabel: "Not started",
+      actionTint: "var(--surface-alt)",
+      actionColor: "var(--fg-muted)",
+      actionValue: "Cocoon Consult",
+      actionSub: "Ready to begin",
+      heroBody: "",
+      heroStrong: "Cocoon Consult",
+      heroTail: ".",
+      ctaLabel: "View workspace",
+      progress: 0,
+      stageSub: "Plan selected · not started",
+      waitHeading: "Workspace ready",
+      waitTitle: "Cocoon Consult",
+      waitSub: "Your audit workflow is ready to begin",
+    };
+  }
   if (gate.status === "in_revision") {
     return {
       actionLabel: "With the Studio",
@@ -43,7 +62,7 @@ function projectStateForGate(gate: JourneyGate) {
       stageSub: "Milestone " + gate.g + " of 3 · in revision",
       waitHeading: "With the Studio",
       waitTitle: "Milestone " + gate.g + " — " + gate.title,
-      waitSub: (gate.request?.assignee || "Noa Vega") + " is revising this round",
+      waitSub: (gate.request?.assignee || "Kier Mangibin") + " is revising this round",
     };
   }
   if (gate.status === "ready") {
@@ -108,10 +127,9 @@ export function ClientStats({ state, actions }: { state: PortalState; actions: P
   const clientNext = [
     { label: "Journey", value: String(projectState.progress) + "%", icon: "feather", tint: "var(--accent-soft)", color: "var(--accent)", onClick: go("milestones") },
     { label: "To-do's", value: projectState.actionLabel === "Waiting on You" ? "1" : "0", icon: "checklist", tint: projectState.actionTint, color: projectState.actionColor, onClick: go("tasks") },
-    { label: "Audits", value: "1", icon: "audit", tint: "var(--success-soft)", color: "var(--success)", onClick: go("audit") },
-    { label: "Funnels", value: "1", icon: "funnel", tint: "var(--warn-soft)", color: "var(--warn)", onClick: go("funnels") },
-    { label: "Files", value: "4", icon: "file", tint: "var(--lane-gate-soft)", color: "var(--lane-gate)", onClick: go("files") },
-    { label: "Billing", value: "£2.4k", icon: "wallet", tint: "var(--lane-ai-soft)", color: "var(--lane-ai)", onClick: go("billing") },
+    { label: "Audits", value: "0", icon: "audit", tint: "var(--success-soft)", color: "var(--success)", onClick: go("audit") },
+    { label: "Funnels", value: "0", icon: "funnel", tint: "var(--warn-soft)", color: "var(--warn)", onClick: go("funnels") },
+    { label: "Files", value: "0", icon: "file", tint: "var(--lane-gate-soft)", color: "var(--lane-gate)", onClick: go("files") },
   ];
   return (
     <div style={css("display:grid;grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr));gap:0.55rem")}>
@@ -135,8 +153,8 @@ export function ClientPipeline({ state, actions }: { state: PortalState; actions
   const activeGate = activeJourneyGate(gates) || gates[gates.length - 1];
   const projectState = projectStateForGate(activeGate);
   const phases = [
-    { key: "cocoon", pct: 100 },
-    { key: "wiaw", pct: projectState.progress },
+    { key: "cocoon", pct: activeGate ? 100 : 0 },
+    { key: "wiaw", pct: activeGate ? projectState.progress : 0 },
     { key: "iff", pct: 0 },
   ] as const;
   return (
@@ -174,8 +192,8 @@ export function ClientProgressBody({ state, actions, hideHero = false, hideStats
       {!hideHero && (
         <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);padding:var(--space-5);display:flex;align-items:center;justify-content:space-between;gap:var(--space-5);flex-wrap:wrap")}>
           <div style={css("min-width:12rem;flex:1")}>
-            <div style={css("color:var(--fg-muted);font-size:var(--text-base)")}>Your Project · Flora &amp; Co.</div>
-            <h2 style={css("font-size:var(--text-3xl);font-weight:500;line-height:1.1;margin-top:0.15rem")}>Winged in a Week</h2>
+            <div style={css("color:var(--fg-muted);font-size:var(--text-base)")}>Client Workspace · {DEFAULT_CLIENT_NAME}</div>
+            <h2 style={css("font-size:var(--text-3xl);font-weight:500;line-height:1.1;margin-top:0.15rem")}>{activeGate ? "Project journey" : "Cocoon Consult"}</h2>
             <p style={css("margin-top:0.35rem;color:var(--fg-muted);font-size:var(--text-md)")}>{projectState.heroBody}<strong style={css("font-weight:500;color:var(--fg)")}>{projectState.heroStrong}</strong>{projectState.heroTail}</p>
             <button onClick={go("milestones")} className="pt-op" style={css("margin-top:0.9rem;display:inline-flex;align-items:center;gap:0.4rem;height:2.05rem;padding:0 0.9rem;border-radius:var(--radius-pill);border:none;background:var(--accent);color:#fff;font-size:var(--text-base);font-weight:500;cursor:pointer")}><Icon name="thumbs" size={15} /> {projectState.ctaLabel}</button>
           </div>
@@ -235,7 +253,7 @@ export function ClientProgressBody({ state, actions, hideHero = false, hideStats
           </div>
           <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:linear-gradient(135deg,var(--surface),color-mix(in srgb,var(--accent) 5%,var(--surface) 95%));padding:1rem 1.1rem")}>
             <h3 style={css("margin:0 0 0.25rem;font-size:var(--text-lg);font-weight:500")}>Message your team</h3>
-            <p style={css("margin:0 0 0.75rem;font-size:0.8rem;color:var(--fg-muted)")}>Noa and the studio usually reply within a few hours.</p>
+            <p style={css("margin:0 0 0.75rem;font-size:0.8rem;color:var(--fg-muted)")}>Trisha and Kier will receive messages sent here.</p>
             <button onClick={go("inbox")} className="pt-op" style={css("width:100%;height:2.35rem;border-radius:0.8rem;border:1px solid color-mix(in srgb,var(--accent) 18%,transparent 82%);background:var(--accent);color:#fff;font-weight:500;font-size:var(--text-base);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.48rem")}>
               <span style={css("width:1.45rem;height:1.45rem;border-radius:0.48rem;background:rgba(255,255,255,.16);display:grid;place-items:center;flex-shrink:0")}><Icon name="msg" size={14} /></span>
               Open team chat

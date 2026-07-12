@@ -36,7 +36,7 @@ interface ADeliv {
 const SECTIONS = ["Business & brand", "Audience & offer", "Goals & conversion", "Site & messaging", "Assets & priorities"];
 
 const QUESTIONS: AQuestion[] = [
-  { id: "business", s: 0, kind: "text", required: true, prompt: "What's the business called?", placeholder: "Bloom & Root Wellness" },
+  { id: "business", s: 0, kind: "text", required: true, prompt: "What's the business called?", placeholder: "Client business name" },
   { id: "businessModel", s: 0, kind: "text", required: true, prompt: "What do they sell right now?", placeholder: "12-week 1:1 nutrition coaching" },
   { id: "positioning", s: 0, kind: "textarea", required: true, prompt: "How do they describe the brand today?", placeholder: "Warm, practical wellness for busy women who want real-life structure." },
   { id: "brandShift", s: 0, kind: "textarea", prompt: "What's changing or being reconsidered?", placeholder: "The visuals feel dated and the messaging no longer reflects the premium offer." },
@@ -71,28 +71,7 @@ const DELIVS: ADeliv[] = [
   { id: "finalplan", title: "Final Audit Plan", from: "everything approved", intro: "Every discovery checkpoint signed off and consolidated into the audit plan the team can move forward with.", terminal: true },
 ];
 
-const DEMO: Record<string, string | string[]> = {
-  business: "Bloom & Root Wellness",
-  businessModel: "12-week 1:1 nutrition coaching",
-  positioning: "A warm, grounded wellness brand that helps busy women feel in control of food again.",
-  brandShift: "The visuals feel more DIY than premium, and the message no longer reflects the caliber of the offer.",
-  audience: "Busy working moms in their 30s and 40s who want structure without all-or-nothing dieting.",
-  bestFit: "Someone ready to invest, open to coaching, and craving a calmer day-to-day routine.",
-  offerFocus: "Signature program",
-  audiencePain: "They feel overwhelmed, have tried many things before, and are skeptical anything sustainable will stick.",
-  primaryGoal: "More booked calls",
-  primaryAction: "Book a call",
-  conversionBlockers: "The offer is buried, the CTA feels passive, and there isn't enough trust near the point of action.",
-  trafficSources: ["Instagram", "Referrals", "Email list"],
-  auditSurface: ["Homepage", "Services / offers", "Booking / inquiry flow", "Mobile experience", "Messaging / copy"],
-  messageGap: "The value prop takes too long to land and each page sounds like it was written in a different voice.",
-  proofSignals: "Client testimonials, screenshots of wins, before-and-after results, and repeat client referrals.",
-  voiceDirection: ["Warm", "Premium", "Grounded", "Authority-led"],
-  assets: "Current site, Figma homepage comp, testimonial folder, intake notes, and a rough offer outline.",
-  nonNegotiables: "Keep the logo, avoid promising a full rebrand yet, and stay inside the current tech stack where possible.",
-  priorityThemes: ["Positioning clarity", "Trust & proof", "Conversion path", "Mobile UX"],
-  timeline: "2-4 weeks",
-};
+const DEMO: Record<string, string | string[]> = {};
 
 type FlowStep =
   | { kind: "welcome" }

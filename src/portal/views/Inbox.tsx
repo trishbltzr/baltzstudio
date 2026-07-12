@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { Icon } from "../icons";
 import { css, initials, roleMeta } from "../helpers";
 import { MY_CLIENTS } from "../data";
+import { DEFAULT_CLIENT_NAME } from "../clients";
 import type { PortalActions, PortalState } from "../store";
 import type { Thread } from "../types";
 
@@ -13,10 +14,10 @@ const STATUS_META: Record<string, [string, string, string]> = {
   progress: ["In Progress", "var(--accent)", "var(--accent-soft)"],
   resolved: ["Resolved", "var(--success)", "var(--success-soft)"],
 };
-const TEAM_POOL = ["Trish Baltazar", "Noa Vega", "Emet Cole", "Juno Park"];
-const CANNED = ["On it — thanks!", "Sending an update shortly.", "Approved ✓ moving ahead.", "Let's book a quick call."];
+const TEAM_POOL = ["Trisha Baltazar", "Kier Mangibin"];
+const CANNED: string[] = [];
 const FILTERS: [string, string][] = [["all", "All"], ["unread", "Unread"], ["tickets", "Tickets"], ["mine", "Mine"]];
-const CLIENT_PORTAL_NAME = "Flora & Co.";
+const CLIENT_PORTAL_NAME = DEFAULT_CLIENT_NAME;
 
 function clockFor(off: number) {
   const now = new Date();

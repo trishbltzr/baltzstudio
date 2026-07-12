@@ -31,8 +31,8 @@ interface BizProfile {
 const WISE_PAYMENT_URL = "https://wise.com/pay/me/trishajoanbaquiranb";
 const WISE_INSTRUCTIONS = "Pay securely via Wise using the link or QR code below.";
 const BUSINESS_PROFILES: BizProfile[] = [
-  { id: "baltz", name: "Baltazar Studio", logo: "BS", address: "12 Atelier Row, London, EC1V 9BT, UK", email: "billing@baltazar.studio", phone: "+44 20 7946 0112", website: "baltazar.studio", taxId: "GB 428 1193 55", currency: "GBP", instructions: WISE_INSTRUCTIONS, account: WISE_PAYMENT_URL },
-  { id: "cocoon", name: "Cocoon Audits", logo: "CA", address: "12 Atelier Row, London, EC1V 9BT, UK", email: "hello@cocoonaudits.co", phone: "+44 20 7946 0112", website: "cocoonaudits.co", taxId: "GB 428 1193 55", currency: "GBP", instructions: WISE_INSTRUCTIONS, account: WISE_PAYMENT_URL },
+  { id: "baltz", name: "Baltazar Studio", logo: "BS", address: "", email: "", phone: "", website: "", taxId: "", currency: "GBP", instructions: WISE_INSTRUCTIONS, account: WISE_PAYMENT_URL },
+  { id: "cocoon", name: "Cocoon Consult", logo: "CC", address: "", email: "", phone: "", website: "", taxId: "", currency: "GBP", instructions: WISE_INSTRUCTIONS, account: WISE_PAYMENT_URL },
 ];
 
 interface SavedService { name: string; unit: string; rate: number; desc: string; taxable: boolean }
@@ -68,11 +68,9 @@ const STANDARD_NOTE = "Thank you for your business. Please pay via Wise by the d
 const DEFAULT_TERMS = "Payment is due by the date shown. Work may pause if overdue, and final files are released after full payment.";
 
 interface InvClient { id: string; name: string; company: string; email: string; phone: string; country: string; currency: string; address: string; taxId: string }
-const CLIENTS: InvClient[] = STUDIO_CLIENTS.map((c, i) => ({
-  id: c.id, name: c.name + " Team", company: c.name,
-  email: "accounts@" + c.name.toLowerCase().replace(/[^a-z]+/g, "") + ".com",
-  phone: "+44 20 7946 0" + (100 + i), country: "United Kingdom", currency: "GBP",
-  address: (10 + i) + " Market Street, London, UK", taxId: "GB " + (400 + i) + " 2211 90",
+const CLIENTS: InvClient[] = STUDIO_CLIENTS.map(c => ({
+  id: c.id, name: c.name, company: c.name,
+  email: "", phone: "", country: "", currency: "GBP", address: "", taxId: "",
 }));
 const PROJECTS = STUDIO_CLIENTS.flatMap(c => c.funnels.map(f => ({
   id: f.id, clientId: c.id, name: c.name + " · " + f.subtitle, type: f.subtitle,
@@ -116,20 +114,24 @@ function initItem(s?: SavedService): Item {
 
 function initState(): Inv {
   const biz = BUSINESS_PROFILES[0];
+  const today = new Date();
+  const due = new Date(today);
+  due.setDate(due.getDate() + 14);
+  const isoDate = (value: Date) => value.toISOString().slice(0, 10);
   return {
     businessId: biz.id, clientId: "", projectId: "",
     number: "INV-0001", numberFormat: "INV-0001", status: "Draft",
-    issueDate: "2026-07-11", dueDate: "2026-07-25", currency: biz.currency, paymentTerms: "Net 14",
+    issueDate: isoDate(today), dueDate: isoDate(due), currency: biz.currency, paymentTerms: "Net 14",
     poNumber: "", contractRef: "",
     billingType: "Fixed project fee",
-    items: [initItem(SAVED_SERVICES[0])],
+    items: [initItem()],
     expenses: [], time: [], milestones: MILESTONE_PRESETS.map(([label, pct]) => ({ id: uid(), label, pct, selected: false })),
-    retainer: { pkg: "Growth retainer", includedHours: 20, hoursUsed: 14, overageRate: 85, rollover: true, period: "July 2026", nextBilling: "2026-08-01" },
+    retainer: { pkg: "", includedHours: 0, hoursUsed: 0, overageRate: 0, rollover: false, period: "", nextBilling: "" },
     discountType: "pct", discountValue: 0, processingType: "pct", processingValue: 0, additionalFee: 0, amountPaid: 0,
     deposit: { projectValue: 0, depositRequired: 0, depositPaid: 0, prevMilestones: 0, isFinal: false },
     notes: STANDARD_NOTE, terms: DEFAULT_TERMS, internalNotes: "",
     methods: ["Wise"], instructions: WISE_INSTRUCTIONS, paymentLink: WISE_PAYMENT_URL,
-    recurring: { enabled: false, frequency: "Monthly", start: "2026-08-01", end: "", occurrences: 12, autoCreate: true, autoSend: false },
+    recurring: { enabled: false, frequency: "Monthly", start: "", end: "", occurrences: 0, autoCreate: false, autoSend: false },
     attachments: [],
     template: "Modern", accent: "#c2544d", showLogo: true, showProject: true, showTax: true, footer: "Thank you for partnering with Baltazar Studio.", thankYou: "We appreciate your business — thank you!",
   };
@@ -142,11 +144,7 @@ type Action =
   | { t: "time"; op: "add" | "remove" | "update" | "import"; id?: string; v?: Partial<TimeEntry> }
   | { t: "milestone"; id: string };
 
-const SEED_TIME: TimeEntry[] = [
-  { id: uid(), task: "Homepage build", member: "Noa Vega", hours: 6.5, rate: 85, billable: true, invoiced: false },
-  { id: uid(), task: "Shopify sections", member: "Emet Rowe", hours: 4, rate: 85, billable: true, invoiced: false },
-  { id: uid(), task: "Internal review", member: "Noa Vega", hours: 1.5, rate: 85, billable: false, invoiced: false },
-];
+const SEED_TIME: TimeEntry[] = [];
 
 function reducer(s: Inv, a: Action): Inv {
   switch (a.t) {
@@ -175,7 +173,7 @@ function reducer(s: Inv, a: Action): Inv {
     }
     case "time": {
       if (a.op === "import") return { ...s, time: SEED_TIME.map(t => ({ ...t, id: uid() })) };
-      if (a.op === "add") return { ...s, time: [...s.time, { id: uid(), task: "", member: "Noa Vega", hours: 1, rate: 85, billable: true, invoiced: false }] };
+      if (a.op === "add") return { ...s, time: [...s.time, { id: uid(), task: "", member: "Kier Mangibin", hours: 1, rate: 85, billable: true, invoiced: false }] };
       const idx = s.time.findIndex(t => t.id === a.id);
       if (idx < 0) return s;
       const time = s.time.slice();
@@ -187,22 +185,17 @@ function reducer(s: Inv, a: Action): Inv {
 }
 
 // ── small building blocks ────────────────────────────────────────────────────
-function Section({ icon, title, hint, children, right, defaultOpen = true, flat = false, last = false }: { icon: string; title: string; hint?: string; children: ReactNode; right?: ReactNode; defaultOpen?: boolean; flat?: boolean; last?: boolean }) {
-  const [open, setOpen] = useState(defaultOpen);
+function Section({ title, hint, children, right, last = false }: { icon: string; title: string; hint?: string; children: ReactNode; right?: ReactNode; defaultOpen?: boolean; flat?: boolean; last?: boolean }) {
   return (
-    <div style={css(flat ? "padding:1rem 0" + (last ? "" : ";border-bottom:1px solid var(--border-soft)") : CARD)}>
-      <div style={css("display:flex;align-items:center;gap:0.6rem")}>
-        <button type="button" onClick={() => setOpen(o => !o)} style={css("display:flex;align-items:center;gap:0.6rem;flex:1;min-width:0;border:0;background:transparent;cursor:pointer;text-align:left;padding:0")}>
-          {!flat && <span style={css("width:1.9rem;height:1.9rem;border-radius:0.55rem;flex-shrink:0;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center")}><Icon name={icon} size={14} /></span>}
-          <span style={{ minWidth: 0, flex: 1 }}>
-            <span style={css("display:block;font-size:" + (flat ? "0.95rem" : "0.9rem") + ";font-weight:500;color:var(--fg);line-height:1.2")}>{title}</span>
-            {hint && open && <span style={css("display:block;font-size:0.72rem;color:var(--fg-faint);margin-top:0.1rem")}>{hint}</span>}
-          </span>
-        </button>
-        {right && open && <span style={{ display: "inline-flex", flexShrink: 0 }}>{right}</span>}
-        <button type="button" onClick={() => setOpen(o => !o)} aria-label={open ? "Collapse" : "Expand"} className="pt-iconbtn" style={css("width:1.7rem;height:1.7rem;border-radius:0.45rem;border:1px solid var(--border-soft);background:transparent;color:var(--fg-muted);display:grid;place-items:center;cursor:pointer;flex-shrink:0;transition:transform .15s ease;transform:rotate(" + (open ? "0" : "-90") + "deg)")}><Icon name="chev" size={13} /></button>
+    <div style={css("padding:1rem 0" + (last ? "" : ";border-bottom:1px solid var(--border-soft)"))}>
+      <div style={css("display:flex;align-items:flex-start;gap:0.75rem") }>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={css("font-size:0.95rem;font-weight:500;color:var(--fg);line-height:1.2")}>{title}</div>
+          {hint && <div style={css("font-size:0.72rem;color:var(--fg-faint);margin-top:0.1rem")}>{hint}</div>}
+        </div>
+        {right && <span style={{ display: "inline-flex", flexShrink: 0 }}>{right}</span>}
       </div>
-      {open && <div style={{ marginTop: "0.85rem" }}>{children}</div>}
+      <div style={{ marginTop: "0.85rem" }}>{children}</div>
     </div>
   );
 }
@@ -294,6 +287,11 @@ export function Invoices({ state, actions }: { state: PortalState; actions: Port
     const b = BUSINESS_PROFILES.find(x => x.id === id) || biz;
     set({ businessId: id, currency: b.currency, instructions: b.instructions, footer: "Thank you for partnering with " + b.name + "." });
   };
+  useEffect(() => {
+    if (!state.invoiceClientName || inv.clientId) return;
+    const selectedClient = CLIENTS.find(item => item.company === state.invoiceClientName);
+    if (selectedClient) applyClient(selectedClient.id);
+  }, [state.invoiceClientName, inv.clientId]);
   const doSave = (label: string) => { setDirty(false); actions.showToast(label); };
   const send = () => { setShowErrors(true); if (errors.length) { actions.showToast("Fix " + errors.length + " issue" + (errors.length > 1 ? "s" : "") + " before sending"); return; } setModal("send"); };
 
@@ -308,9 +306,9 @@ export function Invoices({ state, actions }: { state: PortalState; actions: Port
       {/* header */}
       <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap")}>
         <div style={{ minWidth: 0 }}>
-          <span style={css(eyebrowStyle("var(--accent)"))}>Invoicing</span>
+          <button type="button" onClick={() => { actions.patch({ invoiceClientName: null }); actions.setView("billing"); }} style={css("display:inline-flex;align-items:center;gap:0.3rem;padding:0;border:0;background:transparent;color:var(--accent);font-size:0.72rem;font-weight:500;cursor:pointer")}><Icon name="chevleft" size={13} />Billing</button>
           <h2 style={css("margin:0.35rem 0 0;font-size:1.35rem;font-weight:500;line-height:1.15")}>New Invoice</h2>
-          <p style={css("margin:0.3rem 0 0;font-size:0.82rem;color:var(--fg-muted);line-height:1.5;max-width:38rem")}>Generate and send a new invoice.</p>
+          <p style={css("margin:0.3rem 0 0;font-size:0.82rem;color:var(--fg-muted);line-height:1.5;max-width:38rem")}>Create the invoice before sending a payment reminder.</p>
         </div>
         <div style={css("display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;flex-shrink:0")}>
           {!mobile && <button type="button" onClick={() => setShowPreview(v => !v)} style={css(BTN_GHOST)}><Icon name="eye" size={14} />{showPreview ? "Hide Preview" : "Show Preview"}</button>}
@@ -369,7 +367,6 @@ function FormBody(p: {
 }) {
   const { inv, set, dispatch, biz, client, project, applyClient, applyProject, applyBiz, calc, money, lineAmount, mobile, flags, actions } = p;
   const [lineOptionsId, setLineOptionsId] = useState<string | null>(null);
-  const [showInvoiceOptions, setShowInvoiceOptions] = useState(false);
   const grid2 = "display:grid;grid-template-columns:" + (mobile ? "minmax(0,1fr)" : "minmax(0,1fr) minmax(0,1fr)") + ";gap:0.6rem";
   const grid3 = "display:grid;grid-template-columns:" + (mobile ? "minmax(0,1fr)" : "repeat(3,minmax(0,1fr))") + ";gap:0.6rem";
   const lineItemGrid = "minmax(7.5rem,2fr) 2.7rem 3.8rem 4.5rem 5.3rem 5.2rem";
@@ -406,9 +403,9 @@ function FormBody(p: {
           </Field>
           <Field label="Payment terms">{sel(inv.paymentTerms, ["Due on receipt", "Net 7", "Net 14", "Net 30", "Net 45"], v => set({ paymentTerms: v }))}</Field>
         </div>
-        <button type="button" onClick={() => setShowInvoiceOptions(v => !v)} style={css("display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:0.75rem;padding:0.55rem 0;border:0;border-top:1px solid var(--border-soft);background:transparent;color:var(--fg-muted);font-size:0.72rem;font-weight:500;cursor:pointer")}><span>More invoice options</span><span style={css("transform:rotate(" + (showInvoiceOptions ? "0" : "-90") + "deg);transition:transform .15s ease")}><Icon name="chev" size={13} /></span></button>
-        {showInvoiceOptions && (
-          <div style={css(grid3 + ";padding:0.2rem 0 0.85rem")}>
+        <div style={css("margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border-soft)")}>
+          <div style={css("font-size:0.82rem;font-weight:500;color:var(--fg);margin-bottom:0.65rem")}>Additional details</div>
+          <div style={css(grid3)}>
             <Field label="Status"><select className="pt-input" value={inv.status} onChange={e => set({ status: e.target.value })} style={css(INPUT + ";cursor:pointer")}>{STATUSES.map(([s]) => <option key={s} value={s}>{s}</option>)}</select></Field>
             <Field label="PO number">{txt(inv.poNumber, v => set({ poNumber: v }), { ph: "Optional" })}</Field>
             <Field label="Contract / proposal ref">{txt(inv.contractRef, v => set({ contractRef: v }), { ph: "Optional" })}</Field>
@@ -416,7 +413,7 @@ function FormBody(p: {
             <Field label="Billed by"><select className="pt-input" value={inv.businessId} onChange={e => applyBiz(e.target.value)} style={css(INPUT + ";cursor:pointer")}>{BUSINESS_PROFILES.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></Field>
             <div style={css("display:flex;align-items:end")}><button type="button" onClick={p.openProfile} style={css(BTN_GHOST + ";width:100%;justify-content:center")}><Icon name="edit" size={12} />Edit business profile</button></div>
           </div>
-        )}
+        </div>
 
       {/* Billing type */}
       <Section icon="sliders" title="Billing setup" hint="Choose how this work is billed" defaultOpen={false} flat>
@@ -446,7 +443,7 @@ function FormBody(p: {
       </Section>
 
       {/* Line items */}
-      <Section icon="checklist" title="Product details" hint="Add services, quantities, rates, discounts, and tax" flat last
+      <Section icon="checklist" title="Product details" hint="Add services, quantities, rates, discounts, and tax" flat
         right={<SavedServicePicker onPick={s => { dispatch({ t: "item", op: "add", service: s }); }} />}>
         <div style={css("overflow-x:auto")}>
           <div style={{ minWidth: mobile ? "32rem" : "auto" }}>
@@ -481,7 +478,6 @@ function FormBody(p: {
         </div>
         <button type="button" onClick={() => dispatch({ t: "item", op: "add" })} style={css(BTN_GHOST + ";margin-top:0.7rem")}><Icon name="plus" size={14} />Add line item</button>
       </Section>
-      </div>
 
       {/* Time-based billing */}
       {flags.showTime && (
@@ -616,7 +612,7 @@ function FormBody(p: {
       </Section>
 
       {/* Notes & terms */}
-      <Section icon="file" title="Standard note & terms" hint="Short, consistent wording for every invoice" defaultOpen={false}>
+      <Section icon="file" title="Standard note & terms" hint="Short, consistent wording for every invoice" defaultOpen={false} last>
         <div style={css("display:flex;flex-direction:column;gap:0.6rem")}>
           <Field label="Standard invoice note"><textarea className="pt-input" value={inv.notes} onChange={e => set({ notes: e.target.value })} rows={2} style={css(INPUT + ";resize:vertical;line-height:1.45")} /></Field>
           <Field label="Standard terms">
@@ -627,6 +623,8 @@ function FormBody(p: {
           </div>
         </div>
       </Section>
+
+      </div>
 
     </>
   );

@@ -22,7 +22,7 @@ export function CocoonPrepListPopup({ onClose }: { onClose: () => void }) {
           <button type="button" onClick={onClose} aria-label="Close prep list"><X size={16} /></button>
         </div>
         <div style={{ padding: "1.25rem", display: "grid", gap: "0.75rem", fontSize: "var(--text-sm)", color: "var(--fg)", lineHeight: 1.6 }}>
-          <p style={{ margin: 0, color: "var(--fg-muted)" }}>This turns your Cocoon answers into a build-readiness map: what to collect, what to confirm, and what needs a decision before the audit can become a practical next step.</p>
+          <p style={{ margin: 0, color: "var(--fg-muted)" }}>This turns your Cocoon Consult answers into a build-readiness map: what to collect, what to confirm, and what needs a decision before the audit can become a practical next step.</p>
           {prepListItems.map(item => (
             <div key={item.label} style={{ padding: "0.75rem", background: "var(--bg)", borderRadius: "var(--radius)", border: "1px solid var(--border-soft)" }}>
               <div style={{ fontWeight: 600, marginBottom: "0.15rem" }}>{item.label}</div>

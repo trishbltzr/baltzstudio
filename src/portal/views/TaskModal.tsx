@@ -1,148 +1,145 @@
 "use client";
 
 import { useState } from "react";
-import { Icon } from "../icons";
-import { css, initials, laneMeta, prioTag, roleMeta } from "../helpers";
+import { PhaseDetailModal, type PhaseDetailEdit } from "../../components/PhaseDetailModal";
+import type { Project, TaskAssignee, TaskStatus as DashboardTaskStatus } from "../../types";
+import { STUDIO_CLIENTS } from "../clients";
 import { CHECKLIST_TEMPLATES, TASK_DESCRIPTIONS } from "../data";
-import type { PortalActions, PortalState } from "../store";
-import type { TaskStatus } from "../types";
+import { css, laneMeta, roleMeta } from "../helpers";
+import { NEW_TASK_DRAFT_ID, type PortalActions, type PortalState } from "../store";
+import type { Owner, Priority, TaskStatus, TaskSubtask } from "../types";
 
-const FRAC: Record<TaskStatus, number> = { todo: 0, in_progress: 0.5, review: 0.8, done: 1 };
-const STATUS_BTNS: [TaskStatus, string][] = [["todo", "To Do"], ["in_progress", "In Progress"], ["review", "In Review"], ["done", "Done"]];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const PRIORITY_LABEL: Record<Priority, string> = { high: "High", med: "Medium", low: "Low" };
+
+function portalStatus(status: DashboardTaskStatus): TaskStatus {
+  if (status === "complete") return "done";
+  if (status === "blocked") return "review";
+  if (status === "in_progress") return "in_progress";
+  return "todo";
+}
+
+function dashboardStatus(status: TaskStatus): DashboardTaskStatus {
+  if (status === "done") return "complete";
+  if (status === "review") return "blocked";
+  if (status === "in_progress") return "in_progress";
+  return "not_started";
+}
+
+function dashboardAssignee(owner: Owner): TaskAssignee {
+  if (owner === "ai") return "AI";
+  if (owner === "client") return "client";
+  return "human";
+}
+
+function dueToIso(due: string) {
+  const match = due.match(/^([A-Za-z]+)\s+(\d{1,2})$/);
+  if (!match) return undefined;
+  const month = MONTHS.findIndex(item => item.toLowerCase() === match[1].toLowerCase());
+  if (month < 0) return undefined;
+  return `2026-${String(month + 1).padStart(2, "0")}-${String(Number(match[2])).padStart(2, "0")}`;
+}
+
+function isoToDue(iso?: string) {
+  if (!iso) return "";
+  const [, month, day] = iso.split("-").map(Number);
+  return month && day ? `${MONTHS[month - 1]} ${day}` : "";
+}
 
 export function TaskModal({ state, actions }: { state: PortalState; actions: PortalActions }) {
-  const [assigneeOpen, setAssigneeOpen] = useState(false);
-  const tmd = state.tasks.find(t => t.id === state.taskModal);
-  if (!tmd) return null;
-  const lm = laneMeta(tmd.owner || "studio");
-  const bk = tmd.blockedBy ? state.tasks.find(x => x.id === tmd.blockedBy) : null;
-  const isBlocked = !!(bk && bk.status !== "done");
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const isDraft = state.taskModal === NEW_TASK_DRAFT_ID;
+  const task = isDraft ? state.taskDraft : state.tasks.find(item => item.id === state.taskModal);
+  if (!task) return null;
 
-  const clItems = CHECKLIST_TEMPLATES[tmd.owner || "studio"] || CHECKLIST_TEMPLATES.studio;
-  const defDone = Math.round(clItems.length * FRAC[tmd.status]);
-  const override = state.taskChecks[tmd.id] || {};
-  const checklist = clItems.map((label, i) => {
-    const done = i in override ? override[i] : i < defDone;
-    return { label, done, i };
-  });
-  const chkDone = checklist.filter(c => c.done).length;
-  const chkTotal = checklist.length;
-  const chkPct = Math.round((chkDone / Math.max(chkTotal, 1)) * 100);
+  const templates = CHECKLIST_TEMPLATES[task.owner || "studio"] || CHECKLIST_TEMPLATES.studio;
+  const fallbackDone = task.status === "done" ? templates.length : task.status === "review" ? Math.ceil(templates.length * 0.8) : task.status === "in_progress" ? Math.ceil(templates.length * 0.5) : 0;
+  const overrides = state.taskChecks[task.id] || {};
+  const defaultSubtasks: TaskSubtask[] = templates.map((title, index) => ({
+    id: `${task.id}-subtask-${index + 1}`,
+    title,
+    status: (index in overrides ? overrides[index] : index < fallbackDone) ? "done" : "todo",
+  }));
+  const subtasks = task.subtasks ?? defaultSubtasks;
+  const checks = subtasks.map((subtask, index) => ({ ...subtask, index, done: subtask.status === "done" }));
+  const baseStatus = dashboardStatus(task.status);
+  const milestoneTitle = task.milestone || "General";
+  const description = task.description ?? TASK_DESCRIPTIONS[task.id] ?? "";
+  const lane = laneMeta(task.owner);
+  const actor = roleMeta(state.role).name;
 
-  const seed = [{ who: tmd.assignee, text: tmd.status === "done" ? "Marked this done — all set." : tmd.status === "review" ? "Ready for review whenever you have a moment." : "Started on this, will flag if anything blocks it.", time: "Yesterday", me: false }];
-  const comments = [...seed, ...(state.taskComments[tmd.id] || [])];
-  const assignees = Array.from(new Set(["Trish Baltazar", "Noa Vega", "Emet Rowe", "Assistant", ...state.tasks.map(t => t.assignee)]));
+  const project: Project = {
+    id: `task-project-${task.id}`,
+    clientName: task.project,
+    clientEmail: "",
+    clientInitials: task.project.slice(0, 2).toUpperCase(),
+    status: task.status === "done" ? "complete" : "active",
+    startDate: "",
+    platform: "",
+    milestones: [{
+      id: `task-milestone-${task.id}`,
+      number: 1,
+      title: milestoneTitle,
+      clientLabel: milestoneTitle,
+      status: task.status === "done" ? "complete" : "active",
+      phases: [{
+        id: task.id,
+        title: task.title,
+        tasks: checks.map((check, index) => ({
+          id: check.id,
+          title: check.title,
+          assignee: dashboardAssignee(task.owner),
+          status: check.done ? "complete" : index === checks.findIndex(item => !item.done) ? baseStatus : "not_started",
+          dueDate: dueToIso(task.due),
+        })),
+      }],
+    }],
+    notes: [],
+    assets: [],
+    brand: { colors: [], fonts: [], style: "" },
+  };
 
-  const close = () => { setAssigneeOpen(false); actions.patch({ taskModal: null }); };
+  const applyPhaseEdit = (edit: PhaseDetailEdit) => {
+    if (edit.title !== undefined) actions.updateTask(task.id, { title: edit.title });
+    if (edit.description !== undefined) actions.updateTask(task.id, { description: edit.description });
+    if (edit.assignees !== undefined) actions.updateTask(task.id, { assignee: edit.assignees.at(-1) || "Unassigned" });
+    if (edit.dateFrom !== undefined) actions.updateTask(task.id, { due: isoToDue(edit.dateFrom) });
+  };
 
-  return (
-    <div onClick={close} style={{ ...css("position:fixed;inset:0;background:rgba(30,22,15,.42);z-index:95;display:flex;align-items:center;justify-content:center;padding:var(--space-6)"), animation: "pt-fadein .15s ease" }}>
-      <div onClick={e => e.stopPropagation()} style={{ ...css("width:33rem;max-width:100%;max-height:88vh;overflow-y:auto;background:var(--surface);border-radius:var(--radius-panel)"), animation: "pt-ddin .18s ease" }}>
-        <div style={css("padding:1.1rem 1.4rem 0;display:flex;align-items:center;justify-content:space-between")}>
-          <span style={css("display:inline-flex;align-items:center;gap:0.35rem;font-size:0.62rem;font-weight:500;letter-spacing:0.02em;padding:0.15rem 0.5rem;border-radius:5px;background:" + lm.s + ";color:color-mix(in srgb," + lm.c + " 60%,black 40%)")}><span style={css("width:0.45rem;height:0.45rem;border-radius:50%;flex-shrink:0;background:" + lm.c)} />{lm.label}</span>
-          <button onClick={close} className="pt-menuitem" style={css("width:2rem;height:2rem;border-radius:50%;border:none;background:transparent;display:grid;place-items:center;cursor:pointer;color:var(--fg-muted)")}><Icon name="x" size={16} /></button>
-        </div>
+  const row = css("display:flex;align-items:center;min-height:3rem;padding:.7rem 0;border-bottom:1px solid var(--border)");
+  const label = css("width:36%;min-width:36%;font-size:var(--text-base);color:var(--fg-muted);font-weight:400");
+  const value = css("flex:1;font-size:var(--text-md);color:var(--fg);font-weight:500");
+  const input = css("width:100%;min-height:2.15rem;padding:.35rem .55rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--fg);font:inherit;font-size:var(--text-base);font-weight:500;outline:none");
+  const pill = (background: string, color: string) => css("display:inline-flex;align-items:center;gap:.3rem;padding:.22rem .6rem;border-radius:999px;background:" + background + ";color:" + color + ";font-size:var(--text-sm);font-weight:500");
 
-        <div style={css("padding:0.5rem 1.4rem 1.1rem;border-bottom:1px solid var(--border-soft)")}>
-          <h2 style={css("margin:0 0 0.3rem;font-size:var(--text-2xl);font-weight:500;line-height:1.25")}>{tmd.title}</h2>
-          <div style={css("font-size:var(--text-base);color:var(--fg-muted)")}>{tmd.project}</div>
-          <p style={css("margin:0.6rem 0 0;font-size:0.86rem;line-height:1.5;color:var(--fg-muted)")}>{TASK_DESCRIPTIONS[tmd.id] || "No description added yet."}</p>
-        </div>
-
-        <div style={css("padding:1.1rem 1.4rem;display:grid;grid-template-columns:1fr 1fr;gap:0.85rem 1.1rem;border-bottom:1px solid var(--border-soft)")}>
-          <div>
-            <div style={css("font-size:var(--text-2xs);letter-spacing:0.02em;color:var(--fg-faint);margin-bottom:0.3rem")}>Assignee</div>
-            <div style={{ position: "relative" }}>
-              <button onClick={() => setAssigneeOpen(v => !v)} style={css("display:inline-flex;align-items:center;gap:0.4rem;font-size:0.86rem;padding:0.34rem 0.55rem;border-radius:var(--radius-pill);border:1px solid var(--border);background:var(--surface);color:var(--fg);cursor:pointer")}>
-                <span style={css("width:1.35rem;height:1.35rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:0.55rem;font-weight:500;display:grid;place-items:center")}>{initials(tmd.assignee)}</span>
-                <span>{tmd.assignee}</span>
-                <Icon name="chev" size={13} />
-              </button>
-              {assigneeOpen && (
-                <>
-                  <div onClick={() => setAssigneeOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 97 }} />
-                  <div style={css("position:absolute;top:calc(100% + 0.35rem);left:0;z-index:98;min-width:13rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;padding:0.2rem 0")}>
-                    {assignees.map(name => (
-                      <button
-                        key={name}
-                        onClick={() => { actions.assignTask(tmd.id, name); setAssigneeOpen(false); }}
-                        className="pt-dditem"
-                        style={css("display:flex;align-items:center;gap:var(--space-2);width:100%;padding:0.52rem 0.75rem;border:0;background:" + (tmd.assignee === name ? "var(--surface-alt)" : "transparent") + ";font-size:0.78rem;color:var(--fg);cursor:pointer;text-align:left")}
-                      >
-                        <span style={css("width:1.3rem;height:1.3rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:0.54rem;font-weight:500;display:grid;place-items:center;flex-shrink:0")}>{initials(name)}</span>
-                        <span style={css("flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{name}</span>
-                        {tmd.assignee === name && <Icon name="checkmark" size={13} />}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-          <div>
-            <div style={css("font-size:var(--text-2xs);letter-spacing:0.02em;color:var(--fg-faint);margin-bottom:0.3rem")}>Due</div>
-            <span style={css("display:inline-flex;align-items:center;gap:0.35rem;font-size:0.86rem;color:var(--fg-muted)")}><Icon name="cal" size={12} />{tmd.due || "Not set"}</span>
-          </div>
-          <div>
-            <div style={css("font-size:var(--text-2xs);letter-spacing:0.02em;color:var(--fg-faint);margin-bottom:0.3rem")}>Priority</div>
-            <span style={css(prioTag(tmd.priority))}>{tmd.priority.charAt(0).toUpperCase() + tmd.priority.slice(1)}</span>
-          </div>
-          {isBlocked && bk && (
-            <div>
-              <div style={css("font-size:var(--text-2xs);letter-spacing:0.02em;color:var(--fg-faint);margin-bottom:0.3rem")}>Blocked By</div>
-              <button onClick={() => actions.patch({ taskModal: bk.id })} style={css("display:flex;align-items:center;gap:0.4rem;text-align:left;padding:0.35rem 0.55rem;border-radius:var(--radius-sm);border:1px solid var(--warn);background:var(--warn-soft);cursor:pointer;max-width:100%")}>
-                <span style={css("width:0.45rem;height:0.45rem;border-radius:50%;flex-shrink:0;background:var(--warn)")} />
-                <span style={css("min-width:0;font-size:0.78rem;font-weight:500;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{bk.title}</span>
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div style={css("padding:1.1rem 1.4rem;border-bottom:1px solid var(--border-soft)")}>
-          <div style={css("display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem")}>
-            <div style={css("font-size:0.7rem;font-weight:500;letter-spacing:0.02em;color:var(--fg-faint)")}>Checklist</div>
-            <div style={css("font-size:var(--text-xs);color:var(--fg-muted)")}>{chkDone} of {chkTotal}</div>
-          </div>
-          <div style={css("height:0.3rem;background:var(--surface-alt);border-radius:999px;overflow:hidden;margin-bottom:0.7rem")}><div style={css("height:100%;width:" + chkPct + "%;background:var(--accent);border-radius:999px;transition:width .2s")} /></div>
-          <div style={css("display:flex;flex-direction:column;gap:0.15rem")}>
-            {checklist.map(c => (
-              <button key={c.i} onClick={() => actions.toggleCheck(tmd.id, c.i)} className="pt-dditem" style={css("display:flex;align-items:center;gap:0.6rem;text-align:left;padding:0.4rem 0.3rem;border:none;background:transparent;cursor:pointer;border-radius:var(--radius-sm)")}>
-                <span style={css("width:1.15rem;height:1.15rem;border-radius:0.3rem;flex-shrink:0;display:grid;place-items:center;transition:all .12s;border:1.5px solid " + (c.done ? "var(--accent)" : "var(--border)") + ";background:" + (c.done ? "var(--accent)" : "transparent") + ";color:#fff")}>{c.done && <Icon name="checkmark" size={13} />}</span>
-                <span style={css("flex:1;font-size:0.85rem;line-height:1.35;" + (c.done ? "color:var(--fg-faint);text-decoration:line-through" : "color:var(--fg)"))}>{c.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div style={css("padding:1.1rem 1.4rem;border-bottom:1px solid var(--border-soft)")}>
-          <div style={css("font-size:0.7rem;font-weight:500;letter-spacing:0.02em;color:var(--fg-faint);margin-bottom:0.7rem")}>Activity</div>
-          <div style={css("display:flex;flex-direction:column;gap:0.6rem;margin-bottom:0.8rem")}>
-            {comments.map((m, i) => (
-              <div key={i} style={css("display:flex;align-items:flex-start;gap:var(--space-2);" + (m.me ? "flex-direction:row-reverse" : ""))}>
-                <span style={css("width:1.5rem;height:1.5rem;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:0.55rem;font-weight:500;" + (m.me ? "background:var(--accent);color:#fff" : "background:var(--surface-alt);color:var(--fg-muted);border:1px solid var(--border-soft)"))}>{initials(m.who)}</span>
-                <div style={css("max-width:80%;padding:0.5rem 0.7rem;border-radius:var(--radius);font-size:var(--text-base);line-height:1.4;" + (m.me ? "background:var(--accent-soft);color:var(--fg)" : "background:var(--surface-alt);color:var(--fg)"))}>
-                  <span style={{ fontWeight: 500 }}>{m.who}</span> · <span style={css("color:var(--fg-faint);font-size:var(--text-xs)")}>{m.time}</span>
-                  <div style={{ marginTop: "0.15rem" }}>{m.text}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div style={css("display:flex;align-items:center;gap:var(--space-2);border:1px solid var(--border-soft);border-radius:var(--radius-pill);padding:0.25rem 0.25rem 0.25rem 0.85rem;background:var(--surface)")}>
-            <input value={state.taskCommentDraft} onChange={e => actions.patch({ taskCommentDraft: e.target.value })} onKeyDown={e => { if (e.key === "Enter") actions.addTaskComment(tmd.id, roleMeta(state.role).name); }} placeholder="Add a comment…" style={css("flex:1;border:none;background:transparent;outline:none;font-size:0.85rem;color:var(--fg)")} />
-            <button onClick={() => actions.addTaskComment(tmd.id, roleMeta(state.role).name)} className="pt-op" style={css("display:inline-flex;align-items:center;gap:0.3rem;height:2rem;padding:0 0.9rem;border-radius:var(--radius-pill);border:none;background:var(--accent);color:#fff;font-size:0.78rem;font-weight:500;cursor:pointer")}>Send</button>
-          </div>
-        </div>
-
-        <div style={css("padding:1.1rem 1.4rem 1.4rem")}>
-          <div style={css("font-size:0.7rem;font-weight:500;letter-spacing:0.02em;color:var(--fg-faint);margin-bottom:0.5rem")}>Status</div>
-          <div style={css("display:flex;gap:0.4rem")}>
-            {STATUS_BTNS.map(([k, l]) => {
-              const on = tmd.status === k;
-              return <button key={k} onClick={() => actions.moveTask(tmd.id, k)} style={css("flex:1;text-align:center;font-size:var(--text-xs);font-weight:500;padding:0.5rem 0.3rem;border-radius:var(--radius);cursor:pointer;transition:all .12s;border:1px solid " + (on ? "var(--accent)" : "var(--border-soft)") + ";background:" + (on ? "var(--accent-soft)" : "var(--surface)") + ";color:" + (on ? "var(--accent)" : "var(--fg-muted)"))}>{l}</button>;
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  return <PhaseDetailModal
+    phaseId={task.id}
+    milestoneId={`task-milestone-${task.id}`}
+    project={project}
+    onClose={() => isDraft ? actions.cancelTaskDraft() : actions.patch({ taskModal: null })}
+    showProgressDots={false}
+    initialEditing={isDraft}
+    initialTitle={task.title}
+    initialDescription={description}
+    initialAssignees={[task.assignee]}
+    initialDateFrom={dueToIso(task.due)}
+    initialDateTo={dueToIso(task.due)}
+    initialFiles={task.attachments || []}
+    initialMessages={(state.taskComments[task.id] || []).map(comment => ({ text: comment.text, author: comment.who, time: comment.time }))}
+    onPhaseEdit={applyPhaseEdit}
+    onPhaseStatusChange={status => isDraft ? actions.updateTask(task.id, { status: portalStatus(status) }) : actions.moveTask(task.id, portalStatus(status))}
+    onTaskStatusChange={(subtaskId, status) => actions.updateTask(task.id, { subtasks: subtasks.map(subtask => subtask.id === subtaskId ? { ...subtask, status: portalStatus(status) } : subtask) })}
+    onAddTask={title => actions.updateTask(task.id, { subtasks: [...subtasks, { id: `${task.id}-subtask-${Date.now()}`, title, status: "todo" }] })}
+    onDeleteTask={subtaskId => actions.updateTask(task.id, { subtasks: subtasks.filter(subtask => subtask.id !== subtaskId) })}
+    onRenameTask={(subtaskId, title) => actions.updateTask(task.id, { subtasks: subtasks.map(subtask => subtask.id === subtaskId ? { ...subtask, title } : subtask) })}
+    onFilesChange={files => actions.updateTask(task.id, { attachments: files })}
+    onAddNote={text => actions.addTaskCommentText(task.id, actor, text)}
+    renderMeta={editing => editing ? <div style={css("display:grid;grid-template-columns:1fr 1fr;gap:.45rem;margin-bottom:.5rem")}><select aria-label="Client or project" value={task.project} onChange={event => actions.updateTask(task.id, { project: event.target.value })} style={input}>{!STUDIO_CLIENTS.some(client => client.name === task.project) && <option value={task.project}>{task.project}</option>}{STUDIO_CLIENTS.map(client => <option key={client.id} value={client.name}>{client.name}</option>)}</select><input aria-label="Milestone" value={milestoneTitle} onChange={event => actions.updateTask(task.id, { milestone: event.target.value })} style={input} /></div> : <div style={css("font-size:var(--text-xs);color:var(--fg-muted);margin-bottom:.3rem")}>{milestoneTitle} · {task.project}</div>}
+    renderExtraFields={editing => <>
+      <div style={row}><span style={label}>Priority</span><div style={value}>{editing ? <select aria-label="Priority" value={task.priority} onChange={event => actions.updateTask(task.id, { priority: event.target.value as Priority })} style={input}><option value="high">High</option><option value="med">Medium</option><option value="low">Low</option></select> : <span style={pill("var(--surface-alt)", "var(--fg-muted)")}>{PRIORITY_LABEL[task.priority]} priority</span>}</div></div>
+      <div style={row}><span style={label}>Owner</span><div style={value}>{editing ? <select aria-label="Owner" value={task.owner} onChange={event => actions.updateTask(task.id, { owner: event.target.value as Owner })} style={input}><option value="studio">Studio</option><option value="ai">Assistant</option><option value="client">Client</option><option value="gate">Milestone</option></select> : <span style={pill(lane.s, lane.c)}>{lane.label}</span>}</div></div>
+      <div style={{ ...row, borderBottom: "none" }}><span style={label}>Blocked by</span><div style={value}>{editing ? <select aria-label="Blocked by" value={task.blockedBy || ""} onChange={event => actions.updateTask(task.id, { blockedBy: event.target.value || undefined })} style={input}><option value="">No blocker</option>{state.tasks.filter(item => item.id !== task.id).map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select> : (state.tasks.find(item => item.id === task.blockedBy)?.title || "—")}</div></div>
+    </>}
+    footer={<div style={css("display:flex;align-items:center;justify-content:flex-end;gap:.45rem;padding:1rem 1.5rem;border-top:1px solid var(--border)")}>{isDraft ? <><span style={css("margin-right:auto;font-size:var(--text-sm);color:var(--fg-muted)")}>Unsaved draft</span><button type="button" onClick={actions.cancelTaskDraft} style={css("height:2.1rem;padding:0 .8rem;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--fg-muted);font-size:var(--text-sm);font-weight:500;cursor:pointer")}>Cancel</button><button type="button" onClick={actions.saveTaskDraft} style={css("height:2.1rem;padding:0 .9rem;border:none;border-radius:999px;background:var(--accent);color:#fff;font-size:var(--text-sm);font-weight:500;cursor:pointer")}>Create task</button></> : deleteConfirm ? <><span style={css("margin-right:auto;font-size:var(--text-sm);color:var(--danger)")}>Delete this task?</span><button type="button" onClick={() => setDeleteConfirm(false)} style={css("height:2rem;padding:0 .75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--fg-muted);font-size:var(--text-sm);font-weight:500;cursor:pointer")}>Cancel</button><button type="button" onClick={() => actions.deleteTask(task.id)} style={css("height:2rem;padding:0 .75rem;border:none;border-radius:999px;background:var(--danger);color:#fff;font-size:var(--text-sm);font-weight:500;cursor:pointer")}>Delete task</button></> : <button type="button" onClick={() => setDeleteConfirm(true)} style={css("height:2rem;padding:0 .75rem;border:1px solid color-mix(in srgb,var(--danger) 35%,var(--border) 65%);border-radius:999px;background:var(--surface);color:var(--danger);font-size:var(--text-sm);font-weight:500;cursor:pointer")}>Delete task</button>}</div>}
+  />;
 }

@@ -9,6 +9,7 @@ import { STUDIO_CLIENTS, type StudioClient } from "../clients";
 import { GuidedIntakeSelector } from "../components/GuidedIntakeSelector";
 import { AuditReportView, getAuditReportDetail, getAuditReportSummary } from "../views/AuditReportView";
 import { DiscoveryBuilder } from "../discovery/DiscoveryBuilder";
+import { fromClientMemory, getKnowledge, recordKnowledge, mergeKnow, type Know } from "../discovery/knowledge";
 import { CocoonConsultUpgradeCard } from "@/components/CocoonFinalStepPanel";
 import { AUDIT_WIZARD, AUDIT_STAGES, AUDIT_INTRO_STEPS, AUDIT_DEMO } from "../discovery/discoveryData";
 import { AUDIT_PIPELINE, AuditScoreHero, synthAuditScore } from "../discovery/auditPipeline";
@@ -79,7 +80,7 @@ type Act =
 const SECTIONS = ["Business & brand", "Audience & offer", "Goals & conversion", "Site & messaging", "Assets & priorities"];
 
 const QUESTIONS: AuditQuestion[] = [
-  { id: "business", s: 0, kind: "text", required: true, prompt: "What's the business called?", placeholder: "Bloom & Root Wellness" },
+  { id: "business", s: 0, kind: "text", required: true, prompt: "What's the business called?", placeholder: "Client business name" },
   { id: "offer", s: 0, kind: "text", required: true, prompt: "What's the core offer we're auditing?", placeholder: "12-week 1:1 nutrition coaching" },
   { id: "positioning", s: 0, kind: "textarea", required: true, prompt: "How does the brand describe itself today?", placeholder: "A warm, grounded wellness brand that helps busy women feel in control again." },
   { id: "shift", s: 0, kind: "textarea", prompt: "What feels outdated, unclear, or in need of a shift?", placeholder: "The visuals feel DIY and the messaging no longer matches the premium level of the offer." },
@@ -110,32 +111,11 @@ const DELIVS: AuditDeliverable[] = [
   { id: "offerread", title: "Offer & Audience Read", from: "the discovery brief", intro: "A sharper read on who the site should speak to, what they care about, and what the offer must communicate." },
   { id: "journey", title: "Conversion Journey Read", from: "the offer & audience read", intro: "The key path a visitor takes today, where it breaks down, and what the site should guide them toward instead." },
   { id: "findings", title: "Priority Findings", from: "the conversion journey read", intro: "The biggest experience, messaging, and trust issues surfaced first, with the why behind each one." },
-  { id: "plan", title: "Recommended Next-Move Plan", from: "the priority findings", intro: "A practical sequence for what to fix first so the audit turns into action instead of a pile of notes." },
-  { id: "finalplan", title: "Final Audit Plan", from: "everything approved", intro: "Every discovery checkpoint signed off and consolidated into the audit plan the team can move forward with.", terminal: true },
+  { id: "plan", title: "Recommended Action + Brand Plan", from: "the priority findings", intro: "A practical sequence for what to fix first, plus a suggested direction for the positioning, voice, and visual brand." },
+  { id: "finalplan", title: "Final Audit + Brand Plan", from: "everything approved", intro: "Every discovery checkpoint consolidated into the action plan and brand direction the team can move forward with.", terminal: true },
 ];
 
-const DEMO: Record<string, string | string[]> = {
-  business: "Bloom & Root Wellness",
-  offer: "12-week 1:1 nutrition coaching",
-  positioning: "A warm, grounded wellness brand that helps busy women feel in control of food again.",
-  shift: "The visuals feel more DIY than premium, and the message no longer reflects the caliber of the offer.",
-  audience: "Busy working moms in their 30s and 40s who want structure without all-or-nothing dieting.",
-  fit: "Someone ready to invest, open to coaching, and craving a calmer day-to-day routine.",
-  offerFocus: "Signature program",
-  pain: "They feel overwhelmed, skeptical that anything sustainable will stick, and unsure what makes this brand different.",
-  goal: "More booked calls",
-  cta: "Book a call",
-  blockers: "The offer is buried, the CTA feels passive, and there isn't enough trust near the decision point.",
-  traffic: ["Instagram", "Referrals", "Email list"],
-  surfaces: ["Homepage", "Services / offers", "Booking / inquiry flow", "Mobile experience", "Messaging / copy"],
-  messageGap: "The value prop takes too long to land and each page sounds like it was written in a slightly different voice.",
-  proof: "Client testimonials, screenshots of wins, before-and-after results, and repeat client referrals.",
-  voice: ["Warm", "Premium", "Grounded", "Authority-led"],
-  assets: "Current site, Figma homepage comp, testimonial folder, intake notes, and a rough offer outline.",
-  nonNegotiables: "Keep the logo, avoid promising a full rebrand yet, and stay inside the current tech stack where possible.",
-  priorities: ["Positioning clarity", "Trust & proof", "Conversion path", "Mobile UX"],
-  timeline: "2-4 weeks",
-};
+const DEMO: Record<string, string | string[]> = {};
 
 const freshBuild = (): Omit<AuditState, "clientId"> => ({
   buildId: null,
@@ -239,8 +219,10 @@ function mergeAuditRuns(defaultRuns: AuditRun[], drafts: PersistedAuditDraft[]) 
 
   defaultRuns.forEach(run => byId.set(run.id, run));
   drafts.forEach(draft => {
+    const currentClientRun = defaultRuns.find(run => run.clientId === draft.run.clientId);
     byId.set(draft.run.id, {
       ...draft.run,
+      owner: currentClientRun?.owner || draft.run.owner,
       updatedAt: draft.updatedAt || draft.run.updatedAt,
     });
   });
@@ -410,30 +392,13 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
   const [reportRunId, setReportRunId] = useState<string | null>(null);
   const [reportProposalOpen, setReportProposalOpen] = useState(false);
   const [proposalIffOn, setProposalIffOn] = useState(false);
-  const runs = useMemo(() => mergeAuditRuns(seedAuditRuns(), drafts), [drafts]);
-  const draftsByRunId = useMemo(() => new Map(drafts.map(draft => [draft.run.id, draft])), [drafts]);
-  const allClients = useMemo(() => {
-    const known = new Set(STUDIO_CLIENTS.map(item => item.id));
-    const restoredClients = drafts
-      .filter(draft => !known.has(draft.run.clientId))
-      .map(draft => ({
-        id: draft.run.clientId,
-        name: draft.run.clientName,
-        owner: draft.run.owner,
-        audited: draft.run.progress >= 100,
-        audit: {
-          id: draft.run.id,
-          subtitle: draft.run.subtitle,
-          statusLabel: draft.run.statusLabel,
-          statusTone: draft.run.statusTone,
-          stage: draft.run.stage,
-          progress: draft.run.progress,
-          due: draft.run.due,
-        },
-        funnels: [],
-      } satisfies StudioClient));
-    return [...STUDIO_CLIENTS, ...restoredClients];
-  }, [drafts]);
+  const [quickKnow, setQuickKnow] = useState<Know>({ data: {}, sources: {} });
+  useEffect(() => { setQuickKnow({ data: {}, sources: {} }); }, [s.clientId]);
+  const knownClientIds = useMemo(() => new Set(STUDIO_CLIENTS.map(item => item.id)), []);
+  const currentDrafts = useMemo(() => drafts.filter(draft => knownClientIds.has(draft.run.clientId)), [drafts, knownClientIds]);
+  const runs = useMemo(() => mergeAuditRuns(seedAuditRuns(), currentDrafts), [currentDrafts]);
+  const draftsByRunId = useMemo(() => new Map(currentDrafts.map(draft => [draft.run.id, draft])), [currentDrafts]);
+  const allClients = STUDIO_CLIENTS;
   const client = allClients.find(c => c.id === s.clientId) || null;
   const reportClient = allClients.find(c => c.id === reportClientId) || null;
   const reportRun = reportRunId ? runs.find(item => item.id === reportRunId) || null : null;
@@ -443,7 +408,7 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
   allClientsRef.current = allClients;
   runRef.current = run;
   const completedCount = useMemo(() => new Set(runs.filter(item => item.progress >= 100).map(item => item.clientId)).size, [runs]);
-  const inProgressCount = useMemo(() => new Set(runs.filter(item => item.progress < 100).map(item => item.clientId)).size, [runs]);
+  const inProgressCount = useMemo(() => new Set(runs.filter(item => item.progress > 0 && item.progress < 100).map(item => item.clientId)).size, [runs]);
   const auditGroups = useMemo(
     () => allClients.map(client => {
       const clientRuns = runs
@@ -799,7 +764,7 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
           eyebrow="Cocoon Consult"
           eyebrowColor="var(--cocoon)"
           title="Generate or reopen an audit"
-          description="Start a new audit intake for any client, or reopen a completed Cocoon report when you need to turn it into the next step."
+          description="Start a new audit intake for any client, or reopen a completed Cocoon Consult report when you need to turn it into the next step."
           controls={
             <>
               <span style={css("display:inline-flex;align-items:center;gap:0.35rem;padding:0.45rem 0.75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:0.73rem;color:var(--fg-muted)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--success)")} />{completedCount} completed</span>
@@ -866,18 +831,18 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
                   value: `${theme.score} ↗ ${theme.target}`,
                   tone: theme.score < 50 ? "danger" as const : theme.score < 65 ? "warn" as const : "success" as const,
                 }))
-              : heroSummary.cats
-                .slice()
-                .sort((a, b) => a.score - b.score)
-                .slice(0, 6)
-                .map(theme => {
-                  const target = Math.min(96, theme.score + Math.round((100 - theme.score) * 0.66));
-                  return {
-                    label: theme.label,
-                    value: `${theme.score} ↗ ${target}`,
-                    tone: theme.score < 50 ? "danger" as const : theme.score < 65 ? "warn" as const : "success" as const,
-                  };
-                }));
+              : [
+                "Conversion Path",
+                "Website Experience",
+                "Messaging & Voice",
+                "Findability",
+                "Visual Identity",
+                "Brand Foundation",
+              ].map(label => ({
+                label,
+                value: "N/A",
+                tone: "default" as const,
+              })));
             return {
               id: group.client.id,
               name: group.client.name,
@@ -945,23 +910,29 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
     );
   }
 
+  const workspaceMemory = fromClientMemory(client.id, client.name, actions.workspaceForClient(client.name));
+  const auditKnow = mergeKnow(mergeKnow(getKnowledge(client.id), workspaceMemory), quickKnow);
   return (
     <div style={css("width:100%;padding:" + (mobile ? "1rem 0.9rem 1.5rem" : "1.4rem 1.5rem"))}>
       <DiscoveryBuilder
         mobile={mobile}
         accent="var(--cocoon)"
-        title={run?.subtitle || "Cocoon Audit"}
+        title={run?.subtitle || "Cocoon Consult Audit"}
         clientName={client.name}
-        intro={{ eyebrow: "Cocoon Audit · Guided discovery", heading: "See exactly what you’ll get." }}
+        intro={{ eyebrow: "Cocoon Consult Audit · Guided discovery", heading: "See exactly what you’ll get." }}
         wizard={AUDIT_WIZARD}
         stages={AUDIT_STAGES}
         introSteps={AUDIT_INTRO_STEPS}
+        prefill={auditKnow.data}
+        prefillSources={auditKnow.sources}
+        quickStartMode="audit"
+        onIngest={delta => setQuickKnow(k => mergeKnow(k, delta))}
         startLabel="Start audit intake →"
         backLabel="← All audits"
         previewLabel="or preview a finished audit"
         progressLabel="intake"
         completeTitle="Intake complete"
-        completeMsg="That’s everything I need. I’ll score your site across the six areas and draft the report and action plan from your answers."
+        completeMsg="That’s everything I need. I’ll score your site across the six areas and draft the report, brand audit, and action plan from your answers."
         completeCta="Generate the report →"
         completeExtra={
           <div className="cocoon-next-steps" style={{ marginTop: "0.85rem", textAlign: "left", flexShrink: 0 }}>
@@ -981,11 +952,10 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
             />
           </div>
         ) : null}
-        demo={AUDIT_DEMO}
         pipeline={AUDIT_PIPELINE}
         showToast={actions.showToast}
         onExit={exitToPicker}
-        onComplete={() => exitToPicker()}
+        onComplete={data => { recordKnowledge(client.id, data, "Audit intake"); exitToPicker(); }}
       />
     </div>
   );

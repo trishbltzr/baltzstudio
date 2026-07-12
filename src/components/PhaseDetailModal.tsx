@@ -1,22 +1,85 @@
-import { CalendarDays, Check, ChevronDown, ChevronRight, FileText, Pencil, Plus, Send, User } from "lucide-react";
-import { useState } from "react";
+import { CalendarDays, Check, ChevronDown, ChevronRight, FileText, Pencil, Plus, Send, User, X } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import type { AuditCategory, AuditPriority, Milestone, Phase, Project, Task, TaskStatus } from "../types";
 import { allTasksComplete, auditCategoryLabel, groupAuditItems, phaseProgress, phaseProgressMarkers, taskStatusDetail } from "../lib/projectUtils";
 import { AssigneeBadge, AssigneeEditor, ProgressDots, StatusBadge } from "./shared";
 import { DateRangePicker } from "./DateRangePicker";
 import { DashboardModalShell } from "./DashboardModalShell";
 
-export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTaskStatusChange, initialFiles, onFilesChange, auditCategories }: { phaseId: string; milestoneId?: string; project: Project; onClose: () => void; onTaskStatusChange?: (taskId: string, status: TaskStatus) => void; initialFiles?: string[]; onFilesChange?: (files: string[]) => void; auditCategories?: AuditCategory[] }) {
-  const [isEditing, setIsEditing] = useState(false);
+export type PhaseDetailEdit = { title?: string; description?: string; assignees?: string[]; dateFrom?: string; dateTo?: string };
+
+export function PhaseDetailModal({
+  phaseId,
+  milestoneId,
+  project,
+  onClose,
+  initialEditing = false,
+  onTaskStatusChange,
+  onPhaseStatusChange,
+  initialTitle,
+  initialDescription,
+  initialAssignees,
+  initialDateFrom,
+  initialDateTo,
+  onPhaseEdit,
+  initialFiles,
+  onFilesChange,
+  auditCategories,
+  renderMeta,
+  renderExtraFields,
+  initialMessages,
+  onAddNote,
+  footer,
+  showProgressDots = true,
+  onAddTask,
+  onDeleteTask,
+  onRenameTask,
+}: {
+  phaseId: string;
+  milestoneId?: string;
+  project: Project;
+  onClose: () => void;
+  initialEditing?: boolean;
+  onTaskStatusChange?: (taskId: string, status: TaskStatus) => void;
+  onPhaseStatusChange?: (status: TaskStatus) => void;
+  initialTitle?: string;
+  initialDescription?: string;
+  initialAssignees?: string[];
+  initialDateFrom?: string;
+  initialDateTo?: string;
+  onPhaseEdit?: (edit: PhaseDetailEdit) => void;
+  initialFiles?: string[];
+  onFilesChange?: (files: string[]) => void;
+  auditCategories?: AuditCategory[];
+  renderMeta?: (editing: boolean) => ReactNode;
+  renderExtraFields?: (editing: boolean) => ReactNode;
+  initialMessages?: { text: string; author: string; time: string }[];
+  onAddNote?: (text: string) => void;
+  footer?: ReactNode;
+  showProgressDots?: boolean;
+  onAddTask?: (title: string) => void;
+  onDeleteTask?: (taskId: string) => void;
+  onRenameTask?: (taskId: string, title: string) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(initialEditing);
   const [tasksOpen, setTasksOpen] = useState(true);
   const [completedTasksOpen, setCompletedTasksOpen] = useState(false);
   const [attachmentsOpen, setAttachmentsOpen] = useState(true);
   const [chatOpen, setChatOpen] = useState(true);
   const [chatInput, setChatInput] = useState("");
-  const [messages, setMessages] = useState<{ text: string; author: string; time: string }[]>([]);
-  const [componentEdits, setComponentEdits] = useState<{ description?: string; assignees?: string[]; dateFrom?: string; dateTo?: string; files?: string[] }>({ files: initialFiles ?? [] });
+  const [messages, setMessages] = useState<{ text: string; author: string; time: string }[]>(initialMessages ?? []);
+  const [componentEdits, setComponentEdits] = useState<{ title?: string; description?: string; assignees?: string[]; dateFrom?: string; dateTo?: string; files?: string[] }>({
+    title: initialTitle,
+    description: initialDescription,
+    assignees: initialAssignees,
+    dateFrom: initialDateFrom,
+    dateTo: initialDateTo,
+    files: initialFiles ?? [],
+  });
   const [taskStatusOverrides, setTaskStatusOverrides] = useState<Record<string, TaskStatus>>({});
   const [openTaskBranchId, setOpenTaskBranchId] = useState<string | null>(null);
+  const [addingTask, setAddingTask] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
 
   // Find the phase and its parent milestone
   let phase: Phase | null = null;
@@ -124,6 +187,7 @@ export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTas
     });
   };
   const setPhaseStatus = (status: TaskStatus) => {
+    onPhaseStatusChange?.(status);
     if (workingTasks.length === 0) return;
 
     if (status === "complete") {
@@ -148,11 +212,19 @@ export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTas
     }));
   };
   const enterInlineEdit = () => setIsEditing(true);
+  const submitNewTask = () => {
+    const title = newTaskTitle.trim();
+    if (!title || !onAddTask) return;
+    onAddTask(title);
+    setNewTaskTitle("");
+    setAddingTask(false);
+    setTasksOpen(true);
+  };
   const renderTaskRow = (task: Task, priority?: AuditPriority) => {
     const isUrgent = priority === "urgent-important" || priority === "urgent";
     const showBlockedFlag = task.status === "blocked";
     return (
-    <div key={task.id} className={`phase-detail-task-row is-${task.status}`}>
+    <div key={task.id} className={`phase-detail-task-row is-${task.status}`} onDoubleClick={() => onDeleteTask && setIsEditing(true)}>
       <button
         className="phase-detail-task-check"
         type="button"
@@ -161,8 +233,21 @@ export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTas
       >
         {task.status === "complete" && <Check size={8} style={{ color: "white", strokeWidth: 3 }} />}
       </button>
-      <span className="phase-detail-task-title">{task.title}</span>
+      {isEditing && onRenameTask
+        ? <input aria-label={`Rename ${task.title}`} value={task.title} onChange={event => onRenameTask(task.id, event.target.value)} onClick={event => event.stopPropagation()} style={{ minWidth: 0, width: "100%", height: "1.8rem", padding: "0 0.5rem", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)", color: "var(--fg)", font: "inherit", fontSize: "var(--text-base)", outline: "none" }} />
+        : <span className="phase-detail-task-title" onDoubleClick={event => { event.stopPropagation(); if (onRenameTask) setIsEditing(true); }}>{task.title}</span>}
       <AssigneeBadge assignee={task.assignee} />
+      {isEditing && onDeleteTask && (
+        <button
+          type="button"
+          aria-label={`Delete ${task.title}`}
+          title="Delete subtask"
+          onClick={event => { event.stopPropagation(); onDeleteTask(task.id); }}
+          style={{ width: "1.55rem", height: "1.55rem", border: "none", borderRadius: "50%", background: "transparent", color: "var(--fg-faint)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}
+        >
+          <X size={12} />
+        </button>
+      )}
       {!showBlockedFlag && priority && (
         <svg className={`audit-item-flag ${isUrgent ? "is-red" : "is-yellow"}`} width="13" height="13" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
@@ -209,7 +294,7 @@ export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTas
       onClose={onClose}
       headerEnd={
         <>
-          <ProgressDots markers={phaseProgressMarkers(workingTasks)} variant="modal" id={`${phase.id}-modal`} />
+          {showProgressDots && <ProgressDots markers={phaseProgressMarkers(workingTasks)} variant="modal" id={`${phase.id}-modal`} />}
           <button
             type="button"
             onClick={() => setIsEditing(!isEditing)}
@@ -232,11 +317,9 @@ export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTas
     >
         {/* ── Component header ── */}
         <div style={{ padding: "1.25rem 1.5rem 0" }}>
-          <div style={{ fontSize: "var(--text-xs)", color: "var(--fg-muted)", marginBottom: "0.3rem" }}>
-            M{milestone.number} · {milestone.title}
-          </div>
+          {renderMeta ? renderMeta(isEditing) : <div style={{ fontSize: "var(--text-xs)", color: "var(--fg-muted)", marginBottom: "0.3rem" }}>M{milestone.number} · {milestone.title}</div>}
           <div className="phase-detail-heading-row">
-            <h2 style={{ fontSize: "var(--text-xl)", fontWeight: 500, margin: 0, color: "var(--fg)", lineHeight: 1.3 }}>{shortTitle}</h2>
+            {isEditing ? <input value={componentEdits.title ?? shortTitle} onChange={event => { const title = event.target.value; setComponentEdits(previous => ({ ...previous, title })); onPhaseEdit?.({ title }); }} aria-label="Task name" style={{ ...inp, fontSize: "var(--text-xl)", fontWeight: 500 }} /> : <h2 style={{ fontSize: "var(--text-xl)", fontWeight: 500, margin: 0, color: "var(--fg)", lineHeight: 1.3 }}>{componentEdits.title ?? shortTitle}</h2>}
             <span className="phase-detail-percentage">{progressPercent}%</span>
           </div>
         </div>
@@ -280,7 +363,7 @@ export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTas
               {isEditing
                 ? <AssigneeEditor
                     value={componentEdits.assignees ?? []}
-                    onChange={names => setComponentEdits(p => ({ ...p, assignees: names }))}
+                    onChange={names => { setComponentEdits(p => ({ ...p, assignees: names })); onPhaseEdit?.({ assignees: names }); }}
                   />
                 : (componentEdits.assignees && componentEdits.assignees.length > 0
                     ? <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.35rem" }}>
@@ -309,7 +392,7 @@ export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTas
               {isEditing
                 ? <DateRangePicker
                     value={{ from: componentEdits.dateFrom, to: componentEdits.dateTo }}
-                    onChange={range => setComponentEdits(p => ({ ...p, dateFrom: range.from, dateTo: range.to }))}
+                    onChange={range => { setComponentEdits(p => ({ ...p, dateFrom: range.from, dateTo: range.to })); onPhaseEdit?.({ dateFrom: range.from, dateTo: range.to }); }}
                   />
                 : <span style={{ color: componentEdits.dateFrom || componentEdits.dateTo ? "var(--fg)" : "var(--fg-muted)", fontWeight: componentEdits.dateFrom || componentEdits.dateTo ? 500 : 400 }}>
                     {componentEdits.dateFrom || componentEdits.dateTo ? `${componentEdits.dateFrom || "—"} → ${componentEdits.dateTo || "—"}` : "Not set"}
@@ -323,7 +406,7 @@ export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTas
             <span style={{ ...lbl, paddingTop: "0.25rem" }}>Description</span>
             <div style={{ ...val }}>
               {isEditing
-                ? <textarea value={componentEdits.description ?? ""} onChange={e => setComponentEdits(p => ({ ...p, description: e.target.value }))}
+                ? <textarea value={componentEdits.description ?? ""} onChange={e => { const description = e.target.value; setComponentEdits(p => ({ ...p, description })); onPhaseEdit?.({ description }); }}
                     placeholder="Add notes or context…" rows={3}
                     style={{ ...inp, resize: "vertical", lineHeight: 1.5 }}
                     onFocus={e => e.currentTarget.style.borderColor = "var(--accent)"}
@@ -334,13 +417,17 @@ export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTas
               }
             </div>
           </div>
+          {renderExtraFields?.(isEditing)}
         </div>
 
         {/* ── Tasks section ── */}
         <div style={{ borderTop: "1px solid var(--border)" }}>
+          <div style={{ display: "flex", alignItems: "center", padding: "0.62rem 1.1rem 0.62rem 1.5rem" }} onDoubleClick={() => onAddTask && setIsEditing(true)}>
           <button
+            type="button"
             onClick={() => setTasksOpen(!tasksOpen)}
-            style={{ width: "100%", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1.5rem", color: "var(--fg)" }}
+            onDoubleClick={event => { event.preventDefault(); event.stopPropagation(); if (onAddTask) { setIsEditing(true); setTasksOpen(true); } }}
+            style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.13rem 0.4rem 0.13rem 0", color: "var(--fg)" }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
               {tasksOpen ? <ChevronDown size={13} style={{ color: "var(--fg-muted)" }} /> : <ChevronRight size={13} style={{ color: "var(--fg-muted)" }} />}
@@ -348,9 +435,18 @@ export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTas
             </div>
             <span style={{ fontSize: "var(--text-xs)", color: "var(--fg-muted)", fontWeight: 400 }}>{pp.done}/{pp.total}</span>
           </button>
+          {isEditing && onAddTask && <button type="button" aria-label="Add subtask" title="Add subtask" onClick={() => { setAddingTask(true); setTasksOpen(true); }} style={{ width: "1.75rem", height: "1.75rem", border: "1px solid var(--border)", borderRadius: "50%", background: "var(--surface)", color: "var(--fg-muted)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}><Plus size={13} /></button>}
+          </div>
 
           {tasksOpen && (
             <div className="phase-detail-task-list">
+              {isEditing && addingTask && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.35rem 0.45rem 0.5rem" }}>
+                  <input autoFocus aria-label="New subtask name" value={newTaskTitle} onChange={event => setNewTaskTitle(event.target.value)} onKeyDown={event => { if (event.key === "Enter") submitNewTask(); if (event.key === "Escape") { setAddingTask(false); setNewTaskTitle(""); } }} placeholder="New subtask" style={{ flex: 1, minWidth: 0, height: "2rem", padding: "0 0.65rem", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--fg)", font: "inherit", fontSize: "var(--text-base)", outline: "none" }} />
+                  <button type="button" onClick={submitNewTask} disabled={!newTaskTitle.trim()} style={{ height: "2rem", padding: "0 0.7rem", border: "none", borderRadius: "999px", background: "var(--accent)", color: "#fff", fontSize: "var(--text-xs)", fontWeight: 500, cursor: newTaskTitle.trim() ? "pointer" : "default", opacity: newTaskTitle.trim() ? 1 : 0.45 }}>Add</button>
+                  <button type="button" aria-label="Cancel new subtask" onClick={() => { setAddingTask(false); setNewTaskTitle(""); }} style={{ width: "2rem", height: "2rem", border: "1px solid var(--border)", borderRadius: "50%", background: "var(--surface)", color: "var(--fg-muted)", display: "grid", placeItems: "center", cursor: "pointer" }}><X size={12} /></button>
+                </div>
+              )}
               {useTaskBranches ? (
                 <div className="phase-detail-task-branches">
                   {activeTaskGroups.map(group => (
@@ -393,7 +489,7 @@ export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTas
                   {completedTasksOpen && (
                     <div className="phase-detail-completed-items">
                       {completedTasks.map(task => (
-                        <div key={task.id} className="phase-detail-task-row is-complete is-collapsed">
+                        <div key={task.id} className="phase-detail-task-row is-complete is-collapsed" onDoubleClick={() => onDeleteTask && setIsEditing(true)}>
                           <button
                             className="phase-detail-task-check"
                             type="button"
@@ -403,8 +499,11 @@ export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTas
                           >
                             <Check size={8} style={{ color: "white", strokeWidth: 3 }} />
                           </button>
-                          <span className="phase-detail-task-title">{task.title}</span>
+                          {isEditing && onRenameTask
+                            ? <input aria-label={`Rename ${task.title}`} value={task.title} onChange={event => onRenameTask(task.id, event.target.value)} onClick={event => event.stopPropagation()} style={{ minWidth: 0, width: "100%", height: "1.8rem", padding: "0 0.5rem", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--surface)", color: "var(--fg)", font: "inherit", fontSize: "var(--text-base)", outline: "none" }} />
+                            : <span className="phase-detail-task-title" onDoubleClick={event => { event.stopPropagation(); if (onRenameTask) setIsEditing(true); }}>{task.title}</span>}
                           <AssigneeBadge assignee={task.assignee} />
+                          {isEditing && onDeleteTask && <button type="button" aria-label={`Delete ${task.title}`} title="Delete subtask" onClick={event => { event.stopPropagation(); onDeleteTask(task.id); }} style={{ width: "1.55rem", height: "1.55rem", border: "none", borderRadius: "50%", background: "transparent", color: "var(--fg-faint)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}><X size={12} /></button>}
                         </div>
                       ))}
                     </div>
@@ -515,6 +614,7 @@ export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTas
                       const now = new Date();
                       const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
                       setMessages(prev => [...prev, { text: chatInput.trim(), author: "Studio", time }]);
+                      onAddNote?.(chatInput.trim());
                       setChatInput("");
                     }
                   }}
@@ -536,6 +636,7 @@ export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTas
                       const now = new Date();
                       const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
                       setMessages(prev => [...prev, { text: chatInput.trim(), author: "Studio", time }]);
+                      onAddNote?.(chatInput.trim());
                       setChatInput("");
                     }}
                     style={{
@@ -552,6 +653,7 @@ export function PhaseDetailModal({ phaseId, milestoneId, project, onClose, onTas
             </div>
           )}
         </div>
+        {footer}
     </DashboardModalShell>
   );
 }

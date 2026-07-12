@@ -3,6 +3,7 @@
 import { Icon } from "../icons";
 import { css, healthMap, prioColor, statusPill, STATUS_LABEL, STATUS_MAP } from "../helpers";
 import { ADMIN_STATS, ALL_PROJECTS, SVC_META, WORKLOAD } from "../data";
+import { STUDIO_CLIENTS } from "../clients";
 import { roleProjects, roleTasks } from "../selectors";
 import type { PortalActions, PortalState } from "../store";
 import type { View } from "../types";
@@ -40,7 +41,7 @@ const MANAGER_STAT_VIEW: Record<string, View> = {
 
 const PIPELINE = (["cocoon", "wiaw", "iff"] as const).map(svc => {
   const count = ALL_PROJECTS.filter(p => p.service === svc).length;
-  return { label: SVC_META[svc].label, color: SVC_META[svc].color, count, pct: Math.round((count / ALL_PROJECTS.length) * 100) };
+  return { label: SVC_META[svc].label, color: SVC_META[svc].color, count, pct: ALL_PROJECTS.length ? Math.round((count / ALL_PROJECTS.length) * 100) : 0 };
 });
 
 const ESC_KIND: Record<string, string> = {
@@ -93,19 +94,19 @@ export function AdminProgressBody({ state, actions, hideStats = false }: { state
       {!hideStats && <AdminPipeline state={state} actions={actions} />}
 
       {/* 2-col */}
-      <div style={{ display: "grid", gridTemplateColumns: ov2col(state.isMobile), gap: "0.85rem" }}>
+      <div style={{ display: "grid", gridTemplateColumns: ov2col(state.isMobile), gap: "0.85rem", alignItems: "stretch" }}>
         {/* clients at a glance */}
-        <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden")}>
+        <div style={css("height:100%;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden")}>
           <div style={css("padding:0.9rem 1.1rem;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between")}>
             <h3 style={css("margin:0;font-size:var(--text-lg);font-weight:500")}>Clients at a glance</h3>
             <button onClick={() => actions.setView("clients")} style={css("font-size:0.76rem;color:var(--accent);background:none;border:none;cursor:pointer;font-weight:500;display:flex;align-items:center;gap:var(--space-1)")}>View all <Icon name="arrow" size={13} /></button>
           </div>
           <div style={{ overflowX: "auto" }}>
-            <div style={{ minWidth: "30rem" }}>
+            <div data-client-list-scroll style={{ minWidth: "30rem", height: "19.25rem", maxHeight: "19.25rem", overflowY: "auto", overscrollBehavior: "contain", scrollbarGutter: "stable" }}>
               {projects.map(p => {
                 const hm = healthMap(p.health); const sm = SVC_META[p.service];
                 return (
-                  <div key={p.id} onClick={() => actions.openClientDetail(p.client)} className="pt-row" style={css("display:grid;grid-template-columns:2rem minmax(6rem,1fr) 8.5rem 6rem 4.75rem;gap:0.7rem;align-items:center;padding:0.7rem 1.1rem;border-bottom:1px solid var(--border-soft);cursor:pointer")}>
+                  <div key={p.id} onClick={() => actions.openClientDetail(p.client)} className="pt-row" style={css("box-sizing:border-box;min-height:3.85rem;display:grid;grid-template-columns:2rem minmax(6rem,1fr) 8.5rem 6rem 4.75rem;gap:0.7rem;align-items:center;padding:0.7rem 1.1rem;border-bottom:1px solid var(--border-soft);cursor:pointer")}>
                     <span style={css("width:2rem;height:2rem;border-radius:var(--radius-sm);background:var(--accent-soft);color:var(--accent);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:0.78rem;font-weight:500")}>{p.client[0]}</span>
                     <div style={{ minWidth: 0 }}>
                       <div style={css("font-weight:500;font-size:0.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{p.client}</div>
@@ -120,13 +121,22 @@ export function AdminProgressBody({ state, actions, hideStats = false }: { state
                   </div>
                 );
               })}
+              {projects.length === 0 && STUDIO_CLIENTS.map(client => (
+                <div key={client.id} style={css("box-sizing:border-box;min-height:3.85rem;display:grid;grid-template-columns:2rem minmax(6rem,1fr) 8.5rem 6rem 4.75rem;gap:0.7rem;align-items:center;padding:0.7rem 1.1rem;border-bottom:1px solid var(--border-soft)")}>
+                  <span style={css("width:2rem;height:2rem;border-radius:var(--radius-sm);background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.78rem;font-weight:500")}>{client.name[0]}</span>
+                  <div style={{ minWidth: 0 }}><div style={css("font-weight:500;font-size:0.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{client.name}</div><div style={css("font-size:0.74rem;color:var(--fg-muted)")}>No active project</div></div>
+                  <span style={css("font-size:0.8rem;color:var(--fg-faint)")}>Unassigned</span>
+                  <div style={css("height:0.35rem;border-radius:999px;background:oklch(0.94 0.006 50)")} />
+                  <span style={css(statusPill("muted"))}>Not started</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
         {/* right column */}
-        <div style={css("display:flex;flex-direction:column;gap:0.85rem;min-width:0")}>
-          <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden")}>
+        <div style={css("height:100%;display:flex;flex-direction:column;gap:0.85rem;min-width:0")}>
+          <div style={css("flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden")}>
             <div style={css("padding:0.9rem 1.1rem;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:0.45rem")}>
               <span style={{ color: "var(--danger)" }}><Icon name="alert" size={16} /></span>
               <h3 style={css("margin:0;font-size:var(--text-lg);font-weight:500")}>Escalations</h3>
@@ -146,19 +156,22 @@ export function AdminProgressBody({ state, actions, hideStats = false }: { state
                 </div>
               </div>
             ))}
+            {escOpen.length === 0 && <div style={css("flex:1;display:grid;place-items:center;padding:1.35rem 1.1rem;color:var(--fg-faint);font-size:0.78rem;text-align:center")}>No escalations yet.</div>}
           </div>
-          <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden")}>
+          <div style={css("flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden")}>
             <div style={css("padding:0.9rem 1.1rem;border-bottom:1px solid var(--border-soft)")}><h3 style={css("margin:0;font-size:var(--text-lg);font-weight:500")}>Team workload</h3></div>
-            {WORKLOAD.map(w => (
-              <div key={w.name} style={css("display:flex;align-items:center;gap:0.65rem;padding:0.65rem 1.1rem;border-bottom:1px solid var(--border-soft)")}>
-                <span style={css("width:1.75rem;height:1.75rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:0.64rem;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0")}>{w.init}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={css("font-weight:500;font-size:0.8rem")}>{w.name}</div>
-                  <div style={css("font-size:0.7rem;color:var(--fg-muted)")}>{w.clients} clients · {w.tasks} tasks</div>
+            <div style={css("flex:1;min-height:0;display:flex;flex-direction:column")}>
+              {WORKLOAD.map((w, index) => (
+                <div key={w.name} style={css("flex:1;min-height:3.4rem;display:flex;align-items:center;gap:0.65rem;padding:0.65rem 1.1rem;" + (index < WORKLOAD.length - 1 ? "border-bottom:1px solid var(--border-soft)" : ""))}>
+                  <span style={css("width:1.75rem;height:1.75rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:0.64rem;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0")}>{w.init}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={css("font-weight:500;font-size:0.8rem")}>{w.name}</div>
+                    <div style={css("font-size:0.7rem;color:var(--fg-muted)")}>{w.clients} clients · {w.tasks} tasks</div>
+                  </div>
+                  <div style={css("width:3.2rem;height:0.35rem;border-radius:999px;background:oklch(0.94 0.006 50);overflow:hidden;flex-shrink:0")}><div style={css("width:" + w.load + "%;height:100%;background:" + w.loadColor)} /></div>
                 </div>
-                <div style={css("width:3.2rem;height:0.35rem;border-radius:999px;background:oklch(0.94 0.006 50);overflow:hidden;flex-shrink:0")}><div style={css("width:" + w.load + "%;height:100%;background:" + w.loadColor)} /></div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -168,17 +181,17 @@ export function AdminProgressBody({ state, actions, hideStats = false }: { state
 
 // Dev/manager snapshot stat cards used by the Progress header.
 export function ManagerStats({ state, actions }: { state: PortalState; actions: PortalActions }) {
-  const myOpen = state.tasks.filter(t => t.assignee === "Noa Vega" && t.status !== "done").length;
+  const myOpen = state.tasks.filter(t => t.assignee === "Kier Mangibin" && t.status !== "done").length;
   const myClients = roleProjects(state).length;
-  const awaitingApprovals = state.tasks.filter(t => t.assignee === "Noa Vega" && t.status === "review").length;
-  const assignedUnread = state.threads.filter(thread => thread.assignee === "Noa Vega" && thread.unread > 0).length;
+  const awaitingApprovals = state.tasks.filter(t => t.assignee === "Kier Mangibin" && t.status === "review").length;
+  const assignedUnread = state.threads.filter(thread => thread.assignee === "Kier Mangibin" && thread.unread > 0).length;
   const mgrStats = [
     { label: "Clients", value: String(myClients), icon: "briefcase", tint: "var(--accent-soft)", color: "var(--accent)" },
     { label: "To-do's", value: String(myOpen), icon: "checklist", tint: "var(--lane-gate-soft)", color: "var(--lane-gate)" },
-    { label: "Approvals", value: String(awaitingApprovals || 2), icon: "flag", tint: "var(--warn-soft)", color: "var(--warn)" },
-    { label: "Audits", value: "3", icon: "audit", tint: "var(--success-soft)", color: "var(--success)" },
-    { label: "Funnels", value: "2", icon: "funnel", tint: "var(--lane-ai-soft)", color: "var(--lane-ai)" },
-    { label: "Inbox", value: String(assignedUnread || 1), icon: "inbox", tint: "var(--danger-soft)", color: "var(--danger)" },
+    { label: "Approvals", value: String(awaitingApprovals), icon: "flag", tint: "var(--warn-soft)", color: "var(--warn)" },
+    { label: "Audits", value: "0", icon: "audit", tint: "var(--success-soft)", color: "var(--success)" },
+    { label: "Funnels", value: "0", icon: "funnel", tint: "var(--lane-ai-soft)", color: "var(--lane-ai)" },
+    { label: "Inbox", value: String(assignedUnread), icon: "inbox", tint: "var(--danger-soft)", color: "var(--danger)" },
   ];
   return (
     <div style={css("display:grid;grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr));gap:0.55rem")}>
@@ -240,14 +253,16 @@ export function ManagerProgressBody({ state, actions, hideStats = false }: { sta
               <span style={css("font-size:var(--text-xs);color:var(--fg-muted);width:2.6rem;text-align:right")}>{t.due}</span>
             </div>
           ))}
+          {myDue.length === 0 && <div style={css("padding:1.5rem 1rem;text-align:center;color:var(--fg-faint);font-size:0.78rem")}>No assigned tasks yet.</div>}
         </div>
         <div style={css("display:flex;flex-direction:column;gap:0.85rem;min-width:0")}>
           <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden")}>
             <div style={css("padding:0.9rem 1.1rem;border-bottom:1px solid var(--border-soft)")}><h3 style={css("margin:0;font-size:var(--text-lg);font-weight:500")}>Assigned Clients</h3></div>
+            <div data-assigned-client-scroll style={css("height:19.25rem;max-height:19.25rem;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable")}>
             {projects.map(p => {
               const hm = healthMap(p.health);
               return (
-                <div key={p.id} onClick={() => actions.openClientDetail(p.client)} className="pt-row" style={css("display:flex;align-items:center;gap:0.65rem;padding:0.7rem 1.1rem;border-bottom:1px solid var(--border-soft);cursor:pointer")}>
+                <div key={p.id} onClick={() => actions.openClientDetail(p.client)} className="pt-row" style={css("box-sizing:border-box;min-height:3.85rem;display:flex;align-items:center;gap:0.65rem;padding:0.7rem 1.1rem;border-bottom:1px solid var(--border-soft);cursor:pointer")}>
                   <span style={css("width:1.95rem;height:1.95rem;border-radius:var(--radius-sm);background:var(--accent-soft);color:var(--accent);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:0.78rem")}>{p.client[0]}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={css("font-weight:500;font-size:var(--text-base)")}>{p.client}</div>
@@ -257,6 +272,8 @@ export function ManagerProgressBody({ state, actions, hideStats = false }: { sta
                 </div>
               );
             })}
+            {projects.length === 0 && <div style={css("padding:1.5rem 1rem;text-align:center;color:var(--fg-faint);font-size:0.78rem")}>No assigned clients yet.</div>}
+            </div>
           </div>
           <div style={css("position:relative;overflow:hidden;border-radius:var(--radius-panel);background:oklch(0.985 0.012 22);padding:1rem 1.1rem;box-shadow:inset 0 0 0 1px oklch(0.88 0.04 20 / 0.32)")}>
             <div style={css("display:flex;align-items:center;gap:0.45rem;color:var(--accent);margin-bottom:0.35rem")}><Icon name="clock" size={16} /><span style={css("font-weight:500;font-size:0.9rem")}>Awaiting Client</span></div>

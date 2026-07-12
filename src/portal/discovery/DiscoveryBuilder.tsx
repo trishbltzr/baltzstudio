@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useReducer, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { css } from "../helpers";
 import { Icon } from "../icons";
+import { QuickStart } from "./QuickStart";
+import type { Know } from "./knowledge";
 
 // ── data shapes ───────────────────────────────────────────────────────────────
 export type DQKind = "text" | "textarea" | "single" | "multi";
@@ -95,7 +97,7 @@ function reducer(s: DState, a: Act): DState {
     case "sendMulti": return { ...s, qIdx: s.qIdx + 1, draft: "" };
     case "skip": return { ...s, qIdx: s.qIdx + 1, draft: "" };
     case "back": return { ...s, qIdx: Math.max(0, s.qIdx - 1), draft: "", typing: false };
-    case "restart": return { ...init, entered: true, introReveal: 2 };
+    case "restart": return { ...init, entered: true, introReveal: 0, typing: true };
     case "fill": return { ...s, entered: true, introReveal: 2, data: a.data, qIdx: a.qIdx, draft: "", typing: false };
     case "beginBuild": return { ...s, approved: { ...s.approved, discovery: true }, stage: 1, proposal: false };
     case "gotoStage": return { ...s, stage: a.i, proposal: false };
@@ -113,6 +115,7 @@ export function DiscoveryBuilder({
   backLabel = "← All funnels", previewLabel = "or preview a finished plan",
   completeTitle = "Discovery complete", completeMsg, completeCta = "See the result →", progressLabel = "discovery",
   completeExtra, stageExtra, demo, demoAction = "complete", onExit, onComplete, mobile, pipeline, showToast,
+  prefill, prefillSources, quickStartMode, onIngest,
 }: {
   accent: string;
   title: string;
@@ -137,14 +140,28 @@ export function DiscoveryBuilder({
   mobile: boolean;
   pipeline?: Pipeline;
   showToast?: (m: string) => void;
+  prefill?: Ans;
+  prefillSources?: Record<string, string>;
+  quickStartMode?: "audit" | "funnel";
+  onIngest?: (delta: Know) => void;
 }) {
-  const [s, dispatch] = useReducer(reducer, init);
-  const flat = useMemo(() => wizard.flatMap(t => t.qs.map(q => ({ ...q, topic: t.title, topicId: t.id, icon: t.icon }))), [wizard]);
+  const [s, dispatch] = useReducer(reducer, init, () => ({ ...init, data: { ...(prefill || {}) } }));
+  const hasMemoryChoice = !!(quickStartMode && onIngest);
+  const [memoryResolved, setMemoryResolved] = useState(!hasMemoryChoice);
+  const isKnown = (k: string) => { const v = prefill?.[k]; return v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0); };
+  const askWizard = useMemo(() => wizard.map(t => ({ ...t, qs: t.qs.filter(q => !isKnown(q.key)) })).filter(t => t.qs.length > 0), [wizard, prefill]);
+  const flat = useMemo(() => askWizard.flatMap(t => t.qs.map(q => ({ ...q, topic: t.title, topicId: t.id, icon: t.icon }))), [askWizard]);
+  // Everything we know = latest prefill (incl. mid-flow ingests) + the gaps answered.
+  const collected = useMemo(() => ({ ...(prefill || {}), ...s.data }), [prefill, s.data]);
   const total = flat.length;
   const scrollRef = useRef<HTMLDivElement>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = []; };
   const toast = (m: string) => showToast?.(m);
+
+  useEffect(() => {
+    setMemoryResolved(!hasMemoryChoice);
+  }, [clientName, hasMemoryChoice]);
 
   // intro reveal sequence
   useEffect(() => {
@@ -188,13 +205,14 @@ export function DiscoveryBuilder({
       if (demo[q.key] !== undefined) data[q.key] = demo[q.key];
       else if (q.kind === "single") data[q.key] = q.opts?.[0] || "Yes";
       else if (q.kind === "multi") data[q.key] = (q.opts || []).slice(0, 2);
-      else data[q.key] = "Sample " + q.topic.toLowerCase();
+      else data[q.key] = "";
     });
+    const merged = { ...(prefill || {}), ...data };
     if (demoAction === "result" || !pipeline) {
-      onComplete(data);
+      onComplete(merged);
       return;
     }
-    dispatch({ t: "fill", data, qIdx: flat.length });
+    dispatch({ t: "fill", data: merged, qIdx: flat.length });
   };
 
   // ── pipeline orchestration ──
@@ -206,7 +224,7 @@ export function DiscoveryBuilder({
   const genDone = !!s.generated[curKey];
   const stageApproved = !!s.approved[curKey];
   const currentStageExtra = stageExtra?.(curKey);
-  const docs = useMemo(() => (pipeline ? pipeline.buildDocs(s.data) : null), [pipeline, s.data]);
+  const docs = useMemo(() => (pipeline ? pipeline.buildDocs(collected) : null), [pipeline, collected]);
 
   const beginBuild = () => { dispatch({ t: "beginBuild" }); toast("Discovery locked — starting the build"); };
   const gotoStage = (i: number) => { if (i <= maxStage) dispatch({ t: "gotoStage", i }); };
@@ -217,11 +235,22 @@ export function DiscoveryBuilder({
     else dispatch({ t: "setStage", i: s.stage + 1 });
     toast(isLast ? "Approved — here’s the summary" : "Approved — next stage unlocked");
   };
+  const continueFromMemory = () => {
+    setMemoryResolved(true);
+    dispatch({ t: "typing", v: true });
+    const id = setTimeout(() => dispatch({ t: "typing", v: false }), 620);
+    timers.current.push(id);
+  };
+  const restartDiscovery = () => {
+    setMemoryResolved(!hasMemoryChoice);
+    dispatch({ t: "restart" });
+  };
 
   // ── styles ──
   const card = "border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden";
   const railWrap = "border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden" + (mobile ? "" : ";position:sticky;top:0.5rem");
   const bubble = "background:var(--surface);border:1px solid var(--border-soft);border-radius:14px;border-top-left-radius:4px;padding:0.8rem 0.95rem;font-size:0.9rem;line-height:1.55;color:var(--fg-muted)";
+  const activeQuestionBorder = quickStartMode === "audit" ? accent : "var(--accent-dim)";
   const optBtn = (sel: boolean) => "border:1px solid " + (sel ? accent : "var(--border)") + ";border-radius:var(--radius-pill);background:" + (sel ? "color-mix(in srgb," + accent + " 12%,white 88%)" : "var(--surface)") + ";color:" + (sel ? accent : "var(--fg)") + ";padding:0.5rem 0.9rem;font-size:var(--text-base);font-weight:500;cursor:pointer;font-family:inherit";
 
   // ── rail ──
@@ -249,7 +278,7 @@ export function DiscoveryBuilder({
               : locked ? "background:var(--surface);border:1.5px dashed var(--border);color:var(--fg-faint)"
                 : "background:var(--surface);border:1.5px solid var(--border);color:var(--fg-muted)";
           return (
-            <button key={st.key} type="button" onClick={() => !locked && gotoStage(i)} disabled={locked} style={css("width:calc(100% - 1rem);margin:0 0.5rem;display:flex;align-items:center;gap:0.65rem;min-height:2.8rem;padding:0.48rem 0.6rem;border:none;border-radius:0.85rem;text-align:left;font-family:inherit;cursor:" + (locked ? "default" : "pointer") + ";background:" + (isCurrent ? "color-mix(in srgb,var(--success) 9%,white 91%)" : "transparent") + ";opacity:" + (locked ? "0.58" : "1"))}>
+            <button key={st.key} type="button" onClick={() => !locked && gotoStage(i)} disabled={locked} style={css("width:calc(100% - 1rem);margin:0 0.5rem;display:flex;align-items:center;gap:0.65rem;min-height:2.35rem;padding:0.3rem 0.6rem;border:none;border-radius:999px;text-align:left;font-family:inherit;cursor:" + (locked ? "default" : "pointer") + ";background:" + (isCurrent ? "color-mix(in srgb,var(--success) 9%,white 91%)" : "transparent") + ";opacity:" + (locked ? "0.58" : "1"))}>
               <span style={css("width:1.2rem;height:1.2rem;border-radius:50%;display:grid;place-items:center;flex-shrink:0;font-size:0.62rem;font-weight:500;" + dot)}>{isDone ? <Icon name="checkmark" size={9} /> : (i + 1)}</span>
               <span style={css("min-width:0;font-size:var(--text-base);font-weight:" + (isCurrent || isDone ? "500" : "400") + ";color:" + (isCurrent ? "var(--success)" : locked ? "var(--fg-muted)" : "var(--fg)") + ";white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2")}>{st.label}</span>
             </button>
@@ -306,7 +335,7 @@ export function DiscoveryBuilder({
         <div style={css("display:flex;align-items:center;gap:0.7rem")}>
           <span style={css("width:2.1rem;height:2.1rem;border-radius:10px;background:" + accent + ";color:#fff;display:grid;place-items:center;flex-shrink:0")}><Icon name="feather" size={16} /></span>
           <div style={css("flex:1;min-width:0")}><div style={css("font-size:var(--text-lg);font-weight:500")}>{stages[0]?.label || "Discovery"}</div><div style={css("font-size:0.74rem;color:var(--fg-muted)")}>{pct}% of {progressLabel}</div></div>
-          <button type="button" onClick={() => dispatch({ t: "restart" })} className="pt-softbtn" style={css("border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;padding:0.32rem 0.7rem;border-radius:var(--radius-pill);cursor:pointer;font-family:inherit")}>↻ Restart</button>
+          <button type="button" onClick={restartDiscovery} className="pt-softbtn" style={css("border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;padding:0.32rem 0.7rem;border-radius:var(--radius-pill);cursor:pointer;font-family:inherit")}>↻ Restart</button>
           {demo && <button type="button" onClick={runFill} className="pt-softbtn" style={css("border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;padding:0.32rem 0.7rem;border-radius:var(--radius-pill);cursor:pointer;font-family:inherit")}>Skip to finish →</button>}
         </div>
         <div style={css("height:0.45rem;border-radius:999px;background:oklch(0.92 0.006 50);overflow:hidden;margin-top:0.8rem")}><div style={css("height:100%;border-radius:999px;background:" + accent + ";width:" + pct + "%;transition:width .5s ease")} /></div>
@@ -317,6 +346,21 @@ export function DiscoveryBuilder({
           <div style={css("flex-shrink:0;display:flex;gap:0.6rem;align-items:flex-start;animation:cocoonFade .3s ease both")}>
             <span style={css("width:1.9rem;height:1.9rem;flex-shrink:0;border-radius:50%;display:grid;place-items:center;font-size:0.6rem;font-weight:500;background:color-mix(in srgb," + accent + " 14%,white 86%);color:" + accent)}>AI</span>
             <div style={css(bubble)}>{"Hey — I’m your co-pilot. I’ll walk through a thorough discovery, then draft everything from your answers. Answer what you can; skip anything you’re unsure of."}</div>
+          </div>
+        )}
+
+        {hasMemoryChoice && !memoryResolved && s.introReveal > 0 && s.introReveal < 2 && (
+          <div style={css("flex-shrink:0;display:flex;gap:0.55rem;align-items:flex-start")}>
+            <span style={css("width:1.7rem;height:1.7rem;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:0.56rem;font-weight:500;background:color-mix(in srgb," + accent + " 14%,white 86%);color:" + accent)}>AI</span>
+            <div style={css("display:flex;align-items:center;gap:0.28rem;background:var(--surface);border:1px solid var(--border-soft);border-radius:14px;border-top-left-radius:4px;padding:0.7rem 0.85rem")}>
+              {[0, 1, 2].map(i => <span key={i} className="pt-typing-dot" style={{ background: accent, animationDelay: i * 0.15 + "s" }} />)}
+            </div>
+          </div>
+        )}
+
+        {quickStartMode && onIngest && !memoryResolved && s.introReveal >= 2 && (
+          <div style={css("flex-shrink:0")}>
+            <QuickStart mode={quickStartMode} accent={accent} known={{ data: prefill || {}, sources: prefillSources || {} }} onApply={onIngest} onContinue={continueFromMemory} showToast={showToast} mobile={mobile} clientName={clientName} />
           </div>
         )}
 
@@ -337,7 +381,7 @@ export function DiscoveryBuilder({
           </div>
         ))}
 
-        {s.typing && !complete && (
+        {memoryResolved && s.typing && !complete && (
           <div style={css("flex-shrink:0;display:flex;gap:0.55rem;align-items:flex-start")}>
             <span style={css("width:1.7rem;height:1.7rem;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:0.56rem;font-weight:500;background:color-mix(in srgb," + accent + " 14%,white 86%);color:" + accent)}>AI</span>
             <div style={css("display:flex;align-items:center;gap:0.28rem;background:var(--surface);border:1px solid var(--border-soft);border-radius:14px;border-top-left-radius:4px;padding:0.7rem 0.85rem")}>
@@ -346,11 +390,11 @@ export function DiscoveryBuilder({
           </div>
         )}
 
-        {cur && !s.typing && (
+        {memoryResolved && cur && !s.typing && (
           <div style={css("flex-shrink:0;display:flex;gap:0.55rem;align-items:flex-start;animation:cocoonFade .3s ease both")}>
             <span style={css("width:1.9rem;height:1.9rem;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:0.6rem;font-weight:500;background:" + accent + ";color:#fff")}>AI</span>
             <div style={css("flex:1;min-width:0;display:flex;flex-direction:column;gap:0.6rem")}>
-              <div style={css("background:color-mix(in srgb," + accent + " 6%,white 94%);border:1px solid var(--accent-dim);border-radius:16px;border-top-left-radius:5px;padding:0.85rem 1rem")}>
+              <div style={css("background:color-mix(in srgb," + accent + " 6%,white 94%);border:1px solid " + activeQuestionBorder + ";border-radius:16px;border-top-left-radius:5px;padding:0.85rem 1rem")}>
                 <div style={css("display:flex;align-items:center;gap:var(--space-2);margin-bottom:0.5rem")}>
                   <span style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:" + accent + ";background:color-mix(in srgb," + accent + " 14%,white 86%);padding:0.15rem 0.5rem;border-radius:999px")}>{cur.topic}</span>
                   <span style={css("font-size:0.68rem;color:var(--fg-faint);white-space:nowrap")}>{s.qIdx + 1} of {total}</span>
@@ -391,12 +435,12 @@ export function DiscoveryBuilder({
           </div>
         )}
 
-        {complete && (
+        {memoryResolved && complete && (
           <>
             <div style={css("flex-shrink:0;border:1px solid var(--accent-dim);border-radius:var(--radius-panel);background:color-mix(in srgb," + accent + " 8%,white 92%);padding:1.1rem 1.25rem;text-align:center;animation:cocoonFade .3s ease both")}>
               <div style={css("font-size:var(--text-lg);font-weight:500")}>{completeTitle}</div>
-              <p style={css("margin:0.35rem auto 0.85rem;font-size:0.83rem;color:var(--fg-muted);line-height:1.5;max-width:30rem")}>{(pipeline?.beginMsg && pipeline.beginMsg(s.data)) || completeMsg}</p>
-              <button type="button" onClick={() => (pipeline ? beginBuild() : onComplete(s.data))} className="pt-op" style={css("border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;padding:0.6rem 1.3rem;font-size:0.85rem;font-weight:500;cursor:pointer;font-family:inherit")}>{pipeline ? pipeline.beginLabel : completeCta}</button>
+              <p style={css("margin:0.35rem auto 0.85rem;font-size:0.83rem;color:var(--fg-muted);line-height:1.5;max-width:30rem")}>{(pipeline?.beginMsg && pipeline.beginMsg(collected)) || completeMsg}</p>
+              <button type="button" onClick={() => (pipeline ? beginBuild() : onComplete(collected))} className="pt-op" style={css("border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;padding:0.6rem 1.3rem;font-size:0.85rem;font-weight:500;cursor:pointer;font-family:inherit")}>{pipeline ? pipeline.beginLabel : completeCta}</button>
             </div>
             {completeExtra}
           </>

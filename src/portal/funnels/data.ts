@@ -53,7 +53,7 @@ export const QUESTIONS: FQuestion[] = [
   { id: "trafficTemp", s: 2, kind: "choice", prompt: "Is that traffic mostly cold or warm?", options: ["Mostly cold", "A mix", "Mostly warm"] },
 
   { id: "tone", s: 3, kind: "checklist", prompt: "How should the copy sound?", options: ["Friendly", "Authoritative", "Bold / edgy", "Warm / empathetic", "Playful", "Premium", "Straight-talking"] },
-  { id: "proof", s: 3, kind: "textarea", required: true, prompt: "What proof can we use? Results, testimonials, numbers.", placeholder: "400+ clients, avg 12 lbs in 8 weeks, featured in Well+Good." },
+  { id: "proof", s: 3, kind: "textarea", required: true, prompt: "What proof can we use? Results, testimonials, numbers.", placeholder: "Summarize the proof currently available." },
   { id: "guarantee", s: 3, kind: "text", prompt: "Any guarantee or risk-reversal?", placeholder: "30-day money-back guarantee" },
   { id: "colors", s: 3, kind: "text", prompt: "Brand colors — hex codes if you have them?", placeholder: "#26201B, #C97A6D, #EDE6DA" },
   { id: "esp", s: 3, kind: "choice", prompt: "Which email tool should leads flow into?", options: ["Mailchimp", "Kit (ConvertKit)", "ActiveCampaign", "GoHighLevel", "Klaviyo", "HubSpot", "None yet"] },
@@ -67,21 +67,7 @@ export const QUESTIONS: FQuestion[] = [
   { id: "upsellPrice", s: 4, kind: "text", prompt: "Upsell price (optional)?", placeholder: "$97 one-time" },
 ];
 
-export const DEMO: Record<string, string | string[]> = {
-  company: "Bloom & Root Wellness", sell: "12-week 1:1 nutrition coaching program", leadMagnet: "Free 7-day meal-prep guide",
-  price: "$1,200 12-week program", promise: "Lose the first 10 lbs in 30 days without giving up the food you love.",
-  mechanism: "A macro system built around your existing takeout and family habits, not against them.",
-  audience: "Busy working moms, 30–45, who've tried every diet and have no time to cook.",
-  pains: "Exhausted, guilty about takeout, and nothing has stuck long-term.",
-  desires: "To feel in control of food without it running their life.",
-  objections: "“I've tried things before and they never lasted.”", awareness: "Feel the problem",
-  primaryAction: "Book a call", afterOptin: "Show a booking calendar", goodLead: "A mom who can invest in coaching and is ready to start this month.",
-  traffic: ["Meta ads", "Email list"], trafficTemp: "Mostly cold",
-  tone: ["Warm / empathetic", "Straight-talking"], proof: "400+ clients, avg 12 lbs in 8 weeks, featured in Well+Good.",
-  guarantee: "30-day money-back guarantee", colors: "#26201B, #C97A6D, #EDE6DA",
-  esp: "Kit (ConvertKit)", calendar: "Calendly", domain: "get.bloomandroot.co", deadline: "2–4 weeks", budget: "$5k–$10k",
-  hasUpsell: "Yes — I have one ready", upsellOffer: "Done-for-you meal plans — 12-week add-on", upsellPrice: "$97 one-time",
-};
+export const DEMO: Record<string, string | string[]> = {};
 
 export const TYPE_LABEL: Record<string, string> = {
   text: "Short answer", textarea: "Long answer", choice: "Pick one", checklist: "Pick any that apply",

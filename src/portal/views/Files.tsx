@@ -5,22 +5,16 @@ import { Icon } from "../icons";
 import { css } from "../helpers";
 import { formatDashboardDate } from "@/lib/dateDisplay";
 import type { PortalActions, PortalState } from "../store";
+import { DEFAULT_CLIENT_NAME } from "../clients";
 
-const FOLDERS = [["all", "All files", 6], ["design", "Design Files", 3], ["brand", "Brand Assets", 2], ["deliverables", "Deliverables", 1]] as const;
-const FILES = [
-  { name: "Flora_FullSite_v3.fig", ext: "FIG", folder: "design", size: "8.2 MB", by: "Noa", updated: "July 1", status: "Ready" },
-  { name: "Homepage_preview.png", ext: "PNG", folder: "design", size: "2.4 MB", by: "Noa", updated: "June 30", status: "Ready" },
-  { name: "Shop_layout.fig", ext: "FIG", folder: "design", size: "5.1 MB", by: "Emet", updated: "June 28", status: "Ready" },
-  { name: "Brand_Guidelines.pdf", ext: "PDF", folder: "brand", size: "3.1 MB", by: "Trish", updated: "June 26", status: "Ready" },
-  { name: "Logo_pack.zip", ext: "ZIP", folder: "brand", size: "12 MB", by: "Trish", updated: "June 26", status: "Ready" },
-  { name: "Product_Photography.zip", ext: "ZIP", folder: "deliverables", size: "44 MB", by: "You", updated: "June 24", status: "Uploaded" },
-];
+const FOLDERS = [["all", "All files", 0], ["design", "Design Files", 0], ["brand", "Brand Assets", 0], ["deliverables", "Deliverables", 0]] as const;
+const FILES: { name: string; ext: string; folder: string; size: string; by: string; updated: string; status: string }[] = [];
 
 export function Files({ state, actions }: { state: PortalState; actions: PortalActions }) {
   const [folder, setFolder] = useState("all");
   const inputRef = useRef<HTMLInputElement>(null);
   const active = FOLDERS.find(([k]) => k === folder);
-  const workspace = actions.workspaceForClient("Flora & Co.");
+  const workspace = actions.workspaceForClient(DEFAULT_CLIENT_NAME);
   const uploadedFiles = workspace.files.map(file => ({
     name: file.name,
     ext: file.ext,
@@ -83,7 +77,7 @@ export function Files({ state, actions }: { state: PortalState; actions: PortalA
             hidden
             onChange={event => {
               if (!event.currentTarget.files?.length) return;
-              void actions.uploadPortalFiles({ clientName: "Flora & Co.", folder, files: event.currentTarget.files });
+              void actions.uploadPortalFiles({ clientName: DEFAULT_CLIENT_NAME, folder, files: event.currentTarget.files });
               event.currentTarget.value = "";
             }}
           />

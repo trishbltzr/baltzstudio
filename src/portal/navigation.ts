@@ -1,5 +1,6 @@
 import type { PortalActions, PortalState } from "./store";
 import type { Role, View } from "./types";
+import { DEFAULT_CLIENT_NAME } from "./clients";
 
 export interface QuickAction {
   label: string;
@@ -15,7 +16,7 @@ const QUICK_ACTIONS: Record<Role, QuickAction[]> = {
     { label: "Invite User", sub: "Give portal access", icon: "user", intent: "invite_user", view: "team" },
     { label: "New Message", sub: "Open the inbox", icon: "msg", intent: "new_message", view: "inbox" },
     { label: "New To-do", sub: "Add a task", icon: "checklist", intent: "new_task", view: "tasks" },
-    { label: "New Audit", sub: "Cocoon intake", icon: "audit", intent: "new_audit", view: "audits_new" },
+    { label: "New Audit", sub: "Cocoon Consult intake", icon: "audit", intent: "new_audit", view: "audits_new" },
   ],
   dev: [
     { label: "New Message", sub: "Open the inbox", icon: "msg", intent: "new_message", view: "inbox" },
@@ -42,7 +43,7 @@ export function quickActionsForRole(role: Role): QuickAction[] {
 
 export function runQuickAction(action: QuickAction, state: PortalState, actions: PortalActions) {
   const firstThreadId = state.role === "client"
-    ? state.threads.find(thread => thread.clientName === "Flora & Co." && !!thread.isTicket && thread.messages.some(message => message.from === "client"))?.id || state.selectedThreadId
+    ? state.threads.find(thread => thread.clientName === DEFAULT_CLIENT_NAME && !!thread.isTicket && thread.messages.some(message => message.from === "client"))?.id || state.selectedThreadId
     : state.threads.find(thread => thread.unread > 0)?.id || state.threads[0]?.id || state.selectedThreadId;
 
   switch (action.intent) {
