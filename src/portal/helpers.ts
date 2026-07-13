@@ -69,7 +69,10 @@ export function sidebarEyebrowStyle(color = "var(--fg-muted)"): string {
   return `font-size:0.8rem;font-weight:400;letter-spacing:0;color:${color};line-height:1.2`;
 }
 
-export function roleMeta(r: Role) {
+export function roleMeta(r: Role, clientName?: string) {
+  if (r === "client" && clientName) {
+    return { ...ROLE_META.client, name: clientName, sub: "Client Portal", init: initials(clientName) };
+  }
   return ROLE_META[r];
 }
 
@@ -154,7 +157,7 @@ const HEAD: Record<string, Partial<Record<Role, [string, string]>>> = {
   progress: { admin: ["Studio", "Snapshot"], dev: ["Delivery", "Snapshot"], client: ["Your Project", "Snapshot"] },
   clients: { admin: ["Studio", "Clients & Projects"], dev: ["Delivery", "My Clients"] },
   tasks: { admin: ["Studio", "All Tasks"], dev: ["Delivery", "My Tasks"], client: ["Your Project", "To-do's"] },
-  inbox: { admin: ["Studio", "Inbox"], dev: ["Delivery", "Inbox"] },
+  inbox: { admin: ["Studio", "Inbox"], dev: ["Delivery", "Inbox"], client: ["Your Project", "Inbox"] },
   files: { admin: ["Studio", "Files & Assets"], dev: ["Delivery", "Files"], client: ["Your Project", "Shared Files"] },
   team: { admin: ["Studio", "Team"] },
   playbooks: { admin: ["Studio", "Playbooks"], dev: ["Delivery", "Playbooks"] },
@@ -167,8 +170,8 @@ const HEAD: Record<string, Partial<Record<Role, [string, string]>>> = {
   audit: { client: ["Your Project", "Audit"], admin: ["Studio", "Client Audit"], dev: ["Delivery", "Client Audit"] },
   assistant: { client: ["Your Project", "In Full Flight"] },
   audits_new: { admin: ["Automation", "Audits"], dev: ["Automation", "Audits"] },
-  funnels: { admin: ["Automation", "Funnels"], dev: ["Automation", "Funnels"], client: ["Your Project", "Funnels"] },
-  activity: { admin: ["Studio", "Activity Log"] },
+  funnels: { admin: ["Automation", "Builders"], dev: ["Automation", "Builders"], client: ["Your Project", "Builders"] },
+  activity: { admin: ["Studio", "Activity Log"], client: ["Your Project", "Activity Log"] },
   profile: { admin: ["Account", "Profile & Settings"], dev: ["Account", "Profile & Settings"], client: ["Account", "Profile & Settings"] },
   onboarding: { admin: ["Studio", "New Client"], dev: ["Delivery", "New Client"] },
 };
@@ -181,6 +184,8 @@ export const STATUS_MAP: Record<TaskStatus, string> = { todo: "waiting", in_prog
 export const STATUS_LABEL: Record<TaskStatus, string> = { todo: "To-Do", in_progress: "In Progress", review: "In Review", done: "Done" };
 export const STATUS_ORDER: TaskStatus[] = ["todo", "in_progress", "review", "done"];
 
+const MIN_LEGIBLE_FONT_REM = 0.75;
+
 // Parse a CSS declaration string ("a:b;c:d") into a React style object so ported
 // prototype style strings drop straight into JSX.
 export function css(decl: string): CSSProperties {
@@ -189,9 +194,15 @@ export function css(decl: string): CSSProperties {
     const i = part.indexOf(":");
     if (i < 0) return;
     const rawKey = part.slice(0, i).trim();
-    const val = part.slice(i + 1).trim();
+    let val = part.slice(i + 1).trim();
     if (!rawKey) return;
     const key = rawKey.startsWith("--") ? rawKey : rawKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+    if (key === "fontSize") {
+      const remValue = val.match(/^(?:0)?(\.\d+)rem$/);
+      if (remValue && Number.parseFloat(remValue[1]) < MIN_LEGIBLE_FONT_REM) {
+        val = "var(--text-2xs)";
+      }
+    }
     out[key] = val;
   });
   return out as CSSProperties;

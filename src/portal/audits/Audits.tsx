@@ -1,18 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { coercePersistedAuditDrafts, type PersistedAuditDraft, type PersistedAuditRun, type PersistedAuditState } from "@/lib/portalAuditPersistence";
+import { coercePersistedAuditDrafts, type GuidedAuditSession, type PersistedAuditDraft, type PersistedAuditRun, type PersistedAuditState } from "@/lib/portalAuditPersistence";
 import { css } from "../helpers";
 import { Icon } from "../icons";
 import type { PortalActions, PortalState } from "../store";
-import { STUDIO_CLIENTS, type StudioClient } from "../clients";
+import { clientsVisibleToRole, STUDIO_CLIENTS, type StudioClient } from "../clients";
 import { GuidedIntakeSelector } from "../components/GuidedIntakeSelector";
-import { AuditReportView, getAuditReportDetail, getAuditReportSummary } from "../views/AuditReportView";
+import { AuditTypeWorkspace } from "./AuditTypeWorkspace";
+import { AuditReportView, getAuditReportSummary } from "../views/AuditReportView";
 import { DiscoveryBuilder } from "../discovery/DiscoveryBuilder";
-import { fromClientMemory, getKnowledge, recordKnowledge, mergeKnow, type Know } from "../discovery/knowledge";
-import { CocoonConsultUpgradeCard } from "@/components/CocoonFinalStepPanel";
+import { fromClientMemory, getKnowledge, loadPersistedKnowledge, recordKnowledge, rememberKnowledge, mergeKnow, type Know } from "../discovery/knowledge";
+import { ContinueWithFunnelBuildingCard } from "@/components/CocoonFinalStepPanel";
 import { AUDIT_WIZARD, AUDIT_STAGES, AUDIT_INTRO_STEPS, AUDIT_DEMO } from "../discovery/discoveryData";
-import { AUDIT_PIPELINE, AuditScoreHero, synthAuditScore } from "../discovery/auditPipeline";
+import { AUDIT_PIPELINE, AuditScoreHero, auditScoreToDocs, synthAuditScore, type AuditDocs } from "../discovery/auditPipeline";
+import { AUDIT_CHECKLIST, isAuditScoreResult } from "@/lib/auditChecklist";
+import type { GeneratedStageResult } from "@/lib/aiStageGeneration";
 
 type QKind = "text" | "textarea" | "choice" | "checklist";
 type Ans = Record<string, string | string[]>;
@@ -111,8 +114,8 @@ const DELIVS: AuditDeliverable[] = [
   { id: "offerread", title: "Offer & Audience Read", from: "the discovery brief", intro: "A sharper read on who the site should speak to, what they care about, and what the offer must communicate." },
   { id: "journey", title: "Conversion Journey Read", from: "the offer & audience read", intro: "The key path a visitor takes today, where it breaks down, and what the site should guide them toward instead." },
   { id: "findings", title: "Priority Findings", from: "the conversion journey read", intro: "The biggest experience, messaging, and trust issues surfaced first, with the why behind each one." },
-  { id: "plan", title: "Recommended Action + Brand Plan", from: "the priority findings", intro: "A practical sequence for what to fix first, plus a suggested direction for the positioning, voice, and visual brand." },
-  { id: "finalplan", title: "Final Audit + Brand Plan", from: "everything approved", intro: "Every discovery checkpoint consolidated into the action plan and brand direction the team can move forward with.", terminal: true },
+  { id: "plan", title: "Recommended Action Plan", from: "the priority findings", intro: "A practical implementation sequence for what to fix first across the internal audit and Lighthouse results." },
+  { id: "finalplan", title: "Final Audit Action Plan", from: "everything approved", intro: "Every discovery checkpoint consolidated into the action plan the team can move forward with.", terminal: true },
 ];
 
 const DEMO: Record<string, string | string[]> = {};
@@ -385,6 +388,7 @@ function seedAuditRuns(): AuditRun[] {
 export function Audits({ state, actions }: { state: PortalState; actions: PortalActions }) {
   const [s, dispatch] = useReducer(reducer, init);
   const [drafts, setDrafts] = useState<PersistedAuditDraft[]>([]);
+  const draftsRef = useRef<PersistedAuditDraft[]>([]);
   const [draftsLoaded, setDraftsLoaded] = useState(false);
   const [launchOpen, setLaunchOpen] = useState(false);
   const [exitingToPicker, setExitingToPicker] = useState(false);
@@ -393,15 +397,17 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
   const [reportProposalOpen, setReportProposalOpen] = useState(false);
   const [proposalIffOn, setProposalIffOn] = useState(false);
   const [quickKnow, setQuickKnow] = useState<Know>({ data: {}, sources: {} });
-  useEffect(() => { setQuickKnow({ data: {}, sources: {} }); }, [s.clientId]);
-  const knownClientIds = useMemo(() => new Set(STUDIO_CLIENTS.map(item => item.id)), []);
+  useEffect(() => { setQuickKnow(s.clientId ? loadPersistedKnowledge(s.clientId) : { data: {}, sources: {} }); }, [s.clientId]);
+  const allClients = useMemo(() => clientsVisibleToRole(state.role, state.clientName), [state.clientName, state.role]);
+  const knownClientIds = useMemo(() => new Set(allClients.map(item => item.id)), [allClients]);
   const currentDrafts = useMemo(() => drafts.filter(draft => knownClientIds.has(draft.run.clientId)), [drafts, knownClientIds]);
-  const runs = useMemo(() => mergeAuditRuns(seedAuditRuns(), currentDrafts), [currentDrafts]);
+  draftsRef.current = drafts;
+  const runs = useMemo(() => mergeAuditRuns(seedAuditRuns(), currentDrafts).filter(item => knownClientIds.has(item.clientId)), [currentDrafts, knownClientIds]);
   const draftsByRunId = useMemo(() => new Map(currentDrafts.map(draft => [draft.run.id, draft])), [currentDrafts]);
-  const allClients = STUDIO_CLIENTS;
   const client = allClients.find(c => c.id === s.clientId) || null;
   const reportClient = allClients.find(c => c.id === reportClientId) || null;
   const reportRun = reportRunId ? runs.find(item => item.id === reportRunId) || null : null;
+  const reportDraft = reportRunId ? draftsByRunId.get(reportRunId) || null : null;
   const run = runs.find(item => item.id === s.buildId) || null;
   const allClientsRef = useRef(allClients);
   const runRef = useRef(run);
@@ -432,6 +438,13 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
   const mobile = state.isMobile;
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const restoredFromUrl = useRef(false);
+
+  useEffect(() => {
+    if (!state.hydrated) return;
+    const params = new URLSearchParams(window.location.search);
+    params.set("auditType", state.auditType);
+    window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+  }, [state.auditType, state.hydrated]);
 
   useEffect(() => {
     let cancelled = false;
@@ -546,14 +559,20 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
     const source = allClientsRef.current.find(item => item.id === persistedState.clientId);
     if (!source) return;
 
+    const existingDraft = draftsRef.current.find(draft => draft.run.id === persistedState.buildId);
+    const nextState: PersistedAuditState = {
+      ...persistedState,
+      report: existingDraft?.state.report,
+      guidedSession: existingDraft?.state.guidedSession,
+    };
     const nextDraft: PersistedAuditDraft = {
       run: buildPersistedRun({
         id: persistedState.buildId,
         clientId: source.id,
         clientName: source.name,
         owner: source.owner,
-      }, persistedState, runRef.current),
-      state: persistedState,
+      }, nextState, runRef.current),
+      state: nextState,
       updatedAt: new Date().toISOString(),
     };
 
@@ -757,6 +776,131 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
     }, 220);
   };
 
+  const completeGuidedAudit = async (data: Ans, aiResults: Record<string, GeneratedStageResult>) => {
+    if (!client || !run) return;
+    const fallbackDocs = AUDIT_PIPELINE.buildDocs(data) as AuditDocs;
+    const docs = isAuditScoreResult(aiResults.report) ? auditScoreToDocs(aiResults.report, fallbackDocs.name) : fallbackDocs;
+    const scoreResult = isAuditScoreResult(aiResults.report) ? aiResults.report : undefined;
+    const mobileLighthouse = scoreResult?.lighthouse.find(item => item.strategy === "mobile")?.scores.performance;
+    const desktopLighthouse = scoreResult?.lighthouse.find(item => item.strategy === "desktop")?.scores.performance;
+    const now = new Date().toISOString();
+    const completedDraft: PersistedAuditDraft = {
+      run: {
+        ...run,
+        statusLabel: "Complete",
+        statusTone: "success",
+        stage: "Report ready",
+        progress: 100,
+        score: docs.overall,
+        internalScore: docs.overall,
+        lighthouseMobileScore: mobileLighthouse,
+        lighthouseDesktopScore: desktopLighthouse,
+        targetScore: docs.projected,
+        due: "Ready",
+        completedAt: now,
+        updatedAt: now,
+      },
+      state: {
+        clientId: client.id,
+        buildId: run.id,
+        idx: 0,
+        answers: data,
+        unsure: {},
+        confirmed: {},
+        signed: {},
+        notes: {},
+        genDone: { report: true, plan: true },
+        report: scoreResult,
+        guidedSession: draftsRef.current.find(draft => draft.run.id === run.id)?.state.guidedSession,
+      },
+      updatedAt: now,
+    };
+
+    setDrafts(current => [completedDraft, ...current.filter(draft => draft.run.id !== completedDraft.run.id)]);
+    recordKnowledge(client.id, data, "Completed audit");
+    const response = await fetch("/api/portal-audit-runs", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ draft: completedDraft }),
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(typeof payload?.error === "string" ? payload.error : "Unable to save the completed audit.");
+    }
+    actions.showToast("Audit complete — funnel generation unlocked");
+  };
+
+  const saveGuidedSession = (session: GuidedAuditSession) => {
+    if (!client || !run || !draftsLoaded) return;
+    const now = new Date().toISOString();
+    const report = isAuditScoreResult(session.aiResults.report) ? session.aiResults.report : undefined;
+    const mobileLighthouse = report?.lighthouse.find(item => item.strategy === "mobile")?.scores.performance;
+    const desktopLighthouse = report?.lighthouse.find(item => item.strategy === "desktop")?.scores.performance;
+    const intakeProgress = session.questionTotal > 0 ? Math.round((Math.min(session.qIdx, session.questionTotal) / session.questionTotal) * 40) : 0;
+    const progress = session.proposal || session.approved.plan ? 100
+      : session.aiResults.plan ? 92
+        : session.stage >= 2 ? 78
+          : report ? 68
+            : session.stage >= 1 ? 48
+              : session.entered ? Math.max(4, intakeProgress) : 0;
+    const actionPlanReady = !!session.aiResults.plan && progress < 100;
+    const stage = progress >= 100 ? "Action plan · Complete"
+      : actionPlanReady ? "Action plan · Ready for approval"
+        : session.stage >= 2 ? "Action plan · In progress"
+        : session.stage >= 1 ? "Audit report · In progress"
+          : "Audit intake · In progress";
+    const existing = draftsRef.current.find(draft => draft.run.id === run.id);
+    const nextDraft: PersistedAuditDraft = {
+      run: {
+        ...run,
+        statusLabel: progress >= 100 ? "Complete" : actionPlanReady ? "Ready for approval" : progress > 0 ? "In progress" : "Draft",
+        statusTone: progress >= 100 ? "success" : actionPlanReady ? "accent" : progress > 0 ? "warn" : "muted",
+        stage,
+        progress,
+        score: report?.overallScore,
+        internalScore: report?.overallScore,
+        lighthouseMobileScore: mobileLighthouse,
+        lighthouseDesktopScore: desktopLighthouse,
+        targetScore: report?.targetScore,
+        updatedAt: now,
+        completedAt: progress >= 100 ? now : undefined,
+      },
+      state: {
+        clientId: client.id,
+        buildId: run.id,
+        idx: existing?.state.idx || 0,
+        answers: session.data,
+        unsure: existing?.state.unsure || {},
+        confirmed: existing?.state.confirmed || {},
+        signed: existing?.state.signed || {},
+        notes: existing?.state.notes || {},
+        genDone: { report: !!report, plan: !!session.aiResults.plan },
+        report,
+        guidedSession: session,
+      },
+      updatedAt: now,
+    };
+    draftsRef.current = [nextDraft, ...draftsRef.current.filter(draft => draft.run.id !== nextDraft.run.id)];
+    setDrafts(draftsRef.current);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      try {
+        const response = await fetch("/api/portal-audit-runs", {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ draft: nextDraft }),
+        });
+        if (!response.ok) throw new Error("Unable to save the guided audit session.");
+      } catch (error) {
+        console.error("Unable to persist guided audit session.", error);
+      }
+    }, 450);
+  };
+
+  if (!client && state.auditType !== "website") {
+    return <AuditTypeWorkspace type={state.auditType} state={state} actions={actions} />;
+  }
+
   if (!client) {
     return (
       <div style={css("width:100%;padding:1.6rem 2rem 2.4rem")}>
@@ -813,51 +957,53 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
           cards={auditGroups.map(group => {
             const completedRun = latestCompletedRun(group.runs);
             const activeRun = group.runs.find(item => item.progress < 100 && item.progress > 0) || group.runs.find(item => item.progress < 100) || null;
-            const displayRun = completedRun || activeRun || group.runs[0];
-            const latestComplete = !!completedRun;
+            const scoredRun = group.runs
+              .filter(item => typeof item.internalScore === "number" || typeof item.score === "number")
+              .sort((left, right) => auditRunDate(right).localeCompare(auditRunDate(left)))[0] || null;
+            const displayRun = activeRun || completedRun || group.runs[0];
+            const latestComplete = !!completedRun && !activeRun;
+            const hasScore = !!scoredRun;
             const synth = synthAuditScore(group.client.id);
-            const heroOverall = completedRun?.score ?? synth.overall;
-            const heroProjected = Math.max(completedRun?.targetScore ?? synth.projected, heroOverall + 3);
+            const heroOverall = scoredRun?.internalScore ?? scoredRun?.score ?? synth.overall;
+            const heroProjected = scoredRun
+              ? Math.min(100, Math.max(scoredRun.targetScore ?? heroOverall, heroOverall))
+              : synth.projected;
             const heroLabel = heroOverall < 50 ? "Needs attention" : heroOverall < 65 ? "Fair foundation" : heroOverall < 80 ? "Solid footing" : "Strong foundation";
             const heroSummary = { ...synth, overall: heroOverall, projected: heroProjected, uplift: heroProjected - heroOverall, label: heroLabel };
-            const reportThemes = getAuditReportDetail(group.client.id).themes;
-            const resultStats = (latestComplete
-              ? reportThemes
-                .slice()
-                .sort((a, b) => a.score - b.score)
-                .slice(0, 6)
-                .map(theme => ({
-                  label: theme.name,
-                  value: `${theme.score} ↗ ${theme.target}`,
-                  tone: theme.score < 50 ? "danger" as const : theme.score < 65 ? "warn" as const : "success" as const,
-                }))
-              : [
-                "Conversion Path",
-                "Website Experience",
-                "Messaging & Voice",
-                "Findability",
-                "Visual Identity",
-                "Brand Foundation",
-              ].map(label => ({
-                label,
-                value: "N/A",
-                tone: "default" as const,
-              })));
+            const scoredReport = scoredRun
+              ? drafts.find(draft => draft.run.id === scoredRun.id)?.state.report
+              : undefined;
+            const resultStats = AUDIT_CHECKLIST.map(checklistCategory => {
+              const scoredCategory = isAuditScoreResult(scoredReport)
+                ? scoredReport.categories.find(category => category.key === checklistCategory.key)
+                : undefined;
+              return {
+                label: checklistCategory.label,
+                value: scoredCategory
+                  ? `${scoredCategory.score} ↗ ${Math.max(scoredCategory.score, scoredCategory.target)}`
+                  : "N/A",
+                tone: scoredCategory
+                  ? scoredCategory.score < 50 ? "danger" as const : scoredCategory.score < 65 ? "warn" as const : "success" as const
+                  : "default" as const,
+              };
+            });
             return {
               id: group.client.id,
               name: group.client.name,
               subtitle: "",
-              statusLabel: activeRun && !completedRun ? activeRun.statusLabel : (displayRun.statusLabel === "Report ready" ? "Ready" : displayRun.statusLabel),
-              statusTone: activeRun && !completedRun ? activeRun.statusTone : displayRun.statusTone,
-              stage: completedRun?.score ? "Score " + completedRun.score + " → " + (completedRun.targetScore || "target") : displayRun.stage,
-              progress: activeRun && !completedRun ? activeRun.progress : displayRun.progress,
+              statusLabel: displayRun.statusLabel === "Report ready" ? "Ready" : displayRun.statusLabel,
+              statusTone: displayRun.statusTone,
+              stage: scoredRun?.score ? "Score " + scoredRun.score + " → " + (scoredRun.targetScore || "target") : displayRun.stage,
+              progress: displayRun.progress,
               owner: displayRun.owner,
               due: auditRunDateLabel(displayRun),
               showStatus: true,
               showProgress: false,
               showStage: false,
               showMeta: false,
-              hero: <AuditScoreHero summary={heroSummary} scored={latestComplete} />,
+              hero: <>
+                <AuditScoreHero summary={heroSummary} scored={hasScore} />
+              </>,
               headerAction: latestComplete ? {
                 label: "Retest audit for " + group.client.name,
                 icon: "replay",
@@ -886,7 +1032,26 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
                 <button type="button" onClick={closeReportModal} className="pt-iconbtn" style={css("margin-left:auto;width:2.1rem;height:2.1rem;border-radius:50%;border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.86);color:var(--fg-muted);display:grid;place-items:center;cursor:pointer")}><Icon name="x" size={15} /></button>
               </div>
               <article style={css("border:1px solid var(--border-soft);border-radius:1.1rem;background:var(--surface);overflow:visible")}>
-                <AuditReportView
+                {reportDraft?.state.report ? (
+                  <div style={css("padding:" + (mobile ? "1rem" : "1.4rem"))}>
+                    {AUDIT_PIPELINE.renderStage({
+                      stageKey: reportProposalOpen ? "plan" : "report",
+                      docs: auditScoreToDocs(reportDraft.state.report, reportClient.name),
+                      aiResult: reportProposalOpen ? reportDraft.state.guidedSession?.aiResults.plan || null : reportDraft.state.report,
+                      aiResults: reportDraft.state.guidedSession?.aiResults || { report: reportDraft.state.report },
+                      reveal: Number.POSITIVE_INFINITY,
+                      building: false,
+                      approved: true,
+                      mobile,
+                      accent: "var(--cocoon)",
+                      onAdvance: () => undefined,
+                      onDownload: () => actions.showToast("Preparing the PDF…"),
+                      onShare: () => actions.showToast("Share link copied — send it to your client"),
+                      onCopy: () => actions.showToast("Copied to clipboard"),
+                    })}
+                    {reportProposalOpen && <div style={{ marginTop: "1.2rem" }}><ContinueWithFunnelBuildingCard onContinue={() => actions.setView("funnels")} /></div>}
+                  </div>
+                ) : <AuditReportView
                   key={reportClient.id + "-" + (reportRunId || "latest") + (reportProposalOpen ? "-proposal" : "-report")}
                   state={state}
                   actions={actions}
@@ -901,7 +1066,7 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
                   onToggleProposalIff={() => setProposalIffOn(v => !v)}
                   onSendProposal={() => actions.sendProposal(reportClient.name, { iffOn: proposalIffOn })}
                   onBack={closeReportModal}
-                />
+                />}
               </article>
             </div>
           </div>
@@ -915,6 +1080,7 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
   return (
     <div style={css("width:100%;padding:" + (mobile ? "1rem 0.9rem 1.5rem" : "1.4rem 1.5rem"))}>
       <DiscoveryBuilder
+        key={run?.id || client.id}
         mobile={mobile}
         accent="var(--cocoon)"
         title={run?.subtitle || "Cocoon Consult Audit"}
@@ -925,34 +1091,30 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
         introSteps={AUDIT_INTRO_STEPS}
         prefill={auditKnow.data}
         prefillSources={auditKnow.sources}
+        prefillNotes={auditKnow.notes}
         quickStartMode="audit"
-        onIngest={delta => setQuickKnow(k => mergeKnow(k, delta))}
+        sessionKey={run?.id}
+        initialSession={run ? draftsByRunId.get(run.id)?.state.guidedSession : undefined}
+        onSessionChange={saveGuidedSession}
+        onIngest={delta => {
+          rememberKnowledge(client.id, delta);
+          setQuickKnow(k => mergeKnow(k, delta));
+        }}
         startLabel="Start audit intake →"
         backLabel="← All audits"
         previewLabel="or preview a finished audit"
         progressLabel="intake"
+        demo={AUDIT_DEMO}
         completeTitle="Intake complete"
         completeMsg="That’s everything I need. I’ll score your site across the six areas and draft the report, brand audit, and action plan from your answers."
         completeCta="Generate the report →"
-        completeExtra={
-          <div className="cocoon-next-steps" style={{ marginTop: "0.85rem", textAlign: "left", flexShrink: 0 }}>
-            <h4 className="cocoon-next-steps-title">Continue with guided support</h4>
-            <CocoonConsultUpgradeCard
-              ctaLabel="Choose Cocoon Consult"
-              onUpgrade={() => actions.showToast("Cocoon Consult selected — Wise payment remains a manual studio handoff")}
-            />
-          </div>
-        }
         stageExtra={stageKey => stageKey === "plan" ? (
-          <div className="cocoon-next-steps" style={{ marginTop: "1.2rem", textAlign: "left" }}>
-            <h4 className="cocoon-next-steps-title">Continue with guided support</h4>
-            <CocoonConsultUpgradeCard
-              ctaLabel="Choose Cocoon Consult"
-              onUpgrade={() => actions.showToast("Cocoon Consult selected — Wise payment remains a manual studio handoff")}
-            />
+          <div style={{ marginTop: "1.2rem", textAlign: "left" }}>
+            <ContinueWithFunnelBuildingCard onContinue={() => actions.setView("funnels")} />
           </div>
         ) : null}
         pipeline={AUDIT_PIPELINE}
+        onPipelineComplete={(data, aiResults) => completeGuidedAudit(data, aiResults).catch(error => actions.showToast(error instanceof Error ? error.message : "Unable to save the completed audit"))}
         showToast={actions.showToast}
         onExit={exitToPicker}
         onComplete={data => { recordKnowledge(client.id, data, "Audit intake"); exitToPicker(); }}

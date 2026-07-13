@@ -3,10 +3,9 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../icons";
 import { css, milestoneStatusFromGate, statusPill } from "../helpers";
-import { MILESTONES } from "../data";
+import { MILESTONES, seedJourneyGates } from "../data";
 import type { PortalActions, PortalState } from "../store";
 import type { JourneyGate, JourneyRequest } from "../types";
-import { DEFAULT_CLIENT_NAME } from "../clients";
 
 const REQUEST_TAGS = ["Copy", "Layout", "Images", "Mobile", "Functionality"];
 
@@ -48,7 +47,7 @@ export function Journey({ state, actions }: { state: PortalState; actions: Porta
   const [requestNote, setRequestNote] = useState("");
   const [requestTags, setRequestTags] = useState<string[]>([]);
   const [requestSeverity, setRequestSeverity] = useState<JourneyRequest["severity"]>("blocking");
-  const gates = state.journeyGates;
+  const gates = Array.isArray(state.journeyGates) && state.journeyGates.length ? state.journeyGates : seedJourneyGates();
 
   useEffect(() => {
     let changed = false;
@@ -137,7 +136,7 @@ export function Journey({ state, actions }: { state: PortalState; actions: Porta
     const route = actions.createJourneyRequest({
       existingThreadId: gate?.request?.threadId,
       title: gate ? "Milestone " + gate.g + " — " + gate.title : "Milestone review",
-      clientName: DEFAULT_CLIENT_NAME,
+      clientName: state.clientName,
       note,
       tags: requestTags,
       severity: requestSeverity,
@@ -170,7 +169,7 @@ export function Journey({ state, actions }: { state: PortalState; actions: Porta
     actions.showToast("Opening the shared preview files");
   };
 
-  const activeGate = gates.find(gate => gate.status === "awaiting" || gate.status === "in_revision" || gate.status === "ready") || gates[gates.length - 1];
+  const activeGate = gates.find(gate => gate.status === "awaiting" || gate.status === "in_revision" || gate.status === "ready") || gates[gates.length - 1] || null;
   const dynamicMilestones = MILESTONES.map((milestone, index) => {
     if (index === 2) return { ...milestone, status: milestoneStatusFromGate(gates[0]?.status || "approved"), detail: gates[0]?.status === "approved" ? "You approved the homepage & key page directions." : milestone.detail };
     if (index === 3) {
@@ -205,8 +204,8 @@ export function Journey({ state, actions }: { state: PortalState; actions: Porta
         <div style={css("padding:0.1rem 0 1.15rem;text-align:center;max-width:44rem;margin:0 auto")}>
           <div>
             <div style={css("font-size:var(--text-2xs);letter-spacing:0.015em;color:var(--fg-faint);font-weight:500;margin-bottom:0.3rem")}>Current Checkpoint</div>
-            <div style={css("font-size:1.28rem;font-weight:500;line-height:1.15;color:var(--fg)")}>Milestone {activeGate.g} — {activeGate.title}</div>
-            <div style={css("font-size:var(--text-base);color:var(--fg-muted);margin-top:0.26rem;line-height:1.45")}>{activeGate.when} · {activeGate.eta}</div>
+            <div style={css("font-size:1.28rem;font-weight:500;line-height:1.15;color:var(--fg)")}>{activeGate ? `Milestone ${activeGate.g} — ${activeGate.title}` : "No active milestone"}</div>
+            <div style={css("font-size:var(--text-base);color:var(--fg-muted);margin-top:0.26rem;line-height:1.45")}>{activeGate ? `${activeGate.when} · ${activeGate.eta}` : "The next checkpoint will appear here once it is available."}</div>
           </div>
         </div>
 

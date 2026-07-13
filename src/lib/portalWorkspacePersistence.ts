@@ -1,4 +1,5 @@
 import { STUDIO_CLIENTS } from "@/portal/clients";
+import type { ClientProject } from "@/portal/types";
 
 export const PORTAL_WORKSPACE_ROW_ID = "client-slate-v2";
 export const PORTAL_WORKSPACE_FALLBACK_RUN_ID = "__portal_workspace_client_slate_v2__";
@@ -61,6 +62,10 @@ export type PortalFunnelPlanRecord = {
   clientName: string;
   title: string;
   statusLabel: string;
+  statusTone?: "muted" | "warn" | "success" | "accent" | "danger";
+  stage?: string;
+  progress?: number;
+  owner?: string;
   due: string;
   generatedAt: string;
   updatedAt: string;
@@ -93,6 +98,7 @@ export type PersistedPortalWorkspaceState = {
   clientWorkspaces: Record<string, PortalClientWorkspace>;
   progressChatSessions: unknown[];
   activeProgressChatId: string | null;
+  projectOverrides: Record<string, Partial<ClientProject>>;
 };
 
 export const DEFAULT_PORTAL_APPROVALS: PortalApprovalRecord[] = [];
@@ -172,5 +178,6 @@ export function normalizePersistedPortalWorkspaceState(value: unknown): Persiste
     clientWorkspaces: mergedClientWorkspaces,
     progressChatSessions: asArray(value.progressChatSessions),
     activeProgressChatId: typeof value.activeProgressChatId === "string" ? value.activeProgressChatId : null,
+    projectOverrides: asRecord<Partial<ClientProject>>(value.projectOverrides),
   };
 }

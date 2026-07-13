@@ -3,34 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { resolveDashboardUser } from "@/lib/auth";
 import { DEMO_USERS, type LoginUser } from "@/lib/demoUsers";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { DashboardUserRole } from "../types";
-
-const ROLE_OPTIONS = [
-  {
-    role: "admin" as const,
-    label: "Admin",
-    detail: "Full control",
-    ctaName: "Trish",
-    previewHref: "/dashboard?preview=admin",
-    previewAriaLabel: "Preview admin dashboard",
-  },
-  {
-    role: "manager" as const,
-    label: "Development",
-    detail: "Delivery",
-    ctaName: "Development",
-    previewHref: "/dashboard?preview=manager",
-    previewAriaLabel: "Preview development dashboard",
-  },
-  {
-    role: "client" as const,
-    label: "Client",
-    detail: "Your Project",
-    ctaName: "Flora",
-    previewHref: "/dashboard?preview=client",
-    previewAriaLabel: "Preview Flora and Co. client dashboard",
-  },
-] as const;
 
 const JOURNEY_STEPS = [
   { label: "Cocoon Consult — the audit", Icon: Search, toneClassName: "is-audit" },
@@ -47,7 +19,6 @@ export function LoginPage({
   nextPath?: string;
   initialMessage?: LoginFeedback | null;
 }) {
-  const [selectedRole, setSelectedRole] = useState<DashboardUserRole>("admin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -63,10 +34,9 @@ export function LoginPage({
   const [assistLoading, setAssistLoading] = useState<"forgot" | "invite" | "google" | null>(null);
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  const matchedUser = DEMO_USERS.find(user => user.email === email);
-  const activeRole = matchedUser?.role ?? selectedRole;
-  const activeRoleOption = ROLE_OPTIONS.find(option => option.role === activeRole) ?? ROLE_OPTIONS[0];
-  const submitName = matchedUser ? firstName(matchedUser.name) : activeRoleOption.ctaName;
+  const normalizedEmail = email.trim().toLowerCase();
+  const matchedUser = DEMO_USERS.find(user => user.email === normalizedEmail);
+  const submitName = matchedUser ? firstName(matchedUser.name) : "Portal";
   const isForgotMode = activeAssistPanel === "forgot";
 
   useEffect(() => {
@@ -78,9 +48,10 @@ export function LoginPage({
     setMessage(null);
     setLoading(true);
 
-    const demoUser = DEMO_USERS.find(u => u.email === email && u.password === password);
+    const demoUser = DEMO_USERS.find(u => u.email === normalizedEmail && u.password === password);
     if (demoUser) {
-      onLogin(demoUser);
+      const { email: demoEmail, role, name, clientName } = demoUser;
+      onLogin({ email: demoEmail, role, name, clientName });
       return;
     }
 
@@ -237,31 +208,9 @@ export function LoginPage({
             <p>
               {isForgotMode
                 ? "We'll send a secure reset link to the email tied to your portal."
-                : "Choose how you're signing in today."}
+                : "Use your assigned studio or client portal account."}
             </p>
           </div>
-
-          {!isForgotMode ? (
-            <>
-              <div className="login-role-grid" aria-label="Sign In Roles">
-                {ROLE_OPTIONS.map(option => {
-                  const isActive = activeRole === option.role;
-                  return (
-                    <a
-                      key={option.role}
-                      className={`login-role-card${isActive ? " is-active" : ""}`}
-                      href={option.previewHref}
-                      onClick={() => setSelectedRole(option.role)}
-                      aria-label={option.previewAriaLabel}
-                    >
-                      <span className="login-role-label">{option.label}</span>
-                      <span className="login-role-detail">{option.detail}</span>
-                    </a>
-                  );
-                })}
-              </div>
-            </>
-          ) : null}
 
           <form
             className="login-form"

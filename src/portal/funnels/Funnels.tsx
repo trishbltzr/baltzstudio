@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { css } from "../helpers";
 import { Icon } from "../icons";
 import type { PortalActions, PortalState } from "../store";
@@ -9,19 +9,22 @@ import {
   type FQuestion, type FlowStep,
 } from "./data";
 import { DelivBody, GRAD } from "./deliverables";
-import { STUDIO_CLIENTS, type ClientFacet } from "../clients";
+import { clientsVisibleToRole, STUDIO_CLIENTS, type ClientFacet } from "../clients";
 import { ClientPickerGrid } from "../components/ClientPickerGrid";
 import { GuidedIntakeShell, GuidedOptionPill, GuidedPipelinePanel, GuidedUnsureToggle } from "../components/GuidedIntakeShell";
 import { DiscoveryBuilder } from "../discovery/DiscoveryBuilder";
-import { getKnowledge, recordKnowledge, mergeKnow, type Know } from "../discovery/knowledge";
+import { getKnowledge, loadPersistedKnowledge, recordKnowledge, rememberKnowledge, mergeKnow, type Know } from "../discovery/knowledge";
 import { FUNNEL_WIZARD, FUNNEL_STAGES, FUNNEL_INTRO_STEPS, FUNNEL_DEMO } from "../discovery/discoveryData";
-import { FUNNEL_PIPELINE, FunnelFlowHero } from "../discovery/funnelPipeline";
+import { FUNNEL_PIPELINE, FunnelFlowHero, funnelTaskDrafts } from "../discovery/funnelPipeline";
 import type { FunnelDocs } from "../discovery/funnelPipeline";
+import { BuilderTaskPanel } from "../builders/BuilderTaskPanel";
+import type { TaskImportDraft } from "../types";
 import { mergePortalClientWorkspace, type PortalFunnelPlanRecord } from "@/lib/portalWorkspacePersistence";
+import { coercePersistedAuditDrafts, type GuidedAuditSession } from "@/lib/portalAuditPersistence";
 
 // ── state ────────────────────────────────────────────────────────────────────
 type Ans = Record<string, string | string[]>;
-type FunnelBuild = ClientFacet & { clientId: string; clientName: string; owner: string };
+type FunnelBuild = ClientFacet & { clientId: string; clientName: string; owner: string; updatedAt?: string };
 export type FunnelPlanPost = Omit<PortalFunnelPlanRecord, "content"> & { content: FunnelDocs };
 interface FState {
   clientId: string | null;
@@ -161,13 +164,39 @@ function reducer(s: FState, a: Act): FState {
   }
 }
 
-function seedFunnelBuilds(): FunnelBuild[] {
-  return STUDIO_CLIENTS.flatMap(client => client.funnels.map(funnel => ({
+function seedFunnelBuilds(role: PortalState["role"], clientName: string): FunnelBuild[] {
+  return clientsVisibleToRole(role, clientName).flatMap(client => client.funnels.map(funnel => ({
     ...funnel,
     clientId: client.id,
     clientName: client.name,
     owner: client.owner,
   })));
+}
+
+function isGenericFunnelTitle(value: string) {
+  return /^(?:lead[- ]?gen funnel|funnel|your funnel)$/i.test(value.trim());
+}
+
+function funnelTitleFromData(data: Ans, fallback: string) {
+  const text = (key: string) => typeof data[key] === "string" ? String(data[key]).trim() : "";
+  const campaign = text("name");
+  if (campaign && !isGenericFunnelTitle(campaign)) return campaign;
+  const offer = text("offer");
+  if (offer && !/^your offer$/i.test(offer)) return /funnel$/i.test(offer) ? offer : `${offer} Funnel`;
+  const type = text("ftype");
+  if (type && !isGenericFunnelTitle(type)) return type;
+  const objective = text("objective");
+  if (objective) return `${objective.charAt(0).toUpperCase()}${objective.slice(1)} Funnel`;
+  return fallback;
+}
+
+function funnelTitleFromRecord(record: PortalFunnelPlanRecord) {
+  if (record.title && !isGenericFunnelTitle(record.title)) return record.title;
+  const content = record.content as FunnelDocs | undefined;
+  const brief = (label: string) => content?.brief?.find(item => item.label === label)?.value || "";
+  const storedName = brief("Funnel").replace(`${record.clientName} · `, "").trim();
+  const offer = content?.blueprint?.offerBlock?.b?.split("  ·  ")[0]?.trim() || "";
+  return funnelTitleFromData({ name: storedName, offer, ftype: brief("Type"), objective: brief("Objective") }, record.title || "Funnel draft");
 }
 
 function goalFromType(type: string) {
@@ -177,6 +206,20 @@ function goalFromType(type: string) {
   if (t.includes("book") || t.includes("call") || t.includes("consult")) return "Book more calls";
   if (t.includes("lead")) return "Generate qualified leads";
   return "Convert more visitors";
+}
+
+function funnelSessionMeta(session: GuidedAuditSession) {
+  const stageDefinition = FUNNEL_STAGES[Math.min(session.stage, FUNNEL_STAGES.length - 1)];
+  const stageKey = stageDefinition?.key || "discovery";
+  const complete = !!session.proposal || !!session.approved.brief;
+  const intakeProgress = session.questionTotal > 0 ? Math.round((Math.min(session.qIdx, session.questionTotal) / session.questionTotal) * 20) : 0;
+  const stageBase = Math.min(session.stage, FUNNEL_STAGES.length - 1) * 20;
+  const readyForApproval = session.stage > 0 && !!session.aiResults[stageKey] && !session.approved[stageKey];
+  const progress = complete ? 100 : session.stage === 0 ? intakeProgress : Math.min(95, stageBase + (readyForApproval ? 15 : 0));
+  const statusLabel = complete ? "Complete" : readyForApproval ? "Ready for approval" : progress > 0 ? "In progress" : "Draft";
+  const statusTone: FunnelBuild["statusTone"] = complete ? "success" : readyForApproval ? "accent" : progress > 0 ? "warn" : "muted";
+  const stage = complete ? "Development plan · Complete" : `${stageDefinition?.label || "Discovery"} · ${readyForApproval ? "Ready for approval" : "In progress"}`;
+  return { progress, statusLabel, statusTone, stage, updatedAt: new Date().toISOString() };
 }
 
 // ── answer helpers ───────────────────────────────────────────────────────────
@@ -196,16 +239,19 @@ function fmt(q: FQuestion, s: FState): string {
 
 export function Funnels({ state, actions }: { state: PortalState; actions: PortalActions }) {
   const flow = useMemo(() => buildFlow(), []);
+  const visibleClients = useMemo(() => clientsVisibleToRole(state.role, state.clientName), [state.clientName, state.role]);
+  const visibleClientIds = useMemo(() => new Set(visibleClients.map(item => item.id)), [visibleClients]);
   const [s, dispatch] = useReducer(reducer, init);
-  const [builds, setBuilds] = useState<FunnelBuild[]>(() => seedFunnelBuilds());
+  const [builds, setBuilds] = useState<FunnelBuild[]>(() => seedFunnelBuilds(state.role, state.clientName));
   const [launchOpen, setLaunchOpen] = useState(false);
   const [deleteBuildConfirm, setDeleteBuildConfirm] = useState(false);
   const [exitingToPicker, setExitingToPicker] = useState(false);
   const [activePlanPost, setActivePlanPost] = useState<FunnelPlanPost | null>(null);
   const [quickKnow, setQuickKnow] = useState<Know>({ data: {}, sources: {} });
-  const client = STUDIO_CLIENTS.find(c => c.id === s.clientId) || null;
+  const [auditedClientIds, setAuditedClientIds] = useState<Set<string>>(() => new Set(visibleClients.filter(item => item.audited).map(item => item.id)));
+  const client = visibleClients.find(c => c.id === s.clientId) || null;
   const build = builds.find(item => item.id === s.buildId) || null;
-  const auditedClients = useMemo(() => STUDIO_CLIENTS.filter(c => c.audited), []);
+  const auditedClients = useMemo(() => visibleClients.filter(clientItem => auditedClientIds.has(clientItem.id)), [auditedClientIds, visibleClients]);
   const funnelsByClient = useMemo(
     () => builds.reduce<Record<string, number>>((acc, item) => {
       acc[item.clientId] = (acc[item.clientId] || 0) + 1;
@@ -214,22 +260,99 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
     [builds],
   );
   const funnelGroups = useMemo(
-    () => STUDIO_CLIENTS.map(client => ({
+    () => visibleClients.map(client => ({
       client,
-      funnels: builds.filter(item => item.clientId === client.id),
+      funnels: builds
+        .filter(item => item.clientId === client.id)
+        .sort((left, right) => (right.updatedAt || "").localeCompare(left.updatedAt || "")),
     })).filter(group => group.funnels.length > 0),
-    [builds],
+    [builds, visibleClients],
   );
   const buildOrdinal = build ? builds.filter(item => item.clientId === build.clientId).findIndex(item => item.id === build.id) + 1 : 0;
   const mobile = state.isMobile;
+  const persistFunnelSessionRef = useRef<(session: GuidedAuditSession, meta: ReturnType<typeof funnelSessionMeta>) => void>(() => undefined);
+  const funnelPersistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveFunnelSession = useCallback((session: GuidedAuditSession) => {
+    if (!s.buildId) return;
+    const meta = funnelSessionMeta(session);
+    setBuilds(current => {
+      let changed = false;
+      const next = current.map(item => {
+        if (item.id !== s.buildId) return item;
+        const subtitle = funnelTitleFromData(session.data, item.subtitle);
+        if (item.progress === meta.progress && item.statusLabel === meta.statusLabel && item.stage === meta.stage && item.subtitle === subtitle) return item;
+        changed = true;
+        return { ...item, ...meta, subtitle };
+      });
+      return changed ? next : current;
+    });
+    persistFunnelSessionRef.current(session, meta);
+  }, [s.buildId]);
 
   useEffect(() => {
     // Secondary sidebar abandoned — the DiscoveryBuilder carries its own rail.
     actions.patch({ guidedSidebarActive: false, guidedTopBarInfo: null });
   }, [actions]);
 
-  // Reset any pasted-brief / link ingestion when switching clients.
-  useEffect(() => { setQuickKnow({ data: {}, sources: {} }); }, [s.clientId]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/portal-audit-runs", { cache: "no-store" })
+      .then(async response => {
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(typeof payload?.error === "string" ? payload.error : "Unable to load completed audits.");
+        if (cancelled) return;
+        const completed = new Set<string>(coercePersistedAuditDrafts(payload?.drafts)
+          .filter(draft => draft.run.progress >= 100)
+          .map(draft => draft.run.clientId)
+          .filter(clientId => visibleClientIds.has(clientId)));
+        visibleClients.filter(item => item.audited).forEach(item => completed.add(item.id));
+        setAuditedClientIds(completed);
+      })
+      .catch(error => console.error("Unable to load funnel eligibility.", error));
+    return () => { cancelled = true; };
+  }, [visibleClientIds, visibleClients]);
+
+  useEffect(() => {
+    const rawPersistedBuilds = Object.values(state.clientWorkspaces).flatMap(workspace => workspace.funnelPlans.flatMap(record => {
+      if (!visibleClientIds.has(record.clientId)) return [];
+      const source = STUDIO_CLIENTS.find(item => item.id === record.clientId);
+      if (!source) return [];
+      const progress = typeof record.progress === "number" ? record.progress : record.statusLabel === "Complete" ? 100 : 0;
+      return [{
+        id: record.buildId || record.id,
+        clientId: record.clientId,
+        clientName: record.clientName,
+        owner: record.owner || source.owner,
+        subtitle: funnelTitleFromRecord(record),
+        statusLabel: record.statusLabel || "Draft",
+        statusTone: record.statusTone || (progress >= 100 ? "success" : progress > 0 ? "warn" : "muted"),
+        stage: record.stage || (progress >= 100 ? "Development plan · Complete" : "Discovery · In progress"),
+        progress,
+        due: record.due || "Today",
+        updatedAt: record.updatedAt,
+      } satisfies FunnelBuild];
+    }));
+    const totals = rawPersistedBuilds.reduce<Record<string, number>>((counts, item) => {
+      const key = `${item.clientId}:${item.subtitle.toLowerCase()}`;
+      counts[key] = (counts[key] || 0) + 1;
+      return counts;
+    }, {});
+    const seen: Record<string, number> = {};
+    const persistedBuilds = rawPersistedBuilds.map(item => {
+      const key = `${item.clientId}:${item.subtitle.toLowerCase()}`;
+      seen[key] = (seen[key] || 0) + 1;
+      return totals[key] > 1 ? { ...item, subtitle: `${item.subtitle} · ${seen[key]}` } : item;
+    });
+    if (!persistedBuilds.length) return;
+    setBuilds(current => {
+      const merged = new Map(current.map(item => [item.id, item]));
+      persistedBuilds.forEach(item => merged.set(item.id, { ...merged.get(item.id), ...item }));
+      return Array.from(merged.values());
+    });
+  }, [state.clientWorkspaces, visibleClientIds]);
+
+  // Restore confirmed and AI-extracted client facts when switching clients.
+  useEffect(() => { setQuickKnow(s.clientId ? loadPersistedKnowledge(s.clientId) : { data: {}, sources: {} }); }, [s.clientId]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -279,6 +402,7 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
 
   useEffect(() => () => {
     if (exitTimer.current) clearTimeout(exitTimer.current);
+    if (funnelPersistTimer.current) clearTimeout(funnelPersistTimer.current);
   }, []);
 
   const next = () => {
@@ -315,11 +439,13 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
     return post;
   };
   const buildPlanPost = (item: FunnelBuild, data: Ans = FUNNEL_DEMO): FunnelPlanPost => {
+    const title = funnelTitleFromData(data, item.subtitle);
+    const selectedType = typeof data.ftype === "string" && data.ftype.trim() ? data.ftype : title;
     const content = FUNNEL_PIPELINE.buildDocs({
       ...FUNNEL_DEMO,
       ...data,
-      name: item.clientName + " · " + item.subtitle,
-      ftype: item.subtitle,
+      name: item.clientName + " · " + title,
+      ftype: selectedType,
     }) as FunnelDocs;
     const now = new Date().toISOString();
 
@@ -327,10 +453,14 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
       id: item.id,
       buildId: item.id,
       type: "funnel_plan",
-      title: item.subtitle,
+      title,
       clientId: item.clientId,
       clientName: item.clientName,
       statusLabel: item.statusLabel,
+      statusTone: item.statusTone,
+      stage: item.stage,
+      progress: item.progress,
+      owner: item.owner,
       due: item.due,
       generatedAt: now,
       updatedAt: now,
@@ -353,6 +483,17 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
       };
     });
   };
+  persistFunnelSessionRef.current = (session, meta) => {
+    if (!build) return;
+    if (funnelPersistTimer.current) clearTimeout(funnelPersistTimer.current);
+    const buildSnapshot: FunnelBuild = { ...build, ...meta, subtitle: funnelTitleFromData(session.data, build.subtitle) };
+    funnelPersistTimer.current = setTimeout(() => {
+      const existing = storedPlanForBuild(buildSnapshot);
+      const next = buildPlanPost(buildSnapshot, session.data);
+      persistPlanPost({ ...next, generatedAt: existing?.generatedAt || next.generatedAt });
+      funnelPersistTimer.current = null;
+    }, 350);
+  };
   const ensurePlanPost = (item: FunnelBuild, data?: Ans): FunnelPlanPost => {
     const stored = storedPlanForBuild(item);
     if (stored) return stored;
@@ -369,21 +510,23 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
   };
   const createFunnel = (clientId: string) => {
     const source = STUDIO_CLIENTS.find(item => item.id === clientId);
-    if (!source || !source.audited) return;
+    if (!source || !visibleClientIds.has(source.id) || !auditedClientIds.has(source.id)) return;
     const id = "funnel-" + clientId + "-" + Math.random().toString(36).slice(2, 8);
     const nextBuild: FunnelBuild = {
       id,
       clientId: source.id,
       clientName: source.name,
       owner: source.owner,
-      subtitle: "Lead-Gen Funnel",
+      subtitle: `Funnel draft ${builds.filter(item => item.clientId === source.id).length + 1}`,
       statusLabel: "Draft",
       statusTone: "muted",
       stage: "Not started",
       progress: 0,
       due: "Today",
+      updatedAt: new Date().toISOString(),
     };
     setBuilds(prev => [nextBuild, ...prev]);
+    persistPlanPost(buildPlanPost(nextBuild, {}));
     startFunnel(source.id, id);
     actions.showToast("New funnel draft ready for " + source.name);
   };
@@ -479,7 +622,7 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
           compact
           cards={funnelGroups.map(group => {
             const latest = group.funnels[0];
-            const readyCount = group.funnels.filter(item => item.statusLabel !== "Draft").length;
+            const readyCount = group.funnels.filter(item => item.progress >= 100).length;
             const funnelType = latest?.subtitle || "Funnel";
             const goal = goalFromType(funnelType);
             const stage = latest?.stage || "Not started";
@@ -533,6 +676,7 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
             onClose={() => setActivePlanPost(null)}
             showToast={actions.showToast}
             showAiHandover={state.role !== "client"}
+            onImportTasks={actions.bulkImportTasks}
           />
         )}
       </div>
@@ -601,6 +745,7 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
         </> : <button type="button" onClick={() => setDeleteBuildConfirm(true)} style={css("height:2rem;padding:0 .75rem;border:1px solid color-mix(in srgb,var(--danger) 35%,var(--border) 65%);border-radius:999px;background:var(--surface);color:var(--danger);font-size:.72rem;font-weight:500;cursor:pointer")}>Delete funnel</button>}
       </div>}
       <DiscoveryBuilder
+        key={build?.id || client.id}
         mobile={mobile}
         accent="var(--accent)"
         title={build?.subtitle || "Lead-Gen Funnel"}
@@ -611,12 +756,21 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
         introSteps={FUNNEL_INTRO_STEPS}
         completeMsg="That’s everything I need. I’ll draft the funnel flow, copy, wireframe and development plan from your answers."
         completeCta="Generate the plan →"
+        demo={FUNNEL_DEMO}
         pipeline={FUNNEL_PIPELINE}
+        onImportTasks={actions.bulkImportTasks}
+        onPipelineComplete={data => { if (build) persistPlanPost(buildPlanPost(build, data)); }}
+        sessionKey={build?.id}
+        onSessionChange={saveFunnelSession}
         showToast={actions.showToast}
         prefill={funnelKnow.data}
         prefillSources={funnelKnow.sources}
+        prefillNotes={funnelKnow.notes}
         quickStartMode="funnel"
-        onIngest={delta => setQuickKnow(k => mergeKnow(k, delta))}
+        onIngest={delta => {
+          rememberKnowledge(client.id, delta);
+          setQuickKnow(k => mergeKnow(k, delta));
+        }}
         onExit={exitToPicker}
         onComplete={data => {
           if (build) persistPlanPost(buildPlanPost(build, data));
@@ -628,10 +782,11 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
   );
 }
 
-export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, showAiHandover = true }: { post: FunnelPlanPost; mobile: boolean; onClose: () => void; showToast: (message: string) => void; showAiHandover?: boolean }) {
+export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImportTasks, showAiHandover = true }: { post: FunnelPlanPost; mobile: boolean; onClose: () => void; showToast: (message: string) => void; onImportTasks: (drafts: TaskImportDraft[]) => void; showAiHandover?: boolean }) {
   const docs = post.content;
   const [handoverOpen, setHandoverOpen] = useState(false);
   const handover = useMemo(() => buildFunnelAiHandover(post), [post]);
+  const taskDrafts = useMemo(() => funnelTaskDrafts(docs, post.clientName), [docs, post.clientName]);
   const copyAiHandover = async () => {
     try {
       if (navigator.clipboard) {
@@ -708,6 +863,8 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, showA
 
           <div style={css("padding:" + (mobile ? "1.2rem" : "1.85rem 2rem 2rem"))}>
             {FUNNEL_PIPELINE.renderStage({
+              aiResult: null,
+              aiResults: {},
               stageKey: "brief",
               docs,
               reveal: Number.POSITIVE_INFINITY,
@@ -721,6 +878,7 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, showA
               onCopy: () => showToast("Development plan copied"),
             })}
           </div>
+          <BuilderTaskPanel embedded drafts={taskDrafts} fileName={`${post.clientId || "client"}-funnel-tasks.csv`} mobile={mobile} onImport={onImportTasks}/>
         </article>
       </div>
     </div>

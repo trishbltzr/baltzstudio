@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Icon } from "../icons";
 import { css, initials, laneMeta, prioColor, prioTag, statusPill, STATUS_LABEL, STATUS_MAP } from "../helpers";
 import { roleTasks } from "../selectors";
@@ -44,6 +45,18 @@ function LaneTag({ owner }: { owner: Owner }) {
 
 export function Tasks({ state, actions }: { state: PortalState; actions: PortalActions }) {
   const tasks = roleTasks(state);
+  const [importOpen, setImportOpen] = useState(false);
+
+  const openImportSource = (source: "audit" | "build") => {
+    setImportOpen(false);
+    if (source === "audit") {
+      actions.setView(state.role === "client" ? "audit" : "audits_new");
+      actions.showToast("Open a completed audit and choose the recommendations to import");
+      return;
+    }
+    actions.setView("funnels");
+    actions.showToast("Open a completed build plan and choose the tasks to import");
+  };
 
   return (
     <div>
@@ -52,10 +65,19 @@ export function Tasks({ state, actions }: { state: PortalState; actions: PortalA
           <h2 style={css("margin:0;font-size:var(--text-lg);font-weight:500;line-height:1.2;color:var(--fg)")}>Task board</h2>
           <div style={css("margin-top:0.15rem;font-size:var(--text-xs);color:var(--fg-muted)")}>Plan, assign, and track every to-do.</div>
         </div>
-        {state.role !== "client" && <div style={css("display:flex;align-items:center;gap:.45rem;margin-left:" + (state.isMobile ? "0" : "auto") + ";width:" + (state.isMobile ? "100%" : "auto"))}>
+        <div style={css("display:flex;align-items:center;gap:.45rem;margin-left:" + (state.isMobile ? "0" : "auto") + ";width:" + (state.isMobile ? "100%" : "auto"))}>
           <button type="button" onClick={actions.createQuickTask} className="pt-op" style={css("display:inline-flex;align-items:center;justify-content:center;gap:.35rem;height:2rem;padding:0 .78rem;border-radius:999px;border:none;background:var(--accent);color:#fff;font-size:.74rem;font-weight:500;cursor:pointer;flex:" + (state.isMobile ? "1" : "0 0 auto"))}><Icon name="plus" size={13} />New to-do</button>
-          <button type="button" onClick={() => { actions.setView("audits_new"); actions.showToast("Open a completed audit to import its recommendations"); }} style={css("display:inline-flex;align-items:center;justify-content:center;gap:.35rem;height:2rem;padding:0 .78rem;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);font-size:.74rem;font-weight:500;cursor:pointer;flex:" + (state.isMobile ? "1" : "0 0 auto"))}><Icon name="checkmark" size={13} />Import from audit</button>
-        </div>}
+          <div style={css("position:relative;flex:" + (state.isMobile ? "1" : "0 0 auto"))}>
+            <button type="button" aria-haspopup="menu" aria-expanded={importOpen} onClick={() => setImportOpen(open => !open)} style={css("display:inline-flex;align-items:center;justify-content:center;gap:.35rem;width:100%;height:2rem;padding:0 .78rem;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);font-size:.74rem;font-weight:500;cursor:pointer") }><Icon name="checkmark" size={13} />Import tasks <Icon name="chev" size={11} /></button>
+            {importOpen && <>
+              <button type="button" aria-label="Close import menu" onClick={() => setImportOpen(false)} style={css("position:fixed;inset:0;z-index:29;border:0;background:transparent;cursor:default")}/>
+              <div role="menu" aria-label="Choose task import source" style={css("position:absolute;z-index:30;top:calc(100% + .45rem);right:0;width:min(17rem,calc(100vw - 1.8rem));padding:.38rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);box-shadow:0 14px 36px rgba(47,34,28,.13)") }>
+                <button role="menuitem" type="button" onClick={() => openImportSource("audit")} style={css("display:flex;align-items:flex-start;gap:.65rem;width:100%;padding:.68rem .72rem;border:0;border-radius:.72rem;background:transparent;color:var(--fg);text-align:left;cursor:pointer") }><span style={css("width:1.75rem;height:1.75rem;border-radius:.55rem;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex-shrink:0") }><Icon name="checkmark" size={13}/></span><span><span style={css("display:block;font-size:.77rem;font-weight:500")}>From audit</span><span style={css("display:block;margin-top:.12rem;font-size:.67rem;line-height:1.4;color:var(--fg-muted)")}>Choose recommendations from a completed audit.</span></span></button>
+                <button role="menuitem" type="button" onClick={() => openImportSource("build")} style={css("display:flex;align-items:flex-start;gap:.65rem;width:100%;padding:.68rem .72rem;border:0;border-radius:.72rem;background:transparent;color:var(--fg);text-align:left;cursor:pointer") }><span style={css("width:1.75rem;height:1.75rem;border-radius:.55rem;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex-shrink:0") }><Icon name="funnel" size={13}/></span><span><span style={css("display:block;font-size:.77rem;font-weight:500")}>From build plan</span><span style={css("display:block;margin-top:.12rem;font-size:.67rem;line-height:1.4;color:var(--fg-muted)")}>Choose implementation tasks from a funnel or website plan.</span></span></button>
+              </div>
+            </>}
+          </div>
+        </div>
         <div style={css("display:flex;align-items:center;gap:" + (state.isMobile ? "0.65rem" : "0.9rem") + ";margin-left:" + (state.isMobile ? "0" : (state.role === "client" ? "auto" : "0")) + ";width:" + (state.isMobile ? "100%" : "auto") + ";flex-wrap:wrap")}>
           {LANE_LEGEND.map(([k, l]) => { const lm = laneMeta(k); return <span key={k} style={css("display:inline-flex;align-items:center;gap:0.32rem;font-size:" + (state.isMobile ? "0.68rem" : "0.72rem") + ";color:var(--fg-muted);white-space:nowrap")}><span style={css("width:0.5rem;height:0.5rem;border-radius:50%;background:" + lm.c)} />{l}</span>; })}
         </div>

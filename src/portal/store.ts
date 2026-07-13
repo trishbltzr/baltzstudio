@@ -15,17 +15,18 @@ import {
   type PortalProposalRecord,
   type PortalWorkspaceFile,
 } from "@/lib/portalWorkspacePersistence";
-import type { Escalation, JourneyGate, JourneyRequestSeverity, Priority, Role, Service, Task, TaskFilter, TaskImportDraft, TaskStatus, Thread, View } from "./types";
+import type { AuditType, BuilderType, ClientProject, Escalation, JourneyGate, JourneyRequestSeverity, Priority, Role, Service, Task, TaskFilter, TaskImportDraft, TaskStatus, Thread, View } from "./types";
 import type { ProgressChatMessage, ProgressChatSession } from "./types";
 import { seedEscalations, seedJourneyGates, seedTasks, seedThreads } from "./data";
 import { STATUS_ORDER } from "./helpers";
-import { progressChatReply, progressChatTranscript, summarizeProgressChatTitle } from "./progressChat";
-import { DEFAULT_CLIENT_NAME } from "./clients";
+import { progressChatTranscript, summarizeProgressChatTitle } from "./progressChat";
+import { buildProgressChatContext } from "./progressChatContext";
+import { clientsVisibleToRole, DEFAULT_CLIENT_NAME, DEV_USER_NAME } from "./clients";
 
 export type TaskView = "board" | "calendar";
 export const NEW_TASK_DRAFT_ID = "__new_task_draft__";
 export type SavedView<F> = { name: string; filter: F };
-type PersistedPortalState = Pick<PortalState, "tasks" | "journeyGates" | "threads" | "escalations" | "ticketSeq" | "clientWorkspaces" | "progressChatSessions" | "activeProgressChatId"> & { dataVersion: string };
+type PersistedPortalState = Pick<PortalState, "tasks" | "journeyGates" | "threads" | "escalations" | "ticketSeq" | "clientWorkspaces" | "progressChatSessions" | "activeProgressChatId" | "projectOverrides"> & { dataVersion: string };
 
 export type JourneyRequestPayload = {
   existingThreadId?: string;
@@ -45,6 +46,9 @@ export type GuidedTopBarInfo = {
 
 export interface PortalState {
   role: Role;
+  clientName: string;
+  canSwitchRoles: boolean;
+  hydrated: boolean;
   view: View;
   previewFrom: Role | null;
   clientDetail: string | null;
@@ -57,7 +61,10 @@ export interface PortalState {
   guidedSidebarActive: boolean;
   guidedSidebarExitTick: number;
   guidedTopBarInfo: GuidedTopBarInfo | null;
-  toast: string | null;
+  toast: { message: string; onClick?: () => void } | null;
+  auditType: AuditType;
+  builderType: BuilderType;
+  projectOverrides: Record<string, Partial<ClientProject>>;
   // tasks
   tasks: Task[];
   taskModal: string | null;
@@ -145,6 +152,8 @@ function syncPortalViewUrl(view: View) {
 
   const nextParams = new URLSearchParams(window.location.search);
   nextParams.set("view", view === "audits_new" ? "audits" : view);
+  if (view !== "audits_new" && view !== "audit") nextParams.delete("auditType");
+  if (view !== "funnels") nextParams.delete("builderType");
 
   if (view !== "audits_new") {
     nextParams.delete("auditRun");
@@ -169,6 +178,7 @@ function persistPortalState(state: PortalState) {
       clientWorkspaces: state.clientWorkspaces,
       progressChatSessions: state.progressChatSessions,
       activeProgressChatId: state.activeProgressChatId,
+      projectOverrides: state.projectOverrides,
     };
     localStorage.setItem("baltz.clientSlate.v2.portalState", JSON.stringify(snapshot));
   } catch { /* ignore */ }
@@ -185,10 +195,10 @@ function withClientWorkspace(
   };
 }
 
-export function initialState(role: Role, requestedView?: View | null): PortalState {
+export function initialState(role: Role, requestedView?: View | null, clientName = DEFAULT_CLIENT_NAME, canSwitchRoles = false): PortalState {
   return {
-    role, view: requestedView ?? "progress", previewFrom: null, clientDetail: null,
-    isMobile: false, navOpen: false, notifOpen: false, pop: null, sidePop: null, sidebarCollapsed: false, guidedSidebarActive: false, guidedSidebarExitTick: 0, guidedTopBarInfo: null, toast: null,
+    role, clientName, canSwitchRoles, hydrated: false, view: requestedView ?? "progress", previewFrom: null, clientDetail: null,
+    isMobile: false, navOpen: false, notifOpen: false, pop: null, sidePop: null, sidebarCollapsed: false, guidedSidebarActive: false, guidedSidebarExitTick: 0, guidedTopBarInfo: null, toast: null, auditType: "website", builderType: "funnel", projectOverrides: {},
     tasks: seedTasks(), taskModal: null, taskDraft: null, taskView: "board", draggingId: null, dragOverCol: null,
     boardSelect: false, selTasks: [], taskChecks: {}, taskComments: {}, taskCommentDraft: "",
     taskFilter: { owner: "all", priority: "all" }, clientFilter: { service: "all", health: "all" },
@@ -214,7 +224,7 @@ const ROLE_VIEWS: Record<Role, Set<View>> = {
 export interface PortalActions {
   patch: (p: Partial<PortalState>) => void;
   update: (fn: (s: PortalState) => Partial<PortalState>) => void;
-  showToast: (m: string) => void;
+  showToast: (m: string, onClick?: () => void) => void;
   setRole: (r: Role) => void;
   setView: (v: View) => void;
   openClientDetail: (name: string) => void;
@@ -258,6 +268,8 @@ export interface PortalActions {
   createThreadTask: (threadId: string) => void;
   createProgressChatSession: () => void;
   selectProgressChatSession: (id: string) => void;
+  deleteProgressChatSession: (id: string) => void;
+  clearProgressChatHistory: () => void;
   sendProgressChatMessage: (text: string) => void;
   sendProgressChatAsTicket: () => void;
   createJourneyRequest: (payload: JourneyRequestPayload) => { ticketId: string; threadId: string; assignee: string };
@@ -272,8 +284,8 @@ export interface PortalActions {
   workspaceForClient: (clientName: string) => PortalClientWorkspace;
 }
 
-export function usePortal(seedRole: Role) {
-  const [state, setState] = useState<PortalState>(() => initialState(seedRole, initialRequestedView(seedRole)));
+export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canSwitchRoles = false) {
+  const [state, setState] = useState<PortalState>(() => initialState(seedRole, initialRequestedView(seedRole), clientName, canSwitchRoles));
   const [hasHydrated, setHasHydrated] = useState(false);
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const stateRef = useRef(state);
@@ -286,9 +298,14 @@ export function usePortal(seedRole: Role) {
   useEffect(() => {
     setState(s => {
       const persisted = loadPersistedPortalState();
-      const requestedView = new URLSearchParams(window.location.search).get("view");
+      const params = new URLSearchParams(window.location.search);
+      const requestedView = params.get("view");
+      const requestedAuditType = params.get("auditType");
+      const requestedBuilderType = params.get("builderType");
       const view = normalizeRequestedView(requestedView, s.role) ?? s.view;
-      return { ...s, ...persisted, savedViews: loadSavedViews(), isMobile: window.innerWidth < 900, view };
+      const auditType = requestedAuditType === "brand" || requestedAuditType === "website" || requestedAuditType === "seo" ? requestedAuditType : s.auditType;
+      const builderType = requestedBuilderType === "website" || requestedBuilderType === "funnel" ? requestedBuilderType : s.builderType;
+      return { ...s, ...persisted, savedViews: loadSavedViews(), isMobile: window.innerWidth < 900, view, auditType, builderType, hydrated: true };
     });
     setHasHydrated(true);
     const onResize = () => setState(s => (s.isMobile !== window.innerWidth < 900 ? { ...s, isMobile: window.innerWidth < 900, navOpen: false } : s));
@@ -307,7 +324,7 @@ export function usePortal(seedRole: Role) {
   useEffect(() => {
     if (!hasHydrated) return;
     persistPortalState(state);
-  }, [hasHydrated, state.tasks, state.journeyGates, state.threads, state.escalations, state.ticketSeq, state.clientWorkspaces, state.progressChatSessions, state.activeProgressChatId]);
+  }, [hasHydrated, state.tasks, state.journeyGates, state.threads, state.escalations, state.ticketSeq, state.clientWorkspaces, state.progressChatSessions, state.activeProgressChatId, state.projectOverrides]);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -330,6 +347,7 @@ export function usePortal(seedRole: Role) {
             clientWorkspaces: persisted.clientWorkspaces,
             progressChatSessions: persisted.progressChatSessions as ProgressChatSession[],
             activeProgressChatId: persisted.activeProgressChatId,
+            projectOverrides: persisted.projectOverrides,
           }) : ({
             ...s,
             tasks: seedTasks(),
@@ -341,6 +359,7 @@ export function usePortal(seedRole: Role) {
             clientWorkspaces: {},
             progressChatSessions: [],
             activeProgressChatId: null,
+            projectOverrides: {},
           }));
         }
       } catch (error) {
@@ -368,6 +387,7 @@ export function usePortal(seedRole: Role) {
       clientWorkspaces: state.clientWorkspaces,
       progressChatSessions: state.progressChatSessions,
       activeProgressChatId: state.activeProgressChatId,
+      projectOverrides: state.projectOverrides,
     };
 
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -390,14 +410,14 @@ export function usePortal(seedRole: Role) {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [hasHydrated, workspaceLoaded, state.tasks, state.journeyGates, state.threads, state.escalations, state.ticketSeq, state.clientWorkspaces, state.progressChatSessions, state.activeProgressChatId]);
+  }, [hasHydrated, workspaceLoaded, state.tasks, state.journeyGates, state.threads, state.escalations, state.ticketSeq, state.clientWorkspaces, state.progressChatSessions, state.activeProgressChatId, state.projectOverrides]);
 
   const patch = useCallback((p: Partial<PortalState>) => setState(s => ({ ...s, ...p })), []);
   const update = useCallback((fn: (s: PortalState) => Partial<PortalState>) => setState(s => ({ ...s, ...fn(s) })), []);
 
-  const showToast = useCallback((m: string) => {
+  const showToast = useCallback((m: string, onClick?: () => void) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
-    setState(s => ({ ...s, toast: m, notifOpen: false }));
+    setState(s => ({ ...s, toast: { message: m, onClick }, notifOpen: false }));
     toastTimer.current = setTimeout(() => setState(s => ({ ...s, toast: null })), 2600);
   }, []);
 
@@ -423,7 +443,7 @@ export function usePortal(seedRole: Role) {
       return b && b.status !== "done" ? b : null;
     };
     const persist = (v: PortalState["savedViews"]) => { try { localStorage.setItem("baltz.clientSlate.v2.savedViews", JSON.stringify(v)); } catch { /* ignore */ } };
-    const actorName = (role: Role) => role === "client" ? "Client" : role === "dev" ? "Kier Mangibin" : "Trish Baltazar";
+    const actorName = (role: Role) => role === "client" ? stateRef.current.clientName : role === "dev" ? "Kier Mangibin" : "Trish Baltazar";
     const actorShort = (role: Role) => actorName(role).split(" ")[0];
     const displayDate = () => new Date().toLocaleDateString("en-US", { month: "long", day: "numeric" });
     const workspaceForClient = (clientName: string, clientWorkspaces: Record<string, PortalClientWorkspace>) => {
@@ -432,7 +452,7 @@ export function usePortal(seedRole: Role) {
     };
     const nextThreadId = (prefix: string, value: number) => `${prefix}${value}`;
     const createClientMessage = (text: string, by: string) => ({ from: "studio" as const, text, time: "Now", by });
-    const progressChatWorkspaceName = (role: Role) => role === "client" ? DEFAULT_CLIENT_NAME : role === "dev" ? "Delivery Workspace" : "Baltazar Studio";
+    const progressChatWorkspaceName = (role: Role) => role === "client" ? stateRef.current.clientName : role === "dev" ? "Delivery Workspace" : "Baltazar Studio";
     const newProgressChatSession = (): ProgressChatSession => {
       const now = new Date().toISOString();
       return { id: "pc-" + Date.now(), title: "New Snapshot chat", messages: [], createdAt: now, updatedAt: now, status: "draft" };
@@ -480,6 +500,7 @@ export function usePortal(seedRole: Role) {
     return {
       patch, update, showToast,
       setRole: r => {
+        if (!stateRef.current.canSwitchRoles) return;
         syncPortalViewUrl("progress");
         setState(s => ({ ...s, role: r, view: "progress", previewFrom: null, navOpen: false, notifOpen: false, pop: null, playbookDoc: null }));
       },
@@ -580,8 +601,16 @@ export function usePortal(seedRole: Role) {
         };
       }),
       bulkImportTasks: drafts => setState(s => {
+        const allowedProjects = new Set(clientsVisibleToRole(s.role, s.clientName).map(client => client.name));
+        const scopedDrafts = drafts
+          .filter(draft => s.role === "admin" || allowedProjects.has(draft.project))
+          .map(draft => s.role === "client"
+            ? { ...draft, project: s.clientName, assignee: "Client", owner: "client" as const }
+            : s.role === "dev"
+              ? { ...draft, assignee: DEV_USER_NAME, owner: "studio" as const }
+              : draft);
         const existingSourceIds = new Set(s.tasks.map(task => task.sourceId).filter(Boolean));
-        const uniqueDrafts = drafts.filter(draft => !draft.sourceId || !existingSourceIds.has(draft.sourceId));
+        const uniqueDrafts = scopedDrafts.filter(draft => !draft.sourceId || !existingSourceIds.has(draft.sourceId));
         const maxTaskNumber = Math.max(0, ...s.tasks.map(task => Number.parseInt(task.id.replace(/\D/g, ""), 10) || 0));
         const imported = uniqueDrafts.map((draft, index): Task => ({
           ...draft,
@@ -589,8 +618,9 @@ export function usePortal(seedRole: Role) {
           status: draft.status || "todo",
         }));
         setTimeout(() => showToast(imported.length
-          ? `${imported.length} audit task${imported.length === 1 ? "" : "s"} imported`
-          : "Those audit tasks are already in To-do"), 0);
+          ? `${imported.length} task${imported.length === 1 ? "" : "s"} imported`
+          : "Those tasks are already in To-do"), 0);
+        if (imported.length) setTimeout(() => syncPortalViewUrl("tasks"), 0);
         return imported.length ? {
           ...s,
           view: "tasks",
@@ -654,7 +684,7 @@ export function usePortal(seedRole: Role) {
       closePop: () => setState(s => ({ ...s, pop: null })),
       createQuickTask: () => {
         const s = stateRef.current;
-        const project = s.clientDetail || s.threads.find(thread => thread.id === s.selectedThreadId)?.clientName || DEFAULT_CLIENT_NAME;
+        const project = s.clientDetail || s.threads.find(thread => thread.id === s.selectedThreadId)?.clientName || s.clientName;
         const assignee = s.role === "admin" ? "Trish Baltazar" : s.role === "dev" ? "Kier Mangibin" : "Client";
         const owner = s.role === "client" ? "client" : "studio";
         const task: Task = {
@@ -683,8 +713,18 @@ export function usePortal(seedRole: Role) {
         showToast("New to-do draft opened — it has not been created yet");
       },
       saveTaskDraft: () => setState(s => {
-        const draft = s.taskDraft;
+        let draft = s.taskDraft;
         if (!draft) return s;
+        if (s.role === "client") {
+          draft = { ...draft, project: s.clientName, assignee: "Client", owner: "client" };
+        } else if (s.role === "dev") {
+          const allowedProjects = new Set(clientsVisibleToRole("dev").map(client => client.name));
+          if (!allowedProjects.has(draft.project.trim())) {
+            setTimeout(() => showToast("Choose one of your assigned clients before creating this task"), 0);
+            return s;
+          }
+          draft = { ...draft, assignee: DEV_USER_NAME, owner: "studio" };
+        }
         if (!draft.title.trim() || !draft.project.trim()) {
           setTimeout(() => showToast("Add a task name and client before creating it"), 0);
           return s;
@@ -783,36 +823,123 @@ export function usePortal(seedRole: Role) {
       selectProgressChatSession: id => {
         setState(s => ({ ...s, activeProgressChatId: id, progressChatHistoryOpen: false }));
       },
+      deleteProgressChatSession: id => {
+        let deleted = false;
+        setState(s => {
+          const target = s.progressChatSessions.find(session => session.id === id);
+          if (target?.messages.some(message => message.pending)) {
+            setTimeout(() => showToast("Wait for Snapshot to finish before deleting this chat"), 0);
+            return s;
+          }
+          const remaining = s.progressChatSessions.filter(session => session.id !== id);
+          deleted = remaining.length !== s.progressChatSessions.length;
+          return deleted ? {
+            ...s,
+            progressChatSessions: remaining,
+            activeProgressChatId: s.activeProgressChatId === id ? (remaining[0]?.id || null) : s.activeProgressChatId,
+          } : s;
+        });
+        if (deleted) showToast("Chat deleted");
+      },
+      clearProgressChatHistory: () => {
+        let cleared = false;
+        setState(s => {
+          if (s.progressChatSessions.some(session => session.messages.some(message => message.pending))) {
+            setTimeout(() => showToast("Wait for Snapshot to finish before clearing history"), 0);
+            return s;
+          }
+          cleared = s.progressChatSessions.length > 0;
+          return cleared ? { ...s, progressChatSessions: [], activeProgressChatId: null, progressChatHistoryOpen: false } : s;
+        });
+        if (cleared) showToast("Chat history cleared");
+      },
       sendProgressChatMessage: text => {
         const clean = text.trim();
         if (!clean) return;
-        setState(s => {
-          const now = new Date().toISOString();
-          const stamp = Date.now();
-          const active = activeProgressChat(s);
-          const baseSession = active && active.status !== "sent" ? active : newProgressChatSession();
-          const firstUserMessage = !baseSession.messages.some(message => message.from === "user");
-          const nextTitle = firstUserMessage ? summarizeProgressChatTitle(clean) : baseSession.title;
-          const nextMessages: ProgressChatMessage[] = [
-            ...baseSession.messages,
-            { id: "u-" + stamp, from: "user", text: clean, time: "Now" },
-            { id: "a-" + stamp, from: "assistant", text: progressChatReply(clean, s.role), time: "Now" },
-          ];
-          const nextSession: ProgressChatSession = {
-            ...baseSession,
-            title: nextTitle,
-            messages: nextMessages,
-            updatedAt: now,
-          };
-          const exists = s.progressChatSessions.some(session => session.id === nextSession.id);
-          return {
-            ...s,
-            chatDraft: "",
-            activeProgressChatId: nextSession.id,
-            progressChatSessions: exists
-              ? s.progressChatSessions.map(session => session.id === nextSession.id ? nextSession : session)
-              : [nextSession, ...s.progressChatSessions],
-          };
+        const s = stateRef.current;
+        const active = activeProgressChat(s);
+        if (active?.messages.some(message => message.pending)) return;
+        const now = new Date().toISOString();
+        const stamp = Date.now();
+        const baseSession = active && active.status !== "sent" ? active : newProgressChatSession();
+        const firstUserMessage = !baseSession.messages.some(message => message.from === "user");
+        const nextTitle = firstUserMessage ? summarizeProgressChatTitle(clean) : baseSession.title;
+        const userMessage: ProgressChatMessage = { id: "u-" + stamp, from: "user", text: clean, time: "Now" };
+        const assistantId = "a-" + stamp;
+        const pendingMessage: ProgressChatMessage = { id: assistantId, from: "assistant", text: "Reviewing workspace history…", time: "Now", pending: true };
+        const nextSession: ProgressChatSession = { ...baseSession, title: nextTitle, messages: [...baseSession.messages, userMessage, pendingMessage], updatedAt: now };
+        const exists = s.progressChatSessions.some(session => session.id === nextSession.id);
+        setState(current => ({
+          ...current,
+          chatDraft: "",
+          activeProgressChatId: nextSession.id,
+          progressChatSessions: exists
+            ? current.progressChatSessions.map(session => session.id === nextSession.id ? nextSession : session)
+            : [nextSession, ...current.progressChatSessions],
+        }));
+        const conversation = [...baseSession.messages.filter(message => !message.pending && !message.error), userMessage]
+          .map(message => ({ role: message.from, content: message.text }));
+        void fetch("/api/ai/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: s.role, clientName: s.clientName, messages: conversation, workspace: buildProgressChatContext(s) }),
+        }).then(async response => {
+          const payload = await response.json().catch(() => null);
+          if (!response.ok || typeof payload?.reply !== "string") throw new Error(typeof payload?.error === "string" ? payload.error : "Snapshot chat could not answer right now.");
+          const chatActions: Array<{ action?: string; client?: string; service?: string; stage?: string; title?: string; note?: string; assignee?: string }> = Array.isArray(payload?.actions) ? payload.actions : [];
+          setState(current => {
+            const projectOverrides = { ...current.projectOverrides };
+            let ticketSeq = current.ticketSeq;
+            let threads = current.threads;
+            let tasks = current.tasks;
+            let appliedReply = payload.reply as string;
+            let linkedTicket: { ticketId: string; threadId: string; taskId: string } | null = null;
+            chatActions.forEach(action => {
+              if (action?.action === "update_project" && typeof action.client === "string" && (action.service === "cocoon" || action.service === "wiaw" || action.service === "iff") && typeof action.stage === "string") {
+                const name = action.service === "cocoon" ? "Cocoon Consult" : action.service === "wiaw" ? "Winged in a Week" : "In Full Flight";
+                projectOverrides[action.client] = { ...(projectOverrides[action.client] || {}), name, service: action.service, stage: action.stage, progress: 0 };
+                return;
+              }
+              if (action?.action === "create_request" && typeof action.client === "string" && typeof action.title === "string" && typeof action.note === "string" && (action.assignee === "Trish Baltazar" || action.assignee === "Kier Mangibin")) {
+                const ticketId = "BZ-" + ticketSeq;
+                const threadId = "pc-action-" + ticketSeq;
+                const maxTaskNumber = Math.max(0, ...tasks.map(task => Number.parseInt(task.id.replace(/\D/g, ""), 10) || 0));
+                const taskId = "k" + (maxTaskNumber + 1);
+                const thread: Thread = {
+                  id: threadId,
+                  name: action.title,
+                  clientName: action.client,
+                  unread: s.role === "client" ? 1 : 0,
+                  isTicket: true,
+                  ticketId,
+                  category: "Snapshot request",
+                  status: "open",
+                  assignee: action.assignee,
+                  escalated: false,
+                  tzLabel: "London",
+                  tzOff: 1,
+                  messages: [{ from: s.role === "client" ? "client" : "studio", text: action.note, time: "Now", by: actorShort(s.role) }],
+                };
+                const task: Task = { id: taskId, title: action.title, description: action.note, project: action.client, assignee: action.assignee, owner: "studio", status: "todo", priority: "med", due: displayDate(), source: "inbox", sourceId: `snapshot-${ticketId}`, milestone: "Snapshot request" };
+                threads = [thread, ...threads];
+                tasks = [task, ...tasks];
+                ticketSeq += 1;
+                linkedTicket = { ticketId, threadId, taskId };
+                appliedReply += `\n\nRequest created: ${ticketId} · assigned to ${action.assignee}.`;
+              }
+            });
+            return {
+              ...current,
+              projectOverrides,
+              ticketSeq,
+              threads,
+              tasks,
+              progressChatSessions: current.progressChatSessions.map(session => session.id === nextSession.id ? { ...session, ...(linkedTicket ? { status: "sent" as const, ...linkedTicket } : {}), updatedAt: new Date().toISOString(), messages: session.messages.map(message => message.id === assistantId ? { ...message, text: appliedReply, pending: false, time: "Now" } : message) } : session),
+            };
+          });
+          if (chatActions.length) showToast(`${chatActions.length} workspace change${chatActions.length === 1 ? "" : "s"} applied`);
+        }).catch(error => {
+          setState(current => ({ ...current, progressChatSessions: current.progressChatSessions.map(session => session.id === nextSession.id ? { ...session, updatedAt: new Date().toISOString(), messages: session.messages.map(message => message.id === assistantId ? { ...message, text: error instanceof Error ? error.message : "Snapshot chat could not answer right now.", pending: false, error: true, time: "Now" } : message) } : session) }));
         });
       },
       sendProgressChatAsTicket: () => {

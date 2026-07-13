@@ -32,7 +32,7 @@ export function TopBar({ state, actions, onCollapse }: { state: PortalState; act
   const usesReplacementSidebar = !isMobile && state.guidedSidebarActive;
   const leadingControlSize = "2.05rem";
   const guidedInfo = !isMobile && (view === "funnels" || view === "audits_new") ? state.guidedTopBarInfo : null;
-  const showRoleSwitcher = !isMobile && !guidedInfo;
+  const showRoleSwitcher = state.canSwitchRoles && !isMobile && !guidedInfo;
 
   if (guidedInfo) {
     return (

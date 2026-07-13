@@ -1,12 +1,11 @@
 // Role-scoped, filter-aware derived lists shared across views.
 import { ALL_PROJECTS, MY_CLIENTS } from "./data";
-import { DEFAULT_CLIENT_NAME } from "./clients";
 import { clientJourneyMessaging, journeyStageSummary } from "./helpers";
 import type { PortalState } from "./store";
 import type { ClientProject, Owner, Priority, Task, View } from "./types";
 
 function syncProjectWithJourney(project: ClientProject, state: PortalState): ClientProject {
-  if (project.client !== DEFAULT_CLIENT_NAME) return project;
+  if (project.client !== state.clientName) return project;
 
   const { gate, stage, progress } = journeyStageSummary(state.journeyGates);
   if (!gate) return project;
@@ -20,9 +19,9 @@ function syncProjectWithJourney(project: ClientProject, state: PortalState): Cli
 }
 
 export function roleProjects(state: PortalState): ClientProject[] {
-  let src = ALL_PROJECTS.map(project => syncProjectWithJourney(project, state));
+  let src = ALL_PROJECTS.map(project => syncProjectWithJourney({ ...project, ...(state.projectOverrides?.[project.client] || {}) }, state));
   if (state.role === "dev") src = src.filter(p => MY_CLIENTS.includes(p.client));
-  if (state.role === "client") src = src.filter(p => p.client === DEFAULT_CLIENT_NAME);
+  if (state.role === "client") src = src.filter(p => p.client === state.clientName);
   const cf = state.clientFilter;
   return src.filter(p => (cf.service === "all" || p.service === cf.service) && (cf.health === "all" || p.health === cf.health));
 }
@@ -30,7 +29,7 @@ export function roleProjects(state: PortalState): ClientProject[] {
 export function roleTasks(state: PortalState): Task[] {
   let src = state.tasks;
   if (state.role === "dev") src = src.filter(t => t.assignee === "Kier Mangibin" || t.owner === "ai");
-  if (state.role === "client") src = src.filter(t => t.project === DEFAULT_CLIENT_NAME);
+  if (state.role === "client") src = src.filter(t => t.project === state.clientName);
   const tf = state.taskFilter;
   if (tf.owner !== "all") src = src.filter(t => (t.owner || "studio") === (tf.owner as Owner));
   if (tf.priority !== "all") src = src.filter(t => (t.priority || "med") === (tf.priority as Priority));
@@ -63,7 +62,7 @@ export function portalNotificationSummary(state: PortalState): { count: number; 
 
   if (state.role === "admin") {
     const items = [
-      DEFAULT_CLIENT_NAME + " is in " + stage + ".",
+      state.clientName + " is in " + stage + ".",
       openEscalations ? openEscalations + " escalation" + (openEscalations === 1 ? " needs" : "s need") + " attention." : "Escalations are clear.",
       unreadThreads ? unreadThreads + " inbox thread" + (unreadThreads === 1 ? " is" : "s are") + " unread." : "Inbox is clear.",
     ];
@@ -78,7 +77,7 @@ export function portalNotificationSummary(state: PortalState): { count: number; 
 
   const reviewReady = roleTasks(state).filter(task => task.status === "review").length;
   const items = [
-    DEFAULT_CLIENT_NAME + " is in " + stage + ".",
+    state.clientName + " is in " + stage + ".",
     reviewReady ? reviewReady + " task" + (reviewReady === 1 ? " is" : "s are") + " waiting for review." : "No tasks are waiting for review.",
     unreadThreads ? unreadThreads + " client thread" + (unreadThreads === 1 ? " has" : "s have") + " unread replies." : "No unread client replies.",
   ];

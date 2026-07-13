@@ -7,7 +7,7 @@ import { STUDIO_CLIENTS } from "../clients";
 import { emailSlug } from "../data";
 import type { PortalClientWorkspace } from "@/lib/portalWorkspacePersistence";
 
-export interface Know { data: Ans; sources: Record<string, string> }
+export interface Know { data: Ans; sources: Record<string, string>; notes?: Record<string, string> }
 
 // Richer captured facts on specific clients (onboarding + notes). Keys used here
 // mean the same thing in both audit & funnel flows — we avoid `name` because it is
@@ -23,6 +23,31 @@ const PROFILE_EXTRA: Record<string, Ans> = {
 // Session memory that audit/funnel answers feed into (kept in-module; would persist
 // to the client record in production).
 const RUNTIME: Record<string, Know> = {};
+const STORAGE_PREFIX = "baltazar:discovery-memory:";
+
+function persisted(clientId: string): Know {
+  if (typeof window === "undefined") return { data: {}, sources: {} };
+  try {
+    const value = JSON.parse(window.localStorage.getItem(STORAGE_PREFIX + clientId) || "null");
+    if (!value || typeof value !== "object" || Array.isArray(value)) return { data: {}, sources: {} };
+    return {
+      data: value.data && typeof value.data === "object" && !Array.isArray(value.data) ? value.data : {},
+      sources: value.sources && typeof value.sources === "object" && !Array.isArray(value.sources) ? value.sources : {},
+      notes: value.notes && typeof value.notes === "object" && !Array.isArray(value.notes) ? value.notes : {},
+    };
+  } catch { return { data: {}, sources: {} }; }
+}
+
+export function loadPersistedKnowledge(clientId: string): Know {
+  return persisted(clientId);
+}
+
+export function rememberKnowledge(clientId: string, delta: Know) {
+  const merged = mergeKnow(persisted(clientId), delta);
+  RUNTIME[clientId] = mergeKnow(RUNTIME[clientId] || { data: {}, sources: {} }, delta);
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(STORAGE_PREFIX + clientId, JSON.stringify(merged)); } catch { /* memory still works for this session */ }
+}
 
 function baselineFor(clientId: string): Know {
   const data: Ans = {};
@@ -30,7 +55,12 @@ function baselineFor(clientId: string): Know {
   const set = (k: string, v: string | string[]) => { data[k] = v; sources[k] = "Client profile"; };
   // Every client already has a website on file from onboarding.
   const client = STUDIO_CLIENTS.find(c => c.id === clientId);
-  if (client) { const domain = emailSlug(client.name) + ".com"; set("url", domain); set("domain", domain); }
+  if (client) {
+    const domain = emailSlug(client.name) + ".com";
+    set("brandName", client.name);
+    set("url", domain);
+    set("domain", domain);
+  }
   // Plus any richer captured facts.
   const extra = PROFILE_EXTRA[clientId];
   if (extra) Object.entries(extra).forEach(([k, v]) => set(k, v));
@@ -50,7 +80,10 @@ export function fromClientMemory(clientId: string, clientName: string, workspace
   const canonical = STUDIO_CLIENTS.find(client => client.id === clientId || client.name.toLowerCase() === clientName.trim().toLowerCase());
   if (!canonical) return { data: {}, sources: {} };
 
-  let memory: Know = { data: { name: canonical.name }, sources: { name: "Client workspace" } };
+  let memory: Know = {
+    data: { name: canonical.name, brandName: canonical.name },
+    sources: { name: "Client workspace", brandName: "Client workspace" },
+  };
   const primaryClient = workspace.collaborators.find(collaborator => !collaborator.studio);
   if (primaryClient?.email) memory = mergeKnow(memory, { data: { clientEmail: primaryClient.email }, sources: { clientEmail: "Client workspace" } });
 
@@ -77,16 +110,17 @@ export function fromClientMemory(clientId: string, clientName: string, workspace
 const nonEmpty = (v: string | string[] | undefined) => v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0);
 
 export function recordKnowledge(clientId: string, data: Ans, source: string) {
-  const run = RUNTIME[clientId] || (RUNTIME[clientId] = { data: {}, sources: {} });
+  const delta: Know = { data: {}, sources: {} };
   Object.entries(data).forEach(([k, v]) => {
     if (!nonEmpty(v)) return;
-    run.data[k] = v;
-    run.sources[k] = source;
+    delta.data[k] = v;
+    delta.sources[k] = source;
   });
+  rememberKnowledge(clientId, delta);
 }
 
 export function mergeKnow(a: Know, b: Know): Know {
-  return { data: { ...a.data, ...b.data }, sources: { ...a.sources, ...b.sources } };
+  return { data: { ...a.data, ...b.data }, sources: { ...a.sources, ...b.sources }, notes: { ...(a.notes || {}), ...(b.notes || {}) } };
 }
 
 // Heuristic "understanding" of a pasted brief → discovery answers. In production this

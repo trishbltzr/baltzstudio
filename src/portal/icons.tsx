@@ -65,6 +65,7 @@ const P: Record<string, Prim[]> = {
   layers: [["path", { d: "M12 3l9 5-9 5-9-5z" }], ["path", { d: "M3 13l9 5 9-5" }]],
   dots: [["circle", { cx: 6, cy: 12, r: 1.35 }], ["circle", { cx: 12, cy: 12, r: 1.35 }], ["circle", { cx: 18, cy: 12, r: 1.35 }]],
   ticket: [["path", { d: "M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z" }], ["path", { d: "M14 6v12" }]],
+  trash: [["path", { d: "M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" }]],
   hash: [["path", { d: "M9 4L7 20M17 4l-2 16M5 9h15M4 15h15" }]],
   funnel: [["path", { d: "M3 5h18l-7 8.2V20l-4-2.2v-4.6z" }]],
 };

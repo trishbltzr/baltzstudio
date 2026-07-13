@@ -4,6 +4,7 @@ import type { DiscoveryStage, DiscoveryTopic, DiscoveryIntroStep } from "./Disco
 export const FUNNEL_WIZARD: DiscoveryTopic[] = [
   { id: "you", num: "01", title: "About you", icon: "users", qs: [
     { key: "nickname", label: "What should we call you?", hint: "Your first name or nickname — we’ll use it throughout.", kind: "text", ph: "Name or nickname" },
+    { key: "brandName", label: "What’s your brand or business called?", hint: "We’ll keep your name and your brand separate throughout the plan.", kind: "text", ph: "Brand or business name" },
     { key: "clientEmail", label: "Best email for updates", hint: "Where we’ll send the drafts and the final brief.", kind: "text", ph: "you@company.com" },
   ] },
   { id: "goal", num: "02", title: "Goal & funnel type", icon: "target", qs: [
@@ -62,7 +63,7 @@ export const FUNNEL_INTRO_STEPS: DiscoveryIntroStep[] = [
 export const AUDIT_WIZARD: DiscoveryTopic[] = [
   { id: "you", num: "01", title: "About you", icon: "users", qs: [
     { key: "nickname", label: "What should we call you?", hint: "Your first name or nickname — we’ll use it throughout.", kind: "text", ph: "Name or nickname" },
-    { key: "name", label: "Business or site name", hint: "How the report will be titled.", kind: "text", ph: "Client business name" },
+    { key: "name", label: "Brand or business name", hint: "How the report will be titled — kept separate from your personal name.", kind: "text", ph: "Brand or business name" },
     { key: "url", label: "Website URL", kind: "text", ph: "Website URL" },
   ] },
   { id: "conv", num: "02", title: "Conversion Path", icon: "target", qs: [
@@ -94,7 +95,7 @@ export const AUDIT_WIZARD: DiscoveryTopic[] = [
 export const AUDIT_STAGES: DiscoveryStage[] = [
   { key: "discovery", label: "Audit intake", icon: "inbox" },
   { key: "report", label: "Audit report", icon: "chart" },
-  { key: "plan", label: "Action + brand plan", icon: "checklist" },
+  { key: "plan", label: "Action plan", icon: "checklist" },
 ];
 
 export const AUDIT_INTRO_STEPS: DiscoveryIntroStep[] = [

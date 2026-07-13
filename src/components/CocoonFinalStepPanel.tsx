@@ -56,6 +56,41 @@ export function CocoonConsultUpgradeCard({
   );
 }
 
+export function ContinueWithFunnelBuildingCard({ onContinue }: { onContinue: () => void }) {
+  const funnelBuildingBenefits = [
+    { title: "Bring your audit findings forward", detail: "Use the scored priorities as the source of truth instead of repeating the same discovery." },
+    { title: "Shape the conversion journey", detail: "Map the pages, actions, and handoffs that move the right visitor toward the next step." },
+    { title: "Create the build direction", detail: "Generate the copy direction, wireframe, and implementation brief for review." },
+  ];
+  return (
+    <div className="cocoon-step-card is-highlight is-numberless">
+      <div className="cocoon-step-card-body">
+        <strong className="cocoon-premium-name">Continue with funnel building</strong>
+        <p>Turn the completed audit into a focused conversion journey without starting discovery again.</p>
+        <div className="cocoon-inclusions">
+          <span className="cocoon-inclusions-label">What happens next:</span>
+          <ul className="cocoon-inclusions-list">
+            {funnelBuildingBenefits.map(item => (
+              <li key={item.title}>
+                <strong>{item.title}</strong>
+                <span>{item.detail}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="cocoon-premium-outcome">
+            <span>Included next step</span>
+            <strong>A build-ready funnel plan</strong>
+            <p>Continue into Funnel Building with the audit findings carried forward. No payment is required.</p>
+            <button type="button" onClick={onContinue} className="cocoon-outcome-cta">
+              Continue with funnel building <ArrowRight size={15} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function CocoonFinalStepPanel({
   callScheduled,
   scheduledMeeting,

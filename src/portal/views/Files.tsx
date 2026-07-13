@@ -5,7 +5,6 @@ import { Icon } from "../icons";
 import { css } from "../helpers";
 import { formatDashboardDate } from "@/lib/dateDisplay";
 import type { PortalActions, PortalState } from "../store";
-import { DEFAULT_CLIENT_NAME } from "../clients";
 
 const FOLDERS = [["all", "All files", 0], ["design", "Design Files", 0], ["brand", "Brand Assets", 0], ["deliverables", "Deliverables", 0]] as const;
 const FILES: { name: string; ext: string; folder: string; size: string; by: string; updated: string; status: string }[] = [];
@@ -14,7 +13,7 @@ export function Files({ state, actions }: { state: PortalState; actions: PortalA
   const [folder, setFolder] = useState("all");
   const inputRef = useRef<HTMLInputElement>(null);
   const active = FOLDERS.find(([k]) => k === folder);
-  const workspace = actions.workspaceForClient(DEFAULT_CLIENT_NAME);
+  const workspace = actions.workspaceForClient(state.clientName);
   const uploadedFiles = workspace.files.map(file => ({
     name: file.name,
     ext: file.ext,
@@ -33,11 +32,11 @@ export function Files({ state, actions }: { state: PortalState; actions: PortalA
       <aside style={css("border-right:1px solid var(--border-soft);background:var(--surface-alt);padding:1.1rem 0.9rem;display:flex;flex-direction:column;gap:0.15rem")}>
         <div style={css("font-size:0.62rem;letter-spacing:0.02em;color:var(--fg-faint);font-weight:500;padding:0 0.3rem 0.5rem")}>Folders</div>
         {FOLDERS.map(([k, label, count]) => (
-          <div key={k} onClick={() => setFolder(k)} className="pt-menuitem" style={css("display:flex;align-items:center;gap:0.55rem;padding:0.5rem 0.55rem;border-radius:var(--radius);cursor:pointer;font-size:var(--text-base);font-weight:500;color:var(--fg);" + (folder === k ? "background:var(--surface)" : ""))}>
+          <button type="button" key={k} onClick={() => setFolder(k)} className="pt-menuitem" style={css("width:100%;border:0;text-align:left;display:flex;align-items:center;gap:0.55rem;padding:0.5rem 0.55rem;border-radius:var(--radius);cursor:pointer;font:inherit;font-size:var(--text-base);font-weight:500;color:var(--fg);" + (folder === k ? "background:var(--surface)" : "background:transparent"))}>
             <span style={{ display: "grid", placeItems: "center", flexShrink: 0, color: "var(--fg-muted)" }}><Icon name="folder" size={16} /></span>
             <span style={css("flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{label}</span>
             <span style={css("font-size:var(--text-2xs);color:var(--fg-faint)")}>{folder === "all" ? allFiles.length : allFiles.filter(file => file.folder === k).length || count}</span>
-          </div>
+          </button>
         ))}
       </aside>
       <div style={css("display:flex;flex-direction:column;min-width:0")}>
@@ -66,10 +65,10 @@ export function Files({ state, actions }: { state: PortalState; actions: PortalA
               <div style={css("font-size:0.78rem;color:var(--fg-faint);max-width:20rem;line-height:1.4")}>Files shared in this folder will show up here — upload one below to get started.</div>
             </div>
           )}
-          <div onClick={() => inputRef.current?.click()} className="pt-softbtn" style={css("display:flex;align-items:center;gap:var(--space-4);margin-top:auto;padding:1rem 1.4rem;border-top:1px solid var(--border-soft);cursor:pointer")}>
+          <button type="button" onClick={() => inputRef.current?.click()} className="pt-softbtn" style={css("width:100%;border:0;text-align:left;background:transparent;color:inherit;font:inherit;display:flex;align-items:center;gap:var(--space-4);margin-top:auto;padding:1rem 1.4rem;border-top:1px solid var(--border-soft);cursor:pointer")}>
             <span style={css("width:2.4rem;height:2.4rem;border-radius:50%;background:oklch(0.94 0.004 50);color:var(--fg-muted);display:grid;place-items:center;flex-shrink:0")}><Icon name="file" size={15} /></span>
-            <div><div style={css("font-weight:500;font-size:0.85rem")}>Upload files or drag here</div><div style={css("font-size:var(--text-xs);color:var(--fg-faint);margin-top:0.1rem")}>Saved to {active?.[1]} · SVG, PDF, ZIP, images, documents</div></div>
-          </div>
+            <span style={css("display:block;min-width:0")}><span style={css("display:block;font-weight:500;font-size:0.85rem")}>Upload files or drag here</span><span style={css("display:block;font-size:var(--text-xs);color:var(--fg-faint);margin-top:0.1rem;line-height:1.4;overflow-wrap:anywhere")}>Saved to {active?.[1]} · SVG, PDF, ZIP, images, documents</span></span>
+          </button>
           <input
             ref={inputRef}
             type="file"
@@ -77,7 +76,7 @@ export function Files({ state, actions }: { state: PortalState; actions: PortalA
             hidden
             onChange={event => {
               if (!event.currentTarget.files?.length) return;
-              void actions.uploadPortalFiles({ clientName: DEFAULT_CLIENT_NAME, folder, files: event.currentTarget.files });
+              void actions.uploadPortalFiles({ clientName: state.clientName, folder, files: event.currentTarget.files });
               event.currentTarget.value = "";
             }}
           />

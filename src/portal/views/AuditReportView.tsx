@@ -548,7 +548,10 @@ export function AuditReportView({
     ? new Set()
     : new Set(importDrafts.map(draft => draft.sourceId || draft.title)));
   const importSelectedTasks = () => {
-    actions.bulkImportTasks(importDrafts.filter(draft => selectedImports.has(draft.sourceId || draft.title)));
+    const selected = importDrafts.filter(draft => selectedImports.has(draft.sourceId || draft.title));
+    actions.bulkImportTasks(selected.map(draft => state.role === "client"
+      ? { ...draft, assignee: "Client", owner: "client" as const }
+      : state.role === "dev" ? { ...draft, assignee: "Kier Mangibin", owner: "studio" as const } : draft));
     setImportOpen(false);
   };
 
@@ -563,9 +566,7 @@ export function AuditReportView({
           </div>
         )}
         <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2);flex-wrap:wrap;width:" + (mobile ? "100%" : "auto"))}>
-          {state.role !== "client" && (
-            <button type="button" onClick={() => setImportOpen(true)} className="pt-op" style={css("display:inline-flex;align-items:center;justify-content:center;gap:.4rem;height:2.1rem;padding:0 .85rem;border-radius:999px;border:none;background:var(--accent);color:#fff;font-size:.76rem;font-weight:500;cursor:pointer;flex:" + (mobile ? "1" : "0 0 auto"))}><Icon name="checkmark" size={13} />Import to To-do</button>
-          )}
+          <button type="button" onClick={() => setImportOpen(true)} className="pt-op" style={css("display:inline-flex;align-items:center;justify-content:center;gap:.4rem;height:2.1rem;padding:0 .85rem;border-radius:999px;border:none;background:var(--accent);color:#fff;font-size:.76rem;font-weight:500;cursor:pointer;flex:" + (mobile ? "1" : "0 0 auto"))}><Icon name="checkmark" size={13} />Import to To-do</button>
           <div style={css("display:inline-flex;gap:0.2rem;padding:0.2rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill);background:var(--surface-alt);width:" + (mobile ? "100%" : "auto"))}>
             <button
               type="button"
@@ -581,7 +582,7 @@ export function AuditReportView({
               aria-current={layout === "priority" ? "page" : undefined}
               style={css("appearance:none;border:none;cursor:pointer;font-size:0.76rem;font-weight:500;padding:0.32rem 0.72rem;border-radius:var(--radius-pill);flex:" + (mobile ? "1" : "0 0 auto") + ";" + (layout === "priority" ? "background:var(--fg);color:#fff" : "background:transparent;color:var(--fg-muted)"))}
             >
-              Action + brand plan
+              Action plan
             </button>
           </div>
         </div>
@@ -669,7 +670,6 @@ export function AuditReportView({
           </div>
 
           <div style={css("display:flex;flex-direction:column;gap:0.7rem;min-width:0")}>
-            <BrandAuditPanel themes={report.themes} mobile={mobile} />
             {!(showInlineProposal || initialProposalOpen) && <PriorityPlanCards themes={recommendationThemes} mobile={mobile} />}
             {(showInlineProposal || initialProposalOpen) && (
               <InlineAuditProposal

@@ -3,19 +3,10 @@
 import { useState } from "react";
 import { Icon } from "../icons";
 import { css } from "../helpers";
-import { MOBILE_PRIMARY_VIEWS, quickActionsForRole, runQuickAction } from "../navigation";
+import { MOBILE_PRIMARY_VIEWS, navItemMeta, quickActionsForRole, runQuickAction } from "../navigation";
 import { inboxUnread } from "../selectors";
 import type { PortalActions, PortalState } from "../store";
 import type { View } from "../types";
-
-// view → [label, icon]
-const NAV_META: Partial<Record<View, [string, string]>> = {
-  progress: ["Snapshot", "snapshot"], clients: ["Clients", "briefcase"], tasks: ["To-do's", "checklist"],
-  inbox: ["Inbox", "inbox"], audits_new: ["Audits", "audit"], funnels: ["Funnels", "funnel"], escalations: ["Escalations", "alert"],
-  activity: ["Activity", "activity"], team: ["Users", "users"], playbooks: ["Playbooks", "layers"],
-  billing: ["Billing", "wallet"], invoices: ["Invoices", "card"], review: ["Approvals", "flag"], milestones: ["Journey", "feather"],
-  audit: ["Audit", "audit"], files: ["Files", "file"], settings: ["Settings", "sliders"],
-};
 
 // Five equal slots: two nav items, a centered action, then two nav items.
 export function MobileTabBar({ state, actions, onLogout: _onLogout }: { state: PortalState; actions: PortalActions; onLogout: () => void }) {
@@ -33,13 +24,13 @@ export function MobileTabBar({ state, actions, onLogout: _onLogout }: { state: P
   const primaryRight = MOBILE_PRIMARY_VIEWS[role].slice(2);
   const trayItems = quickActionsForRole(role).slice(0, 5);
   const navItem = (id: View) => {
-    const m = NAV_META[id]!; const active = state.view === id; const badge = badgeFor(id);
+    const item = navItemMeta(id); const active = state.view === id; const badge = badgeFor(id);
     return (
-      <button key={id} onClick={() => go(id)} aria-current={active ? "page" : undefined} aria-label={m[0]} title={m[0]}
+      <button key={id} onClick={() => go(id)} aria-current={active ? "page" : undefined} aria-label={item.label} title={item.label}
         style={css("position:relative;flex:1;display:flex;align-items:center;justify-content:center;min-width:0;height:2.75rem;border:0;border-radius:999px;background:transparent;cursor:pointer;color:" + (active ? "var(--fg)" : "var(--fg-faint)") + ";transition:color .18s ease,transform .16s ease")}>
         <span style={css("width:calc(100% - 0.32rem);height:2.32rem;border-radius:999px;display:flex;align-items:center;justify-content:center;background:" + (active ? "color-mix(in srgb,var(--accent-soft) 62%,white 38%)" : "transparent") + ";transition:background .18s ease")}>
           <span style={css("position:relative;display:grid;place-items:center;width:1.45rem;height:1.45rem;flex-shrink:0")}>
-            <Icon name={m[1]} size={21} />
+            <Icon name={item.icon} size={21} />
             {badge != null && <span style={css("position:absolute;top:-0.52rem;right:-0.72rem;min-width:1rem;height:1rem;padding:0 0.25rem;border-radius:999px;background:var(--accent);color:#fff;font-size:0.56rem;font-weight:500;display:grid;place-items:center;box-shadow:0 0 0 2px var(--surface)")}>{badge > 9 ? "9+" : badge}</span>}
           </span>
         </span>

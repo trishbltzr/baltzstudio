@@ -72,3 +72,10 @@ export const STUDIO_CLIENTS: StudioClient[] = [
 });
 
 export const DEFAULT_CLIENT_NAME = STUDIO_CLIENTS[0].name;
+export const DEV_USER_NAME = "Kier Mangibin";
+
+export function clientsVisibleToRole(role: "admin" | "dev" | "client", clientName = DEFAULT_CLIENT_NAME) {
+  if (role === "client") return STUDIO_CLIENTS.filter(client => client.name === clientName);
+  if (role === "dev") return STUDIO_CLIENTS.filter(client => client.owner === DEV_USER_NAME);
+  return STUDIO_CLIENTS;
+}

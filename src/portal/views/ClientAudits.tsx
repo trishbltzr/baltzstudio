@@ -7,7 +7,6 @@ import { STUDIO_CLIENTS } from "../clients";
 import type { PortalActions, PortalState } from "../store";
 import { AuditReportView, getAuditReportDetail, getAuditReportSummary, recommendationPlan } from "./AuditReportView";
 
-const CLIENT_ID = STUDIO_CLIENTS[0].id;
 type AuditTheme = ReturnType<typeof getAuditReportDetail>["themes"][number];
 
 function auditBandColor(band: string) {
@@ -154,7 +153,7 @@ function AuditUpsellScreen({
 
 export function ClientAudits({ state, actions }: { state: PortalState; actions: PortalActions }) {
   const [reportOpen, setReportOpen] = useState(false);
-  const client = STUDIO_CLIENTS.find(item => item.id === CLIENT_ID) || STUDIO_CLIENTS[0];
+  const client = STUDIO_CLIENTS.find(item => item.name === state.clientName) || STUDIO_CLIENTS[0];
   if (!client.audited) {
     return <div style={css("padding:2.5rem 1rem;text-align:center;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);color:var(--fg-faint);font-size:0.8rem")}>No completed audit yet.</div>;
   }

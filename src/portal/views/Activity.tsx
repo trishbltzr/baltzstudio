@@ -4,20 +4,18 @@ import { useState } from "react";
 import { Icon } from "../icons";
 import { css } from "../helpers";
 import type { PortalState } from "../store";
-import { DEFAULT_CLIENT_NAME } from "../clients";
 
 const ACT_ICON: Record<string, string> = { gate: "flag", file: "file", wise: "wallet", task: "check", msg: "msg", audit: "search", access: "users" };
 const ACT_LANE: Record<string, string> = { gate: "var(--lane-gate)", file: "var(--fg-muted)", wise: "var(--lane-ai)", task: "var(--lane-studio)", msg: "var(--lane-client)", audit: "var(--cocoon)", access: "var(--accent)" };
 type ActivityRow = { who: string; act: string; obj: string; t: string; k: string };
 const ACTIVITY: ActivityRow[] = [];
 const FILTERS: [string, string][] = [["all", "All"], ["gate", "Milestones"], ["wise", "Payments"], ["task", "Tasks"], ["file", "Files"]];
-const CLIENT_PORTAL_NAME = DEFAULT_CLIENT_NAME;
 
 export function Activity({ state }: { state?: PortalState }) {
   const [filter, setFilter] = useState("all");
   const clientRows: ActivityRow[] = state?.role === "client"
     ? state.threads
-      .filter(thread => thread.clientName === CLIENT_PORTAL_NAME && !!thread.isTicket && thread.messages.some(message => message.from === "client"))
+      .filter(thread => thread.clientName === state.clientName && !!thread.isTicket && thread.messages.some(message => message.from === "client"))
       .map(thread => {
         const lastMessage = thread.messages.at(-1);
         return {

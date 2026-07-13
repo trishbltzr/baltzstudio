@@ -9,8 +9,7 @@ import type { PortalActions, PortalState } from "../store";
 import { FUNNEL_DEMO } from "../discovery/discoveryData";
 import { FunnelFlowHero, FUNNEL_PIPELINE, type FunnelDocs } from "../discovery/funnelPipeline";
 import { FunnelPlanPreviewModal, type FunnelPlanPost } from "../funnels/Funnels";
-
-const CLIENT_ID = STUDIO_CLIENTS[0].id;
+import { ClientPickerGrid } from "../components/ClientPickerGrid";
 
 function planFromRecord(record: PortalFunnelPlanRecord): FunnelPlanPost {
   return { ...record, content: record.content as FunnelDocs };
@@ -44,7 +43,7 @@ function goalFromType(type: string) {
 
 export function ClientFunnels({ state, actions }: { state: PortalState; actions: PortalActions }) {
   const [activePlan, setActivePlan] = useState<FunnelPlanPost | null>(null);
-  const client = STUDIO_CLIENTS.find(item => item.id === CLIENT_ID) || STUDIO_CLIENTS[0];
+  const client = STUDIO_CLIENTS.find(item => item.name === state.clientName) || STUDIO_CLIENTS[0];
   const workspace = mergePortalClientWorkspace(client.id, state.clientWorkspaces[client.id]);
   const funnelPlans = workspace.funnelPlans.map(planFromRecord);
   const funnels = useMemo(() => client.funnels.map(funnel => {
@@ -70,7 +69,50 @@ export function ClientFunnels({ state, actions }: { state: PortalState; actions:
   }), [client, funnelPlans]);
 
   if (funnels.length === 0) {
-    return <div style={css("padding:2.5rem 1rem;text-align:center;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);color:var(--fg-faint);font-size:0.8rem")}>No funnel plans yet.</div>;
+    const requestFunnel = () => {
+      actions.patch({ draft: `I'd like to start a funnel build for ${client.name}.` });
+      actions.setView("inbox");
+      actions.showToast("Message ready for the studio");
+    };
+    const cards = [{
+      id: client.id,
+      name: client.name,
+      subtitle: "Funnel build direction",
+      statusLabel: "Not started",
+      statusTone: "muted" as const,
+      stage: "Funnel builder",
+      progress: 0,
+      owner: client.owner,
+      due: "—",
+      headerAction: { label: `Request a funnel build for ${client.name}`, icon: "plus", onClick: requestFunnel },
+      showStatus: false,
+      showProgress: false,
+      showStage: false,
+      showMeta: false,
+      showFooter: false,
+      hero: <FunnelFlowHero direction="Funnel direction" goal="Build plan and conversion path" build="Not started" readyCount={0} />,
+      primaryLabel: "Request funnel",
+      onPrimary: requestFunnel,
+      secondaryLabel: "Message studio",
+      secondaryIcon: "msg",
+      onSecondary: requestFunnel,
+    }];
+    return (
+      <div style={css("box-sizing:border-box;width:100%;padding:" + (state.isMobile ? "1rem 0.9rem 1.5rem" : "1.6rem 2rem 2.4rem"))}>
+        <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap;padding:1rem 1.1rem;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);margin-bottom:1rem") }>
+          <div style={{ minWidth: 0 }}>
+            <span style={css("text-transform:uppercase;font-size:.68rem;font-weight:400;letter-spacing:.04em;line-height:1.2;display:block;color:var(--accent);margin-bottom:.45rem")}>Funnel build plans</span>
+            <h2 style={css("margin:0;font-size:1.22rem;font-weight:500;line-height:1.15")}>Start or review a funnel build</h2>
+            <p style={css("margin:.45rem 0 0;font-size:var(--text-base);color:var(--fg-muted);line-height:1.55;max-width:36rem")}>Request the funnel direction, conversion path, copy wireframe, and development plan before production begins.</p>
+          </div>
+          <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2);flex-wrap:wrap;flex-shrink:0") }>
+            <span style={css("display:inline-flex;align-items:center;gap:.35rem;padding:.45rem .75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:.73rem;color:var(--fg-muted)")}><span style={css("width:.42rem;height:.42rem;border-radius:50%;background:var(--accent)")}/>0 created</span>
+            <button type="button" onClick={requestFunnel} style={css("display:inline-flex;align-items:center;gap:.42rem;min-height:2.3rem;padding:0 .95rem;border:none;border-radius:999px;background:var(--accent);color:#fff;font-size:.78rem;font-weight:500;cursor:pointer")}><Icon name="plus" size={15}/>Request funnel</button>
+          </div>
+        </div>
+        <ClientPickerGrid countLabel="client" compact cards={cards} />
+      </div>
+    );
   }
 
   const latestPlan = funnels[0];
@@ -142,6 +184,7 @@ export function ClientFunnels({ state, actions }: { state: PortalState; actions:
           onClose={() => setActivePlan(null)}
           showToast={actions.showToast}
           showAiHandover={false}
+          onImportTasks={actions.bulkImportTasks}
         />
       )}
     </div>
