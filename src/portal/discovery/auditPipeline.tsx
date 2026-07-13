@@ -5,6 +5,8 @@ import { css } from "../helpers";
 import { ScoreGauge } from "../components/ScoreGauge";
 import { Icon } from "../icons";
 import type { Ans, Pipeline, StageRenderCtx, ProposalRenderCtx } from "./DiscoveryBuilder";
+import { auditPrioritiesFromEvidence, isAuditScoreResult, specificAuditCourseOfAction, type AuditCheckResult, type AuditIssue, type AuditScoreResult, type LighthouseRun } from "@/lib/auditChecklist";
+import { isAiStageResult } from "@/lib/aiStageGeneration";
 
 // ── scoring model (ported from Audit Builder) ──────────────────────────────────
 const AREAS = [
@@ -54,7 +56,7 @@ const catTrack = (score: number) => "color-mix(in srgb," + catColor(score) + " 1
 const badgeStyle = (score: number) => "font-size:0.62rem;font-weight:500;padding:0.15rem 0.5rem;border-radius:999px;background:color-mix(in srgb," + catColor(score) + " 14%,white 86%);color:" + catColor(score);
 const projFor = (score: number) => Math.min(96, score + Math.round((100 - score) * 0.66));
 
-export interface AuditCat { key: string; label: string; score: number; projected: number; gain: number; status: string; color: string; rec: string; findings: string[]; short: string }
+export interface AuditCat { key: string; label: string; score: number; projected: number; gain: number; status: string; color: string; rec: string; findings: string[]; short: string; issues?: AuditIssue[]; checks?: AuditCheckResult[]; passed?: number; failed?: number; unverified?: number; notApplicable?: number; strengths?: string[] }
 export interface AuditDocs { name: string; cats: AuditCat[]; overall: number; projected: number; uplift: number; strong: number; needWork: number; label: string; invest: string }
 
 export function buildAuditDocs(data: Ans): AuditDocs {
@@ -73,6 +75,25 @@ export function buildAuditDocs(data: Ans): AuditDocs {
   const label = overall < 50 ? "Needs attention" : (overall < 65 ? "Fair foundation" : (overall < 80 ? "Solid footing" : "Strong foundation"));
   const invest = "£" + ((needWork * 1200) + 1400).toLocaleString();
   return { name: (d.name as string) || "New audit", cats, overall, projected, uplift: projected - overall, strong, needWork, label, invest };
+}
+
+export function auditScoreToDocs(result: AuditScoreResult, fallbackName = "Website audit"): AuditDocs {
+  const cats = result.categories.map(category => {
+    const courseOfAction = specificAuditCourseOfAction(category);
+    const issues = category.issues.filter(issue => category.checks.some(check => check.status === "fail" && (check.id === issue.criterion || check.label === issue.criterion)));
+    return {
+      key: category.key, label: category.label, score: category.score, projected: Math.max(category.score, category.target),
+      gain: Math.max(0, category.target - category.score), status: catStatus(category.score), color: catColor(category.score),
+      rec: courseOfAction, findings: issues.map(issue => issue.finding), short: courseOfAction,
+      issues, checks: category.checks, passed: category.passed, failed: category.failed,
+      unverified: category.unverified, notApplicable: category.notApplicable, strengths: category.strengths,
+    };
+  });
+  const overall = result.overallScore;
+  const projected = Math.max(overall, result.targetScore);
+  const strong = cats.filter(category => category.score >= 65).length;
+  const label = overall < 50 ? "Needs attention" : overall < 65 ? "Fair foundation" : overall < 80 ? "Solid footing" : "Strong foundation";
+  return { name: result.title || fallbackName, cats, overall, projected, uplift: Math.max(0, projected - overall), strong, needWork: cats.length - strong, label, invest: "Scoped after review" };
 }
 
 // Deterministic score summary for a client card (mirrors the report's data-viz
@@ -96,7 +117,7 @@ export function AuditScoreHero({ summary, scored = true }: { summary: AuditScore
   const s = summary;
   if (!scored) {
     return (
-      <div style={css("border:1px dashed var(--border);border-radius:0.78rem;background:color-mix(in srgb,var(--surface-alt) 72%,var(--surface) 28%);padding:0.82rem 0.85rem;display:flex;align-items:center;gap:0.72rem")}>
+      <div style={css("min-height:6.65rem;box-sizing:border-box;border:1px dashed var(--border);border-radius:0.78rem;background:color-mix(in srgb,var(--surface-alt) 72%,var(--surface) 28%);padding:0.82rem 0.85rem;display:flex;align-items:center;gap:0.72rem")}>
         <div style={css("width:2rem;height:2rem;border-radius:0.62rem;border:1px dashed var(--border);display:grid;place-items:center;color:var(--fg-faint);flex-shrink:0")}><Icon name="chart" size={14} /></div>
         <div style={css("min-width:0")}><div style={css("font-size:0.86rem;font-weight:500")}>Not scored yet</div><div style={css("font-size:var(--text-xs);color:var(--fg-faint);margin-top:0.15rem;line-height:1.4")}>Run the intake to score six areas 0–100.</div></div>
       </div>
@@ -131,8 +152,6 @@ export function AuditScoreHero({ summary, scored = true }: { summary: AuditScore
 }
 
 // ── renderers ──────────────────────────────────────────────────────────────────
-const sec = (reveal: number, n: number) => reveal >= n;
-
 function CatCard({ c, accent, big }: { c: AuditCat; accent: string; big?: boolean }) {
   return (
     <div style={css("border:1px solid var(--border-soft);border-radius:16px;padding:" + (big ? "1.3rem 1.4rem" : "1rem 1.1rem") + ";display:flex;flex-direction:column;gap:0.65rem;background:var(--surface);animation:cocoonFade .34s ease both")}>
@@ -145,74 +164,125 @@ function CatCard({ c, accent, big }: { c: AuditCat; accent: string; big?: boolea
         <div style={css("display:flex;justify-content:space-between;align-items:center;margin-top:0.4rem;font-size:0.74rem")}><span style={css("color:var(--fg-muted)")}><span style={css("font-weight:500;color:var(--fg)")}>{c.score}</span> <span style={css("color:var(--success)")}>↗</span> target {c.projected}</span><span style={css("font-weight:500;color:var(--success)")}>+{c.gain}</span></div>
       </div>
       <div style={css("display:flex;flex-direction:column;gap:0.35rem")}>
-        {c.findings.map((f, i) => <div key={i} style={css("display:flex;gap:var(--space-2);font-size:0.79rem;color:var(--fg-muted);line-height:1.45")}><span style={css("width:0.32rem;height:0.32rem;border-radius:50%;background:" + c.color + ";margin-top:0.42rem;flex-shrink:0")} /><span style={css("flex:1;min-width:0")}>{f}</span></div>)}
+        {c.issues?.length ? c.issues.map((issue, i) => <article key={`${issue.criterion}-${i}`} style={css("border-top:1px solid var(--border-soft);padding-top:0.65rem;margin-top:0.15rem")}>
+          <div style={css("display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap")}><span style={css("font-size:0.63rem;font-weight:500;text-transform:uppercase;padding:0.16rem 0.45rem;border-radius:999px;background:" + (issue.severity === "critical" || issue.severity === "high" ? "var(--danger-soft)" : "var(--warn-soft)") + ";color:" + (issue.severity === "critical" || issue.severity === "high" ? "var(--danger)" : "var(--warn)"))}>{issue.severity}</span><strong style={css("font-size:0.8rem;font-weight:500")}>{issue.criterion}</strong></div>
+          <div style={css("font-size:0.82rem;color:var(--fg);line-height:1.45;margin-top:0.35rem")}>{issue.finding}</div>
+          <div style={css("font-size:0.75rem;color:var(--fg-muted);line-height:1.45;margin-top:0.25rem")}><span style={css("font-weight:500")}>Evidence:</span> {issue.evidence}</div>
+          {issue.sourceUrl && <div style={css("font-size:0.7rem;color:var(--fg-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:0.2rem")}>{issue.sourceUrl}</div>}
+          <div style={css("font-size:0.76rem;color:var(--fg-muted);line-height:1.45;margin-top:0.32rem")}><span style={css("font-weight:500;color:" + accent)}>Fix:</span> {issue.fix}</div>
+        </article>) : c.findings.map((f, i) => <div key={i} style={css("display:flex;gap:var(--space-2);font-size:0.79rem;color:var(--fg-muted);line-height:1.45")}><span style={css("width:0.32rem;height:0.32rem;border-radius:50%;background:" + c.color + ";margin-top:0.42rem;flex-shrink:0")} /><span style={css("flex:1;min-width:0")}>{f}</span></div>)}
       </div>
-      <div style={css("background:var(--surface-alt);border-radius:9px;padding:0.6rem 0.8rem;font-size:0.78rem;color:var(--fg-muted);line-height:1.45")}><span style={css("color:" + accent + ";font-weight:500")}>↗ Recommendation</span> — {c.rec}</div>
+      <div style={css("background:var(--surface-alt);border-radius:9px;padding:0.7rem 0.85rem;font-size:0.8rem;color:var(--fg-muted);line-height:1.5")}><span style={css("color:" + accent + ";font-weight:500")}>Course of action</span> — {c.rec}</div>
+      {!!c.strengths?.length && <details style={css("font-size:0.75rem;color:var(--fg-muted)")}><summary style={css("cursor:pointer;color:var(--fg-faint)")}>What is already working ({c.strengths.length})</summary><ul style={css("margin:0.45rem 0 0;padding-left:1.1rem;line-height:1.45")}>{c.strengths.map(strength => <li key={strength}>{strength}</li>)}</ul></details>}
     </div>
   );
 }
 
-function BrandDirectionPanel({ cats }: { cats: AuditCat[] }) {
-  const brandCats = cats.filter(cat => cat.key === "brand" || cat.key === "msg" || cat.key === "vis");
-  const brandScore = brandCats.length ? Math.round(brandCats.reduce((total, cat) => total + cat.score, 0) / brandCats.length) : 0;
+const checkTone = (status: AuditCheckResult["status"]) => status === "pass"
+  ? { label: "Passed", color: "var(--success)", bg: "var(--success-soft)", icon: "✓" }
+  : status === "fail" ? { label: "Failed", color: "var(--danger)", bg: "var(--danger-soft)", icon: "×" }
+    : status === "not_applicable" ? { label: "N/A", color: "var(--fg-muted)", bg: "var(--surface-alt)", icon: "–" }
+      : { label: "Unverified", color: "var(--warn)", bg: "var(--warn-soft)", icon: "?" };
+
+function PagesAudited({ pages, lighthouse }: { pages: string[]; lighthouse: LighthouseRun[] }) {
+  const lighthouseUrls = new Set(lighthouse.map(run => run.testedUrl));
   return (
-    <section data-brand-audit style={css("border:1px solid color-mix(in srgb,var(--cocoon) 24%,var(--border-soft) 76%);border-radius:16px;background:linear-gradient(135deg,color-mix(in srgb,var(--cocoon) 7%,white 93%),var(--surface));padding:1.15rem 1.25rem") }>
-      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem")}>
-        <div><div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--cocoon)")}>Brand audit</div><div style={css("font-size:1.05rem;font-weight:500;margin-top:0.3rem")}>Suggested brand direction</div><div style={css("font-size:0.76rem;color:var(--fg-muted);line-height:1.45;margin-top:0.25rem")}>Positioning, voice, and visual guidance to carry into the next version of the brand.</div></div>
-        <div style={css("min-width:4rem;padding:0.5rem 0.65rem;border:1px solid var(--border-soft);border-radius:0.78rem;background:rgba(255,255,255,.72);text-align:center")}><div style={css("font-size:1.2rem;font-weight:500;color:var(--cocoon)")}>{brandScore}</div><div style={css("font-size:0.6rem;color:var(--fg-faint)")}>brand score</div></div>
-      </div>
-      <div style={css("display:grid;grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));gap:0.55rem;margin-top:0.85rem")}>
-        {brandCats.map(cat => <div key={cat.key} style={css("padding:0.72rem 0.78rem;border:1px solid var(--border-soft);border-radius:0.8rem;background:rgba(255,255,255,.72)")}><div style={css("font-size:0.76rem;font-weight:500")}>{cat.label}</div><div style={css("font-size:0.73rem;color:var(--fg-muted);line-height:1.45;margin-top:0.35rem")}>{cat.rec}</div></div>)}
+    <section style={css("border:1px solid var(--border-soft);border-radius:16px;background:var(--surface);padding:1.05rem 1.15rem")}>
+      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem")}><div><div style={css("font-size:1rem;font-weight:500")}>Pages audited</div><div style={css("font-size:0.76rem;color:var(--fg-muted);margin-top:0.2rem")}>Every page used as evidence is listed here. Lighthouse performance was run on the marked page.</div></div><span style={css("font-size:0.72rem;color:var(--fg-muted);white-space:nowrap")}>{pages.length} pages</span></div>
+      <div style={css("display:flex;flex-direction:column;gap:0.42rem;margin-top:0.8rem")}>
+        {pages.map((page, index) => <div key={page} style={css("display:flex;align-items:center;gap:0.6rem;padding:0.55rem 0.65rem;border-radius:0.7rem;background:var(--surface-alt)")}><span style={css("width:1.35rem;height:1.35rem;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:1px solid var(--border-soft);font-size:0.65rem;color:var(--fg-muted);flex-shrink:0")}>{index + 1}</span><span style={css("min-width:0;flex:1;font-size:0.76rem;color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{page}</span>{lighthouseUrls.has(page) && <span style={css("font-size:0.62rem;font-weight:500;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:0.15rem 0.45rem;white-space:nowrap")}>Lighthouse tested</span>}</div>)}
       </div>
     </section>
   );
 }
 
-function OverallBand({ d, accent }: { d: AuditDocs; accent: string }) {
+function LighthouseReport({ runs }: { runs: LighthouseRun[] }) {
+  if (!runs.length) return <section style={css("border:1px solid var(--border-soft);border-radius:16px;background:var(--surface-alt);padding:1rem 1.1rem;font-size:0.78rem;color:var(--fg-muted)")}><strong style={css("display:block;color:var(--fg);font-weight:500")}>Google Lighthouse</strong><span style={css("display:block;margin-top:0.25rem")}>Lighthouse was unavailable for this run. Performance checks remain marked unverified.</span></section>;
+  const scoreColor = (score: number) => score >= 90 ? "var(--success)" : score >= 50 ? "var(--warn)" : "var(--danger)";
+  const metricLabels: Record<string, string> = { "first-contentful-paint": "FCP", "largest-contentful-paint": "LCP", "speed-index": "SI", "total-blocking-time": "TBT", "cumulative-layout-shift": "CLS" };
+  const metricIds = Object.keys(metricLabels);
   return (
-    <div style={css("display:grid;grid-template-columns:1fr 1fr;gap:0.7rem;animation:cocoonFade .4s ease both")}>
-      <div style={css("border:1px solid var(--border-soft);border-radius:14px;background:var(--surface);padding:1.1rem 1.3rem;display:flex;align-items:center;gap:1.1rem")}>
-        <ScoreGauge score={d.overall} color="var(--success)" track="color-mix(in srgb,var(--success) 13%,white 87%)" size={64} stroke={5}
-          label={<span style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1 }}><span style={{ fontSize: "1.4rem", fontWeight: 500 }}>{d.overall}</span><span style={{ fontSize: "0.52rem", color: "var(--fg-faint)" }}>/100</span></span>} />
-        <div style={css("min-width:0")}>
-          <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint)")}>Overall today</div>
-          <div style={css("font-size:1.2rem;font-weight:500;margin-top:0.12rem")}>{d.label}</div>
-          <div style={css("display:flex;gap:0.4rem;margin-top:0.5rem;flex-wrap:wrap")}>
-            <span style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:0.68rem;font-weight:500;padding:0.2rem 0.6rem;border-radius:999px;background:var(--success-soft);color:var(--success)")}><span style={css("width:0.32rem;height:0.32rem;border-radius:50%;background:var(--success)")} />{d.strong} strong</span>
-            <span style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:0.68rem;font-weight:500;padding:0.2rem 0.6rem;border-radius:999px;background:var(--warn-soft);color:var(--warn)")}><span style={css("width:0.32rem;height:0.32rem;border-radius:50%;background:var(--warn)")} />{d.needWork} need work</span>
+    <section style={css("border:1px solid var(--border-soft);border-radius:16px;background:var(--surface);padding:1.1rem 1.15rem")}>
+      <div><div style={css("font-size:1rem;font-weight:500")}>Google Lighthouse lab report</div><div style={css("font-size:0.76rem;color:var(--fg-muted);margin-top:0.2rem;line-height:1.45")}>Official PageSpeed Insights Lighthouse data. Lab values are estimates and can vary between runs.</div></div>
+      <div style={css("display:flex;flex-direction:column;gap:0.8rem;margin-top:0.9rem")}>
+        {runs.map(run => <article key={run.strategy} style={css("border:1px solid var(--border-soft);border-radius:13px;padding:0.85rem 0.9rem")}>
+          <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.7rem")}><strong style={css("font-size:0.85rem;font-weight:500;text-transform:capitalize")}>{run.strategy}</strong><span style={css("font-size:0.66rem;color:var(--fg-faint)")}>Lighthouse {run.lighthouseVersion}</span></div>
+          <div style={css("display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0.55rem;margin-top:0.75rem")}>
+            {[["Performance", run.scores.performance], ["Accessibility", run.scores.accessibility], ["Best practices", run.scores.bestPractices], ["SEO", run.scores.seo]].map(([label, value]) => <div key={String(label)} style={css("text-align:center;padding:0.6rem 0.35rem;border-radius:0.7rem;background:var(--surface-alt)")}><div style={css("width:2.55rem;height:2.55rem;margin:0 auto;border-radius:50%;display:grid;place-items:center;border:3px solid " + scoreColor(Number(value)) + ";font-size:0.78rem;font-weight:500;color:" + scoreColor(Number(value)))}>{value}</div><div style={css("font-size:0.64rem;color:var(--fg-muted);margin-top:0.35rem;line-height:1.2")}>{label}</div></div>)}
           </div>
-        </div>
+          <div style={css("display:grid;grid-template-columns:repeat(5,minmax(5.5rem,1fr));gap:0.4rem;margin-top:0.65rem;overflow-x:auto;padding-bottom:0.1rem")}>
+            {metricIds.map(metricId => { const metric = run.metrics.find(item => item.id === metricId); return <div key={metricId} style={css("min-width:5.5rem;text-align:center;padding:0.55rem 0.45rem;border:1px solid var(--border-soft);border-radius:0.7rem;background:var(--surface-alt)")}><div style={css("font-size:0.64rem;font-weight:500;color:var(--fg-faint)")}>{metricLabels[metricId]}</div><div style={css("font-size:0.75rem;font-weight:500;color:var(--fg);margin-top:0.2rem")}>{metric?.displayValue || "—"}</div></div>; })}
+          </div>
+          {!!run.insights?.length && <div style={css("border-top:1px solid var(--border-soft);margin-top:0.75rem;padding-top:0.7rem")}><div style={css("font-size:0.68rem;font-weight:500;color:var(--fg)")}>Insights from this lab report</div><div style={css("display:flex;flex-direction:column;gap:0.45rem;margin-top:0.5rem")}>{run.insights.slice(0, 5).map(insight => <div key={insight.id} style={css("display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0.6rem;align-items:start;padding:0.55rem 0.6rem;border-radius:0.7rem;background:var(--surface-alt)")}><div><div style={css("font-size:0.72rem;font-weight:500")}>{insight.title}</div><div style={css("font-size:0.67rem;color:var(--fg-muted);line-height:1.4;margin-top:0.18rem")}>{insight.description}</div></div><span style={css("font-size:0.61rem;font-weight:500;color:" + scoreColor(insight.score) + ";white-space:nowrap")}>{insight.displayValue || `${insight.score}/100`}</span></div>)}</div></div>}
+        </article>)}
       </div>
-      <div style={css("border:1px solid var(--border-soft);border-radius:14px;background:var(--surface-alt);padding:1.1rem 1.3rem;display:flex;flex-direction:column;justify-content:center")}>
-        <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-2)")}>
-          <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint);max-width:11rem")}>Projected after a done-for-you sprint</div>
-          <div style={css("text-align:right;flex-shrink:0")}><div style={css("font-size:var(--text-base);font-weight:500;color:var(--success);line-height:1")}>+{d.uplift}</div><div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint)")}>points</div></div>
-        </div>
-        <div style={css("display:flex;align-items:baseline;gap:var(--space-2);margin-top:0.5rem")}><span style={css("font-size:1.05rem;color:var(--fg-muted)")}>{d.overall}</span><span style={css("color:var(--success)")}>↗</span><span style={css("font-size:var(--text-4xl);font-weight:500;color:var(--success);line-height:1")}>{d.projected}</span></div>
-        <div style={css("height:0.4rem;border-radius:999px;background:oklch(0.9 0.008 50);margin-top:0.7rem;overflow:hidden")}><div style={css("height:100%;border-radius:999px;background:var(--success);width:" + d.projected + "%")} /></div>
-      </div>
-    </div>
+    </section>
   );
 }
 
-function NeedCallout({ d, accent, onSeePlan }: { d: AuditDocs; accent: string; onSeePlan: () => void }) {
-  if (!d.needWork) return null;
-  const msg = (d.needWork === 1 ? "One area is" : d.needWork + " areas are") + " holding your score back. A one-week sprint tackles " + (d.needWork === 1 ? "it" : "them") + " first.";
+function ChecklistScoreCard({ category }: { category: AuditScoreResult["categories"][number] }) {
+  const color = catColor(category.score);
   return (
-    <div style={css("display:flex;align-items:center;gap:var(--space-4);flex-wrap:wrap;border:1px solid var(--accent-dim);border-radius:12px;background:color-mix(in srgb," + accent + " 8%,white 92%);padding:0.85rem 1.1rem")}>
-      <div style={css("flex:1;min-width:12rem;font-size:0.86rem;line-height:1.45")}>{msg}</div>
-      <button type="button" onClick={onSeePlan} className="pt-op" style={css("border:none;border-radius:var(--radius-pill);background:var(--fg);color:var(--surface);padding:0.55rem 1.2rem;font-size:var(--text-base);font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap")}>See your plan ↗</button>
-    </div>
+    <section style={css("border:1px solid var(--border-soft);border-radius:16px;background:var(--surface);overflow:hidden")}>
+      <div style={css("padding:1rem 1.1rem;border-bottom:1px solid var(--border-soft)")}>
+        <div style={css("display:flex;align-items:center;gap:0.75rem")}><ScoreGauge score={category.score} color={color} track={catTrack(category.score)} size={46} stroke={4} labelSize="0.78rem"/><div style={css("min-width:0;flex:1")}><div style={css("font-size:1rem;font-weight:500")}>{category.label}</div><div style={css("font-size:0.72rem;color:var(--fg-muted);margin-top:0.2rem")}>{category.scoreFormula}</div></div></div>
+        <div style={css("display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.75rem")}>{[[category.passed,"Passed","var(--success)","var(--success-soft)"],[category.failed,"Failed","var(--danger)","var(--danger-soft)"],[category.unverified,"Unverified","var(--warn)","var(--warn-soft)"],[category.notApplicable,"N/A","var(--fg-muted)","var(--surface-alt)"]].map(([count,label,tone,bg]) => <span key={String(label)} style={css("font-size:0.66rem;font-weight:500;color:" + tone + ";background:" + bg + ";border-radius:999px;padding:0.2rem 0.5rem")}>{count} {label}</span>)}</div>
+      </div>
+      <div style={css("display:flex;flex-direction:column")}>
+        {category.checks.map(check => { const tone = checkTone(check.status); return <div key={check.id} style={css("display:grid;grid-template-columns:1.55rem minmax(0,1fr) auto;gap:0.6rem;align-items:start;padding:0.7rem 1rem;border-bottom:1px solid var(--border-soft)")}><span style={css("width:1.45rem;height:1.45rem;border-radius:50%;display:grid;place-items:center;background:" + tone.bg + ";color:" + tone.color + ";font-size:0.75rem;font-weight:500")}>{tone.icon}</span><div style={css("min-width:0")}><div style={css("font-size:0.78rem;font-weight:500;line-height:1.4")}>{check.label}</div><div style={css("font-size:0.7rem;color:var(--fg-muted);line-height:1.45;margin-top:0.22rem")}>{check.evidence}</div>{check.sourceUrl && <div style={css("font-size:0.64rem;color:var(--fg-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:0.18rem")}>{check.sourceUrl}</div>}</div><span style={css("font-size:0.61rem;font-weight:500;color:" + tone.color + ";background:" + tone.bg + ";border-radius:999px;padding:0.16rem 0.42rem;white-space:nowrap")}>{tone.label}</span></div>; })}
+      </div>
+    </section>
+  );
+}
+
+function LighthouseRecommendations({ runs }: { runs: LighthouseRun[] }) {
+  const categoryActions = [
+    { key: "performance" as const, label: "Performance", action: "Prioritize the slowest loading metrics, compress heavy media, reduce render-blocking work, and retest mobile first." },
+    { key: "accessibility" as const, label: "Accessibility", action: "Resolve Lighthouse accessibility failures, then manually verify keyboard navigation, labels, focus, and contrast." },
+    { key: "bestPractices" as const, label: "Best practices", action: "Fix browser-console, security, image, and deprecated-API findings reported by Lighthouse." },
+    { key: "seo" as const, label: "Technical SEO", action: "Resolve Lighthouse SEO failures, then validate metadata, crawlability, canonical URLs, and structured data." },
+  ];
+  const categoryRecommendations = categoryActions.map(item => {
+    const scored = runs.map(run => ({ strategy: run.strategy, score: run.scores[item.key] }));
+    const lowest = scored.sort((left, right) => left.score - right.score)[0];
+    return lowest && lowest.score < 90 ? { id: item.key, title: item.label, action: item.action, ...lowest } : null;
+  }).filter((item): item is NonNullable<typeof item> => !!item);
+  const detailedById = new Map<string, { id: string; title: string; action: string; strategy: "mobile" | "desktop"; score: number }>();
+  runs.forEach(run => (run.insights || []).forEach(insight => {
+    const current = detailedById.get(insight.id);
+    if (!current || insight.score < current.score) detailedById.set(insight.id, { id: insight.id, title: insight.title, action: insight.description, strategy: run.strategy, score: insight.score });
+  }));
+  const detailedRecommendations = [...detailedById.values()].sort((left, right) => left.score - right.score).slice(0, 8);
+  const recommendations = detailedRecommendations.length ? detailedRecommendations : categoryRecommendations;
+  return (
+    <section style={css("border:1px solid color-mix(in srgb,#6b5bd2 24%,var(--border-soft) 76%);border-radius:16px;background:color-mix(in srgb,#6b5bd2 5%,white 95%);padding:1.15rem 1.25rem") }>
+      <div style={css("font-size:0.68rem;text-transform:uppercase;letter-spacing:.04em;color:#6b5bd2")}>Lighthouse recommendations</div>
+      <h3 style={css("margin:0.25rem 0 0;font-size:1.05rem;font-weight:500")}>Technical actions from mobile and desktop testing</h3>
+      {!runs.length ? <p style={css("margin:0.55rem 0 0;font-size:0.76rem;color:var(--fg-muted);line-height:1.5")}>Lighthouse did not return a result, so no Lighthouse recommendation is being presented as verified. Run the technical test again before completing this section.</p> : recommendations.length ? (
+        <div style={css("display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:0.6rem;margin-top:0.8rem") }>
+          {recommendations.map(item => <article key={item.id} style={css("border:1px solid var(--border-soft);border-radius:0.85rem;background:var(--surface);padding:0.75rem 0.8rem") }><div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.5rem")}><strong style={css("font-size:0.8rem;font-weight:500")}>{item.title}</strong><span style={css("font-size:0.68rem;font-weight:500;color:" + catColor(item.score))}>{item.strategy} {item.score}/100</span></div><p style={css("margin:0.35rem 0 0;font-size:0.72rem;color:var(--fg-muted);line-height:1.45")}>{item.action}</p></article>)}
+        </div>
+      ) : <p style={css("margin:0.55rem 0 0;font-size:0.76rem;color:var(--fg-muted)")}>All recorded Lighthouse categories scored at least 90. Keep monitoring them after implementation changes.</p>}
+    </section>
   );
 }
 
 function renderStage(ctx: StageRenderCtx): ReactNode {
-  const { stageKey, docs, reveal, accent, onAdvance } = ctx;
-  const d = docs as AuditDocs;
+  const { stageKey, docs, reveal, accent } = ctx;
+  const fallback = docs as AuditDocs;
+  const scoreResult = isAuditScoreResult(ctx.aiResult) ? ctx.aiResult : isAuditScoreResult(ctx.aiResults.report) ? ctx.aiResults.report : null;
+  const d = scoreResult ? auditScoreToDocs(scoreResult, fallback.name) : fallback;
 
   if (stageKey === "report") {
-    const showOverall = sec(reveal, 1);
-    const catsShown = reveal === Number.POSITIVE_INFINITY ? d.cats : d.cats.slice(0, Math.max(0, reveal - 1));
+    if (!scoreResult) return <div style={css("padding:1rem;color:var(--fg-muted)")}>Generate the checklist report to see the scoring evidence.</div>;
+    const totalPassed = scoreResult.categories.reduce((sum, category) => sum + category.passed, 0);
+    const totalFailed = scoreResult.categories.reduce((sum, category) => sum + category.failed, 0);
+    const totalUnverified = scoreResult.categories.reduce((sum, category) => sum + category.unverified, 0);
+    const applicableChecks = scoreResult.applicableChecks ?? totalPassed + totalFailed + totalUnverified;
+    const verifiedChecks = scoreResult.verifiedChecks ?? totalPassed + totalFailed;
+    const evidenceCoverage = scoreResult.evidenceCoverage ?? (applicableChecks ? Math.round((verifiedChecks / applicableChecks) * 100) : 0);
+    const coverageThreshold = scoreResult.coverageThreshold ?? 75;
+    const reliable = evidenceCoverage >= coverageThreshold;
     return (
       <div style={css("display:flex;flex-direction:column;gap:1.1rem")}>
         {reveal === Number.POSITIVE_INFINITY && (
@@ -220,22 +290,42 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
             <button type="button" onClick={ctx.onDownload} className="pt-softbtn" style={css("display:inline-flex;align-items:center;gap:0.4rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);padding:0.42rem 0.95rem;font-size:0.78rem;font-weight:500;cursor:pointer;font-family:inherit")}>⤢ Preview &amp; download PDF</button>
           </div>
         )}
-        {showOverall && <OverallBand d={d} accent={accent} />}
-        {showOverall && <NeedCallout d={d} accent={accent} onSeePlan={onAdvance} />}
-        {reveal === Number.POSITIVE_INFINITY && <BrandDirectionPanel cats={d.cats} />}
-        <div style={css("display:grid;grid-template-columns:1fr;gap:var(--space-3)")}>
-          {catsShown.map(c => <CatCard key={c.key} c={c} accent={accent} />)}
-        </div>
+        <section style={css("display:grid;grid-template-columns:" + (ctx.mobile ? "1fr" : "repeat(2,minmax(0,1fr))") + ";gap:0.8rem")}>
+          <article style={css("border:1px solid var(--border-soft);border-radius:16px;background:var(--surface);padding:1.15rem 1.25rem;display:flex;align-items:center;gap:1.1rem;flex-wrap:wrap")}>
+          <ScoreGauge score={scoreResult.overallScore} color={catColor(scoreResult.overallScore)} track={catTrack(scoreResult.overallScore)} size={76} stroke={5} label={<span style={{display:"flex",flexDirection:"column",alignItems:"center",lineHeight:1}}><span style={{fontSize:"1.4rem",fontWeight:500}}>{scoreResult.overallScore}</span><span style={{fontSize:"0.52rem",color:"var(--fg-faint)"}}>/100</span></span>}/>
+          <div style={css("min-width:12rem;flex:1")}><div style={css("display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap")}><span style={css("font-size:0.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--cocoon)")}>Internal audit report</span><span style={css("font-size:0.62rem;font-weight:500;border-radius:999px;padding:0.16rem 0.45rem;background:" + (reliable ? "var(--success-soft)" : "var(--warn-soft)") + ";color:" + (reliable ? "var(--success)" : "var(--warn)"))}>{reliable ? "Reliable score" : "Provisional score"}</span></div><div style={css("font-size:1.05rem;font-weight:500;margin-top:0.2rem")}>Our guidelines score</div><div style={css("font-size:0.78rem;color:var(--fg-muted);line-height:1.5;margin-top:0.3rem")}>Calculated only from the original checklist: passed ÷ passed plus failed. Lighthouse never changes this score.</div><div style={css("font-size:0.72rem;font-weight:500;color:" + (reliable ? "var(--success)" : "var(--warn)") + ";margin-top:0.45rem")}>{evidenceCoverage}% evidence coverage · {verifiedChecks} of {applicableChecks} applicable checks verified</div><div style={css("display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.6rem")}><span style={css("font-size:0.67rem;color:var(--success);background:var(--success-soft);border-radius:999px;padding:0.2rem 0.5rem")}>{totalPassed} passed</span><span style={css("font-size:0.67rem;color:var(--danger);background:var(--danger-soft);border-radius:999px;padding:0.2rem 0.5rem")}>{totalFailed} failed</span><span style={css("font-size:0.67rem;color:var(--warn);background:var(--warn-soft);border-radius:999px;padding:0.2rem 0.5rem")}>{totalUnverified} unverified</span></div></div>
+          </article>
+          <article style={css("border:1px solid var(--border-soft);border-radius:16px;background:var(--surface);padding:1.15rem 1.25rem")}>
+            <div style={css("font-size:0.68rem;text-transform:uppercase;letter-spacing:.04em;color:#6b5bd2")}>Lighthouse report</div><div style={css("font-size:1.05rem;font-weight:500;margin-top:0.2rem")}>Separate technical scores</div><div style={css("font-size:0.78rem;color:var(--fg-muted);line-height:1.5;margin-top:0.3rem")}>Mobile and desktop stay independent so one result cannot hide the other.</div>
+            <div style={css("display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.55rem;margin-top:0.8rem")}>{(["mobile","desktop"] as const).map(strategy => { const run = scoreResult.lighthouse.find(item => item.strategy === strategy); return <div key={strategy} style={css("border:1px solid var(--border-soft);border-radius:0.8rem;background:var(--surface-alt);padding:0.65rem 0.75rem")}><div style={css("font-size:0.64rem;text-transform:capitalize;color:var(--fg-faint)")}>{strategy}</div><div style={css("font-size:1.25rem;font-weight:500;margin-top:0.12rem")}>{run ? run.scores.performance : "—"}<span style={css("font-size:0.62rem;color:var(--fg-faint)")}> /100 performance</span></div></div>; })}</div>
+          </article>
+        </section>
+        <PagesAudited pages={scoreResult.pagesReviewed} lighthouse={scoreResult.lighthouse}/>
+        <div><div style={css("font-size:1.05rem;font-weight:500")}>Lighthouse technical report</div><div style={css("font-size:0.76rem;color:var(--fg-muted);margin-top:0.2rem")}>Independent technical measurements. These numbers do not affect the internal checklist score.</div></div>
+        <LighthouseReport runs={scoreResult.lighthouse}/>
+        <div style={css("display:flex;align-items:end;justify-content:space-between;gap:1rem;margin-top:0.2rem")}><div><div style={css("font-size:1.05rem;font-weight:500")}>Original Audit Checklist results</div><div style={css("font-size:0.76rem;color:var(--fg-muted);margin-top:0.2rem")}>Every item from the reference checklist is shown below with its evidence and scoring status.</div></div></div>
+        <div style={css("display:grid;grid-template-columns:1fr;gap:var(--space-3)")}>{scoreResult.categories.map(category => <ChecklistScoreCard key={category.key} category={category}/>)}</div>
       </div>
     );
   }
 
   // action plan
+  const planResult = isAiStageResult(ctx.aiResult) ? ctx.aiResult : null;
+  const evidencePriorities = scoreResult ? auditPrioritiesFromEvidence(scoreResult.categories) : [];
   const need = d.cats.filter(c => c.score < 65).sort((a, b) => a.score - b.score);
   const strong = d.cats.filter(c => c.score >= 65);
   const needShown = reveal === Number.POSITIVE_INFINITY ? need : need.slice(0, reveal);
   return (
     <div style={css("display:flex;flex-direction:column;gap:1.2rem")}>
+      <section style={css("border:1px solid color-mix(in srgb," + accent + " 24%,var(--border-soft) 76%);border-radius:16px;background:color-mix(in srgb," + accent + " 5%,white 95%);padding:1.2rem 1.3rem")}>
+        <div style={css("font-size:0.68rem;text-transform:uppercase;letter-spacing:.04em;color:" + accent)}>Action plan</div>
+        <h3 style={css("margin:0.25rem 0 0;font-size:1.15rem;font-weight:500")}>Priority action plan</h3>
+        <p style={css("margin:0.3rem 0 0;font-size:0.78rem;color:var(--fg-muted);line-height:1.5")}>Start here. These actions are ordered by impact so the team can move from findings to implementation.</p>
+        <div style={css("display:flex;flex-direction:column;gap:0.6rem;margin-top:0.9rem")}>
+          {(scoreResult ? evidencePriorities : planResult?.recommendations.map(item => ({ title: item.title, why: item.rationale, action: item.action })) || []).map((priority, index) => <article key={priority.title} style={css("display:grid;grid-template-columns:1.65rem minmax(0,1fr);gap:0.65rem;border:1px solid var(--border-soft);border-radius:0.85rem;background:var(--surface);padding:0.75rem 0.8rem")}><span style={css("width:1.55rem;height:1.55rem;border-radius:50%;display:grid;place-items:center;background:" + accent + ";color:#fff;font-size:0.68rem;font-weight:500")}>{index + 1}</span><div><div style={css("font-size:0.82rem;font-weight:500")}>{priority.title}</div><div style={css("font-size:0.73rem;color:var(--fg-muted);line-height:1.45;margin-top:0.2rem")}>{priority.why}</div><div style={css("font-size:0.73rem;line-height:1.45;margin-top:0.28rem")}><strong style={css("font-weight:500;color:" + accent)}>Action: </strong>{priority.action}</div></div></article>)}
+        </div>
+      </section>
+      <LighthouseRecommendations runs={scoreResult?.lighthouse || []} />
       <div style={css("display:grid;grid-template-columns:1fr;gap:1.1rem;align-items:stretch")}>
         <div style={css("border:1px solid var(--border-soft);border-radius:16px;background:var(--surface);padding:1.4rem 1.5rem;display:flex;align-items:center;gap:1.4rem")}>
           <ScoreGauge score={d.overall} color="var(--success)" track="color-mix(in srgb,var(--success) 13%,white 87%)" size={80} stroke={5}
@@ -248,7 +338,6 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
         </div>
       </div>
       <div style={css("display:flex;flex-direction:column;gap:var(--space-4)")}>
-        <BrandDirectionPanel cats={d.cats} />
         {needShown.map(c => <CatCard key={c.key} c={c} accent={accent} big />)}
       </div>
       {reveal === Number.POSITIVE_INFINITY && strong.length > 0 && (
@@ -272,7 +361,8 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
 }
 
 function renderProposal(ctx: ProposalRenderCtx): ReactNode {
-  const d = ctx.docs as AuditDocs;
+  const fallback = ctx.docs as AuditDocs;
+  const d = isAuditScoreResult(ctx.aiResults.report) ? auditScoreToDocs(ctx.aiResults.report, fallback.name) : fallback;
   return (
     <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden;animation:cocoonFade .4s ease both")}>
       <div style={css("padding:1.6rem 1.7rem 1.4rem;border-bottom:1px solid var(--border-soft)")}>
@@ -297,10 +387,10 @@ function renderProposal(ctx: ProposalRenderCtx): ReactNode {
 
 function introPreview(): ReactNode {
   const cats = [
-    { label: "Conversion Path", score: 48, color: "var(--danger)" },
-    { label: "Website Experience", score: 55, color: "var(--warn)" },
-    { label: "Messaging & Voice", score: 61, color: "var(--warn)" },
-    { label: "Visual Identity", score: 78, color: "var(--success)" },
+    { label: "Content", score: 48, color: "var(--danger)" },
+    { label: "Design & Typography", score: 55, color: "var(--warn)" },
+    { label: "Navigation & Structure", score: 61, color: "var(--warn)" },
+    { label: "Accessibility", score: 68, color: "var(--success)" },
   ];
   return (
     <div style={css("position:absolute;top:1.5rem;left:1.5rem;right:-2.5rem;bottom:-1.4rem;background:#fff;border:1px solid var(--border-soft);border-radius:12px 0 0 0;box-shadow:0 24px 60px -30px rgba(60,40,30,0.5);padding:1.2rem 1.4rem;display:flex;flex-direction:column;overflow:hidden")}>
@@ -328,10 +418,10 @@ function introPreview(): ReactNode {
 }
 
 const STAGE_PROMPT: Record<string, string> = {
-  report: "Score all six areas with AI, drawn from everything you shared in intake.",
-  plan: "Turn the findings into a prioritised action plan and a suggested brand direction.",
+  report: "Rescan the website and score all six Audit Checklist categories. Every issue will include evidence, the affected page, and a specific fix.",
+  plan: "Turn the internal audit findings and Lighthouse results into a prioritised implementation action plan.",
 };
-const STAGE_CTA: Record<string, string> = { report: "Score my site", plan: "Build action + brand plan" };
+const STAGE_CTA: Record<string, string> = { report: "Score my site", plan: "Build action plan" };
 
 export const AUDIT_PIPELINE: Pipeline = {
   railTitle: "Audit pipeline",

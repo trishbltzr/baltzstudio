@@ -193,7 +193,7 @@ function ClientCard({ c, compact }: { c: ClientCardData; compact: boolean }) {
                 const hasActions = !!row.actions?.length;
                 const active = hasActions && activeDetailId === row.id;
                 return (
-                  <div key={row.id} style={css("border:1px solid " + (active ? "color-mix(in srgb,var(--accent) 24%,var(--border-soft) 76%)" : "color-mix(in srgb,var(--border-soft) 88%,white 12%)") + ";border-radius:999px;background:" + (active ? "color-mix(in srgb,var(--accent-soft) 34%,var(--surface) 66%)" : "color-mix(in srgb,var(--surface-alt) 58%,var(--surface) 42%)") + ";overflow:hidden")}>
+                  <div key={row.id} style={css("border:" + (active ? "1.5px" : "1px") + " solid " + (active ? "color-mix(in srgb,var(--accent) 42%,var(--border-soft) 58%)" : "color-mix(in srgb,var(--border-soft) 88%,white 12%)") + ";border-radius:" + (active ? "0.9rem" : "999px") + ";background:" + (active ? "color-mix(in srgb,var(--accent-soft) 34%,var(--surface) 66%)" : "color-mix(in srgb,var(--surface-alt) 58%,var(--surface) 42%)") + ";overflow:hidden;transition:border-color .16s ease,border-radius .16s ease,background .16s ease")}>
                     <button
                       type="button"
                       data-detail-id={row.id}

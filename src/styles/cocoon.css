@@ -157,6 +157,9 @@
   border: none;
   background: transparent;
 }
+.cocoon-step-card.is-highlight.is-numberless {
+  grid-template-columns: minmax(0, 1fr);
+}
 .cocoon-step-card.is-highlight .cocoon-inclusions {
   margin-top: 0.65rem;
   padding: 0.85rem 0;
@@ -319,6 +322,7 @@
   cursor: pointer;
   white-space: nowrap;
 }
+
 
 /* ─── Audit preview redesign ─── */
 .audit-category-list {

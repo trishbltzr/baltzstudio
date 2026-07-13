@@ -62,7 +62,7 @@ function ProgressHeader({
   onSendTicket: () => void;
   ticketFeedback: boolean;
 }) {
-  const hero = HERO[state.role];
+  const hero = state.role === "client" ? { ...HERO.client, name: state.clientName } : HERO[state.role];
   const [historyClosing, setHistoryClosing] = useState(false);
   const historyCloseTimer = useRef<number | null>(null);
   useEffect(() => {
@@ -199,6 +199,7 @@ function ProgressChatHistory({
             <div style={css("font-size:0.7rem;color:var(--fg-muted)")}>{sessions.length || "No"} saved session{sessions.length === 1 ? "" : "s"}</div>
           </div>
           <button type="button" onClick={onNew} className="pt-softbtn" style={css("height:1.85rem;padding:0 0.62rem;border-radius:999px;border:1px solid var(--border-soft);background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;cursor:pointer")}>New</button>
+          {sessions.length > 0 && <button type="button" onClick={() => { if (window.confirm("Delete all Snapshot chat history? This cannot be undone.")) actions.clearProgressChatHistory(); }} className="pt-softbtn" style={css("height:1.85rem;padding:0 0.62rem;border-radius:999px;border:1px solid color-mix(in srgb,var(--danger) 25%,var(--border-soft) 75%);background:var(--surface);color:var(--danger);font-size:var(--text-xs);font-weight:500;cursor:pointer")}>Clear</button>}
           <button type="button" onClick={onClose} aria-label="Close history" className="pt-iconbtn" style={css("width:1.85rem;height:1.85rem;border-radius:50%;border:1px solid var(--border-soft);background:var(--surface);color:var(--fg-muted);display:grid;place-items:center;cursor:pointer;flex-shrink:0")}><Icon name="x" size={12} /></button>
         </div>
         <div className="pt-progress-chat-history-list" style={css("flex:1;min-height:0;overflow-y:auto;padding:0.45rem;display:flex;flex-direction:column;gap:0.3rem")}>
@@ -206,13 +207,16 @@ function ProgressChatHistory({
           {sessions.map(session => {
             const active = session.id === state.activeProgressChatId;
             return (
-              <button key={session.id} type="button" onClick={() => actions.selectProgressChatSession(session.id)} className="pt-menuitem" style={css("display:flex;align-items:center;gap:0.65rem;width:100%;border:1px solid " + (active ? "var(--accent-dim)" : "transparent") + ";border-radius:0.85rem;background:" + (active ? "var(--accent-soft)" : "transparent") + ";padding:0.62rem 0.65rem;cursor:pointer;text-align:left")}>
-                <span style={css("width:1.85rem;height:1.85rem;border-radius:50%;display:grid;place-items:center;background:var(--surface-alt);color:" + (session.status === "sent" ? "var(--success)" : "var(--fg-muted)") + ";flex-shrink:0")}><Icon name={session.status === "sent" ? "ticket" : "msg"} size={14} /></span>
-                <span style={css("min-width:0;flex:1")}>
-                  <span style={css("display:block;font-size:0.8rem;font-weight:500;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{session.title}</span>
-                  <span style={css("display:block;margin-top:0.1rem;font-size:var(--text-2xs);color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{session.status === "sent" && session.ticketId ? session.ticketId + " · " : ""}{sessionDateLabel(session.updatedAt)}</span>
-                </span>
-              </button>
+              <div key={session.id} className="pt-menuitem" style={css("display:flex;align-items:center;gap:0.35rem;width:100%;border:1px solid " + (active ? "var(--accent-dim)" : "transparent") + ";border-radius:0.85rem;background:" + (active ? "var(--accent-soft)" : "transparent") + ";padding:0.25rem")}>
+                <button type="button" onClick={() => actions.selectProgressChatSession(session.id)} style={css("min-width:0;flex:1;display:flex;align-items:center;gap:0.65rem;border:0;border-radius:0.7rem;background:transparent;padding:0.37rem 0.4rem;cursor:pointer;text-align:left")}>
+                  <span style={css("width:1.85rem;height:1.85rem;border-radius:50%;display:grid;place-items:center;background:var(--surface-alt);color:" + (session.status === "sent" ? "var(--success)" : "var(--fg-muted)") + ";flex-shrink:0")}><Icon name={session.status === "sent" ? "ticket" : "msg"} size={14} /></span>
+                  <span style={css("min-width:0;flex:1")}>
+                    <span style={css("display:block;font-size:0.8rem;font-weight:500;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{session.title}</span>
+                    <span style={css("display:block;margin-top:0.1rem;font-size:var(--text-2xs);color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{session.status === "sent" && session.ticketId ? session.ticketId + " · " : ""}{sessionDateLabel(session.updatedAt)}</span>
+                  </span>
+                </button>
+                <button type="button" aria-label={`Delete ${session.title}`} title="Delete chat" onClick={() => { if (window.confirm(`Delete “${session.title}”? This cannot be undone.`)) actions.deleteProgressChatSession(session.id); }} style={css("width:1.85rem;height:1.85rem;border:0;border-radius:50%;background:transparent;color:var(--danger);display:grid;place-items:center;cursor:pointer;flex-shrink:0")}><Icon name="trash" size={13} /></button>
+              </div>
             );
           })}
         </div>
@@ -239,7 +243,8 @@ function ProgressChatPanel({
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [attachments, setAttachments] = useState<File[]>([]);
-  const hero = HERO[state.role];
+  const hero = state.role === "client" ? { ...HERO.client, name: state.clientName } : HERO[state.role];
+  const waiting = messages.some(message => message.pending);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -253,6 +258,7 @@ function ProgressChatPanel({
   };
   const removeAttachment = (index: number) => setAttachments(prev => prev.filter((_, i) => i !== index));
   const submitDraft = () => {
+    if (waiting) return;
     const text = state.chatDraft.trim();
     if (!text && attachments.length === 0) return;
     const withFiles = attachments.length
@@ -301,7 +307,7 @@ function ProgressChatPanel({
             const mine = message.from === "user";
             return (
               <div key={message.id} className="pt-progress-message" style={css("display:flex;justify-content:" + (mine ? "flex-end" : "flex-start"))}>
-                <div style={css("max-width:min(36rem,88%);border-radius:" + (mine ? "1.15rem 1.15rem 0.35rem 1.15rem" : "1.15rem 1.15rem 1.15rem 0.35rem") + ";padding:0.72rem 0.85rem;background:" + (mine ? "var(--accent)" : "color-mix(in srgb,var(--surface) 88%,transparent 12%)") + ";color:" + (mine ? "#fff" : "var(--fg)") + ";border:1px solid " + (mine ? "transparent" : "color-mix(in srgb,var(--border-soft) 68%,transparent 32%)") + ";font-size:0.86rem;line-height:1.45")}>
+                <div aria-busy={message.pending || undefined} style={css("max-width:min(36rem,88%);border-radius:" + (mine ? "1.15rem 1.15rem 0.35rem 1.15rem" : "1.15rem 1.15rem 1.15rem 0.35rem") + ";padding:0.72rem 0.85rem;background:" + (mine ? "var(--accent)" : message.error ? "color-mix(in srgb,var(--danger) 7%,var(--surface) 93%)" : "color-mix(in srgb,var(--surface) 88%,transparent 12%)") + ";color:" + (mine ? "#fff" : message.error ? "var(--danger)" : "var(--fg)") + ";border:1px solid " + (mine ? "transparent" : message.error ? "color-mix(in srgb,var(--danger) 24%,var(--border-soft) 76%)" : "color-mix(in srgb,var(--border-soft) 68%,transparent 32%)") + ";font-size:0.86rem;line-height:1.45;white-space:pre-wrap")}>
                   {message.text}
                   <div style={css("margin-top:0.28rem;font-size:var(--text-2xs);color:" + (mine ? "rgba(255,255,255,.72)" : "var(--fg-faint)"))}>{message.time}</div>
                 </div>
@@ -346,7 +352,7 @@ function ProgressChatPanel({
             rows={1}
             style={css("flex:1;min-height:2.2rem;max-height:7.5rem;overflow-y:auto;border:none;background:transparent;outline:none;resize:none;font-family:inherit;font-size:0.9rem;line-height:1.45;color:var(--fg);padding:0.43rem 0;min-width:0")}
           />
-          <button type="button" onClick={submitDraft} title="Send" className="pt-op" style={css("width:2.45rem;height:2.45rem;border-radius:50%;border:none;background:var(--accent);color:#fff;display:grid;place-items:center;cursor:pointer;flex-shrink:0")}>
+          <button type="button" onClick={submitDraft} disabled={waiting} title={waiting ? "Waiting for Snapshot" : "Send"} className="pt-op" style={css("width:2.45rem;height:2.45rem;border-radius:50%;border:none;background:var(--accent);color:#fff;display:grid;place-items:center;cursor:" + (waiting ? "wait" : "pointer") + ";opacity:" + (waiting ? ".55" : "1") + ";flex-shrink:0")}>
             <Icon name="arrowup" size={16} />
           </button>
         </div>

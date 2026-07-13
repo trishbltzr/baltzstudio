@@ -3,36 +3,10 @@
 import { useState } from "react";
 import { Icon } from "../icons";
 import { css, eyebrowStyle, roleBadgeStyle, roleMeta, sidebarEyebrowStyle } from "../helpers";
-import { MOBILE_PRIMARY_VIEWS } from "../navigation";
+import { MOBILE_PRIMARY_VIEWS, NAV_SECTIONS, navItemMeta } from "../navigation";
 import { inboxUnread } from "../selectors";
 import type { PortalActions, PortalState } from "../store";
 import type { Role, View } from "../types";
-
-type NavItem = [View, string, string];
-type NavSec = [string, NavItem[]];
-
-const NAVSECS: Record<Role, NavSec[]> = {
-  admin: [
-    ["", [["progress", "Snapshot", "snapshot"]]],
-    ["Delivery", [["clients", "Clients", "briefcase"], ["tasks", "To-do's", "checklist"]]],
-    ["Engines", [["audits_new", "Audits", "audit"], ["funnels", "Funnels", "funnel"]]],
-    ["Communication", [["inbox", "Inbox", "inbox"], ["activity", "Activity", "activity"]]],
-    ["Studio", [["team", "Team", "users"], ["playbooks", "Playbooks", "layers"], ["billing", "Billing", "wallet"]]],
-  ],
-  dev: [
-    ["", [["progress", "Snapshot", "snapshot"]]],
-    ["Delivery", [["clients", "Clients", "briefcase"], ["tasks", "To-do's", "checklist"], ["review", "Approvals", "flag"]]],
-    ["Engines", [["audits_new", "Audits", "audit"], ["funnels", "Funnels", "funnel"]]],
-    ["Communication", [["inbox", "Inbox", "inbox"]]],
-    ["Studio", [["playbooks", "Playbooks", "layers"]]],
-  ],
-  client: [
-    ["", [["progress", "Snapshot", "snapshot"]]],
-    ["Your Project", [["milestones", "Journey", "feather"], ["tasks", "To-do's", "checklist"]]],
-    ["Engines", [["audit", "Audits", "audit"], ["funnels", "Funnels", "funnel"]]],
-    ["Collaboration", [["inbox", "Inbox", "inbox"], ["activity", "Activity", "activity"], ["files", "Files", "file"]]],
-  ],
-};
 
 // ── One shared geometry for the whole sidebar ────────────────────────────────
 // Every icon (workspace mark, nav glyphs, account avatar) is centred on the same
@@ -53,7 +27,7 @@ const HEADER_H = "calc(3.96rem + 1px)"; // 0.48 + 3 + 0.48 + the 1px border
 export function Sidebar({ state, actions, rail, onLogout }: { state: PortalState; actions: PortalActions; rail: boolean; onLogout: () => void }) {
   const { role, view, isMobile, navOpen } = state;
   const textOpen = isMobile || !rail;
-  const meta = roleMeta(role);
+  const meta = roleMeta(role, state.clientName);
   const [footerDismissed, setFooterDismissed] = useState(false);
   const ease = "cubic-bezier(.22,1,.36,1)";
   const width = isMobile ? "min(18.5rem,calc(100vw - 3rem))" : (rail ? RAIL_W : FULL_W);
@@ -124,29 +98,58 @@ export function Sidebar({ state, actions, rail, onLogout }: { state: PortalState
 
         {/* nav */}
         <nav style={css("flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:0.12rem;padding-top:0.7rem")}>
-          {NAVSECS[role].map((sec, si) => (
-            <div key={si} style={{ display: "contents" }}>
-              {sec[0] && (
-                <div style={css("padding:0.62rem " + ROWPAD + " 0.24rem;" + slideBlock("2rem", eyebrowStyle("var(--fg-faint)")))}>{sec[0]}</div>
+          {NAV_SECTIONS[role].map(section => (
+            <div key={section.label || "snapshot"} style={{ display: "contents" }}>
+              {section.label && (
+                <div style={css("padding:0.62rem " + ROWPAD + " 0.24rem;" + slideBlock("2rem", eyebrowStyle("var(--fg-faint)")))}>{section.label}</div>
               )}
-              {sec[1].map(([id, label, ic]) => {
+              {section.views.map(id => {
                 if (isMobile && hiddenOnMobile.has(id)) return null;
+                const item = navItemMeta(id);
                 const active = view === id;
                 const badge = badgeFor(id);
+                const auditParent = id === "audits_new" || id === "audit";
+                const builderParent = id === "funnels";
                 return (
-                  <button
-                    key={id}
-                    title={rail ? label : undefined}
-                    onClick={() => actions.setView(id)}
-                    className={"pt-navitem" + (active ? " is-active" : "")}
-                    style={css(rowBase + "height:2.4rem;border-radius:var(--radius-pill);color:" + (active ? "#fff" : "var(--fg)") + ";" + (active ? "background:var(--accent);" : ""))}
-                  >
-                    <span style={css(iconCell + "color:" + (active ? "#fff" : "var(--fg)"))}>
-                      <Icon name={ic} size={18} />
-                      {badge != null && <span style={css(badgePip(badge, active))}>{badge}</span>}
-                    </span>
-                    {!rail && <span style={css("flex:1;min-width:0;font-size:0.9rem;font-weight:500;" + slideInline("9rem"))}>{label}</span>}
-                  </button>
+                  <div key={id} style={{ display: "contents" }}>
+                    <button
+                      title={rail ? `${item.label}${item.badge ? ` (${item.badge})` : ""}` : undefined}
+                      onClick={() => actions.setView(id)}
+                      className={"pt-navitem" + (active ? " is-active" : "")}
+                      style={css(rowBase + "height:2.4rem;border-radius:var(--radius-pill);color:" + (active ? "#fff" : "var(--fg)") + ";" + (active ? "background:var(--accent);" : ""))}
+                    >
+                      <span style={css(iconCell + "color:" + (active ? "#fff" : "var(--fg)"))}>
+                        <Icon name={item.icon} size={18} />
+                        {badge != null && <span style={css(badgePip(badge, active))}>{badge}</span>}
+                      </span>
+                      {!rail && (
+                        <span style={css("flex:1;min-width:0;display:flex;align-items:center;gap:0.45rem;font-size:0.9rem;font-weight:500;" + slideInline("9rem"))}>
+                          <span>{item.label}</span>
+                          {item.badge && <span className="pt-beta-badge">{item.badge}</span>}
+                        </span>
+                      )}
+                    </button>
+                    {auditParent && active && textOpen && (
+                      <div style={css("position:relative;display:flex;flex-direction:column;gap:1px;margin:0.12rem 0 0.28rem;padding-right:0.28rem") }>
+                        <span aria-hidden="true" style={css("position:absolute;left:1.45rem;top:0.25rem;bottom:0.25rem;width:1.5px;border-radius:1px;background:var(--border);pointer-events:none") } />
+                        {(["brand", "website", "seo"] as const).map(auditType => {
+                          const selected = state.auditType === auditType;
+                          const label = auditType === "seo" ? "SEO" : auditType.charAt(0).toUpperCase() + auditType.slice(1);
+                          return <button key={auditType} type="button" onClick={() => { actions.patch({ auditType }); actions.setView(id); }} style={css("position:relative;display:flex;align-items:center;width:100%;height:2.4rem;padding:0 0.5rem 0 3rem;border:none;border-radius:999px;background:transparent;color:" + (selected ? "var(--accent)" : "var(--fg-muted)") + ";font-size:0.9rem;font-weight:500;cursor:pointer;text-align:left")}>{selected && <span aria-hidden="true" style={css("position:absolute;left:1.45rem;top:0;bottom:0;width:1.5px;border-radius:1px;background:var(--accent)")} />}{label}</button>;
+                        })}
+                      </div>
+                    )}
+                    {builderParent && active && textOpen && (
+                      <div style={css("position:relative;display:flex;flex-direction:column;gap:1px;margin:0.12rem 0 0.28rem;padding-right:0.28rem") }>
+                        <span aria-hidden="true" style={css("position:absolute;left:1.45rem;top:0.25rem;bottom:0.25rem;width:1.5px;border-radius:1px;background:var(--border);pointer-events:none") } />
+                        {(["funnel", "website"] as const).map(builderType => {
+                          const selected = state.builderType === builderType;
+                          const label = builderType === "funnel" ? "Funnel" : "Website";
+                          return <button key={builderType} type="button" onClick={() => { actions.patch({ builderType }); actions.setView(id); }} style={css("position:relative;display:flex;align-items:center;width:100%;height:2.4rem;padding:0 0.5rem 0 3rem;border:none;border-radius:999px;background:transparent;color:" + (selected ? "var(--accent)" : "var(--fg-muted)") + ";font-size:0.9rem;font-weight:500;cursor:pointer;text-align:left")}>{selected && <span aria-hidden="true" style={css("position:absolute;left:1.45rem;top:0;bottom:0;width:1.5px;border-radius:1px;background:var(--accent)")} />}{label}</button>;
+                        })}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>

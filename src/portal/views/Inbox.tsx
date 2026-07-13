@@ -4,7 +4,6 @@ import { useState, type ReactNode } from "react";
 import { Icon } from "../icons";
 import { css, initials, roleMeta } from "../helpers";
 import { MY_CLIENTS } from "../data";
-import { DEFAULT_CLIENT_NAME } from "../clients";
 import type { PortalActions, PortalState } from "../store";
 import type { Thread } from "../types";
 
@@ -17,7 +16,6 @@ const STATUS_META: Record<string, [string, string, string]> = {
 const TEAM_POOL = ["Trisha Baltazar", "Kier Mangibin"];
 const CANNED: string[] = [];
 const FILTERS: [string, string][] = [["all", "All"], ["unread", "Unread"], ["tickets", "Tickets"], ["mine", "Mine"]];
-const CLIENT_PORTAL_NAME = DEFAULT_CLIENT_NAME;
 
 function clockFor(off: number) {
   const now = new Date();
@@ -127,7 +125,7 @@ function InboxDetailsRail({
 
 export function Inbox({ state, actions }: { state: PortalState; actions: PortalActions }) {
   const isStudio = state.role === "admin" || state.role === "dev";
-  const me = roleMeta(state.role).name;
+  const me = roleMeta(state.role, state.clientName).name;
   const mobile = state.isMobile;
   // Mobile two-step: pick a conversation from the list, then open it full-screen.
   const [mobileThreadOpen, setMobileThreadOpen] = useState(false);
@@ -137,7 +135,7 @@ export function Inbox({ state, actions }: { state: PortalState; actions: PortalA
 
   let scoped = state.threads;
   if (state.role === "dev") scoped = scoped.filter(t => MY_CLIENTS.includes(t.clientName));
-  if (state.role === "client") scoped = scoped.filter(t => t.clientName === CLIENT_PORTAL_NAME && !!t.isTicket && t.messages.some(m => m.from === "client"));
+  if (state.role === "client") scoped = scoped.filter(t => t.clientName === state.clientName && !!t.isTicket && t.messages.some(m => m.from === "client"));
 
   const filt = state.inboxFilter || "all";
   const activeFilterLabel = FILTERS.find(([k]) => k === filt)?.[1] || "All";

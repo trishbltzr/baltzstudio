@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Icon } from "../icons";
 import { css, healthMap, initials, statusPill, svcBadge } from "../helpers";
 import { SVC_META } from "../data";
-import { DEFAULT_CLIENT_NAME, STUDIO_CLIENTS } from "../clients";
+import { STUDIO_CLIENTS } from "../clients";
 import { roleProjects } from "../selectors";
 import { FilterDropdown } from "../components/FilterDropdown";
 import type { PortalActions, PortalState } from "../store";
@@ -16,7 +16,7 @@ export function Clients({ state, actions }: { state: PortalState; actions: Porta
   const projects = roleProjects(state);
   const cf = state.clientFilter;
   const filterActive = cf.service !== "all" || cf.health !== "all";
-  const roster = state.role === "client" ? STUDIO_CLIENTS.filter(client => client.name === DEFAULT_CLIENT_NAME) : STUDIO_CLIENTS;
+  const roster = state.role === "client" ? STUDIO_CLIENTS.filter(client => client.name === state.clientName) : STUDIO_CLIENTS;
   const projectRows = roster
     .map(client => {
       const project = projects.find(item => item.client === client.name);

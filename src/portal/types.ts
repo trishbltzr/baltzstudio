@@ -1,5 +1,7 @@
 // Portal-local types for the redesigned Baltz Studio Portal (design prototype).
 export type Role = "admin" | "dev" | "client";
+export type AuditType = "brand" | "website" | "seo";
+export type BuilderType = "funnel" | "website";
 
 export type View =
   | "progress"
@@ -83,6 +85,8 @@ export interface ProgressChatMessage {
   from: "user" | "assistant";
   text: string;
   time: string;
+  pending?: boolean;
+  error?: boolean;
 }
 
 export interface ProgressChatSession {

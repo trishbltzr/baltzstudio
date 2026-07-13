@@ -1,6 +1,69 @@
 import type { PortalActions, PortalState } from "./store";
 import type { Role, View } from "./types";
-import { DEFAULT_CLIENT_NAME } from "./clients";
+
+export interface NavItemMeta {
+  label: string;
+  icon: string;
+  badge?: "Beta";
+}
+
+export interface NavSection {
+  label: string;
+  views: readonly View[];
+}
+
+export const NAV_ITEM_META = {
+  progress: { label: "Snapshot", icon: "snapshot" },
+  clients: { label: "Clients", icon: "briefcase" },
+  tasks: { label: "To-do's", icon: "checklist" },
+  review: { label: "Approvals", icon: "flag" },
+  audits_new: { label: "Audits", icon: "audit", badge: "Beta" },
+  audit: { label: "Audits", icon: "audit", badge: "Beta" },
+  funnels: { label: "Builders", icon: "funnel", badge: "Beta" },
+  inbox: { label: "Inbox", icon: "inbox" },
+  activity: { label: "Activity", icon: "activity" },
+  team: { label: "Team", icon: "users" },
+  playbooks: { label: "Playbooks", icon: "layers" },
+  billing: { label: "Billing", icon: "wallet" },
+  invoices: { label: "Invoices", icon: "card" },
+  milestones: { label: "Journey", icon: "feather" },
+  files: { label: "Files", icon: "file" },
+  settings: { label: "Settings", icon: "sliders" },
+} satisfies Partial<Record<View, NavItemMeta>>;
+
+const SNAPSHOT_SECTION = { label: "", views: ["progress"] } as const;
+const STUDIO_DELIVERY_SECTION = { label: "Delivery", views: ["clients", "tasks"] } as const;
+const STUDIO_ENGINES_SECTION = { label: "Engines", views: ["audits_new", "funnels"] } as const;
+const CLIENT_ENGINES_SECTION = { label: "Engines", views: ["audit", "funnels"] } as const;
+
+export const NAV_SECTIONS: Record<Role, readonly NavSection[]> = {
+  admin: [
+    SNAPSHOT_SECTION,
+    STUDIO_DELIVERY_SECTION,
+    STUDIO_ENGINES_SECTION,
+    { label: "Communication", views: ["inbox", "activity"] },
+    { label: "Studio", views: ["team", "playbooks", "billing"] },
+  ],
+  dev: [
+    SNAPSHOT_SECTION,
+    { label: "Delivery", views: ["clients", "tasks", "review"] },
+    STUDIO_ENGINES_SECTION,
+    { label: "Communication", views: ["inbox"] },
+    { label: "Studio", views: ["playbooks"] },
+  ],
+  client: [
+    SNAPSHOT_SECTION,
+    { label: "Your Project", views: ["milestones", "tasks"] },
+    CLIENT_ENGINES_SECTION,
+    { label: "Collaboration", views: ["inbox", "activity", "files"] },
+  ],
+};
+
+export function navItemMeta(view: View): NavItemMeta {
+  const meta = NAV_ITEM_META[view as keyof typeof NAV_ITEM_META];
+  if (!meta) throw new Error(`Missing navigation metadata for ${view}`);
+  return meta;
+}
 
 export interface QuickAction {
   label: string;
@@ -43,7 +106,7 @@ export function quickActionsForRole(role: Role): QuickAction[] {
 
 export function runQuickAction(action: QuickAction, state: PortalState, actions: PortalActions) {
   const firstThreadId = state.role === "client"
-    ? state.threads.find(thread => thread.clientName === DEFAULT_CLIENT_NAME && !!thread.isTicket && thread.messages.some(message => message.from === "client"))?.id || state.selectedThreadId
+    ? state.threads.find(thread => thread.clientName === state.clientName && !!thread.isTicket && thread.messages.some(message => message.from === "client"))?.id || state.selectedThreadId
     : state.threads.find(thread => thread.unread > 0)?.id || state.threads[0]?.id || state.selectedThreadId;
 
   switch (action.intent) {

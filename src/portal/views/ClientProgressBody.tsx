@@ -5,7 +5,6 @@ import { activeJourneyGate, css, journeyProgressForGate, milestoneStatusFromGate
 import { MILESTONES, SVC_META } from "../data";
 import type { PortalActions, PortalState } from "../store";
 import type { JourneyGate, View } from "../types";
-import { DEFAULT_CLIENT_NAME } from "../clients";
 
 function ov2col(mob: boolean) { return mob ? "minmax(0,1fr)" : "minmax(0,1.55fr) minmax(0,1fr)"; }
 
@@ -192,7 +191,7 @@ export function ClientProgressBody({ state, actions, hideHero = false, hideStats
       {!hideHero && (
         <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);padding:var(--space-5);display:flex;align-items:center;justify-content:space-between;gap:var(--space-5);flex-wrap:wrap")}>
           <div style={css("min-width:12rem;flex:1")}>
-            <div style={css("color:var(--fg-muted);font-size:var(--text-base)")}>Client Workspace · {DEFAULT_CLIENT_NAME}</div>
+            <div style={css("color:var(--fg-muted);font-size:var(--text-base)")}>Client Workspace · {state.clientName}</div>
             <h2 style={css("font-size:var(--text-3xl);font-weight:500;line-height:1.1;margin-top:0.15rem")}>{activeGate ? "Project journey" : "Cocoon Consult"}</h2>
             <p style={css("margin-top:0.35rem;color:var(--fg-muted);font-size:var(--text-md)")}>{projectState.heroBody}<strong style={css("font-weight:500;color:var(--fg)")}>{projectState.heroStrong}</strong>{projectState.heroTail}</p>
             <button onClick={go("milestones")} className="pt-op" style={css("margin-top:0.9rem;display:inline-flex;align-items:center;gap:0.4rem;height:2.05rem;padding:0 0.9rem;border-radius:var(--radius-pill);border:none;background:var(--accent);color:#fff;font-size:var(--text-base);font-weight:500;cursor:pointer")}><Icon name="thumbs" size={15} /> {projectState.ctaLabel}</button>

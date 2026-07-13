@@ -2,7 +2,6 @@
 
 import { css } from "./helpers";
 import { usePortal } from "./store";
-import { DEFAULT_CLIENT_NAME } from "./clients";
 import type { Role } from "./types";
 import { Sidebar } from "./shell/Sidebar";
 import { MobileTabBar } from "./shell/MobileTabBar";
@@ -27,7 +26,7 @@ import { ClientAudits } from "./views/ClientAudits";
 import { ClientFunnels } from "./views/ClientFunnels";
 import { Assistant } from "./views/Assistant";
 import { Files } from "./views/Files";
-import { Funnels } from "./funnels/Funnels";
+import { Builders } from "./builders/Builders";
 import { Audits } from "./audits/Audits";
 import { Onboarding } from "./views/Onboarding";
 import { ProfileSettings } from "./views/ProfileSettings";
@@ -35,9 +34,9 @@ import { PlaybookDocument } from "./views/PlaybookDocument";
 import { Placeholder } from "./views/Placeholder";
 import { Icon } from "./icons";
 
-export function Portal({ seedRole, onLogout }: { seedRole: Role; onLogout: () => void }) {
-  const { state, actions } = usePortal(seedRole);
-  const fullBleedView = (state.view === "funnels" && state.role !== "client") || state.view === "audits_new";
+export function Portal({ seedRole, clientName, canSwitchRoles, onLogout }: { seedRole: Role; clientName?: string; canSwitchRoles: boolean; onLogout: () => void }) {
+  const { state, actions } = usePortal(seedRole, clientName, canSwitchRoles);
+  const fullBleedView = state.view === "funnels" || state.view === "audits_new" || state.view === "audit";
   const rail = !state.isMobile && state.sidebarCollapsed && !(fullBleedView && state.guidedSidebarActive);
   const shellFrame = fullBleedView
     ? "width:100%;max-width:none;margin:0"
@@ -82,7 +81,7 @@ export function Portal({ seedRole, onLogout }: { seedRole: Role; onLogout: () =>
       <main style={css("flex:1;min-width:0;height:100vh;height:100dvh;overflow-y:auto;overflow-x:clip;position:relative;background:var(--bg)")}>
         {state.previewFrom && (
           <div style={css("position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);padding:0.5rem 1rem;background:color-mix(in srgb,var(--accent-soft) 72%,white 28%);border-bottom:1px solid color-mix(in srgb,var(--accent) 22%,transparent 78%);color:color-mix(in srgb,var(--accent) 60%,black 40%);font-size:0.8rem")}>
-            <span style={css("display:inline-flex;align-items:center;gap:0.45rem;min-width:0")}><Icon name="eye" size={15} /><span>Previewing the portal as <strong style={{ fontWeight: 500 }}>{DEFAULT_CLIENT_NAME}</strong> — Read-Only Client View</span></span>
+            <span style={css("display:inline-flex;align-items:center;gap:0.45rem;min-width:0")}><Icon name="eye" size={15} /><span>Previewing the portal as <strong style={{ fontWeight: 500 }}>{state.clientName}</strong> — Read-Only Client View</span></span>
             <button onClick={actions.exitPreview} style={css("flex-shrink:0;padding:0.28rem 0.7rem;border:1px solid color-mix(in srgb,var(--accent) 30%,white 70%);border-radius:999px;background:#fff;color:color-mix(in srgb,var(--accent) 58%,black 42%);font-size:0.74rem;font-weight:500;cursor:pointer")}>Exit preview</button>
           </div>
         )}
@@ -93,10 +92,10 @@ export function Portal({ seedRole, onLogout }: { seedRole: Role; onLogout: () =>
           </div>
         </div>
 
-        {state.view === "audits_new" || (state.view === "funnels" && state.role !== "client") ? (
-          state.view === "audits_new"
+        {state.view === "audits_new" || state.view === "audit" || state.view === "funnels" ? (
+          state.view === "audits_new" || state.view === "audit"
             ? <Audits state={state} actions={actions} />
-            : <Funnels state={state} actions={actions} />
+            : <Builders state={state} actions={actions} />
         ) : (
           <div style={css(shellFrame + ";" + shellContentPadding)}>
             {renderView()}
@@ -111,9 +110,16 @@ export function Portal({ seedRole, onLogout }: { seedRole: Role; onLogout: () =>
       {state.paletteOpen && <CommandPalette state={state} actions={actions} />}
 
       {state.toast && (
-        <div style={{ ...css("position:fixed;bottom:" + (state.isMobile ? "5.2rem" : "1.5rem") + ";left:50%;transform:translateX(-50%);background:var(--fg);color:#fff;padding:0.7rem 1.15rem;border-radius:var(--radius);font-size:var(--text-base);font-weight:500;z-index:100;display:flex;align-items:center;gap:var(--space-2);max-width:90vw"), animation: "pt-tzin .2s ease" }}>
+        <div
+          role={state.toast.onClick ? "button" : "status"}
+          tabIndex={state.toast.onClick ? 0 : undefined}
+          onClick={() => { state.toast?.onClick?.(); actions.patch({ toast: null }); }}
+          onKeyDown={event => { if (state.toast?.onClick && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); state.toast.onClick(); actions.patch({ toast: null }); } }}
+          style={{ ...css("position:fixed;bottom:" + (state.isMobile ? "5.2rem" : "1.5rem") + ";left:50%;transform:translateX(-50%);background:var(--fg);color:#fff;padding:0.7rem 1.15rem;border-radius:999px;font-size:var(--text-base);font-weight:500;z-index:100;display:flex;align-items:center;gap:var(--space-2);max-width:90vw;cursor:" + (state.toast.onClick ? "pointer" : "default")), animation: "pt-tzin .2s ease" }}
+        >
           <span style={{ width: "1rem", height: "1rem", display: "grid", placeItems: "center", flexShrink: 0, color: "var(--accent-dim)" }}><Icon name="checkmark" size={15} /></span>
-          <span style={{ display: "block", minWidth: 0 }}>{state.toast}</span>
+          <span style={{ display: "block", minWidth: 0 }}>{state.toast.message}</span>
+          {state.toast.onClick && <span aria-hidden="true" style={css("color:var(--accent-dim);white-space:nowrap")}>View audit →</span>}
         </div>
       )}
     </div>

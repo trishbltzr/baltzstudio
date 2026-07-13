@@ -4,6 +4,9 @@ import type { ReactNode } from "react";
 import { css } from "../helpers";
 import { Icon } from "../icons";
 import type { Ans, Pipeline, StageRenderCtx, ProposalRenderCtx } from "./DiscoveryBuilder";
+import { isAiStageResult } from "@/lib/aiStageGeneration";
+import { BuilderTaskPanel } from "../builders/BuilderTaskPanel";
+import type { TaskImportDraft } from "../types";
 
 // ── docs model (ported from Funnel Builder fbDocs) ─────────────────────────────
 const cap = (s: string) => { s = (s || "").trim(); return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; };
@@ -33,6 +36,22 @@ export interface FunnelDocs {
   brief: { label: string; value: string }[];
   recommendations: { area: string; text: string }[];
   proposal: { pages: number; emails: number; days: number; invest: string; deliverables: { label: string; desc: string; icon: string }[] };
+}
+
+export function funnelTaskDrafts(docs: FunnelDocs, clientName: string): TaskImportDraft[] {
+  const sourceBase = clientName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "client";
+  return docs.plan.flatMap((phase, phaseIndex) => phase.tasks.map((title, taskIndex) => ({
+    title,
+    description: `${phase.title} task from the approved ${docs.name} funnel build plan.`,
+    project: clientName,
+    assignee: "Studio",
+    owner: "studio",
+    priority: phaseIndex === 0 ? "high" : "med",
+    due: "To schedule",
+    milestone: phase.title,
+    source: "manual",
+    sourceId: `funnel-builder-${sourceBase}-${phase.phase}-${taskIndex + 1}`,
+  })));
 }
 
 export function buildFunnelDocs(data: Ans): FunnelDocs {
@@ -285,6 +304,11 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
   const { stageKey, docs, reveal } = ctx;
   const d = docs as FunnelDocs;
   const bp = d.blueprint;
+  const generatedTitle = isAiStageResult(ctx.aiResult) ? ctx.aiResult.title.trim() : "";
+  const genericTitles = new Set(["development plan", "build direction", "funnel development plan", d.name.toLowerCase()]);
+  const finalTitle = generatedTitle && !genericTitles.has(generatedTitle.toLowerCase())
+    ? generatedTitle
+    : `${cap(d.objective)} through a ${d.ftype.toLowerCase()} funnel`;
 
   if (stageKey === "flow") {
     const rows = reveal === Number.POSITIVE_INFINITY ? d.funnelRows : d.funnelRows.slice(0, reveal);
@@ -318,7 +342,8 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
       <div style={css("max-width:46rem;margin:0 auto;background:var(--surface);border:1px solid var(--border-soft);border-radius:12px;padding:" + (ctx.mobile ? "1.3rem 1.4rem" : "2rem 2.4rem 2.4rem"))}>
         <div style={css("padding-bottom:0.6rem")}>
           <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:" + ACCENT + "")}>Landing page copy</div>
-          <div style={css("font-size:var(--text-3xl);font-weight:500;margin-top:0.3rem;line-height:1.2")}>{d.name}</div>
+          <div style={css("font-size:var(--text-3xl);font-weight:500;margin-top:0.3rem;line-height:1.2")}>{finalTitle}</div>
+          <div style={css("font-size:.78rem;color:var(--fg-muted);margin-top:.3rem")}>Prepared for {d.name}</div>
           <div style={css("font-size:var(--text-base);color:var(--fg-faint);margin-top:0.3rem")}>Structured on the high-converting landing page blueprint</div>
         </div>
         {sec(reveal, 1) && (
@@ -411,13 +436,16 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
 function renderProposal(ctx: ProposalRenderCtx): ReactNode {
   const d = ctx.docs as FunnelDocs;
   const p = d.proposal;
+  const finalResult = isAiStageResult(ctx.aiResults.brief) ? ctx.aiResults.brief : null;
+  const sourceBase = ctx.clientName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "client";
+  const taskDrafts = funnelTaskDrafts(d, ctx.clientName);
   return (
     <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden;animation:cocoonFade .4s ease both")}>
       <div style={css("padding:1.6rem 1.7rem 1.4rem;border-bottom:1px solid var(--border-soft)")}>
         <div onClick={ctx.onBack} style={css("display:inline-flex;align-items:center;gap:0.35rem;font-size:0.76rem;color:var(--fg-muted);cursor:pointer;margin-bottom:0.9rem")}>← Back to development plan</div>
         <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:" + ACCENT + ";margin-bottom:0.3rem")}>Overall plan</div>
-        <h2 style={css("margin:0;font-size:var(--text-3xl);font-weight:500;line-height:1.18")}>Ready to build {d.name}</h2>
-        <p style={css("margin:0.4rem 0 0;font-size:0.85rem;color:var(--fg-muted);line-height:1.5;max-width:36rem")}>Everything below was drafted from your discovery. Hand it to the Baltz team and we’ll design, build and launch the whole funnel for you — you just review at each milestone.</p>
+        <h2 style={css("margin:0;font-size:var(--text-3xl);font-weight:500;line-height:1.18")}>Turn {cap(d.objective)} into a live funnel</h2>
+        <p style={css("margin:0.4rem 0 0;font-size:0.85rem;color:var(--fg-muted);line-height:1.5;max-width:36rem")}>{finalResult?.summary || `The ${d.ftype.toLowerCase()} direction for ${d.name} is approved and ready to move into design, build, and launch.`}</p>
         <div style={css("display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-2);margin-top:1.2rem")}>
           {[[String(p.pages), "Pages"], [String(p.emails), "Emails"], ["~" + p.days, "Days to launch"]].map(([v, l]) => <div key={l} style={css("border:1px solid var(--border-soft);border-radius:var(--radius);padding:0.75rem 0.9rem;background:var(--surface-alt)")}><div style={css("font-size:1.45rem;font-weight:500;line-height:1")}>{v}</div><div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint);margin-top:0.28rem")}>{l}</div></div>)}
         </div>
@@ -442,6 +470,7 @@ function renderProposal(ctx: ProposalRenderCtx): ReactNode {
           <button type="button" onClick={ctx.onRequest} className="pt-op" style={css("height:2.6rem;padding:0 1.5rem;border-radius:var(--radius-pill);border:none;background:" + ACCENT + ";color:#fff;font-size:0.85rem;font-weight:500;cursor:pointer;font-family:inherit")}>Have Baltz build this →</button>
         </div>
       </div>
+      <BuilderTaskPanel embedded drafts={taskDrafts} fileName={`${sourceBase}-funnel-tasks.csv`} mobile={ctx.mobile} onImport={ctx.onImportTasks}/>
     </div>
   );
 }
