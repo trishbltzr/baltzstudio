@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { css } from "../helpers";
 import { Icon } from "../icons";
 import { AdminProgressBody, ManagerProgressBody, AdminStats, AdminPipeline, ManagerStats, ManagerPipeline } from "./ProgressDeliverySections";
@@ -35,6 +35,105 @@ function sessionDateLabel(value: string) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "Now";
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " · " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+function chatInline(text: string, keyPrefix: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  const pattern = /(\*\*([^*]+)\*\*|`([^`]+)`|\[([^\]]+)\]\(([^)]+)\))/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let index = 0;
+  while ((match = pattern.exec(text))) {
+    if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index));
+    if (match[2] != null) {
+      nodes.push(<strong key={`${keyPrefix}-strong-${index}`} style={{ fontWeight: 500 }}>{match[2]}</strong>);
+    } else if (match[3] != null) {
+      nodes.push(<code key={`${keyPrefix}-code-${index}`} style={css("font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.84em;background:color-mix(in srgb,var(--fg) 7%,transparent 93%);padding:0.08rem 0.3rem;border-radius:0.3rem")}>{match[3]}</code>);
+    } else {
+      const href = /^(https?:\/\/|mailto:)/i.test(match[5]) ? match[5] : undefined;
+      nodes.push(href
+        ? <a key={`${keyPrefix}-link-${index}`} href={href} target="_blank" rel="noreferrer" style={css("color:var(--accent);text-decoration:underline;text-underline-offset:0.14em")}>{match[4]}</a>
+        : <span key={`${keyPrefix}-link-${index}`}>{match[4]}</span>);
+    }
+    lastIndex = match.index + match[0].length;
+    index += 1;
+  }
+  if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
+  return nodes;
+}
+
+function ChatMessageContent({ text }: { text: string }) {
+  const blocks: ReactNode[] = [];
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  let paragraph: string[] = [];
+  let unordered: string[] = [];
+  let ordered: string[] = [];
+  let key = 0;
+
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    const content = paragraph.join(" ").trim();
+    if (content) blocks.push(<p key={`p-${key++}`} style={css("margin:0;line-height:1.55")}>{chatInline(content, `p-${key}`)}</p>);
+    paragraph = [];
+  };
+  const flushLists = () => {
+    if (unordered.length) {
+      blocks.push(
+        <ul key={`ul-${key++}`} style={css("margin:0;padding-left:1.15rem;display:flex;flex-direction:column;gap:0.28rem") }>
+          {unordered.map((item, index) => <li key={index} style={css("padding-left:0.15rem;line-height:1.5")}>{chatInline(item, `ul-${key}-${index}`)}</li>)}
+        </ul>,
+      );
+      unordered = [];
+    }
+    if (ordered.length) {
+      blocks.push(
+        <ol key={`ol-${key++}`} style={css("margin:0;padding-left:1.3rem;display:flex;flex-direction:column;gap:0.3rem") }>
+          {ordered.map((item, index) => <li key={index} style={css("padding-left:0.15rem;line-height:1.5")}>{chatInline(item, `ol-${key}-${index}`)}</li>)}
+        </ol>,
+      );
+      ordered = [];
+    }
+  };
+  const flush = () => {
+    flushParagraph();
+    flushLists();
+  };
+
+  lines.forEach(rawLine => {
+    const line = rawLine.trimEnd();
+    if (!line.trim()) {
+      flush();
+      return;
+    }
+    const heading = /^(#{1,3})\s+(.+)$/.exec(line.trim());
+    if (heading) {
+      flush();
+      const level = heading[1].length;
+      blocks.push(<div key={`heading-${key++}`} style={css("margin:" + (blocks.length ? "0.2rem 0 0" : "0") + ";font-size:" + (level === 1 ? "1rem" : level === 2 ? "0.94rem" : "0.88rem") + ";font-weight:500;line-height:1.35;color:var(--fg)")}>{chatInline(heading[2], `heading-${key}`)}</div>);
+      return;
+    }
+    if (/^[-*]\s+/.test(line.trim())) {
+      flushParagraph();
+      if (ordered.length) flushLists();
+      unordered.push(line.trim().replace(/^[-*]\s+/, ""));
+      return;
+    }
+    if (/^\d+\.\s+/.test(line.trim())) {
+      flushParagraph();
+      if (unordered.length) flushLists();
+      ordered.push(line.trim().replace(/^\d+\.\s+/, ""));
+      return;
+    }
+    if (/^---+$/.test(line.trim())) {
+      flush();
+      blocks.push(<hr key={`hr-${key++}`} style={css("width:100%;margin:0.1rem 0;border:0;border-top:1px solid var(--border-soft)")} />);
+      return;
+    }
+    paragraph.push(line.trim());
+  });
+  flush();
+
+  return <div className="pt-chat-message-content" style={css("display:flex;flex-direction:column;gap:0.55rem;min-width:0")}>{blocks}</div>;
 }
 
 function ProgressHeader({
@@ -307,8 +406,8 @@ function ProgressChatPanel({
             const mine = message.from === "user";
             return (
               <div key={message.id} className="pt-progress-message" style={css("display:flex;justify-content:" + (mine ? "flex-end" : "flex-start"))}>
-                <div aria-busy={message.pending || undefined} style={css("max-width:min(36rem,88%);border-radius:" + (mine ? "1.15rem 1.15rem 0.35rem 1.15rem" : "1.15rem 1.15rem 1.15rem 0.35rem") + ";padding:0.72rem 0.85rem;background:" + (mine ? "var(--accent)" : message.error ? "color-mix(in srgb,var(--danger) 7%,var(--surface) 93%)" : "color-mix(in srgb,var(--surface) 88%,transparent 12%)") + ";color:" + (mine ? "#fff" : message.error ? "var(--danger)" : "var(--fg)") + ";border:1px solid " + (mine ? "transparent" : message.error ? "color-mix(in srgb,var(--danger) 24%,var(--border-soft) 76%)" : "color-mix(in srgb,var(--border-soft) 68%,transparent 32%)") + ";font-size:0.86rem;line-height:1.45;white-space:pre-wrap")}>
-                  {message.text}
+                <div aria-busy={message.pending || undefined} style={css("max-width:min(36rem,88%);border-radius:" + (mine ? "1.15rem 1.15rem 0.35rem 1.15rem" : "1.15rem 1.15rem 1.15rem 0.35rem") + ";padding:0.72rem 0.85rem;background:" + (mine ? "var(--accent)" : message.error ? "color-mix(in srgb,var(--danger) 7%,var(--surface) 93%)" : "color-mix(in srgb,var(--surface) 88%,transparent 12%)") + ";color:" + (mine ? "#fff" : message.error ? "var(--danger)" : "var(--fg)") + ";border:1px solid " + (mine ? "transparent" : message.error ? "color-mix(in srgb,var(--danger) 24%,var(--border-soft) 76%)" : "color-mix(in srgb,var(--border-soft) 68%,transparent 32%)") + ";font-size:0.86rem;line-height:1.45;white-space:" + (mine ? "pre-wrap" : "normal"))}>
+                  {mine ? message.text : <ChatMessageContent text={message.text} />}
                   <div style={css("margin-top:0.28rem;font-size:var(--text-2xs);color:" + (mine ? "rgba(255,255,255,.72)" : "var(--fg-faint)"))}>{message.time}</div>
                 </div>
               </div>

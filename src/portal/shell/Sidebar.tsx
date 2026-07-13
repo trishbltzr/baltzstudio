@@ -135,7 +135,7 @@ export function Sidebar({ state, actions, rail, onLogout }: { state: PortalState
                         {(["brand", "website", "seo"] as const).map(auditType => {
                           const selected = state.auditType === auditType;
                           const label = auditType === "seo" ? "SEO" : auditType.charAt(0).toUpperCase() + auditType.slice(1);
-                          return <button key={auditType} type="button" onClick={() => { actions.patch({ auditType }); actions.setView(id); }} style={css("position:relative;display:flex;align-items:center;width:100%;height:2.4rem;padding:0 0.5rem 0 3rem;border:none;border-radius:999px;background:transparent;color:" + (selected ? "var(--accent)" : "var(--fg-muted)") + ";font-size:0.9rem;font-weight:500;cursor:pointer;text-align:left")}>{selected && <span aria-hidden="true" style={css("position:absolute;left:1.45rem;top:0;bottom:0;width:1.5px;border-radius:1px;background:var(--accent)")} />}{label}</button>;
+                          return <button key={auditType} type="button" onClick={() => { actions.patch({ auditType }); actions.setView(id); }} style={css("position:relative;display:flex;align-items:center;gap:0.45rem;width:100%;height:2.4rem;padding:0 0.5rem 0 3rem;border:none;border-radius:999px;background:transparent;color:" + (selected ? "var(--accent)" : "var(--fg-muted)") + ";font-size:0.9rem;font-weight:500;cursor:pointer;text-align:left")}>{selected && <span aria-hidden="true" style={css("position:absolute;left:1.45rem;top:0;bottom:0;width:1.5px;border-radius:1px;background:var(--accent)")} />}<span>{label}</span>{auditType === "seo" && <span className="pt-beta-badge">Soon</span>}</button>;
                         })}
                       </div>
                     )}

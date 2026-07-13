@@ -29,7 +29,7 @@ export function GuidedIntakeSelector({
           <h2 style={css("margin:0;font-size:1.22rem;font-weight:500;line-height:1.15")}>{title}</h2>
           <p style={css("margin:0.45rem 0 0;font-size:var(--text-base);color:var(--fg-muted);line-height:1.55;max-width:36rem")}>{description}</p>
         </div>
-        <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2);flex-wrap:wrap;flex-shrink:0")}>
+        <div style={css("display:flex;align-items:center;justify-content:flex-start;gap:var(--space-2);flex-wrap:wrap;flex:1 1 18rem;min-width:0")}>
           {controls}
         </div>
       </div>

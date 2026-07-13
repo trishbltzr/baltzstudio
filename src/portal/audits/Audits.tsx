@@ -440,6 +440,12 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
   const restoredFromUrl = useRef(false);
 
   useEffect(() => {
+    if (state.quickActionIntent !== "new_audit") return;
+    setLaunchOpen(true);
+    actions.patch({ quickActionIntent: null });
+  }, [actions, state.quickActionIntent]);
+
+  useEffect(() => {
     if (!state.hydrated) return;
     const params = new URLSearchParams(window.location.search);
     params.set("auditType", state.auditType);
@@ -903,7 +909,7 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
 
   if (!client) {
     return (
-      <div style={css("width:100%;padding:1.6rem 2rem 2.4rem")}>
+      <div style={css("width:100%;padding:" + (mobile ? "1rem 0.75rem calc(6rem + env(safe-area-inset-bottom))" : "1.6rem 2rem 2.4rem"))}>
         <GuidedIntakeSelector
           eyebrow="Cocoon Consult"
           eyebrowColor="var(--cocoon)"
@@ -918,7 +924,9 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
                 {launchOpen && (
                   <>
                     <div onClick={() => setLaunchOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 34 }} />
-                    <div style={{ ...css("position:absolute;top:2.7rem;right:0;width:min(24rem,calc(100vw - 2rem));padding:0.45rem;border:1px solid var(--border);border-radius:1rem;background:color-mix(in srgb,var(--surface) 94%,white 6%);z-index:35"), animation: "pt-ddin .16s ease" }}>
+                    <div style={{ ...css(mobile
+                      ? "position:fixed;left:0.75rem;right:0.75rem;top:5.75rem;bottom:calc(5.4rem + env(safe-area-inset-bottom));width:auto;padding:0.5rem;border:1px solid var(--border);border-radius:1rem;background:color-mix(in srgb,var(--surface) 97%,white 3%);box-shadow:0 1rem 3rem rgba(35,25,18,.2);overflow-y:auto;overscroll-behavior:contain;z-index:35"
+                      : "position:absolute;top:2.7rem;right:0;width:min(24rem,calc(100vw - 2rem));padding:0.45rem;border:1px solid var(--border);border-radius:1rem;background:color-mix(in srgb,var(--surface) 94%,white 6%);z-index:35"), animation: "pt-ddin .16s ease" }}>
                       <div style={css("padding:0.5rem 0.65rem 0.45rem")}>
                         <div style={css("font-size:0.8rem;font-weight:500;color:var(--fg)")}>Choose a client</div>
                         <div style={css("font-size:0.69rem;color:var(--fg-faint);margin-top:0.18rem")}>Every audit starts with discovery before it turns into a scored report.</div>

@@ -111,24 +111,23 @@ export function runQuickAction(action: QuickAction, state: PortalState, actions:
 
   switch (action.intent) {
     case "new_client":
+      actions.patch({ quickActionIntent: "new_client" });
       actions.setView("onboarding");
-      actions.showToast("Client draft ready");
       return;
     case "invite_user":
+      actions.patch({ quickActionIntent: "invite_user" });
       actions.setView("team");
-      actions.showToast("Users ready for invites");
       return;
     case "new_message":
-      actions.patch({ selectedThreadId: firstThreadId, draft: "" });
+      actions.patch({ selectedThreadId: firstThreadId, draft: "", inboxFilter: "all", quickActionIntent: "new_message" });
       actions.setView("inbox");
-      actions.showToast("Inbox ready for a reply");
       return;
     case "new_task":
       actions.createQuickTask();
       return;
     case "new_audit":
+      actions.patch({ auditType: "website", quickActionIntent: "new_audit" });
       actions.setView("audits_new");
-      actions.showToast("Audit workspace ready");
       return;
     case "open_approvals":
       actions.setView("review");

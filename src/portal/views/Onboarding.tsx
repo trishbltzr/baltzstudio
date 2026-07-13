@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { css } from "../helpers";
 import type { PortalActions, PortalState } from "../store";
@@ -10,6 +10,13 @@ export function Onboarding({ state, actions }: { state: PortalState; actions: Po
   const [email, setEmail] = useState("");
   const [service, setService] = useState("wiaw");
   const [notes, setNotes] = useState("");
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (state.quickActionIntent !== "new_client") return;
+    nameRef.current?.focus();
+    actions.patch({ quickActionIntent: null });
+  }, [actions, state.quickActionIntent]);
 
   const ready = name.trim() && email.trim();
 
@@ -21,7 +28,7 @@ export function Onboarding({ state, actions }: { state: PortalState; actions: Po
         <div style={css("display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:var(--space-3);margin-top:1rem")}>
           <label style={css("display:flex;flex-direction:column;gap:0.3rem;font-size:0.76rem;font-weight:500;color:var(--fg-muted)")}>
             Client name
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="Client or company name" className="pt-input" style={css("border:1px solid var(--border);border-radius:var(--radius);padding:0.62rem 0.75rem;font-size:0.84rem;background:var(--surface-alt);color:var(--fg)")} />
+            <input ref={nameRef} value={name} onChange={e => setName(e.target.value)} placeholder="Client or company name" className="pt-input" style={css("border:1px solid var(--border);border-radius:var(--radius);padding:0.62rem 0.75rem;font-size:0.84rem;background:var(--surface-alt);color:var(--fg)")} />
           </label>
           <label style={css("display:flex;flex-direction:column;gap:0.3rem;font-size:0.76rem;font-weight:500;color:var(--fg-muted)")}>
             Primary email

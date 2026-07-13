@@ -25,6 +25,8 @@ import { clientsVisibleToRole, DEFAULT_CLIENT_NAME, DEV_USER_NAME } from "./clie
 
 export type TaskView = "board" | "calendar";
 export const NEW_TASK_DRAFT_ID = "__new_task_draft__";
+export type QuickActionIntent = "new_client" | "invite_user" | "new_message" | "new_audit";
+export type TeamInvite = { id: string; name: string; email: string; access: string };
 export type SavedView<F> = { name: string; filter: F };
 type PersistedPortalState = Pick<PortalState, "tasks" | "journeyGates" | "threads" | "escalations" | "ticketSeq" | "clientWorkspaces" | "progressChatSessions" | "activeProgressChatId" | "projectOverrides"> & { dataVersion: string };
 
@@ -111,6 +113,8 @@ export interface PortalState {
   ticketSeq: number;
   clientWorkspaces: Record<string, PortalClientWorkspace>;
   invoiceClientName: string | null;
+  quickActionIntent: QuickActionIntent | null;
+  teamInvites: TeamInvite[];
 }
 
 function loadSavedViews(): PortalState["savedViews"] {
@@ -212,6 +216,7 @@ export function initialState(role: Role, requestedView?: View | null, clientName
     fileBrand: "all",
     chatDraft: "", progressChatSessions: [], activeProgressChatId: null, progressChatHistoryOpen: false, ticketSeq: 1042,
     clientWorkspaces: {}, invoiceClientName: null,
+    quickActionIntent: null, teamInvites: [],
   };
 }
 
@@ -699,6 +704,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
           source: "manual",
           milestone: "General",
         };
+        syncPortalViewUrl("tasks");
         setState(prev => ({
           ...prev,
           view: "tasks",

@@ -545,6 +545,58 @@ Proceed one checklist item at a time:
 
 ---
 
+## Active Batch: Snapshot New Menu Actions
+
+Source: Browser Comment 1 on the open `New` action menu at `http://localhost:3412/dashboard?view=progress`.
+
+Target: `/dashboard?view=progress` and the existing onboarding, team, inbox, to-do, and audit creation surfaces in `/Users/trishabltzr/baltazarstudio`.
+
+### Comment Checklist
+
+- [x] **1. Make New Client start onboarding**
+  - [x] Route to the New Client onboarding surface.
+  - [x] Open the client creation/onboarding state immediately instead of a passive destination.
+  - [x] Verify the action is usable from the shared Snapshot quick-actions menu.
+
+- [x] **2. Make Invite User open portal-access creation**
+  - [x] Route to Team.
+  - [x] Open the invite-user form immediately with name, email, and access fields.
+  - [x] Verify the action is usable from the shared Snapshot quick-actions menu.
+
+- [x] **3. Make New Message open message composition**
+  - [x] Route to Inbox.
+  - [x] Open the active conversation with a cleared, focused message composer immediately.
+  - [x] Verify the action is usable from the shared Snapshot quick-actions menu.
+
+- [x] **4. Make New To-do open task creation**
+  - [x] Route to To-do's and synchronize the URL.
+  - [x] Open the create-task form immediately.
+  - [x] Verify a task can be created from the opened form (test task created and removed).
+
+- [x] **5. Make New Audit start Cocoon Consult intake**
+  - [x] Route to Audits with the Website audit type selected.
+  - [x] Open the new-audit/client-selection state immediately.
+  - [x] Verify all 15 client start actions are available from the shared Snapshot quick-actions menu.
+
+- [x] **6. Mobile-optimize the audit client picker**
+  - [x] Keep the audit header controls inside the mobile viewport.
+  - [x] Present the client picker as a scrollable mobile sheet between the top bar and bottom navigation.
+  - [x] Verify the 388px-wide picker stays within the current 412 × 915 viewport and exposes every client action.
+
+### Verification Checklist
+
+- [x] All five actions close the shared quick-actions menu after selection.
+- [x] All five actions open the intended create/compose state, not only the destination view.
+- [x] Browser verification completes without console/runtime errors.
+- [x] `tsc --noEmit` passes.
+- [x] `next build --webpack` passes.
+
+### Execution Rules
+
+Proceed one checklist item at a time: implement, verify, update this batch, then move to the next item.
+
+---
+
 ## Active Batch: Audit Branch Accordion Parity
 
 Source: browser comments captured on `http://localhost:3412/dashboard` for phase detail task branches and the Cocoon audit preview popup.
