@@ -93,6 +93,10 @@ export function fromClientMemory(clientId: string, clientName: string, workspace
     memory = mergeKnow(memory, {
       data: noteKnowledge.data,
       sources: Object.fromEntries(Object.keys(noteKnowledge.data).map(key => [key, "Client notes"])),
+      notes: Object.fromEntries(workspace.notes.map((note, index) => [
+        `client-note-${index + 1}`,
+        `${note.text} — ${note.author}${note.createdAt ? `, ${note.createdAt}` : ""}`,
+      ])),
     });
   }
 

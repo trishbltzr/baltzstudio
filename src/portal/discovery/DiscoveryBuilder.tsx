@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { css } from "../helpers";
+import { printReportNode } from "../printReport";
 import { Icon } from "../icons";
 import { QuickStart } from "./QuickStart";
 import type { Know } from "./knowledge";
@@ -9,6 +10,7 @@ import { isAiStageResult, isGeneratedStageResult, type AiGenerationMode, type Ge
 import { AUDIT_SCORING_STEPS, isAuditScoreResult } from "@/lib/auditChecklist";
 import type { GuidedAuditSession } from "@/lib/portalAuditPersistence";
 import type { TaskImportDraft } from "../types";
+import { GuidedLoadingState } from "../components/GuidedLoadingState";
 
 // ── data shapes ───────────────────────────────────────────────────────────────
 export type DQKind = "text" | "textarea" | "single" | "multi";
@@ -34,6 +36,7 @@ export interface StageRenderCtx {
   onDownload: () => void;
   onShare: () => void;
   onCopy: () => void;
+  afterActions?: ReactNode;
 }
 export interface ProposalRenderCtx {
   docs: any;
@@ -186,7 +189,7 @@ export function DiscoveryBuilder({
   completeTitle = "Discovery complete", completeMsg, completeCta = "See the result →", progressLabel = "discovery",
   completeExtra, stageExtra, demo, demoAction = "complete", onExit, onComplete, mobile, pipeline, showToast,
   prefill, prefillSources, prefillNotes, quickStartMode, onIngest, onPipelineComplete,
-  sessionKey, initialSession, onSessionChange, generationMode, quickStartClientId, onImportTasks,
+  sessionKey, initialSession, onSessionChange, generationMode, quickStartClientId, onImportTasks, onShareFinal,
 }: {
   accent: string;
   title: string;
@@ -209,6 +212,7 @@ export function DiscoveryBuilder({
   onExit: () => void;
   onComplete: (data: Ans) => void;
   onPipelineComplete?: (data: Ans, aiResults: Record<string, GeneratedStageResult>) => void | Promise<void>;
+  onShareFinal?: (data: Ans, aiResults: Record<string, GeneratedStageResult>) => void | Promise<void>;
   onImportTasks?: (drafts: TaskImportDraft[]) => void;
   mobile: boolean;
   pipeline?: Pipeline;
@@ -263,6 +267,13 @@ export function DiscoveryBuilder({
   const appliedPrefillSignature = useRef(prefillSignature);
   const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = []; };
   const toast = (m: string, onClick?: () => void) => showToast?.(m, onClick);
+  const shareFinal = () => {
+    if (!onShareFinal) {
+      toast("Share link copied — send it to your client");
+      return;
+    }
+    void onShareFinal(collected, aiResults);
+  };
 
   const onSessionChangeRef = useRef(onSessionChange);
   onSessionChangeRef.current = onSessionChange;
@@ -390,12 +401,6 @@ export function DiscoveryBuilder({
   const guidedGeneration = ["audit", "brand", "seo"].includes(effectiveGenerationMode || "") && (curKey === "report" || curKey === "plan")
     || effectiveGenerationMode === "website_builder" && (curKey === "direction" || curKey === "tasks")
     || effectiveGenerationMode === "funnel" && !!FUNNEL_GENERATION_STEPS[curKey];
-  const generationStep = Math.min(Math.floor(generationTick / 2), generationSteps.length - 1);
-  const finalStepStartTick = (generationSteps.length - 1) * 2;
-  const finalStepTick = Math.max(0, generationTick - finalStepStartTick);
-  const generationProgress = generationStep < generationSteps.length - 1
-    ? Math.min(90, Math.round(((generationStep + 1) / generationSteps.length) * 90))
-    : Math.min(98, 90 + Math.floor(finalStepTick / 4));
   const finalScoringMessages = [
     "Calculating the internal checklist score",
     "Keeping Lighthouse results in a separate technical report",
@@ -403,12 +408,11 @@ export function DiscoveryBuilder({
     "Organizing every passed, failed, and unverified item",
     "Preparing the review-ready audit report",
   ];
-  const finalScoringMessage = finalScoringMessages[Math.floor(finalStepTick / 3) % finalScoringMessages.length];
   const finalPlanMessages = ["Checking the action order", "Linking Lighthouse findings to fixes", "Removing duplicate recommendations", "Preparing the implementation-ready plan"];
   const funnelFinalMessages = funnelGeneration?.final || [];
-  const finalGenerationMessage = effectiveGenerationMode === "funnel" && funnelFinalMessages.length
-    ? funnelFinalMessages[Math.floor(finalStepTick / 3) % funnelFinalMessages.length]
-    : curKey === "plan" ? finalPlanMessages[Math.floor(finalStepTick / 3) % finalPlanMessages.length] : finalScoringMessage;
+  const finalGenerationMessages = effectiveGenerationMode === "funnel" && funnelFinalMessages.length
+    ? funnelFinalMessages
+    : curKey === "plan" ? finalPlanMessages : finalScoringMessages;
   const generationHeading = funnelGeneration?.heading || (curKey === "plan" || curKey === "tasks" ? "Building your action plan" : effectiveGenerationMode === "website_builder" ? "Mapping the website rebuild" : effectiveGenerationMode === "brand" ? "Building your brand kit and guidelines" : effectiveGenerationMode === "seo" ? "Preparing your SEO audit" : "Scoring your site against the checklist");
   const generationDescription = funnelGeneration?.description || (curKey === "plan" || curKey === "tasks" ? "We are sequencing the approved direction into clear implementation tasks." : effectiveGenerationMode === "website_builder" ? "We are matching every sitemap page to the redesign scope before design begins." : effectiveGenerationMode === "brand" ? "We are translating the supplied brand evidence into a usable system and improvement insights." : effectiveGenerationMode === "seo" ? "We are combining website evidence with available analytics context without inventing search data." : "We are checking the rendered pages systematically—not grading from intake alone.");
   const stageApproved = !!s.approved[curKey];
@@ -449,7 +453,7 @@ export function DiscoveryBuilder({
       const response = await fetch("/api/ai/generate-stage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: effectiveGenerationMode, stageKey: curKey, clientName, personName, brandName, data: collected, priorResult: priorStageContext }),
+        body: JSON.stringify({ mode: effectiveGenerationMode, stageKey: curKey, clientName, personName, brandName, data: collected, clientNotes: prefillNotes, priorResult: priorStageContext }),
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(typeof payload?.error === "string" ? payload.error : "AI generation failed.");
@@ -739,16 +743,7 @@ export function DiscoveryBuilder({
         <div style={css("padding:2.4rem 1.5rem;text-align:center")}>
           {!isGenerating && <p style={css("margin:0 auto 0.95rem;font-size:0.9rem;color:var(--fg-muted);line-height:1.55;max-width:30rem")}>{pipeline.genPrompt(curKey)}</p>}
           {isGenerating && guidedGeneration ? (
-            <div role="status" aria-live="polite" style={css("width:100%;max-width:" + (quickStartMode === "funnel" ? "100%" : "31rem") + ";box-sizing:border-box;margin:0 auto;text-align:left;border:1px solid color-mix(in srgb," + accent + " 16%,var(--border-soft) 84%);border-radius:1.1rem;background:color-mix(in srgb," + accent + " 4%,white 96%);padding:1rem")}>
-              <div style={css("font-size:1rem;font-weight:500;text-align:center")}>{generationHeading}</div>
-              <div style={css("font-size:0.82rem;color:var(--fg-muted);text-align:center;margin-top:0.35rem")}>{generationDescription}</div>
-              <div style={css("display:flex;align-items:center;gap:0.65rem;margin-top:0.9rem")}><div style={css("height:0.42rem;flex:1;border-radius:999px;background:#fff;overflow:hidden")}><div style={css("height:100%;width:" + generationProgress + "%;border-radius:999px;background:" + accent + ";transition:width .65s ease")} /></div><span style={css("min-width:2.3rem;text-align:right;font-size:0.7rem;font-weight:500;color:" + accent)}>{generationProgress}%</span></div>
-              <div style={css("display:flex;flex-direction:column;gap:0.32rem;margin-top:1rem")}>{generationSteps.map((step, index) => {
-                const done = index < generationStep; const active = index === generationStep;
-                return <div key={step} style={css("display:flex;align-items:center;gap:0.65rem;padding:0.55rem 0.7rem;border-radius:" + (active ? "999px" : "0") + ";background:" + (active ? `color-mix(in srgb,${accent} 9%,white 91%)` : "transparent") + ";color:" + (done || active ? "var(--fg)" : "var(--fg-faint)"))}><span style={css("width:1.25rem;height:1.25rem;border-radius:50%;display:grid;place-items:center;flex-shrink:0;font-size:0.65rem;border:1px solid " + (done || active ? accent : "var(--border)") + ";background:" + (done ? accent : "var(--surface)") + ";color:" + (done ? "#fff" : active ? accent : "var(--fg-faint)"))}>{done ? "✓" : index + 1}</span><span style={css("font-size:0.82rem;font-weight:" + (active ? "500" : "400"))}>{step}</span></div>;
-              })}</div>
-              {generationStep === generationSteps.length - 1 && <div aria-live="polite" style={css("display:flex;align-items:center;gap:0.6rem;margin-top:0.8rem;padding:0.7rem 0.8rem;border:1px solid color-mix(in srgb," + accent + " 18%,var(--border) 82%);border-radius:999px;background:color-mix(in srgb," + accent + " 5%,white 95%)")}><span className="pt-typing-dot" style={{ background: accent }} /><span style={css("font-size:0.76rem;color:var(--fg-muted);line-height:1.4")}>{finalGenerationMessage}…</span></div>}
-            </div>
+            <GuidedLoadingState accent={accent} heading={generationHeading} description={generationDescription} steps={generationSteps} tick={generationTick} finalMessages={finalGenerationMessages} fullWidth={quickStartMode === "funnel"}/>
           ) : <button type="button" onClick={() => void onGen()} disabled={isGenerating} className="pt-op" style={css("border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;padding:0.6rem 1.3rem;font-size:0.85rem;font-weight:500;cursor:" + (isGenerating ? "wait" : "pointer") + ";font-family:inherit;opacity:" + (isGenerating ? ".72" : "1"))}>{isGenerating ? "Generating with AI…" : `✦ ${pipeline.genCta(curKey)}`}</button>}
           {generationError && (
             <div role="alert" style={css("margin:0.9rem auto 0;max-width:30rem;border:1px solid color-mix(in srgb,var(--danger) 28%,var(--border) 72%);border-radius:var(--radius);background:color-mix(in srgb,var(--danger) 7%,white 93%);padding:0.7rem 0.85rem;color:var(--danger);font-size:0.76rem;line-height:1.45")}>{generationError}</div>
@@ -756,7 +751,7 @@ export function DiscoveryBuilder({
         </div>
       ) : (
         <div style={css("padding:1.15rem 1.25rem")}>
-          {isAiStageResult(aiResult) && !["funnel", "website_builder"].includes(quickStartMode || "") && !(quickStartMode === "audit" && curKey === "plan") && <section aria-label="AI generated strategy" style={css("margin-bottom:1.1rem;border:1px solid color-mix(in srgb," + accent + " 22%,var(--border) 78%);border-radius:var(--radius-panel);background:color-mix(in srgb," + accent + " 5%,white 95%);padding:1rem 1.05rem") }>
+          {isAiStageResult(aiResult) && !["funnel", "website_builder", "brand"].includes(quickStartMode || "") && !(quickStartMode === "audit" && curKey === "plan") && <section aria-label="AI generated strategy" style={css("margin-bottom:1.1rem;border:1px solid color-mix(in srgb," + accent + " 22%,var(--border) 78%);border-radius:var(--radius-panel);background:color-mix(in srgb," + accent + " 5%,white 95%);padding:1rem 1.05rem") }>
             <div style={css("display:flex;align-items:center;gap:0.55rem;margin-bottom:0.5rem")}><span style={css("width:1.65rem;height:1.65rem;border-radius:50%;display:grid;place-items:center;background:" + accent + ";color:#fff;font-size:0.55rem;font-weight:500")}>AI</span><strong style={css("font-size:0.94rem;font-weight:500")}>{aiResult.title}</strong></div>
             <p style={css("margin:0;color:var(--fg-muted);font-size:0.8rem;line-height:1.55")}>{aiResult.summary}</p>
             <div style={css("display:grid;grid-template-columns:" + (mobile ? "1fr" : "repeat(2,minmax(0,1fr))") + ";gap:0.65rem;margin-top:0.85rem") }>
@@ -780,7 +775,11 @@ export function DiscoveryBuilder({
           {pipeline.renderStage({
             stageKey: curKey, docs, aiResult, aiResults, reveal: Number.POSITIVE_INFINITY, building: false, approved: stageApproved, mobile, accent,
             onAdvance: approveStage,
-            onDownload: () => toast("Preparing the PDF…"),
+            onDownload: async () => {
+              toast("Preparing the pageless PDF…");
+              const ok = await printReportNode(document.querySelector(`[data-pipeline-stage="${curKey}"]`), `${clientName} · ${curStage.label}`);
+              toast(ok ? "Pageless PDF ready" : "The PDF could not be generated");
+            },
             onShare: () => toast("Share link copied — send it to your client"),
             onCopy: () => toast("Copied to clipboard"),
           })}
@@ -804,7 +803,7 @@ export function DiscoveryBuilder({
       onBack: () => dispatch({ t: "proposal", v: false }),
       onExit,
       onRequest: () => toast("Sent to Baltz — we’ll be in touch"),
-      onShare: () => toast("Share link copied — send it to your client"),
+      onShare: shareFinal,
       onImportTasks: drafts => onImportTasks?.(drafts),
     });
   } else if (pipeline && s.stage >= 1 && curStage) {

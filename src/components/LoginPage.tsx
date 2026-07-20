@@ -1,25 +1,33 @@
-import { ArrowRight, Check, Eye, EyeOff, Feather, Lock, Mail, Search } from "lucide-react";
+import { ArrowRight, Building2, Check, Eye, EyeOff, Feather, Lock, Mail, Search, User, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { resolveDashboardUser } from "@/lib/auth";
-import { DEMO_USERS, type LoginUser } from "@/lib/demoUsers";
+import { REMEMBER_LOGIN_AFTER_OAUTH_STORAGE_KEY, type LoginUser } from "@/lib/authTypes";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const JOURNEY_STEPS = [
-  { label: "Cocoon Consult — the audit", Icon: Search, toneClassName: "is-audit" },
-  { label: "Winged in a Week — the build", Icon: Feather, toneClassName: "is-build" },
-  { label: "In Full Flight — the partnership", Icon: Check, toneClassName: "is-partnership" },
+  { label: "Cocoon Consult", Icon: Search, toneClassName: "is-audit" },
+  { label: "Winged in a Wink", Icon: Feather, toneClassName: "is-build" },
+  { label: "In Full Flight", Icon: Check, toneClassName: "is-partnership" },
 ] as const;
+
+// Keep the OAuth implementation ready to restore without exposing an inactive
+// login path in the interface.
+const GOOGLE_SIGN_IN_VISIBLE = false;
 
 export function LoginPage({
   onLogin,
+  rememberedProfile = null,
+  onForgetProfile,
   nextPath = "/dashboard",
   initialMessage = null,
 }: {
-  onLogin: (user: LoginUser) => void;
+  onLogin: (user: LoginUser, rememberProfile: boolean) => void;
+  rememberedProfile?: LoginUser | null;
+  onForgetProfile: () => void;
   nextPath?: string;
   initialMessage?: LoginFeedback | null;
 }) {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(rememberedProfile?.email ?? "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState<LoginFeedback | null>(initialMessage);
@@ -34,26 +42,28 @@ export function LoginPage({
   const [assistLoading, setAssistLoading] = useState<"forgot" | "invite" | "google" | null>(null);
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  const normalizedEmail = email.trim().toLowerCase();
-  const matchedUser = DEMO_USERS.find(user => user.email === normalizedEmail);
-  const submitName = matchedUser ? firstName(matchedUser.name) : "Portal";
+  const rememberedFirstName = rememberedProfile ? firstName(rememberedProfile.name) : null;
   const isForgotMode = activeAssistPanel === "forgot";
 
   useEffect(() => {
     setMessage(initialMessage);
   }, [initialMessage]);
 
+  useEffect(() => {
+    if (activeAssistPanel !== "invite") return;
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setActiveAssistPanel(null);
+    }
+
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [activeAssistPanel]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setMessage(null);
     setLoading(true);
-
-    const demoUser = DEMO_USERS.find(u => u.email === normalizedEmail && u.password === password);
-    if (demoUser) {
-      const { email: demoEmail, role, name, clientName } = demoUser;
-      onLogin({ email: demoEmail, role, name, clientName });
-      return;
-    }
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -61,6 +71,12 @@ export function LoginPage({
     });
 
     if (error || !data.user) {
+      const developmentUser = await tryDevelopmentLogin(email, password);
+      if (developmentUser) {
+        onLogin(developmentUser, rememberMe);
+        return;
+      }
+
       setMessage({ tone: "error", text: error?.message || "Invalid email or password. Please try again." });
       setLoading(false);
       return;
@@ -77,12 +93,28 @@ export function LoginPage({
       return;
     }
 
-    onLogin(nextUser);
+    onLogin(nextUser, rememberMe);
   }
 
   async function handleSSOClick() {
     setMessage(null);
     setAssistLoading("google");
+
+    // signInWithOAuth redirects the browser as soon as it's called, so a
+    // disabled provider never comes back as an `error` — it just dead-ends on
+    // Supabase's 400 and the button hangs on "Redirecting to Google...".
+    // Preflight the project settings so we can fail with a clear message.
+    const googleEnabled = await isOAuthProviderEnabled("google");
+    if (!googleEnabled) {
+      setMessage({
+        tone: "error",
+        text: "Google sign-in isn't enabled for this workspace yet. Sign in with your email and password, or ask an admin to enable Google in Supabase.",
+      });
+      setAssistLoading(null);
+      return;
+    }
+
+    sessionStorage.setItem(REMEMBER_LOGIN_AFTER_OAUTH_STORAGE_KEY, String(rememberMe));
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -92,6 +124,7 @@ export function LoginPage({
     });
 
     if (error) {
+      sessionStorage.removeItem(REMEMBER_LOGIN_AFTER_OAUTH_STORAGE_KEY);
       setMessage({ tone: "error", text: error.message });
       setAssistLoading(null);
     }
@@ -204,11 +237,19 @@ export function LoginPage({
 
         <section className="login-form-panel">
           <div className="login-form-header">
-            <h2>{isForgotMode ? "Reset Your Password" : "Sign In"}</h2>
+            <h2>
+              {isForgotMode
+                ? "Reset Your Password"
+                : rememberedFirstName
+                  ? `Welcome back, ${rememberedFirstName}`
+                  : "Sign In"}
+            </h2>
             <p>
               {isForgotMode
                 ? "We'll send a secure reset link to the email tied to your portal."
-                : "Use your assigned studio or client portal account."}
+                : rememberedProfile
+                  ? "Enter your password to open your portal."
+                  : "Use your assigned studio or client portal account."}
             </p>
           </div>
 
@@ -242,21 +283,45 @@ export function LoginPage({
               </div>
             ) : (
               <>
-                <div className="login-field">
-                  <label htmlFor="login-email">Email</label>
-                  <div className="login-input-shell">
-                    <Mail size={17} className="login-input-icon" aria-hidden="true" />
-                    <input
-                      id="login-email"
-                      type="email"
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      required
-                      placeholder="you@studio.com"
-                      autoComplete="email"
-                    />
+                {rememberedProfile ? (
+                  <div className="login-remembered-profile" aria-label="Remembered account">
+                    <span className="login-remembered-avatar" aria-hidden="true">
+                      {initials(rememberedProfile.name)}
+                    </span>
+                    <span className="login-remembered-identity">
+                      <strong>{rememberedProfile.name}</strong>
+                      <span>{rememberedProfile.email}</span>
+                    </span>
+                    <button
+                      type="button"
+                      className="login-remembered-switch"
+                      onClick={() => {
+                        onForgetProfile();
+                        setEmail("");
+                        setPassword("");
+                        setMessage(null);
+                      }}
+                    >
+                      Use another account
+                    </button>
                   </div>
-                </div>
+                ) : (
+                  <div className="login-field">
+                    <label htmlFor="login-email">Email</label>
+                    <div className="login-input-shell">
+                      <Mail size={17} className="login-input-icon" aria-hidden="true" />
+                      <input
+                        id="login-email"
+                        type="email"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        required
+                        placeholder="you@studio.com"
+                        autoComplete="email"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="login-field">
                   <div className="login-field-row">
@@ -282,6 +347,7 @@ export function LoginPage({
                       required
                       placeholder="••••••••"
                       autoComplete="current-password"
+                      autoFocus={Boolean(rememberedProfile)}
                     />
                     <button
                       type="button"
@@ -304,7 +370,7 @@ export function LoginPage({
                   <span className="login-remember-box" aria-hidden="true">
                     {rememberMe ? <Check size={12} /> : null}
                   </span>
-                  <span>Keep Me Signed In</span>
+                  <span>Remember this profile on this device</span>
                 </label>
               </>
             )}
@@ -329,7 +395,7 @@ export function LoginPage({
                 </>
               ) : (
                 <>
-                  <span>Sign In as {submitName}</span>
+                  <span>{rememberedFirstName ? `Continue as ${rememberedFirstName}` : "Sign In to Portal"}</span>
                   <ArrowRight size={16} />
                 </>
               )}
@@ -346,7 +412,7 @@ export function LoginPage({
               >
                 Back to Sign In
               </button>
-            ) : (
+            ) : GOOGLE_SIGN_IN_VISIBLE ? (
               <>
                 <div className="login-divider" aria-hidden="true">
                   <span />
@@ -383,7 +449,7 @@ export function LoginPage({
                   <span>{assistLoading === "google" ? "Redirecting to Google..." : "Continue with Google"}</span>
                 </button>
               </>
-            )}
+            ) : null}
           </form>
 
           {!isForgotMode ? (
@@ -392,22 +458,43 @@ export function LoginPage({
               <button
                 type="button"
                 className="login-inline-btn"
-                onClick={() => setActiveAssistPanel(current => current === "invite" ? null : "invite")}
+                onClick={() => setActiveAssistPanel("invite")}
               >
                 Request an Invite
               </button>
             </p>
           ) : null}
+        </section>
+      </div>
 
-          {!isForgotMode && activeAssistPanel === "invite" ? (
-            <div className="login-assist-panel">
+      {!isForgotMode && activeAssistPanel === "invite" ? (
+        <div className="login-invite-modal-layer" onMouseDown={() => setActiveAssistPanel(null)}>
+          <section
+            className="login-invite-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="login-invite-title"
+            onMouseDown={event => event.stopPropagation()}
+          >
+            <div className="login-invite-modal-header">
               <div className="login-assist-panel-header">
-                <strong>Request Portal Access</strong>
+                <strong id="login-invite-title">Request Portal Access</strong>
                 <span>Share who you are and we'll review the right portal role for you.</span>
               </div>
-              <form className="login-assist-form" onSubmit={handleInviteRequest}>
-                <div className="login-field">
-                  <label htmlFor="invite-name">Your Name</label>
+              <button
+                type="button"
+                className="login-invite-modal-close"
+                onClick={() => setActiveAssistPanel(null)}
+                aria-label="Close invite request"
+              >
+                <X size={17} />
+              </button>
+            </div>
+            <form className="login-assist-form" onSubmit={handleInviteRequest}>
+              <div className="login-field">
+                <label htmlFor="invite-name">Your Name</label>
+                <div className="login-input-shell">
+                  <User size={16} className="login-input-icon" aria-hidden="true" />
                   <input
                     id="invite-name"
                     type="text"
@@ -418,9 +505,12 @@ export function LoginPage({
                     required
                   />
                 </div>
+              </div>
 
-                <div className="login-field">
-                  <label htmlFor="invite-email">Work Email</label>
+              <div className="login-field">
+                <label htmlFor="invite-email">Work Email</label>
+                <div className="login-input-shell">
+                  <Mail size={16} className="login-input-icon" aria-hidden="true" />
                   <input
                     id="invite-email"
                     type="email"
@@ -431,9 +521,12 @@ export function LoginPage({
                     required
                   />
                 </div>
+              </div>
 
-                <div className="login-field">
-                  <label htmlFor="invite-business">Business Name</label>
+              <div className="login-field">
+                <label htmlFor="invite-business">Business Name</label>
+                <div className="login-input-shell">
+                  <Building2 size={16} className="login-input-icon" aria-hidden="true" />
                   <input
                     id="invite-business"
                     type="text"
@@ -443,30 +536,30 @@ export function LoginPage({
                     autoComplete="organization"
                   />
                 </div>
+              </div>
 
-                <div className="login-field">
-                  <label htmlFor="invite-note">Anything we should know?</label>
-                  <textarea
-                    id="invite-note"
-                    value={inviteNote}
-                    onChange={event => setInviteNote(event.target.value)}
-                    placeholder="Share context for the access request."
-                    rows={3}
-                  />
-                </div>
+              <div className="login-field">
+                <label htmlFor="invite-note">Anything we should know?</label>
+                <textarea
+                  id="invite-note"
+                  value={inviteNote}
+                  onChange={event => setInviteNote(event.target.value)}
+                  placeholder="Share context for the access request."
+                  rows={3}
+                />
+              </div>
 
-                <button
-                  type="submit"
-                  className="login-secondary-btn"
-                  disabled={assistLoading === "invite"}
-                >
-                  {assistLoading === "invite" ? "Submitting..." : "Send Invite Request"}
-                </button>
-              </form>
-            </div>
-          ) : null}
-        </section>
-      </div>
+              <button
+                type="submit"
+                className="login-secondary-btn"
+                disabled={assistLoading === "invite"}
+              >
+                {assistLoading === "invite" ? "Submitting..." : "Send Invite Request"}
+              </button>
+            </form>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -476,9 +569,42 @@ type LoginFeedback = {
   text: string;
 };
 
+async function tryDevelopmentLogin(email: string, password: string) {
+  if (process.env.NODE_ENV !== "development") return null;
+
+  const response = await fetch("/api/dev-login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!response.ok) return null;
+
+  const payload = await response.json().catch(() => null) as { user?: LoginUser } | null;
+  return payload?.user ?? null;
+}
+
 function buildAuthRedirectUrl(callbackPath: string, nextPath: string) {
   const origin = window.location.origin;
   return `${origin}${callbackPath}?next=${encodeURIComponent(nextPath)}`;
+}
+
+// Ask GoTrue which external providers the project actually has enabled. This is
+// the same public settings endpoint supabase-js reads, so it's CORS-open.
+// Fails open (returns true) on any hiccup so a transient network issue never
+// blocks a correctly configured provider.
+async function isOAuthProviderEnabled(provider: string): Promise<boolean> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) return false;
+
+  try {
+    const response = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: key } });
+    if (!response.ok) return true;
+    const settings = (await response.json()) as { external?: Record<string, boolean> };
+    return Boolean(settings.external?.[provider]);
+  } catch {
+    return true;
+  }
 }
 
 function pickSupabaseName(metadata: unknown) {
@@ -492,5 +618,14 @@ function pickSupabaseName(metadata: unknown) {
 }
 
 function firstName(name: string) {
-  return name.split(" ")[0] || name;
+  return name.trim().split(/\s+/)[0] || name;
+}
+
+function initials(name: string) {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(part => part.charAt(0).toUpperCase())
+    .join("") || "B";
 }

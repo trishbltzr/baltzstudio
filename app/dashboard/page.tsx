@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { DashboardUserRole } from "@/types";
 import { Portal } from "@/portal/Portal";
 import type { Role as PortalRole } from "@/portal/types";
-import type { LoginUser } from "@/lib/demoUsers";
+import type { LoginUser } from "@/lib/authTypes";
 
 // Map the login role onto the redesigned portal's role model (manager → dev).
 function mapPortalRole(role: DashboardUserRole): PortalRole {

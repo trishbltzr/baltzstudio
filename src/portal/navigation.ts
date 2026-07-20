@@ -1,5 +1,6 @@
 import type { PortalActions, PortalState } from "./store";
 import type { Role, View } from "./types";
+import { clientHasEngineAccess } from "./access";
 
 export interface NavItemMeta {
   label: string;
@@ -53,11 +54,20 @@ export const NAV_SECTIONS: Record<Role, readonly NavSection[]> = {
   ],
   client: [
     SNAPSHOT_SECTION,
-    { label: "Your Project", views: ["milestones", "tasks"] },
-    CLIENT_ENGINES_SECTION,
+    { label: "Your Project", views: ["review", "milestones", "tasks"] },
     { label: "Collaboration", views: ["inbox", "activity", "files"] },
   ],
 };
+
+export function navSectionsForState(state: PortalState): readonly NavSection[] {
+  if (state.role !== "client" || !clientHasEngineAccess(state)) return NAV_SECTIONS[state.role];
+  return [
+    SNAPSHOT_SECTION,
+    { label: "Your Project", views: ["review", "milestones", "tasks"] },
+    CLIENT_ENGINES_SECTION,
+    { label: "Collaboration", views: ["inbox", "activity", "files"] },
+  ];
+}
 
 export function navItemMeta(view: View): NavItemMeta {
   const meta = NAV_ITEM_META[view as keyof typeof NAV_ITEM_META];
@@ -90,18 +100,30 @@ const QUICK_ACTIONS: Record<Role, QuickAction[]> = {
     { label: "Upload File", sub: "Share an asset", icon: "file", intent: "upload_file", view: "files" },
     { label: "Review to-do's", sub: "See requests", icon: "checklist", intent: "review_tasks", view: "tasks" },
     { label: "Billing Question", sub: "Wise or access", icon: "wallet", intent: "billing_question", view: "inbox" },
-    { label: "Review Audit", sub: "See findings", icon: "audit", intent: "review_audit", view: "audit" },
+    { label: "Review Approvals", sub: "See final outputs", icon: "flag", intent: "open_approvals", view: "review" },
   ],
 };
 
 export const MOBILE_PRIMARY_VIEWS: Record<Role, View[]> = {
   admin: ["progress", "clients", "playbooks", "billing"],
   dev: ["progress", "clients", "inbox", "settings"],
-  client: ["progress", "milestones", "files", "tasks"],
+  client: ["progress", "review", "files", "tasks"],
 };
 
 export function quickActionsForRole(role: Role): QuickAction[] {
   return QUICK_ACTIONS[role];
+}
+
+export function quickActionsForState(state: PortalState): QuickAction[] {
+  if (state.role !== "client" || !clientHasEngineAccess(state)) return QUICK_ACTIONS[state.role];
+  return [
+    ...QUICK_ACTIONS.client.slice(0, 3),
+    { label: "Review Audit", sub: "See findings", icon: "audit", intent: "review_audit", view: "audit" },
+  ];
+}
+
+export function mobilePrimaryViewsForState(state: PortalState): View[] {
+  return MOBILE_PRIMARY_VIEWS[state.role];
 }
 
 export function runQuickAction(action: QuickAction, state: PortalState, actions: PortalActions) {

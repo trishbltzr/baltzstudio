@@ -44,6 +44,7 @@ export interface ClientCardData {
     stage: string;
     assignee: string;
     due: string;
+    trailing?: ReactNode;
     onOpen?: () => void;
     actions?: Array<{ label: string; onClick: () => void }>;
   }>;
@@ -86,10 +87,13 @@ function ClientCard({ c, compact }: { c: ClientCardData; compact: boolean }) {
   const canExpandStats = c.statsLayout === "vertical" && stats.length > 2;
   const visibleStats = canExpandStats && !statsExpanded ? stats.slice(0, 2) : stats;
   const cardTone = c.statusTone === "success" ? "var(--success)" : c.statusTone === "warn" ? "var(--warn)" : c.statusTone === "danger" ? "var(--danger)" : "var(--accent)";
+  const heroOnlyBody = !!c.hero && !showMeta && stats.length === 0 && !c.details;
   return (
     <div className="pt-card client-card" style={css("border:1px solid color-mix(in srgb,var(--border-soft) 82%," + cardTone + " 18%);border-radius:" + (compact ? "1.02rem" : "var(--radius-panel)") + ";background:" + (compact ? "linear-gradient(180deg,color-mix(in srgb," + cardTone + " 5%,white 95%) 0%,var(--surface) 30%,var(--surface) 100%)" : "linear-gradient(180deg,color-mix(in srgb," + cardTone + " 4%,var(--surface) 96%) 0%,var(--surface) 32%)") + ";overflow:hidden;display:flex;flex-direction:column;height:" + (compact ? "100%" : "auto") + ";min-height:" + (compact ? "13.7rem" : "0"))}>
       <div aria-hidden="true" style={css("height:0.24rem;background:linear-gradient(90deg," + cardTone + " 0%,color-mix(in srgb," + cardTone + " 72%,var(--surface) 28%) 72%,color-mix(in srgb," + cardTone + " 20%,var(--surface) 80%) 100%);flex-shrink:0")} />
-      <div style={css("padding:" + (compact ? "0.86rem 0.88rem 0.94rem" : "1rem 1.1rem"))}>
+      <div style={css("padding:" + (compact
+        ? `0.86rem 0.88rem ${heroOnlyBody ? "0" : "0.94rem"}`
+        : `1rem 1.1rem ${heroOnlyBody ? "0" : "1rem"}`))}>
         <div style={css("display:flex;align-items:center;gap:" + (compact ? "0.62rem" : "0.65rem") + ";margin-bottom:" + (compact ? "0.6rem" : "0.85rem"))}>
           <span style={css("width:" + (compact ? "1.9rem" : "1.95rem") + ";height:" + (compact ? "1.9rem" : "1.95rem") + ";border-radius:" + (compact ? "0.66rem" : "var(--radius-sm)") + ";background:color-mix(in srgb," + cardTone + " 13%,var(--surface-alt) 87%);color:" + cardTone + ";display:grid;place-items:center;font-weight:500;font-size:" + (compact ? "0.78rem" : "0.8rem") + ";flex-shrink:0")}>{c.name[0]}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -193,7 +197,7 @@ function ClientCard({ c, compact }: { c: ClientCardData; compact: boolean }) {
                 const hasActions = !!row.actions?.length;
                 const active = hasActions && activeDetailId === row.id;
                 return (
-                  <div key={row.id} style={css("border:" + (active ? "1.5px" : "1px") + " solid " + (active ? "color-mix(in srgb,var(--accent) 42%,var(--border-soft) 58%)" : "color-mix(in srgb,var(--border-soft) 88%,white 12%)") + ";border-radius:" + (active ? "0.9rem" : "999px") + ";background:" + (active ? "color-mix(in srgb,var(--accent-soft) 34%,var(--surface) 66%)" : "color-mix(in srgb,var(--surface-alt) 58%,var(--surface) 42%)") + ";overflow:hidden;transition:border-color .16s ease,border-radius .16s ease,background .16s ease")}>
+                  <div key={row.id} style={css("border:" + (active ? "1.5px" : "1px") + " solid " + (active ? "color-mix(in srgb,var(--accent) 42%,var(--border-soft) 58%)" : "color-mix(in srgb,var(--border-soft) 88%,white 12%)") + ";border-radius:" + (active ? "0.9rem" : "999px") + ";background:" + (active ? "color-mix(in srgb,var(--accent-soft) 34%,var(--surface) 66%)" : "color-mix(in srgb,var(--surface-alt) 58%,var(--surface) 42%)") + ";overflow:hidden;flex-shrink:0;transition:border-color .16s ease,border-radius .16s ease,background .16s ease")}>
                     <button
                       type="button"
                       data-detail-id={row.id}
@@ -210,7 +214,7 @@ function ClientCard({ c, compact }: { c: ClientCardData; compact: boolean }) {
                       </span>
 							<span style={css("display:flex;align-items:center;justify-content:flex-end;gap:0.42rem;min-width:0")}>
 								<span style={css("display:inline-flex;align-items:center;font-size:var(--text-2xs);font-weight:500;padding:0.22rem 0.5rem;border-radius:999px;white-space:nowrap;background:" + rowTone.soft + ";color:" + rowTone.color)}>{row.statusLabel}</span>
-								<span style={css("display:inline-flex;align-items:center;gap:0.22rem;font-size:0.64rem;color:var(--fg-faint);white-space:nowrap")}><Icon name="cal" size={10} />{row.due}</span>
+								{row.trailing || <span style={css("display:inline-flex;align-items:center;gap:0.22rem;font-size:0.64rem;color:var(--fg-faint);white-space:nowrap")}><Icon name="cal" size={10} />{row.due}</span>}
 							</span>
                     </button>
                     {active && row.actions && (
@@ -242,7 +246,7 @@ function ClientCard({ c, compact }: { c: ClientCardData; compact: boolean }) {
                     <div style={css("display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap;margin-top:0.28rem;font-size:0.68rem;color:var(--fg-muted)")}>
                       <span>{row.stage}</span>
                       <span style={css("display:inline-flex;align-items:center;gap:0.28rem")}><span style={css("width:1.25rem;height:1.25rem;border-radius:50%;background:oklch(0.95 0.004 50);color:var(--fg-muted);font-size:0.52rem;font-weight:500;display:grid;place-items:center")}>{initials(row.assignee)}</span>{row.assignee}</span>
-                      <span style={css("display:inline-flex;align-items:center;gap:0.28rem")}><Icon name="cal" size={11} />{row.due}</span>
+                      {row.trailing || <span style={css("display:inline-flex;align-items:center;gap:0.28rem")}><Icon name="cal" size={11} />{row.due}</span>}
                     </div>
                   </div>
                   {row.onOpen && (

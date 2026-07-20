@@ -168,8 +168,8 @@
   font-size: var(--text-2xs);
   font-weight: 500;
   line-height: 1;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .pt-navitem.is-active .pt-beta-badge {
   border-color: oklch(1 0 0 / 0.34);

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Icon } from "../icons";
 import { css } from "../helpers";
-import { MOBILE_PRIMARY_VIEWS, navItemMeta, quickActionsForRole, runQuickAction } from "../navigation";
+import { mobilePrimaryViewsForState, navItemMeta, quickActionsForState, runQuickAction } from "../navigation";
 import { inboxUnread } from "../selectors";
 import type { PortalActions, PortalState } from "../store";
 import type { View } from "../types";
@@ -20,9 +20,10 @@ export function MobileTabBar({ state, actions, onLogout: _onLogout }: { state: P
   };
   const go = (v: View) => { setOpen(false); actions.setView(v); };
 
-  const primaryLeft = MOBILE_PRIMARY_VIEWS[role].slice(0, 2);
-  const primaryRight = MOBILE_PRIMARY_VIEWS[role].slice(2);
-  const trayItems = quickActionsForRole(role).slice(0, 5);
+  const primaryViews = mobilePrimaryViewsForState(state);
+  const primaryLeft = primaryViews.slice(0, 2);
+  const primaryRight = primaryViews.slice(2);
+  const trayItems = quickActionsForState(state).slice(0, 5);
   const navItem = (id: View) => {
     const item = navItemMeta(id); const active = state.view === id; const badge = badgeFor(id);
     return (

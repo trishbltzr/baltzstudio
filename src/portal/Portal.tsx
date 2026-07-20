@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { css } from "./helpers";
 import { usePortal } from "./store";
 import type { Role } from "./types";
@@ -17,7 +18,6 @@ import { Inbox } from "./views/Inbox";
 import { Activity } from "./views/Activity";
 import { Playbooks } from "./views/Playbooks";
 import { Billing } from "./views/Billing";
-import { Invoices } from "./views/Invoices";
 import { Users } from "./views/Users";
 import { Journey } from "./views/Journey";
 import { Approvals } from "./views/Approvals";
@@ -26,17 +26,22 @@ import { ClientAudits } from "./views/ClientAudits";
 import { ClientFunnels } from "./views/ClientFunnels";
 import { Assistant } from "./views/Assistant";
 import { Files } from "./views/Files";
-import { Builders } from "./builders/Builders";
-import { Audits } from "./audits/Audits";
-import { Onboarding } from "./views/Onboarding";
 import { ProfileSettings } from "./views/ProfileSettings";
 import { PlaybookDocument } from "./views/PlaybookDocument";
 import { Placeholder } from "./views/Placeholder";
 import { Icon } from "./icons";
+import { PortalViewLoader } from "./components/PortalViewLoader";
+import { clientHasEngineAccess } from "./access";
+
+const Audits = dynamic(() => import("./audits/Audits").then(module => module.Audits), { loading: () => <PortalViewLoader /> });
+const Builders = dynamic(() => import("./builders/Builders").then(module => module.Builders), { loading: () => <PortalViewLoader /> });
+const Invoices = dynamic(() => import("./views/Invoices").then(module => module.Invoices), { loading: () => <PortalViewLoader /> });
+const Onboarding = dynamic(() => import("./views/Onboarding").then(module => module.Onboarding), { loading: () => <PortalViewLoader /> });
 
 export function Portal({ seedRole, clientName, canSwitchRoles, onLogout }: { seedRole: Role; clientName?: string; canSwitchRoles: boolean; onLogout: () => void }) {
   const { state, actions } = usePortal(seedRole, clientName, canSwitchRoles);
-  const fullBleedView = state.view === "funnels" || state.view === "audits_new" || state.view === "audit";
+  const deniedClientEngine = state.role === "client" && !clientHasEngineAccess(state) && (state.view === "audit" || state.view === "funnels");
+  const fullBleedView = !deniedClientEngine && (state.view === "funnels" || state.view === "audits_new" || state.view === "audit");
   const rail = !state.isMobile && state.sidebarCollapsed && !(fullBleedView && state.guidedSidebarActive);
   const shellFrame = fullBleedView
     ? "width:100%;max-width:none;margin:0"
@@ -92,7 +97,11 @@ export function Portal({ seedRole, clientName, canSwitchRoles, onLogout }: { see
           </div>
         </div>
 
-        {state.view === "audits_new" || state.view === "audit" || state.view === "funnels" ? (
+        {deniedClientEngine ? (
+          <div style={css(shellFrame + ";" + shellContentPadding)}>
+            <Approvals state={state} actions={actions} />
+          </div>
+        ) : state.view === "audits_new" || state.view === "audit" || state.view === "funnels" ? (
           state.view === "audits_new" || state.view === "audit"
             ? <Audits state={state} actions={actions} />
             : <Builders state={state} actions={actions} />

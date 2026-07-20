@@ -3,6 +3,7 @@
 import { Icon } from "../icons";
 import { activeJourneyGate, css, journeyProgressForGate, milestoneStatusFromGate, statusPill } from "../helpers";
 import { MILESTONES, SVC_META } from "../data";
+import { clientHasEngineAccess } from "../access";
 import type { PortalActions, PortalState } from "../store";
 import type { JourneyGate, View } from "../types";
 
@@ -43,7 +44,7 @@ function projectStateForGate(gate: JourneyGate | undefined) {
       stageSub: "Plan selected · not started",
       waitHeading: "Workspace ready",
       waitTitle: "Cocoon Consult",
-      waitSub: "Your audit workflow is ready to begin",
+      waitSub: "Final work will appear in Approvals when it is ready",
     };
   }
   if (gate.status === "in_revision") {
@@ -123,13 +124,23 @@ export function ClientStats({ state, actions }: { state: PortalState; actions: P
   const gates = state.journeyGates;
   const activeGate = activeJourneyGate(gates) || gates[gates.length - 1];
   const projectState = projectStateForGate(activeGate);
-  const clientNext = [
+  const sharedItems = [
     { label: "Journey", value: String(projectState.progress) + "%", icon: "feather", tint: "var(--accent-soft)", color: "var(--accent)", onClick: go("milestones") },
     { label: "To-do's", value: projectState.actionLabel === "Waiting on You" ? "1" : "0", icon: "checklist", tint: projectState.actionTint, color: projectState.actionColor, onClick: go("tasks") },
-    { label: "Audits", value: "0", icon: "audit", tint: "var(--success-soft)", color: "var(--success)", onClick: go("audit") },
-    { label: "Funnels", value: "0", icon: "funnel", tint: "var(--warn-soft)", color: "var(--warn)", onClick: go("funnels") },
     { label: "Files", value: "0", icon: "file", tint: "var(--lane-gate-soft)", color: "var(--lane-gate)", onClick: go("files") },
   ];
+  const clientNext = clientHasEngineAccess(state)
+    ? [
+        ...sharedItems.slice(0, 2),
+        { label: "Audits", value: "0", icon: "audit", tint: "var(--success-soft)", color: "var(--success)", onClick: go("audit") },
+        { label: "Builders", value: "0", icon: "funnel", tint: "var(--warn-soft)", color: "var(--warn)", onClick: go("funnels") },
+        sharedItems[2],
+      ]
+    : [
+        ...sharedItems.slice(0, 2),
+        { label: "Approvals", value: String(actions.workspaceForClient(state.clientName).approvals.filter(item => item.sent).length), icon: "flag", tint: "var(--success-soft)", color: "var(--success)", onClick: go("review") },
+        sharedItems[2],
+      ];
   return (
     <div style={css("display:grid;grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr));gap:0.55rem")}>
       {clientNext.map(c => (

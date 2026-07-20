@@ -26,6 +26,244 @@ Note: use `[~]` only when code has landed but TypeScript/build/browser verificat
 
 ---
 
+## Active Batch: Remembered Profile Login
+
+Source: login flow refinement requested for `http://localhost:3412/login`, captured July 16, 2026.
+
+Target: recognize the last authenticated profile on a device and request only its password, while preserving normal authentication and account switching.
+
+### Comment Checklist
+
+- [x] Save only the last authenticated profile when the user opts to remember it; never store a password or authentication token.
+- [x] Show the remembered name and email with a password-first `Continue as` flow on the next signed-out visit.
+- [x] Let the user remove the remembered profile and return to the full email-and-password form.
+- [x] Preserve Supabase password login, Google OAuth, password recovery, and development login behavior.
+
+### Verification Checklist
+
+- [x] Verify remembered-profile login and account switching in the live `/login` flow.
+- [x] Verify TypeScript, production build, and `git diff --check`.
+
+---
+
+## Active Batch: Website Builder Build-Ready Brief
+
+Source: Website Builder workflow clarification requested on `http://localhost:3412/dashboard?view=funnels&builderType=website`, captured July 16, 2026.
+
+Target: source-flexible planning that turns the client-confirmed page list into the final sitemap, page copy briefs, and implementation-ready scope.
+
+### Comment Checklist
+
+- [x] Accept an existing website, uploaded brief or copy, pasted notes, or a combination as Website Builder source material.
+- [x] Ask explicitly which pages should be designed and what each page must communicate or help the visitor do.
+- [x] Make the confirmed page list authoritative; use a discovered current sitemap only for preservation, reuse, migration, redirects, or retirement.
+- [x] Generate a concise build-ready brief with one purpose, message, action, and copy-source brief per scoped page.
+- [x] Carry the approved sitemap and page briefs into implementation tasks without adding unconfirmed pages.
+
+### Verification Checklist
+
+- [x] Source controls and revised questions render in the live Website Builder.
+- [x] Website Builder accepts a URL or uploaded/pasted material as the required Jumpstart source instead of requiring a URL specifically.
+- [x] TypeScript, production build, and `git diff --check` pass.
+
+---
+
+## Active Batch: Consolidate SEO Into Audits
+
+Source: navigation and workflow consolidation requested on `http://localhost:3412/dashboard?view=audits&auditType=website`, captured July 16, 2026.
+
+Target: one SEO workflow under Audits, with evidence, reporting, keywords, page mapping, metadata, information architecture, and roadmap in the same client workspace.
+
+### Comment Checklist
+
+- [x] Remove SEO from the Builders submenu and Builder route handling.
+- [x] Keep the complete five-stage SEO workflow inside Audits.
+- [x] Replace builder handoff and preview language with same-workspace planning language.
+- [x] Normalize legacy `builderType=seo` URLs to a valid Builder instead of reopening the removed SEO surface.
+- [x] Show crawl-source controls and the complete site inventory together; imported CSV or sitemap rows should populate the page table automatically.
+- [x] Restore Audit findings as step 2, place Report & priorities at step 4, and rename the combined metadata, IA, and roadmap stage to Action plan at step 5.
+- [x] Keep readiness inside Audit findings as one collapsible, one-column checklist; show each check, a single-line explanation, and Confirmed, Done, Needs checking, Failed, or Unverified status.
+- [x] Remove the separate readiness navigation and duplicate readiness scoring/checklist sections from Report & priorities.
+- [x] Add an icon-only column filter beside Search so users can add or remove individual crawl fields, with Essential and All presets, without displacing the search bar.
+- [x] Remove the standalone Complete technical evidence section from Report & priorities.
+- [x] Keep Pages audited hidden by default in Report & priorities and reveal the vertical register from a Show pages audited button inside the Crawl report card.
+- [x] Combine Keywords and Page map into one Keywords & pages workspace, removing the duplicate sub-tabs and presenting opportunity data and page decisions in one visual flow.
+- [x] Keep Crawl composition and Crawl depth equal in height, and replace Findings by volume status pills with severity-colored flags beside each count.
+- [x] Extend SEO with an integrated AIO/GEO discovery layer covering AI-search eligibility, citation-ready content, crawler access, structured-data evidence, and measurement tasks without changing the 27-item readiness gate.
+- [x] Add one consistent hover, keyboard-focus, and tap guide to SEO data visualizations; page-based graphs must reveal every supporting URL in the tooltip.
+- [x] Align the page-decision register to one stable Page, Finding & next step, and Action grid on desktop, while stacking details cleanly on mobile.
+- [x] Restore the missing broken-journey chain-link glyph and use matching circular icon containers across all recommendation cards.
+- [x] Replace implementation-access prerequisites with a 27-item SEO audit checklist covering crawl/indexation, on-page content, architecture/internal linking, technical experience, and AIO/GEO plus measurement.
+- [x] Categorize the expanded checklist into five visible audit sections and format each check as two text lines: title first, then evidence or description below.
+- [x] Reuse the Website Audit guided loading component for SEO CSV analysis and sitemap crawling, including progress, sequential checks, and final validation messages.
+
+### Verification Checklist
+
+- [x] Builders shows Funnel, Website, and Social Media only.
+- [x] SEO remains available under Audits and opens the combined five-stage pipeline.
+- [x] A legacy SEO Builder URL no longer renders a separate SEO Builder.
+- [x] `tsc --noEmit`, production build, and `git diff --check` pass.
+- [x] Crawl & inventory opens as one view with no separate inventory tab, and imported rows are immediately visible below the source controls.
+- [x] The live sidebar follows Crawl, Audit findings, Keywords & pages, Report & priorities, then Action plan.
+- [x] Audit findings has no `Review readiness` link; `Show checklist` reveals one vertical list and `Hide checklist` collapses it.
+- [x] Report & priorities contains no duplicate readiness score, category scores, or original readiness checklist.
+- [x] Crawled pages defaults to the six essential columns; the filter-icon menu can add or remove fields without leaving the table, while Search stays in its original toolbar position.
+- [x] Report & priorities contains no standalone Complete technical evidence section.
+- [x] Report & priorities initially hides Pages audited; Show pages audited reveals it and Hide pages audited collapses it again.
+- [x] Keywords & pages opens directly to one responsive plan with summary metrics, readable keyword opportunities, an opportunity matrix, and a vertical keyword-to-page register.
+- [x] Crawl composition and Crawl depth render at equal measured heights; finding rows show no leading severity pill and place one colored flag after the count.
+- [x] Audit findings and Report & priorities show AIO/GEO readiness, AI answer gaps appear in findings, and Roadmap includes crawler, content, structured-data, and AI citation/referral tasks.
+- [x] Crawl composition, crawl depth, coverage bars, issue charts, finding-volume bars, report outcome/attention charts, roadmap bars, and keyword matrix points expose exact values; URL-backed charts list all affected pages.
+- [x] Page-decision findings and action pills hold the same column positions across every desktop row, while mobile keeps the action beside the page and the explanation below.
+- [x] All three recommendation cards show legible glyphs inside equal circular containers, including the chain-link icon for broken journeys.
+- [x] The expanded SEO audit checklist contains no CMS administrator, plugin licence, page-builder timing, tracking-snippet placement, or OneLogin prerequisites; crawl-supported checks are evaluated automatically and qualitative checks remain unverified.
+- [x] The checklist reveals five labeled category panels; every check keeps its status separate from a two-line title-and-evidence treatment.
+- [x] CSV upload, sample analysis, and sitemap crawl replace the source controls with the same accessible guided loading treatment used by Website Audit before revealing SEO findings.
+
+---
+
+## Completed Batch: SEO Evidence Audit Parity And Planning Preview
+
+Source: SEO Audit/Builder review on `http://localhost:3412/dashboard?view=audits&auditType=seo`, captured July 16, 2026.
+
+Target: evidence-based readiness checks, Website Audit report parity, vertical page registers, and temporary SEO planning preview access.
+
+### Comment Checklist
+
+- [x] Automatically verify only readiness checks supported by crawl or public-site evidence; leave CMS administration, plugin maintenance, licences, editor access, and tracking placement as explicit client/admin inputs.
+- [x] Retain TLS, CMS, viewport, analytics, caching, server, robots, and metadata evidence on live sitemap crawls.
+- [x] Match the Website Audit report hierarchy with a checklist score, evidence coverage, separate crawl evidence, category bars, audited-page register, and original checklist results.
+- [x] Change `Pages that need a decision` from a card grid to one vertical list.
+- [x] Temporarily expose the SEO planning stages for visual review while keeping a visible `Not approved for delivery` preview notice.
+
+### Verification Checklist
+
+- [x] Readiness distinguishes automatically passed checks, partial-evidence warnings, and access-dependent checks without promoting partial public evidence to a confirmed backend result.
+- [x] SEO report opens without a runtime overlay and exposes the Website Audit-style evidence hierarchy.
+- [x] The audit report continues into the full SEO planning stages and displays the temporary preview notice.
+- [x] `tsc --noEmit` and `git diff --check` pass.
+
+---
+
+## Active Batch: Client-Facing SEO Report Visual Pass
+
+Source: client-perspective visual review on `http://localhost:3412/dashboard?view=audits&auditType=seo`, captured July 16, 2026.
+
+Target: SEO Audit report hierarchy, visual explanation, and client-safe workflow in `/Users/trishabltzr/baltazarstudio`.
+
+### Comment Checklist
+
+- [x] Lead with a plain-language health summary instead of loose metric cards.
+- [x] Add a visual page-decision mix and an attention chart with readable legends.
+- [x] Translate technical findings into three clear recommended workstreams.
+- [x] Show changed pages first as readable recommendation cards; move full registers and raw evidence into expandable supporting sections.
+- [x] Hide the internal readiness control from the client report and take clients directly to `Your report`.
+- [x] Replace the disabled builder handoff with a client-facing explanation of what happens next.
+
+### Verification Checklist
+
+- [x] Client report is readable in the live preview and exposes no internal checklist control.
+- [x] Health, page outcomes, issue concentration, and next steps are visually distinct.
+- [x] Technical page decisions, redirect plan, and complete imported evidence remain available on demand.
+
+---
+
+## Active Batch: SEO Audit Card Metric Spacing
+
+Source: Browser Comment 1 on `http://localhost:3412/dashboard?view=audits&auditType=seo`, captured July 16, 2026.
+
+Target: SEO audit client-card crawl-health summary in `/Users/trishabltzr/baltazarstudio`.
+
+### Comment Checklist
+
+- [x] **1. Reduce spacing between crawl-health metric items**
+  - [x] Tighten the vertical spacing between the score target, Index coverage, and Signal health rows.
+  - [x] Apply the same spacing to ready and awaiting-crawl SEO cards.
+  - [x] Preserve label, percentage, and progress-bar readability.
+  - [x] Verify the compact treatment on the live SEO Audits route at desktop width.
+
+### Verification Checklist
+
+- [x] SEO audit cards load without console or runtime errors.
+- [x] Ready and awaiting-crawl metric summaries use the same compact rhythm.
+- [x] `tsc --noEmit` and `git diff --check` pass.
+
+### Execution Rules
+
+Proceed one checklist item at a time: implement, verify, update this batch, then move on.
+
+---
+
+## Active Batch: Social Media Builder Visual Refinement
+
+Source: four browser comments and attached layout references on `http://localhost:3412/dashboard?view=funnels&builderType=social`, captured July 16, 2026.
+
+Target: Social Media Builder brief, plan, calendar, and post-review surfaces in `/Users/trishabltzr/baltazarstudio`.
+
+### Comment Checklist
+
+- [x] **1. Put source selection and analysis into one clear composer**
+  - [x] Keep the source choices directly attached to the input experience and make the selected source visibly changeable.
+  - [x] Add an editable site selection when Website is chosen.
+  - [x] Place the Analyze content button inside the composer.
+  - [x] Verify each source choice changes the input and analysis still unlocks cadence.
+
+- [x] **2. Rebuild Channels & cadence around the supplied reference**
+  - [x] Use large selectable channel pills with clear selected states.
+  - [x] Replace the small duration buttons with a segmented 1 week, 2 weeks, and 1 month control.
+  - [x] Present per-channel cadence and a dedicated live plan-summary card.
+  - [x] Keep the Build content plan action inside the card and verify totals update immediately.
+
+- [x] **3. Clean up the Content plan summary**
+  - [x] Add a monthly theme callout and prominent post, channel, and week totals.
+  - [x] Show pillar mix as labeled bars with counts and percentages.
+  - [x] Show the channel split as compact branded pills.
+  - [x] Keep re-draft/edit and plan approval actions together and verify calendar generation still works.
+
+- [x] **4. Upgrade the selected-post editor**
+  - [x] Add post-to-post navigation with channel, date, time, and format context.
+  - [x] Add an art drop zone and clickable art-format choices.
+  - [x] Improve caption, hashtag, graphic-copy, link-in-bio, and art-direction editing.
+  - [x] Keep regenerate, skip, approve, and final calendar confirmation functional.
+
+- [x] **5. Match the Social Media workspace width to the other builders**
+  - [x] Replace the oversized 74rem frame with the shared 60rem builder width.
+  - [x] Increase desktop side padding while preserving the existing mobile gutter.
+  - [x] Verify the centered 60rem frame and balanced side breathing room on the live Social Media route.
+
+- [x] **6. Fit the calendar and use real social-platform logos**
+  - [x] Make the seven-column desktop calendar fit the main builder container without horizontal clipping.
+  - [x] Add one reusable vector-logo treatment for Instagram, TikTok, LinkedIn, Facebook, X, Pinterest, and YouTube.
+  - [x] Replace channel abbreviations and generic dots anywhere a social brand is named.
+  - [x] Verify the logo treatment across the brief, plan, calendar, selected-post editor, and schedule views.
+
+- [x] **7. Make cross-posting explicit and editable**
+  - [x] Store primary and cross-post destinations per social post.
+  - [x] Add a one-click cross-post toggle in the content plan and exact channel controls in the post editor.
+  - [x] Label every post as single-channel or cross-posted across plan, calendar, editor, schedule, and CSV export.
+  - [x] Verify destination changes persist and update all visual summaries immediately.
+
+- [x] **8. Support recurring monthly Social Media plans**
+  - [x] Preserve existing single-calendar drafts by migrating them into a per-client month collection.
+  - [x] Match Funnel client cards with compact month rows, month-level status, platform-logo summaries, open, delete, and new-month actions.
+  - [x] Keep each month’s brief, content plan, calendar, approvals, cross-posting, and schedule state isolated.
+  - [x] Make the workspace header, calendar dates, and CSV export follow the selected month.
+  - [x] Verify creating, switching, reloading, and deleting monthly plans on the live Social Media Builder route.
+
+### Verification Checklist
+
+- [x] Full Brief → Content plan → Calendar → Schedule flow works on the live route.
+- [x] The four annotated layouts are visually verified in the browser.
+- [x] `tsc --noEmit`, `git diff --check`, and `next build --webpack` pass.
+- [x] Narrow layouts remain readable without losing actions.
+- [x] Recurring month creation and month switching persist independently for each client.
+
+### Execution Rules
+
+Proceed one checklist item at a time: implement, verify, update this batch, then move on.
+
+---
+
 ## Active Batch: Audit Builder Final Upsell
 
 Source: Browser Comment 1 on the legacy Cocoon Consult client final screen at `http://localhost:3412/dashboard`.
@@ -818,6 +1056,121 @@ Target: `/dashboard` client/admin milestone and notification surfaces in `/Users
   - [x] Add an admin follow-up CTA inside the normal Overview card.
   - [x] Document that no-upgrade accounts are automatically archived or deleted when the follow-up window ends, with no manual interaction required.
 
+- [x] **17. Replace active demo generators with configured AI sources**
+  - [x] Map the renamed Web Audit, SEO Audit, Funnel Builder, Social Media Builder, and Chat environment keys without exposing their values.
+  - [x] Remove password-bypass demo users and one-tap login controls; Supabase is the only login authority.
+  - [x] Remove the SEO sample crawl and clear only the exact legacy Blue Ribbon sample record.
+  - [x] Replace hardcoded social voice, pillars, captions, and re-drafts with the dedicated server-side social generation route.
+  - [x] Clear exact legacy seeded social months while preserving non-seeded saved client records.
+  - [x] Derive keyword, page-map, metadata, and architecture views only from imported crawl fields; show an honest empty state when evidence is absent.
+
+- [x] **18. Connect Brand Audit and Website Builder AI with approval-gated client access**
+  - [x] Map the dedicated Brand Audit and Website Builder environment keys through one reusable server-side OpenAI client with authorized-key fallback.
+  - [x] Replace duplicated Responses API request and response parsing across jumpstart and stage generation routes.
+  - [x] Let studio users share completed audit reports and builder outputs into the matching client Approvals workspace.
+  - [x] Preserve dynamically generated approval records when persisted workspaces are merged.
+  - [x] Hide Audits and Builders from standard-client navigation, quick actions, Snapshot cards, and direct route rendering.
+  - [x] Keep engine access available to client workspaces whose active service is In Full Flight.
+  - [x] Add reusable final-output approval cards and lazy-load the heaviest dashboard workspaces.
+  - [x] Remove unstable list keys in the touched reusable dashboard surfaces.
+
+- [x] **19. Synchronize all service playbooks with the implemented workflows**
+  - [x] Update Brand, Website, and SEO Audit manuals for workspace-based intake, server-side generation, studio review, and client-safe final delivery.
+  - [x] Update Funnel and Website Build manuals for approved-source continuity, internal generation gates, build-ready final briefs, and Approvals delivery.
+  - [x] Update Social Media and SEO Planning manuals for direct In Full Flight engine collaboration, isolated client cycles, studio review, and durable final approvals.
+  - [x] Centralize the repeated standard-client and partner-access rules instead of duplicating policy text across each playbook definition.
+  - [x] Synchronize playbook source references with the shared AI, access, approval-output, and client Approvals modules.
+  - [x] Keep the workflow map and dashboard alignment checklist consistent with the updated operating manuals.
+
+- [x] **20. Use the exact Social Media Operations service name**
+  - [x] Rename the In Full Flight playbook card and document heading to `Social Media Operations`.
+  - [x] Align the source-reference title and In Full Flight summary with the canonical workflow-map name.
+  - [x] Keep `Social Media Builder` unchanged where it identifies the dashboard tool rather than the sold service.
+  - [x] Verify the exact service name on `/dashboard?view=playbooks` with no console errors.
+
+- [x] **21. Make Playbook documentation describe the service work**
+  - [x] Replace dashboard feature inventories with a clear `What we do` section in every service manual.
+  - [x] State the actual audit, strategy, copy, design, build, optimization, approval, reporting, and handoff work delivered for each service.
+  - [x] Use the canonical service names: Brand Audit, Website Audit, SEO Audit, Funnel Build, Website Build, Social Media Operations, and SEO Planning And Execution.
+  - [x] Keep technical source files and implementation references confined to the source-reference layer.
+  - [x] Verify all seven manuals render as service documentation on `/dashboard?view=playbooks`.
+
+- [x] **22. Document every questionnaire, assessment, scoring, and data-processing rule**
+  - [x] Add the complete intake questions and accepted source inputs for all seven services.
+  - [x] List every audit area tested and every strategy, build, or operations area produced.
+  - [x] Document the actual score inputs, weighting, statuses, approval gates, and missing-evidence behavior without inventing numeric scoring where none exists.
+  - [x] Document how raw submissions are normalized, generated or analyzed, reviewed, persisted, approved, and handed off.
+  - [x] Remove name-seeded, self-assessment-default, and legacy fallback scores from active audit cards and completion paths.
+  - [x] Require deterministic formulas or fixed evidence/readiness states; keep unsupported work Pending, Unverified, or Provisional.
+  - [x] Keep implementation file details in the source-reference layer while making the operating logic readable in each manual.
+  - [x] Verify all seven manuals render the new sections on `/dashboard?view=playbooks`.
+
+- [x] **23. Ground builder copy in client notes and complete the funnel wireframe**
+  - [x] Load saved client workspace notes into both Website Builder and Funnel Builder before generation.
+  - [x] Send normalized client-note context to the server and make it an explicit source for copy, with conflicts and unsupported claims flagged rather than guessed.
+  - [x] Provide five selectable wireframe design styles with distinct layout behavior.
+  - [x] Expand the wireframe to a complete conversion-page section inventory, including conditional offer and checkout sections.
+  - [x] Synchronize the builder playbooks, service workflow map, and dashboard alignment checklist.
+  - [x] Verify the note context, five styles, complete section inventory, typecheck, production build, and live builder UI.
+
+- [x] **24. Finish the Funnel Development Plan actions and task checklist**
+  - [x] Move the editable task plan inside the Development Plan card, directly below Preview, Copy, and Share actions.
+  - [x] Restyle the task checklist to match the dashboard task-card checklist pattern while preserving selection, editing, priority, CSV, and import behavior.
+  - [x] Make Preview & download PDF generate and display an actual printable PDF, then download that same `.pdf` file.
+  - [x] Make Share with client persist the client-safe output, open a share popup, and provide a copyable client link.
+  - [x] Keep existing saved funnel plans compatible and avoid duplicated task-plan UI.
+  - [x] Verify task placement, checklist interactions, share-link copy, actual PDF preview/download, responsive layout, typecheck, and production build.
+
+- [x] **25. Give the Funnel Development Plan PDF a reusable document skeleton**
+  - [x] Add a branded cover with the client, project, document purpose, status, and section index.
+  - [x] Apply a consistent print hierarchy to the overview, recommendations, wireframe, build, launch, and task-plan sections.
+  - [x] Convert editable task controls into clean printable checklist rows and remove dashboard-only controls from the export.
+  - [x] Add print-safe spacing, page breaks, repeated footer treatment, and A4 typography without changing the dashboard layout.
+  - [x] Generate, render, and visually inspect the actual PDF, then verify typecheck and the production build.
+
+- [x] **26. Make the Funnel Development Plan PDF pageless**
+  - [x] Replace the full-page cover and forced section breaks with one continuous report flow.
+  - [x] Measure the rendered document and generate a single custom-height PDF page at a readable fixed width.
+  - [x] Replace the repeated page footer with one closing document footer.
+  - [x] Preserve the branded skeleton, printable task checklist, and downloadable `.pdf` behavior.
+  - [x] Generate, render, and visually inspect the continuous PDF, then verify typecheck and the production build.
+
+- [x] **27. Compact and round the Funnel task-plan rows**
+  - [x] Reduce the checklist row height, vertical padding, and spacing so more tasks remain visible at once.
+  - [x] Change each checklist row to a fully pill-shaped border radius while preserving its selected treatment.
+  - [x] Vertically center the row contents and use circular selected check marks in both the dashboard and PDF.
+  - [x] Keep task editing, milestone labels, priority controls, selection, and scrolling functional.
+  - [x] Verify the updated rows in the live Funnel Development Plan and run typecheck.
+
+- [x] **28. Apply pageless PDF generation to every report export**
+  - [x] Make pageless generation the shared default in the PDF endpoint and client helper.
+  - [x] Move Audit and Discovery report exports from the browser print dialog to the actual pageless PDF generator.
+  - [x] Provide the same downloadable PDF preview behavior for the migrated report exports.
+  - [x] Keep Funnel-specific cover details from leaking into generic Audit and Discovery report covers.
+  - [x] Verify a single continuous PDF from the shared endpoint, then run typecheck and the production build.
+
+- [x] **29. Rebuild the Funnel wireframe as a real sales page**
+  - [x] Replace generic website-template copy with offer-led, buyer-focused sales copy derived from the approved funnel inputs.
+  - [x] Restructure the page into a persuasive sequence: promise, proof, stakes, benefits, product details, process, proof, offer, objections, and repeated purchase CTA.
+  - [x] Remove invented testimonials, ratings, guarantees, and pricing; show clear approval placeholders when evidence is missing.
+  - [x] Keep all five visual directions while making each one feel intentional, polished, and conversion-led.
+  - [x] Apply the upgraded sales-page treatment to reopened legacy funnel plans as well as newly generated plans.
+  - [x] Verify the Blue Ribbon sales-page wireframe live, then run typecheck and the production build.
+
+- [x] **30. Remove priority selectors from implementation checklists**
+  - [x] Remove the High, Medium, and Low selector from the shared Builder task-row component.
+  - [x] Rebalance the task name and milestone columns after the selector is removed.
+  - [x] Keep the underlying imported task priority intact without exposing an unnecessary row control.
+  - [x] Verify the change in Funnel and Website implementation checklists, then run typecheck.
+
+- [x] **31. Shuffle every sales-page section independently**
+  - [x] Replace the five global layout-style buttons with one clear Shuffle page formatting action.
+  - [x] Give the hero, proof, stakes, benefits, audience, details, process, testimonial, offer, price, FAQ, and final CTA independent layout variants.
+  - [x] Seed the initial section recipe deterministically so reopened plans remain stable until Shuffle is used.
+  - [x] Make each Shuffle click generate a new mixed section recipe rather than changing only the hero.
+  - [x] Preserve responsive behavior, report rendering, and the sales-page content hierarchy.
+  - [x] Verify multiple section layout attributes change after Shuffle, then run typecheck and the production build.
+
 ### Verification Checklist
 
 - [x] `tsc --noEmit` passes.
@@ -837,11 +1190,26 @@ Target: `/dashboard` client/admin milestone and notification surfaces in `/Users
 - [x] Admin project selector lists two distinct clients and plan changes apply to the selected client.
 - [x] Admin plan selector exposes only consolidated active paths: Cocoon Consult Premium and Winged in a Week.
 - [x] Dashboard role switcher is removed; Admin and Client are separate login-driven sessions.
-- [x] Login page exposes both View client and View admin demo entries.
-- [x] Login page exposes easy demo login for Admin, Flora & Co., and House of Hazel.
+- [x] Login page has no demo credentials, password bypasses, or one-tap role shortcuts.
+- [x] Supabase password and Google OAuth remain the only login paths.
 - [x] Admin plan dropdown renders the Premium badge inside the dropdown rows.
 - [x] Cocoon Consult Free is not exposed as an admin workspace.
 - [x] Browser console has no runtime errors on `/dashboard`.
+- [x] Dedicated SEO and Social Media API routes return structured 200 responses with the renamed keys.
+- [x] Brand Audit and Website Builder routes return structured live AI responses without exposing API keys to the browser.
+- [x] Standard clients see final engine outputs only in Approvals; In Full Flight clients retain Audits and Builders access.
+- [x] Dynamically shared approval outputs survive workspace merge and reload.
+- [x] Every active service playbook matches the implemented client access, AI generation, review, handoff, and final-output rules.
+- [x] Website and Funnel Builder generation receives saved client workspace notes before discovery context.
+- [x] Funnel wireframes expose five selectable styles and the complete conversion-page skeleton, including on reopened legacy plans.
+- [x] Funnel Development Plan keeps its task checklist below the actions, opens an actual printable PDF, and shares a copyable Approvals link.
+- [x] Funnel Development Plan PDF uses the branded reusable skeleton and renders cleanly as an actual A4 document.
+- [x] Funnel Development Plan PDF exports as one continuous pageless document without page seams or forced section breaks.
+- [x] Funnel Development Plan task rows are compact, pill-shaped, vertically centered, and use circular check marks.
+- [x] Funnel, Audit, and Discovery PDF actions all use the same pageless PDF generation path.
+- [x] Blue Ribbon renders as a buyer-facing sales page with one Shop Feed CTA, no fabricated proof or price, and the complete conversion sequence.
+- [x] Shared Funnel and Website implementation task rows expose no priority selector while retaining the imported priority value.
+- [x] One Funnel wireframe Shuffle changes all 12 independent sales-section layout attributes in the live builder.
 
 ### Execution Rules
 

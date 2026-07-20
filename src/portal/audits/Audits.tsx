@@ -3,33 +3,29 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { coercePersistedAuditDrafts, type GuidedAuditSession, type PersistedAuditDraft, type PersistedAuditRun, type PersistedAuditState } from "@/lib/portalAuditPersistence";
 import { css } from "../helpers";
+import { printReportNode } from "../printReport";
 import { Icon } from "../icons";
 import type { PortalActions, PortalState } from "../store";
 import { clientsVisibleToRole, STUDIO_CLIENTS, type StudioClient } from "../clients";
 import { GuidedIntakeSelector } from "../components/GuidedIntakeSelector";
 import { AuditTypeWorkspace } from "./AuditTypeWorkspace";
-import { AuditReportView, getAuditReportSummary } from "../views/AuditReportView";
+import { AuditReportView } from "../views/AuditReportView";
 import { DiscoveryBuilder } from "../discovery/DiscoveryBuilder";
 import { fromClientMemory, getKnowledge, loadPersistedKnowledge, recordKnowledge, rememberKnowledge, mergeKnow, type Know } from "../discovery/knowledge";
-import { ContinueWithFunnelBuildingCard } from "@/components/CocoonFinalStepPanel";
+import { AuditBuilderHandoff } from "./AuditBuilderHandoff";
+import { portalApprovalOutput } from "@/lib/portalApprovalOutput";
 import { AUDIT_WIZARD, AUDIT_STAGES, AUDIT_INTRO_STEPS, AUDIT_DEMO } from "../discovery/discoveryData";
-import { AUDIT_PIPELINE, AuditScoreHero, auditScoreToDocs, synthAuditScore, type AuditDocs } from "../discovery/auditPipeline";
+import { AUDIT_PIPELINE, auditScoreToDocs } from "../discovery/auditPipeline";
+import type { CatBar } from "../components/AuditCharts";
+import { AuditCardScoreSkeleton } from "../components/AuditCardScoreSkeleton";
 import { AUDIT_CHECKLIST, isAuditScoreResult } from "@/lib/auditChecklist";
 import type { GeneratedStageResult } from "@/lib/aiStageGeneration";
+import { WEBSITE_AUDIT_DISCOVERY_QUESTIONS, WEBSITE_AUDIT_DISCOVERY_SECTIONS, type WebsiteAuditDiscoveryQuestion, type WebsiteAuditQuestionKind } from "./websiteAuditData";
 
-type QKind = "text" | "textarea" | "choice" | "checklist";
+type QKind = WebsiteAuditQuestionKind;
 type Ans = Record<string, string | string[]>;
 
-interface AuditQuestion {
-  id: string;
-  s: number;
-  kind: QKind;
-  required?: boolean;
-  prompt: string;
-  placeholder?: string;
-  help?: string;
-  options?: string[];
-}
+type AuditQuestion = WebsiteAuditDiscoveryQuestion;
 
 interface AuditDeliverable {
   id: string;
@@ -80,34 +76,9 @@ type Act =
   | { t: "gen"; active: boolean; label?: string }
   | { t: "genDone"; id: string };
 
-const SECTIONS = ["Business & brand", "Audience & offer", "Goals & conversion", "Site & messaging", "Assets & priorities"];
+const SECTIONS = WEBSITE_AUDIT_DISCOVERY_SECTIONS;
 
-const QUESTIONS: AuditQuestion[] = [
-  { id: "business", s: 0, kind: "text", required: true, prompt: "What's the business called?", placeholder: "Client business name" },
-  { id: "offer", s: 0, kind: "text", required: true, prompt: "What's the core offer we're auditing?", placeholder: "12-week 1:1 nutrition coaching" },
-  { id: "positioning", s: 0, kind: "textarea", required: true, prompt: "How does the brand describe itself today?", placeholder: "A warm, grounded wellness brand that helps busy women feel in control again." },
-  { id: "shift", s: 0, kind: "textarea", prompt: "What feels outdated, unclear, or in need of a shift?", placeholder: "The visuals feel DIY and the messaging no longer matches the premium level of the offer." },
-
-  { id: "audience", s: 1, kind: "textarea", required: true, prompt: "Who's the primary audience this site should connect with?", placeholder: "Busy working moms in their 30s and 40s who want structure without all-or-nothing dieting." },
-  { id: "fit", s: 1, kind: "textarea", prompt: "What makes someone a strong-fit client?", placeholder: "Ready to invest, values accountability, and wants practical guidance." },
-  { id: "offerFocus", s: 1, kind: "choice", required: true, prompt: "Which part of the offer should discovery focus on most?", options: ["Core service offer", "Signature program", "Overall brand direction", "Lead magnet or nurture path", "Sales page / conversion flow"] },
-  { id: "pain", s: 1, kind: "textarea", required: true, prompt: "What are the biggest hesitations, frustrations, or objections this audience has?", placeholder: "They feel overwhelmed, skeptical, and unsure what makes this brand different enough to trust." },
-
-  { id: "goal", s: 2, kind: "choice", required: true, prompt: "What's the main business goal behind this audit?", options: ["More booked calls", "More qualified leads", "More sales", "Clearer positioning", "Better website conversion"] },
-  { id: "cta", s: 2, kind: "choice", required: true, prompt: "What's the main action the site should drive?", options: ["Book a call", "Submit an inquiry", "Join the email list", "Purchase now", "Explore services"] },
-  { id: "blockers", s: 2, kind: "textarea", required: true, prompt: "What seems to be blocking conversion right now?", placeholder: "The offer is buried, the CTA feels passive, and there isn't enough trust near the decision point." },
-  { id: "traffic", s: 2, kind: "checklist", prompt: "Where is most traffic coming from right now?", options: ["Instagram", "Meta ads", "Google / search", "Referrals", "Email list", "Pinterest", "Direct / word of mouth", "Other"] },
-
-  { id: "surfaces", s: 3, kind: "checklist", required: true, prompt: "Which surfaces matter most in this audit?", options: ["Homepage", "Services / offers", "About page", "Booking / inquiry flow", "Lead magnet or opt-in", "Mobile experience", "Brand visuals", "Messaging / copy"] },
-  { id: "messageGap", s: 3, kind: "textarea", required: true, prompt: "What feels off in the current messaging or user experience?", placeholder: "The value prop takes too long to land and the experience feels inconsistent page to page." },
-  { id: "proof", s: 3, kind: "textarea", prompt: "What proof, results, or credibility signals already exist?", placeholder: "Client testimonials, results snapshots, before/afters, media features, repeat client referrals." },
-  { id: "voice", s: 3, kind: "checklist", prompt: "How should the refreshed direction feel?", options: ["Warm", "Premium", "Grounded", "Direct", "Editorial", "Authority-led", "Playful", "Minimal"] },
-
-  { id: "assets", s: 4, kind: "textarea", prompt: "What source materials should discovery pull from?", placeholder: "Current site, Figma file, testimonials, intake notes, analytics snapshots, offer docs." },
-  { id: "nonNegotiables", s: 4, kind: "textarea", prompt: "Any non-negotiables or constraints for the recommendation?", placeholder: "Keep the logo, avoid a full rebrand promise for now, stay inside the current stack if possible." },
-  { id: "priorities", s: 4, kind: "checklist", required: true, prompt: "Which themes should the audit prioritize first?", options: ["Positioning clarity", "Offer clarity", "Trust & proof", "Conversion path", "Mobile UX", "Visual polish", "Content hierarchy", "SEO / findability"] },
-  { id: "timeline", s: 4, kind: "choice", prompt: "How quickly should the next move happen?", options: ["ASAP / this week", "2-4 weeks", "1-2 months", "Flexible"] },
-];
+const QUESTIONS: AuditQuestion[] = WEBSITE_AUDIT_DISCOVERY_QUESTIONS;
 
 const DELIVS: AuditDeliverable[] = [
   { id: "brief", title: "Discovery Brief", from: "your intake", intro: "A clean summary of the business, audience, and current context we are auditing against." },
@@ -337,7 +308,6 @@ function buildPersistedRun(base: { id: string; clientId: string; clientName: str
   const reportReady = signoffDone >= signoffTotal;
   const hasDeliverableReview = Object.keys(state.signed).length > 0 || Object.keys(state.genDone).length > 0;
   const hasDiscoveryWork = Object.keys(state.answers).length > 0 || Object.keys(state.confirmed).length > 0;
-  const summary = getAuditReportSummary(base.clientId);
   const now = new Date().toISOString();
   const runType = existingRun?.runType || (base.id.includes("-rerun-") ? "rerun" : "baseline");
 
@@ -355,9 +325,9 @@ function buildPersistedRun(base: { id: string; clientId: string; clientName: str
     statusTone: reportReady ? "success" : hasDeliverableReview ? "warn" : hasDiscoveryWork ? "warn" : "muted",
     stage: reportReady ? "Audit · Delivered" : hasDeliverableReview ? "Audit · Plan review" : "Discovery · Intake",
     progress,
-    score: reportReady ? summary.overall : undefined,
+    score: undefined,
     previousScore: runType === "rerun" ? existingRun?.previousScore : undefined,
-    targetScore: reportReady ? summary.target : undefined,
+    targetScore: undefined,
     due: reportReady ? "Report ready" : "Today",
     createdAt: existingRun?.createdAt || now,
     updatedAt: now,
@@ -367,7 +337,6 @@ function buildPersistedRun(base: { id: string; clientId: string; clientName: str
 
 function seedAuditRuns(): AuditRun[] {
   return STUDIO_CLIENTS.map(client => {
-    const summary = getAuditReportSummary(client.id);
     const complete = client.audit.progress >= 100;
     return {
       ...client.audit,
@@ -377,8 +346,8 @@ function seedAuditRuns(): AuditRun[] {
       runLabel: complete ? "Baseline audit" : client.audit.progress > 0 ? "Audit in progress" : "Not started",
       runType: "baseline",
       sequence: 1,
-      score: complete ? summary.overall : undefined,
-      targetScore: complete ? summary.target : undefined,
+      score: undefined,
+      targetScore: undefined,
       completedAt: complete ? client.audit.due : undefined,
       updatedAt: client.audit.due,
     };
@@ -709,7 +678,6 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
     if (!source) return;
     const previousRuns = runs.filter(item => item.clientId === clientId);
     const previousComplete = previousRuns.find(item => item.progress >= 100);
-    const summary = getAuditReportSummary(clientId);
     const id = "audit-" + clientId + "-rerun-" + Math.random().toString(36).slice(2, 8);
     const now = new Date().toISOString();
     const nextRun: AuditRun = {
@@ -722,7 +690,7 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
       runType: "rerun",
       sequence: previousRuns.length + 1,
       baselineRunId: previousComplete?.id,
-      previousScore: previousComplete?.score ?? summary.overall,
+      previousScore: previousComplete?.score,
       statusLabel: "Draft",
       statusTone: "muted",
       stage: "Discovery · Intake",
@@ -784,9 +752,12 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
 
   const completeGuidedAudit = async (data: Ans, aiResults: Record<string, GeneratedStageResult>) => {
     if (!client || !run) return;
-    const fallbackDocs = AUDIT_PIPELINE.buildDocs(data) as AuditDocs;
-    const docs = isAuditScoreResult(aiResults.report) ? auditScoreToDocs(aiResults.report, fallbackDocs.name) : fallbackDocs;
-    const scoreResult = isAuditScoreResult(aiResults.report) ? aiResults.report : undefined;
+    if (!isAuditScoreResult(aiResults.report)) {
+      actions.showToast("The evidence-backed audit score is not ready. Regenerate the report before completing this audit.");
+      return;
+    }
+    const scoreResult = aiResults.report;
+    const docs = auditScoreToDocs(scoreResult, client.name);
     const mobileLighthouse = scoreResult?.lighthouse.find(item => item.strategy === "mobile")?.scores.performance;
     const desktopLighthouse = scoreResult?.lighthouse.find(item => item.strategy === "desktop")?.scores.performance;
     const now = new Date().toISOString();
@@ -966,33 +937,33 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
             const completedRun = latestCompletedRun(group.runs);
             const activeRun = group.runs.find(item => item.progress < 100 && item.progress > 0) || group.runs.find(item => item.progress < 100) || null;
             const scoredRun = group.runs
-              .filter(item => typeof item.internalScore === "number" || typeof item.score === "number")
+              .filter(item => {
+                const report = drafts.find(draft => draft.run.id === item.id)?.state.report;
+                return isAuditScoreResult(report) && (typeof item.internalScore === "number" || typeof item.score === "number");
+              })
               .sort((left, right) => auditRunDate(right).localeCompare(auditRunDate(left)))[0] || null;
             const displayRun = activeRun || completedRun || group.runs[0];
             const latestComplete = !!completedRun && !activeRun;
             const hasScore = !!scoredRun;
-            const synth = synthAuditScore(group.client.id);
-            const heroOverall = scoredRun?.internalScore ?? scoredRun?.score ?? synth.overall;
+            const heroOverall = scoredRun?.internalScore ?? scoredRun?.score ?? 0;
             const heroProjected = scoredRun
               ? Math.min(100, Math.max(scoredRun.targetScore ?? heroOverall, heroOverall))
-              : synth.projected;
+              : 0;
             const heroLabel = heroOverall < 50 ? "Needs attention" : heroOverall < 65 ? "Fair foundation" : heroOverall < 80 ? "Solid footing" : "Strong foundation";
-            const heroSummary = { ...synth, overall: heroOverall, projected: heroProjected, uplift: heroProjected - heroOverall, label: heroLabel };
+            const heroSummary = { overall: heroOverall, projected: heroProjected, uplift: heroProjected - heroOverall, label: heroLabel, cats: [] };
             const scoredReport = scoredRun
               ? drafts.find(draft => draft.run.id === scoredRun.id)?.state.report
               : undefined;
-            const resultStats = AUDIT_CHECKLIST.map(checklistCategory => {
+            const heroCats: CatBar[] = AUDIT_CHECKLIST.map(checklistCategory => {
               const scoredCategory = isAuditScoreResult(scoredReport)
                 ? scoredReport.categories.find(category => category.key === checklistCategory.key)
                 : undefined;
+              const score = scoredCategory?.score ?? 0;
               return {
                 label: checklistCategory.label,
-                value: scoredCategory
-                  ? `${scoredCategory.score} ↗ ${Math.max(scoredCategory.score, scoredCategory.target)}`
-                  : "N/A",
-                tone: scoredCategory
-                  ? scoredCategory.score < 50 ? "danger" as const : scoredCategory.score < 65 ? "warn" as const : "success" as const
-                  : "default" as const,
+                score,
+                target: scoredCategory?.target,
+                color: score < 50 ? "var(--danger)" : score < 65 ? "var(--warn)" : "var(--success)",
               };
             });
             return {
@@ -1009,16 +980,12 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
               showProgress: false,
               showStage: false,
               showMeta: false,
-              hero: <>
-                <AuditScoreHero summary={heroSummary} scored={hasScore} />
-              </>,
+              hero: <AuditCardScoreSkeleton summary={heroSummary} scored={hasScore} cats={heroCats} />,
               headerAction: latestComplete ? {
                 label: "Retest audit for " + group.client.name,
                 icon: "replay",
                 onClick: () => rerunAudit(group.client.id),
               } : undefined,
-              stats: resultStats,
-              statsLayout: "vertical",
               primaryLabel: latestComplete ? "View report" : "Open audit",
               onPrimary: () => (latestComplete && completedRun ? previewAudit(group.client.id, completedRun.id) : startAudit(group.client.id, displayRun.id)),
               secondaryLabel: latestComplete ? "Build proposal" : "New audit",
@@ -1041,7 +1008,7 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
               </div>
               <article style={css("border:1px solid var(--border-soft);border-radius:1.1rem;background:var(--surface);overflow:visible")}>
                 {reportDraft?.state.report ? (
-                  <div style={css("padding:" + (mobile ? "1rem" : "1.4rem"))}>
+                  <div data-audit-report-root style={css("padding:" + (mobile ? "1rem" : "1.4rem"))}>
                     {AUDIT_PIPELINE.renderStage({
                       stageKey: reportProposalOpen ? "plan" : "report",
                       docs: auditScoreToDocs(reportDraft.state.report, reportClient.name),
@@ -1053,11 +1020,19 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
                       mobile,
                       accent: "var(--cocoon)",
                       onAdvance: () => undefined,
-                      onDownload: () => actions.showToast("Preparing the PDF…"),
-                      onShare: () => actions.showToast("Share link copied — send it to your client"),
+                      onDownload: async () => {
+                        actions.showToast("Preparing the pageless PDF…");
+                        const ok = await printReportNode(document.querySelector("[data-audit-report-root]"), `${reportClient.name} · ${reportProposalOpen ? "Action plan" : "Audit report"}`);
+                        actions.showToast(ok ? "Pageless PDF ready" : "The PDF could not be generated");
+                      },
+                      onShare: () => {
+                        const approvalResults = reportDraft.state.guidedSession?.aiResults || (reportDraft.state.report ? { report: reportDraft.state.report } : {});
+                        const output = portalApprovalOutput(approvalResults, "The final website audit and action plan are ready.");
+                        actions.shareFinalOutput({ clientName: reportClient.name, title: "Website Audit · Final report", outputType: "audit", ...output });
+                      },
                       onCopy: () => actions.showToast("Copied to clipboard"),
                     })}
-                    {reportProposalOpen && <div style={{ marginTop: "1.2rem" }}><ContinueWithFunnelBuildingCard onContinue={() => actions.setView("funnels")} /></div>}
+                    <div style={{ marginTop: "1.2rem" }}><AuditBuilderHandoff type="website" clientName={reportClient.name} onContinue={() => { window.localStorage.setItem(`baltazar:builder-handoff:website:${reportClient.id}`, JSON.stringify({ source: "website-audit", report: reportDraft.state.report, answers: reportDraft.state.answers, savedAt: new Date().toISOString() })); window.localStorage.setItem("baltazar:builder-active:website", reportClient.id); actions.patch({ builderType: "website" }); actions.setView("funnels"); }} /></div>
                   </div>
                 ) : <AuditReportView
                   key={reportClient.id + "-" + (reportRunId || "latest") + (reportProposalOpen ? "-proposal" : "-report")}
@@ -1118,11 +1093,15 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
         completeCta="Generate the report →"
         stageExtra={stageKey => stageKey === "plan" ? (
           <div style={{ marginTop: "1.2rem", textAlign: "left" }}>
-            <ContinueWithFunnelBuildingCard onContinue={() => actions.setView("funnels")} />
+            <AuditBuilderHandoff type="website" clientName={client.name} onContinue={() => { window.localStorage.setItem(`baltazar:builder-handoff:website:${client.id}`, JSON.stringify({ source: "website-audit", savedAt: new Date().toISOString() })); window.localStorage.setItem("baltazar:builder-active:website", client.id); actions.patch({ builderType: "website" }); actions.setView("funnels"); }} />
           </div>
         ) : null}
         pipeline={AUDIT_PIPELINE}
         onPipelineComplete={(data, aiResults) => completeGuidedAudit(data, aiResults).catch(error => actions.showToast(error instanceof Error ? error.message : "Unable to save the completed audit"))}
+        onShareFinal={(_data, aiResults) => {
+          const output = portalApprovalOutput(aiResults, "The final website audit and action plan are ready.");
+          actions.shareFinalOutput({ clientName: client.name, title: "Website Audit · Final report", outputType: "audit", ...output });
+        }}
         showToast={actions.showToast}
         onExit={exitToPicker}
         onComplete={data => { recordKnowledge(client.id, data, "Audit intake"); exitToPicker(); }}

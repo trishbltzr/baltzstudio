@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { portalClientId } from "@/lib/portalWorkspacePersistence";
 import { Icon } from "../icons";
 import { css } from "../helpers";
-import { ScoreGauge } from "../components/ScoreGauge";
+import { CategoryBars } from "../components/AuditCharts";
 import { STUDIO_CLIENTS } from "../clients";
 import type { PortalActions, PortalState } from "../store";
 import type { Priority, TaskImportDraft } from "../types";
@@ -159,9 +159,12 @@ const bandColor = (b: string) => ({ Strong: "var(--success)", Good: "var(--iff)"
 const bandRank: Record<string, number> = { Priority: 0, "Needs work": 1, Good: 2, Strong: 3 };
 const pill = (b: string) => css("display:inline-flex;align-items:center;font-size:0.62rem;font-weight:500;padding:0.12rem 0.5rem;border-radius:999px;background:color-mix(in srgb," + bandColor(b) + " 16%,white 84%);color:color-mix(in srgb," + bandColor(b) + " 55%,black 45%)");
 
+// Flat score chip (was a donut ring) — keeps the call sites but drops the
+// repeated ring in favour of a tabular number tile that pairs with the bars.
 function Ring({ score, band, size }: { score: number; band: string; size: number }) {
-  const px = size * 16;
-  return <ScoreGauge score={score} color={bandColor(band)} size={px} stroke={Math.max(3.5, px * 0.085)} labelSize={size >= 2.7 ? "0.9rem" : "0.78rem"} />;
+  const color = bandColor(band);
+  const rem = (size * 0.92).toFixed(2);
+  return <span style={css("width:" + rem + "rem;height:" + rem + "rem;border-radius:0.6rem;display:grid;place-items:center;flex-shrink:0;font-weight:500;font-size:" + (size >= 2.7 ? "0.92rem" : "0.78rem") + ";background:color-mix(in srgb," + color + " 14%,var(--surface) 86%);color:" + color + ";font-variant-numeric:tabular-nums")}>{score}</span>;
 }
 
 export function recommendationPlan(theme: Theme) {
@@ -592,13 +595,10 @@ export function AuditReportView({
         <div style={css("display:flex;flex-direction:column;gap:0.85rem")}>
           <div style={css("display:grid;grid-template-columns:" + (state.isMobile ? "minmax(0,1fr)" : "repeat(2,minmax(0,1fr))") + ";gap:0.7rem")}>
             <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);padding:" + (mobile ? "1rem" : "1.2rem 1.25rem") + ";display:flex;align-items:center;gap:" + (mobile ? "0.85rem" : "1.2rem"))}>
-              <ScoreGauge
-                score={report.overall}
-                color="var(--cocoon)"
-                size={mobile ? 78 : 90}
-                stroke={mobile ? 6 : 7}
-                label={<span style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1 }}><span style={{ fontSize: "1.55rem", fontWeight: 500 }}>{report.overall}</span><span style={{ fontSize: "0.58rem", color: "var(--fg-faint)", marginTop: "0.12rem" }}>/ 100</span></span>}
-              />
+              <div style={css("width:" + (mobile ? "4.7rem" : "5.4rem") + ";flex-shrink:0;display:flex;flex-direction:column;gap:0.42rem;padding:0.7rem 0.75rem;border-radius:0.85rem;background:color-mix(in srgb,var(--cocoon) 10%,var(--surface) 90%)")}>
+                <div style={css("display:flex;align-items:baseline;gap:0.2rem")}><span style={css("font-size:" + (mobile ? "1.6rem" : "1.85rem") + ";font-weight:500;line-height:0.9;color:var(--cocoon);font-variant-numeric:tabular-nums")}>{report.overall}</span><span style={css("font-size:0.55rem;color:var(--fg-faint)")}>/100</span></div>
+                <div style={css("height:0.35rem;border-radius:999px;background:color-mix(in srgb,var(--cocoon) 18%,var(--surface) 82%)")}><div style={css("height:100%;border-radius:999px;width:" + Math.max(2, report.overall) + "%;background:var(--cocoon)")} /></div>
+              </div>
               <div style={{ minWidth: 0 }}>
                 <div style={css("font-size:var(--text-2xs);font-weight:500;letter-spacing:0.02em;color:var(--fg-faint)")}>Overall Today</div>
                 <div style={css("font-size:1.05rem;font-weight:500;margin-top:0.1rem")}>{report.headline}</div>
@@ -618,6 +618,11 @@ export function AuditReportView({
               </div>
               <div style={css("position:relative;height:0.45rem;border-radius:999px;background:color-mix(in srgb,var(--cocoon) 12%,white 88%);margin-top:0.85rem;overflow:hidden")}><div style={css("position:absolute;inset:0 auto 0 0;width:" + report.overall + "%;background:var(--cocoon);border-radius:999px")} /></div>
             </div>
+          </div>
+
+          <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);padding:" + (mobile ? "1rem" : "1.1rem 1.25rem"))}>
+            <div style={css("display:flex;align-items:baseline;justify-content:space-between;gap:1rem;margin-bottom:0.85rem")}><div style={css("font-size:1rem;font-weight:500")}>Category scores</div><span style={css("font-size:0.7rem;color:var(--fg-faint)")}>current → target</span></div>
+            <CategoryBars cats={sorted.map(t => ({ label: t.name, score: t.score, target: t.target, color: bandColor(t.band) }))} />
           </div>
 
           <BrandAuditPanel themes={report.themes} mobile={mobile} />

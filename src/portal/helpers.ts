@@ -165,7 +165,7 @@ const HEAD: Record<string, Partial<Record<Role, [string, string]>>> = {
   invoices: { admin: ["Studio", "New Invoice"], dev: ["Delivery", "New Invoice"] },
   escalations: { admin: ["Studio", "Inbox · Escalations"] },
   settings: { admin: ["Studio", "Settings"], dev: ["Delivery", "Settings"] },
-  review: { dev: ["Delivery", "Approvals"] },
+  review: { dev: ["Delivery", "Approvals"], client: ["Your Project", "Approvals"] },
   milestones: { client: ["Your Project", "Journey"] },
   audit: { client: ["Your Project", "Audit"], admin: ["Studio", "Client Audit"], dev: ["Delivery", "Client Audit"] },
   assistant: { client: ["Your Project", "In Full Flight"] },

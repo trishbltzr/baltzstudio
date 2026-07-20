@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import type { AiGenerationMode } from "@/lib/aiStageGeneration";
-import { apiKeyForMode, openAIError, responseText } from "@/lib/openaiServer";
+import { apiKeyForMode, createOpenAIResponseForMode, openAIError, responseText } from "@/lib/openaiServer";
 import { discoverSitemapUrls, scanWebsite } from "@/lib/websiteScanner";
 
 export const runtime = "nodejs";
@@ -60,10 +60,10 @@ const SEO_RULES: Record<string, AnswerRule> = {
 };
 
 const WEBSITE_BUILDER_RULES: Record<string, AnswerRule> = {
-  nickname: {}, brandName: {}, url: {}, redesignReason: {}, goals: { array: true, options: ["Generate leads", "Sell products", "Book calls", "Explain services", "Build authority", "Support customers", "Recruit talent"] }, audience: {}, primaryAction: {}, success: {},
-  mustKeep: {}, newPages: {}, removePages: {}, languages: { options: ["No", "Possibly later", "Yes — one additional language", "Yes — multiple languages or regions"] },
+  nickname: {}, brandName: {}, sourceApproach: { options: ["Existing website", "Uploaded brief or copy", "Existing website plus uploaded material"] }, url: {}, sourceSummary: {}, goals: { array: true, options: ["Generate leads", "Sell products", "Book calls", "Explain services", "Build authority", "Support customers", "Recruit talent"] }, audience: {}, primaryAction: {}, success: {},
+  pagesToDesign: {}, pageBriefs: {}, mustKeep: {}, removePages: {}, languages: { options: ["No", "Possibly later", "Yes — one additional language", "Yes — multiple languages or regions"] },
   features: { array: true, options: ["Forms", "Booking", "Ecommerce", "Membership", "Search", "Blog / resources", "Locations", "Job listings", "Customer portal", "Calculator or quiz"] }, integrations: {}, platform: { options: ["Keep the current platform", "Shopify", "WordPress", "Webflow", "Custom / Next.js", "Open to recommendation"] }, constraints: {},
-  contentOwner: { options: ["Client", "Studio", "Shared responsibility", "Not decided"] }, copyScope: { options: ["No — structure only", "Optional add-on", "Light editing only", "Full website copy"] }, assets: {}, timeline: {}, currentSitemap: {},
+  contentSources: { array: true, options: ["Existing website copy", "Uploaded brief", "Uploaded copy document", "Brand or audit handoff", "New copy to write"] }, copyApproach: { options: ["Map existing copy to the new sitemap", "Edit and reorganize existing copy", "Write new page copy", "Combine existing and new copy", "Structure only — copy supplied later"] }, copyNotes: {}, contentOwner: { options: ["Client", "Studio", "Shared responsibility", "Not decided"] }, assets: {}, timeline: {}, currentSitemap: {},
 };
 
 const RULES_BY_MODE: Record<AiGenerationMode, Record<string, AnswerRule>> = { audit: AUDIT_RULES, brand: BRAND_RULES, seo: SEO_RULES, website_builder: WEBSITE_BUILDER_RULES, funnel: FUNNEL_RULES };
@@ -97,22 +97,26 @@ const FUNNEL_QUESTIONS: Record<string, string> = {
 const WEBSITE_BUILDER_QUESTIONS: Record<string, string> = {
   nickname: "What should we call you?",
   brandName: "What is the brand or business name?",
-  url: "What is the current website URL?",
-  redesignReason: "Why is the website being redesigned now?",
+  sourceApproach: "What should we use to plan the website?",
+  url: "What is the existing website URL, if there is one?",
+  sourceSummary: "What should we preserve or learn from the source material?",
   goals: "What must the redesigned website achieve?",
   audience: "Who are the priority website audiences?",
   primaryAction: "What is the primary action visitors should take?",
   success: "How will you know the redesign worked?",
-  mustKeep: "Which existing pages or content must be preserved?",
-  newPages: "Which new pages or sections are already expected?",
+  pagesToDesign: "Which pages should we design and build?",
+  pageBriefs: "What should each page help the visitor understand or do?",
+  mustKeep: "Which existing content, URLs, or resources must carry over?",
   removePages: "Which pages should be merged, redirected, or retired?",
   languages: "Does the site need multiple languages or regional versions?",
   features: "What functionality must the new website include?",
   integrations: "Which tools must connect to the website?",
   platform: "Is there a preferred platform?",
   constraints: "What technical, legal, or operational constraints matter?",
-  contentOwner: "Who will provide existing content and assets?",
-  copyScope: "Should copy be included in this build?",
+  contentSources: "Which content should the page plan use?",
+  copyApproach: "How should we prepare the copy for the scoped pages?",
+  copyNotes: "What messages, offers, proof, or calls to action must appear?",
+  contentOwner: "Who approves the final page copy and assets?",
   assets: "Which assets are ready or still needed?",
   timeline: "Is there a target launch date or dependency?",
   currentSitemap: "What pages are in the current sitemap?",
@@ -138,8 +142,40 @@ const RESULT_SCHEMA = {
         required: ["key", "value", "basis", "confidence", "evidence", "sourceUrl"],
       },
     },
+    landingPageCopy: {
+      anyOf: [
+        {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            sourceName: { type: "string", minLength: 1, maxLength: 160 },
+            headline: { type: "string", minLength: 1, maxLength: 220 },
+            subhead: { type: "string", minLength: 1, maxLength: 500 },
+            cta: { type: "string", minLength: 1, maxLength: 80 },
+            sections: {
+              type: "array",
+              minItems: 3,
+              maxItems: 8,
+              items: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  label: { type: "string", minLength: 1, maxLength: 80 },
+                  heading: { type: "string", minLength: 1, maxLength: 220 },
+                  body: { type: "string", minLength: 1, maxLength: 1_200 },
+                  bullets: { type: "array", maxItems: 6, items: { type: "string", minLength: 1, maxLength: 300 } },
+                },
+                required: ["label", "heading", "body", "bullets"],
+              },
+            },
+          },
+          required: ["sourceName", "headline", "subhead", "cta", "sections"],
+        },
+        { type: "null" },
+      ],
+    },
   },
-  required: ["summary", "brandName", "answers"],
+  required: ["summary", "brandName", "answers", "landingPageCopy"],
 } as const;
 
 const windows = new Map<string, { count: number; resetAt: number }>();
@@ -172,7 +208,7 @@ function fieldGuide(mode: AiGenerationMode) {
   const questions = mode === "audit" ? AUDIT_QUESTIONS : mode === "funnel" ? FUNNEL_QUESTIONS : mode === "website_builder" ? WEBSITE_BUILDER_QUESTIONS : {};
   return Object.entries(rules).map(([key, rule]) => {
     const shape = rule.array ? "Select every supported option" : "Select one option";
-    const options = rule.options ? ` ${shape} using exact wording: ${rule.options.join(" | ")}` : key === "mustKeep" && mode === "website_builder" ? " Return a concise bulleted list with one preserved page, URL, resource, or content group per line." : " Answer concisely in plain language.";
+    const options = rule.options ? ` ${shape} using exact wording: ${rule.options.join(" | ")}` : mode === "website_builder" && ["pagesToDesign", "pageBriefs", "mustKeep"].includes(key) ? " Return a concise bulleted list with one item per line." : " Answer concisely in plain language.";
     return `- ${key}: ${questions[key] || key}.${options}`;
   }).join("\n");
 }
@@ -267,12 +303,12 @@ export async function POST(request: NextRequest) {
   const link = typeof body?.url === "string" ? body.url.slice(0, 1_000) : "";
   const brief = typeof body?.brief === "string" ? body.brief.slice(0, 18_000) : "";
   const socialLinks = Array.isArray(body?.socialLinks) ? body.socialLinks.filter((value: unknown): value is string => typeof value === "string").slice(0, 4) : [];
-  const guidelineFiles = Array.isArray(body?.guidelineFiles) ? body.guidelineFiles.filter((file: any) => file && typeof file.name === "string" && typeof file.base64 === "string" && file.base64.length <= 4_100_000).slice(0, 1) : [];
+  const guidelineFiles = Array.isArray(body?.guidelineFiles) ? body.guidelineFiles.filter((file: any) => file && typeof file.name === "string" && typeof file.base64 === "string" && file.base64.length <= 5_400_000).slice(0, mode === "brand" ? 1 : 3) : [];
   if (mode === "audit" && !link.trim()) return NextResponse.json({ error: "Add the website URL you want to audit." }, { status: 400 });
   if (mode === "seo" && !link.trim()) return NextResponse.json({ error: "Add the website URL for the SEO audit." }, { status: 400 });
-  if (mode === "website_builder" && !link.trim()) return NextResponse.json({ error: "Add the existing website URL for the revamp." }, { status: 400 });
+  if (mode === "website_builder" && !link.trim() && !brief.trim() && !guidelineFiles.length) return NextResponse.json({ error: "Add an existing website, upload a brief or copy document, or paste the planning notes." }, { status: 400 });
   if (mode === "brand" && !link.trim() && !socialLinks.length && !guidelineFiles.length) return NextResponse.json({ error: "Add brand guidelines, a website, or a public social profile." }, { status: 400 });
-  if (mode === "funnel" && !link.trim() && !brief.trim()) return NextResponse.json({ error: "Add a funnel URL or paste a brief." }, { status: 400 });
+  if (mode === "funnel" && !link.trim() && !brief.trim() && !guidelineFiles.length) return NextResponse.json({ error: "Add a funnel URL, upload working copy, or paste a brief." }, { status: 400 });
 
   try {
     const pages = link.trim() ? await scanWebsite(link) : [];
@@ -292,26 +328,22 @@ export async function POST(request: NextRequest) {
       "For free-text strategy fields, provide the most useful concise proposed answer supported by the website. Use null only for truly personal or private facts that cannot responsibly be inferred.",
       "Never infer a person's name, email, private analytics, budget, or internal business priority from weak evidence; mark those needs_confirmation.",
       "Use the exact allowed option wording when an answer maps to a multiple-choice field.",
-      mode === "audit" ? "Act like a capable strategist reviewing the supplied pages: answer the Audit intake as fully as the evidence permits, not merely as a technical crawler." : mode === "brand" ? "Act like a brand strategist. Treat guideline files as the strongest source, then use the website and public social evidence. Separate established rules from inference." : mode === "seo" ? "Act like an SEO strategist. Use public website and supplied GA4 context only. Never invent rankings, backlinks, Search Console queries, traffic, or conversions." : mode === "website_builder" ? "Act like a website redesign strategist. Use the existing website and sitemap to prefill the revamp intake. Identify current pages and observable functionality, but leave private goals, ownership, budget, and timing for confirmation." : "Use the website and pasted brief together. The brief may support internal funnel facts that the public website cannot.",
+      mode === "audit" ? "Act like a capable strategist reviewing the supplied pages: answer the Audit intake as fully as the evidence permits, not merely as a technical crawler." : mode === "brand" ? "Act like a brand strategist. Treat guideline files as the strongest source, then use the website and public social evidence. Separate established rules from inference." : mode === "seo" ? "Act like an SEO strategist. Use public website and supplied GA4 context only. Never invent rankings, backlinks, Search Console queries, traffic, or conversions." : mode === "website_builder" ? "Act like a website planning strategist. Use any supplied website, sitemap, uploaded brief, uploaded copy, and pasted notes together. Extract the requested pages into pagesToDesign and create one matching pageBriefs line per page with its purpose, key message, and primary action. Treat the requested page list as the proposed design scope; do not automatically treat every current URL as a page to rebuild. Leave private approvals, ownership, budget, and timing for confirmation." : "Use the website, uploaded working copy, and pasted brief together. When working-copy files are attached, also return landingPageCopy: reorganize and lightly edit that supplied wording into a concise, ready-to-paste landing page. Preserve the client’s claims and voice, do not invent proof, and name the source file. When no working-copy file is attached, return landingPageCopy as null.",
+      mode === "funnel" && guidelineFiles.length ? `A working-copy upload is attached (${guidelineFiles.map((file: any) => file.name).join(", ")}). landingPageCopy MUST be a non-null object based on that upload.` : "Return landingPageCopy as null unless this is a funnel request with an attached working-copy file.",
     ].join("\n");
     const safety = createHash("sha256").update(`${mode}:${body?.clientName || link || "jumpstart"}`).digest("hex").slice(0, 32);
-    const inputText = `Mode: ${mode}\nClient record: ${String(body?.clientName || "Client").slice(0, 160)}\nKnown answers (do not repeat):\n${JSON.stringify(known)}\n\nQuestionnaire fields:\n${fieldGuide(mode)}\n\nPasted brief / analytics context:\n${brief || "None"}\n\nScanned source pages:\n${source || "None"}`;
+    const inputText = `Mode: ${mode}\nClient record: ${String(body?.clientName || "Client").slice(0, 160)}\nAttached working-copy files: ${guidelineFiles.length ? guidelineFiles.map((file: any) => file.name).join(", ") : "None"}\nKnown answers (do not repeat):\n${JSON.stringify(known)}\n\nQuestionnaire fields:\n${fieldGuide(mode)}\n\nPasted brief / analytics context:\n${brief || "None"}\n\nScanned source pages:\n${source || "None"}`;
     const inputFiles = guidelineFiles.map((file: any) => ({ type: "input_file", filename: file.name.slice(0, 160), file_data: `data:${typeof file.type === "string" ? file.type : "application/pdf"};base64,${file.base64}` }));
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || "gpt-5.6-luna",
-        store: false,
-        safety_identifier: safety,
-        reasoning: { effort: "low" },
-        max_output_tokens: 1_800,
-        instructions,
-        input: inputFiles.length ? [{ role: "user", content: [{ type: "input_text", text: inputText }, ...inputFiles] }] : inputText,
-        text: { verbosity: "low", format: { type: "json_schema", name: "jumpstart_prefill", strict: true, schema: RESULT_SCHEMA } },
-      }),
+    const { response, payload } = await createOpenAIResponseForMode(mode, {
+      model: process.env.OPENAI_MODEL || "gpt-5.6-luna",
+      store: false,
+      safety_identifier: safety,
+      reasoning: { effort: "low" },
+      max_output_tokens: (mode === "funnel" || mode === "website_builder") && inputFiles.length ? 3_200 : 1_800,
+      instructions,
+      input: inputFiles.length ? [{ role: "user", content: [{ type: "input_text", text: inputText }, ...inputFiles] }] : inputText,
+      text: { verbosity: "low", format: { type: "json_schema", name: "jumpstart_prefill", strict: true, schema: RESULT_SCHEMA } },
     });
-    const payload = await response.json().catch(() => null);
     if (!response.ok) {
       const mapped = openAIError(response.status, payload, "OpenAI could not analyze these sources.");
       console.error("OpenAI Jumpstart failed.", { mode, status: response.status, code: payload?.error?.code });
@@ -335,6 +367,11 @@ export async function POST(request: NextRequest) {
       });
     }
     const result = sanitizeAnswers(mode, rawAnswers, parsed?.brandName, known, canonicalUrl);
+    if (mode === "funnel" && guidelineFiles.length && parsed?.landingPageCopy && typeof parsed.landingPageCopy === "object") {
+      result.data.uploadedLandingCopy = JSON.stringify(parsed.landingPageCopy);
+      result.sources.uploadedLandingCopy = `Uploaded copy · ${String(parsed.landingPageCopy.sourceName || guidelineFiles[0].name).slice(0, 160)}`;
+      result.notes.uploadedLandingCopy = "The uploaded wording was organized and lightly edited into a landing-page-ready draft.";
+    }
     return NextResponse.json({
       result,
       summary: typeof parsed?.summary === "string" ? parsed.summary : "Sources analyzed.",

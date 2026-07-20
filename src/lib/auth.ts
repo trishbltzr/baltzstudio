@@ -1,5 +1,5 @@
 import type { DashboardUserRole } from "@/types";
-import { findDemoUserByEmail, type LoginUser } from "@/lib/demoUsers";
+import type { LoginUser } from "@/lib/authTypes";
 
 export function safeNextPath(value: string | null | undefined) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return "/dashboard";
@@ -12,15 +12,6 @@ export function resolveDashboardUser(
 ): LoginUser | null {
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedEmail) return null;
-
-  const demoUser = findDemoUserByEmail(normalizedEmail);
-  if (demoUser) {
-    return {
-      email: demoUser.email,
-      role: demoUser.role,
-      name: demoUser.name,
-    };
-  }
 
   return {
     email: normalizedEmail,

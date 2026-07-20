@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { css } from "../helpers";
+import { createReportPdf, reportDocumentHtml } from "../printReport";
 import { Icon } from "../icons";
 import type { PortalActions, PortalState } from "../store";
 import {
@@ -13,7 +14,7 @@ import { clientsVisibleToRole, STUDIO_CLIENTS, type ClientFacet } from "../clien
 import { ClientPickerGrid } from "../components/ClientPickerGrid";
 import { GuidedIntakeShell, GuidedOptionPill, GuidedPipelinePanel, GuidedUnsureToggle } from "../components/GuidedIntakeShell";
 import { DiscoveryBuilder } from "../discovery/DiscoveryBuilder";
-import { getKnowledge, loadPersistedKnowledge, recordKnowledge, rememberKnowledge, mergeKnow, type Know } from "../discovery/knowledge";
+import { fromClientMemory, getKnowledge, loadPersistedKnowledge, recordKnowledge, rememberKnowledge, mergeKnow, type Know } from "../discovery/knowledge";
 import { FUNNEL_WIZARD, FUNNEL_STAGES, FUNNEL_INTRO_STEPS, FUNNEL_DEMO } from "../discovery/discoveryData";
 import { FUNNEL_PIPELINE, FunnelFlowHero, funnelTaskDrafts } from "../discovery/funnelPipeline";
 import type { FunnelDocs } from "../discovery/funnelPipeline";
@@ -21,6 +22,8 @@ import { BuilderTaskPanel } from "../builders/BuilderTaskPanel";
 import type { TaskImportDraft } from "../types";
 import { mergePortalClientWorkspace, type PortalFunnelPlanRecord } from "@/lib/portalWorkspacePersistence";
 import { coercePersistedAuditDrafts, type GuidedAuditSession } from "@/lib/portalAuditPersistence";
+import { ReportPreviewDialog } from "../components/ReportPreviewDialog";
+import { ShareLinkDialog } from "../components/ShareLinkDialog";
 
 // ── state ────────────────────────────────────────────────────────────────────
 type Ans = Record<string, string | string[]>;
@@ -117,6 +120,17 @@ export function buildFunnelAiHandover(post: FunnelPlanPost): string {
     "- If you create implementation tasks, map them to the build phases above.",
     "- If a detail is missing, list the assumption instead of pretending it was provided.",
   ].join("\n");
+}
+
+function funnelApprovalOutput(docs: FunnelDocs) {
+  return {
+    summary: `The ${docs.ftype} funnel plan is ready for review, including its conversion flow, page direction, build phases, and launch requirements.`,
+    sections: [
+      { heading: "Funnel brief", body: `${docs.name} · ${docs.objective}`, bullets: docs.brief.map(item => `${item.label}: ${item.value}`) },
+      { heading: "Conversion flow", body: "The approved traffic-to-conversion journey.", bullets: docs.flow.map((item, index) => `${index + 1}. ${item.label}`) },
+      { heading: "Build and launch", body: "The approved implementation phases and launch connections.", bullets: [...docs.plan.flatMap(item => item.tasks), ...docs.launch.map(item => `${item.label}: ${item.value}`)] },
+    ],
+  };
 }
 
 type Act =
@@ -677,6 +691,7 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
             showToast={actions.showToast}
             showAiHandover={state.role !== "client"}
             onImportTasks={actions.bulkImportTasks}
+            onShare={() => actions.shareFinalOutput({ clientName: activePlanPost.clientName, title: "Funnel Builder · Final development plan", outputType: "builder", ...funnelApprovalOutput(activePlanPost.content) })}
           />
         )}
       </div>
@@ -734,7 +749,10 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
     );
   })();
 
-  const funnelKnow = mergeKnow(getKnowledge(client.id), quickKnow);
+  const funnelKnow = mergeKnow(
+    mergeKnow(getKnowledge(client.id), fromClientMemory(client.id, client.name, actions.workspaceForClient(client.name))),
+    quickKnow,
+  );
   return (
     <div style={css("width:100%;padding:" + (mobile ? "1rem 0.9rem 1.5rem" : "1.4rem 1.5rem") + ";display:flex;flex-direction:column;gap:0.9rem")}>
       {build && <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:.45rem")}>
@@ -782,11 +800,15 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
   );
 }
 
-export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImportTasks, showAiHandover = true }: { post: FunnelPlanPost; mobile: boolean; onClose: () => void; showToast: (message: string) => void; onImportTasks: (drafts: TaskImportDraft[]) => void; showAiHandover?: boolean }) {
+export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImportTasks, onShare, showAiHandover = true }: { post: FunnelPlanPost; mobile: boolean; onClose: () => void; showToast: (message: string) => void; onImportTasks: (drafts: TaskImportDraft[]) => void; onShare?: () => void; showAiHandover?: boolean }) {
   const docs = post.content;
   const [handoverOpen, setHandoverOpen] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfPreparing, setPdfPreparing] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
   const handover = useMemo(() => buildFunnelAiHandover(post), [post]);
   const taskDrafts = useMemo(() => funnelTaskDrafts(docs, post.clientName), [docs, post.clientName]);
+  useEffect(() => () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); }, [pdfUrl]);
   const copyAiHandover = async () => {
     try {
       if (navigator.clipboard) {
@@ -816,6 +838,23 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImp
       showToast(copied ? "AI handover copied" : "AI handover ready to copy");
     }
   };
+  const reportTitle = `${post.clientName} · Development plan`;
+  const openPdfPreview = async () => {
+    const html = reportDocumentHtml(document.querySelector("[data-funnel-report-document]"), reportTitle);
+    if (!html) { showToast("The PDF preview could not be prepared"); return; }
+    setPdfPreparing(true);
+    const pdf = await createReportPdf(html, reportTitle, { pageless: true });
+    setPdfPreparing(false);
+    if (!pdf) { showToast("The printable PDF could not be generated"); return; }
+    setPdfUrl(URL.createObjectURL(pdf));
+  };
+  const openShare = () => {
+    onShare?.();
+    const url = new URL("/dashboard", window.location.origin);
+    url.searchParams.set("view", "review");
+    url.searchParams.set("approval", `${post.clientId}-builder-funnel-builder-final-development-plan`);
+    setShareUrl(url.toString());
+  };
 
   return (
     <div
@@ -834,8 +873,8 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImp
           </div>
         </div>
 
-        <article style={css("border:1px solid var(--border-soft);border-radius:1.1rem;background:var(--surface);overflow:hidden")}>
-          <header style={css("min-height:" + (mobile ? "4.7rem" : "6.1rem") + ";padding:" + (mobile ? "0.85rem 1.3rem" : "0.9rem 1.9rem") + ";border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:0.95rem;flex-wrap:wrap")}>
+        <article data-funnel-report-document data-report-client={post.clientName} data-report-project={post.title} data-report-status="Ready for review" style={css("border:1px solid var(--border-soft);border-radius:1.1rem;background:var(--surface);overflow:hidden")}>
+          <header data-report-exclude style={css("min-height:" + (mobile ? "4.7rem" : "6.1rem") + ";padding:" + (mobile ? "0.85rem 1.3rem" : "0.9rem 1.9rem") + ";border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:0.95rem;flex-wrap:wrap")}>
             <span style={css("width:3rem;height:3rem;border-radius:0.68rem;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex-shrink:0")}><Icon name="checklist" size={22} /></span>
             <div style={{ minWidth: 0, flex: "1 1 auto" }}>
               <h2 style={css("margin:0;font-size:" + (mobile ? "1.2rem" : "1.45rem") + ";font-weight:500;letter-spacing:-0.015em;line-height:1.1")}>Development plan</h2>
@@ -845,7 +884,7 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImp
           </header>
 
           {showAiHandover && handoverOpen && (
-            <div style={css("padding:" + (mobile ? "0.95rem 1.15rem" : "1rem 1.9rem") + ";border-bottom:1px solid var(--border-soft);background:color-mix(in srgb,var(--accent) 7%,white 93%)")}>
+            <div data-report-exclude style={css("padding:" + (mobile ? "0.95rem 1.15rem" : "1rem 1.9rem") + ";border-bottom:1px solid var(--border-soft);background:color-mix(in srgb,var(--accent) 7%,white 93%)")}>
               <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);flex-wrap:wrap;margin-bottom:0.65rem")}>
                 <div>
                   <div style={css("font-size:var(--text-base);font-weight:500;color:var(--fg)")}>AI handover prompt</div>
@@ -861,7 +900,7 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImp
             </div>
           )}
 
-          <div style={css("padding:" + (mobile ? "1.2rem" : "1.85rem 2rem 2rem"))}>
+          <div data-report-content style={css("padding:" + (mobile ? "1.2rem" : "1.85rem 2rem 2rem"))}>
             {FUNNEL_PIPELINE.renderStage({
               aiResult: null,
               aiResults: {},
@@ -873,14 +912,17 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImp
               mobile,
               accent: "var(--accent)",
               onAdvance: onClose,
-              onDownload: () => showToast("PDF preview queued"),
-              onShare: () => showToast("Share link copied"),
+              onDownload: () => void openPdfPreview(),
+              onShare: openShare,
               onCopy: () => showToast("Development plan copied"),
+              afterActions: <BuilderTaskPanel embedded drafts={taskDrafts} fileName={`${post.clientId || "client"}-funnel-tasks.csv`} mobile={mobile} onImport={onImportTasks}/>,
             })}
           </div>
-          <BuilderTaskPanel embedded drafts={taskDrafts} fileName={`${post.clientId || "client"}-funnel-tasks.csv`} mobile={mobile} onImport={onImportTasks}/>
         </article>
       </div>
+      {pdfPreparing && <div role="status" onClick={event => event.stopPropagation()} style={css("position:fixed;inset:0;z-index:120;background:rgba(35,25,18,.5);display:grid;place-items:center;color:#fff;font-size:.8rem;font-weight:500")}>Creating the printable PDF…</div>}
+      {pdfUrl && <ReportPreviewDialog pdfUrl={pdfUrl} title={reportTitle} onClose={() => setPdfUrl(null)}/>}
+      {shareUrl && <ShareLinkDialog title={post.title} clientName={post.clientName} url={shareUrl} onClose={() => setShareUrl(null)} showToast={showToast}/>}
     </div>
   );
 }

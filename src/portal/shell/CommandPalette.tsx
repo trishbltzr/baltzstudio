@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { Icon } from "../icons";
 import { css } from "../helpers";
-import { quickActionsForRole, runQuickAction } from "../navigation";
+import { quickActionsForState, runQuickAction } from "../navigation";
 import { roleProjects, roleTasks } from "../selectors";
 import type { PortalActions, PortalState } from "../store";
 
@@ -20,7 +20,7 @@ export function CommandPalette({ state, actions }: { state: PortalState; actions
 
   const role = state.role;
   const actionsSrc: PaletteAction[] = [
-    ...quickActionsForRole(role).map(action => ({ label: action.label, sub: action.sub, icon: action.icon, run: () => runQuickAction(action, state, actions) })),
+    ...quickActionsForState(state).map(action => ({ label: action.label, sub: action.sub, icon: action.icon, run: () => runQuickAction(action, state, actions) })),
     ...(role === "admin" ? [{ label: "Settings", sub: "Studio preferences", icon: "sliders", run: () => actions.setView("settings") }] : []),
     { label: "Profile", sub: "Your account", icon: "user", run: () => actions.setView("profile") },
   ];
@@ -45,8 +45,8 @@ export function CommandPalette({ state, actions }: { state: PortalState; actions
           {cats.map(cat => (
             <div key={cat}>
               <div style={css("padding:0.55rem 0.7rem 0.3rem;font-size:0.62rem;font-weight:500;letter-spacing:0.02em;color:var(--fg-faint)")}>{cat}</div>
-              {items.filter(i => i.cat === cat).map((it, i) => (
-                <button key={i} onClick={it.run} className="pt-dditem" style={css("display:flex;align-items:center;gap:0.7rem;width:100%;padding:0.5rem 0.7rem;border:0;background:transparent;border-radius:var(--radius);cursor:pointer;text-align:left")}>
+              {items.filter(i => i.cat === cat).map(it => (
+                <button key={`${it.cat}-${it.label}-${it.sub}`} onClick={it.run} className="pt-dditem" style={css("display:flex;align-items:center;gap:0.7rem;width:100%;padding:0.5rem 0.7rem;border:0;background:transparent;border-radius:var(--radius);cursor:pointer;text-align:left")}>
                   <span style={css("width:1.9rem;height:1.9rem;border-radius:var(--radius-sm);display:grid;place-items:center;flex-shrink:0;background:" + it.tint + ";color:" + it.color)}><Icon name={it.icon} size={16} /></span>
                   <span style={{ minWidth: 0, flex: 1 }}>
                     <span style={css("display:block;font-size:0.85rem;font-weight:500")}>{it.label}</span>

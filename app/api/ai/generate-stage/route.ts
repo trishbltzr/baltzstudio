@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { AI_STAGES, isGeneratedStageResult, type AiGenerationMode } from "@/lib/aiStageGeneration";
 import { ALL_AUDIT_CHECKS, AUDIT_CHECKLIST, auditPrioritiesFromEvidence, isAuditScoreResult, scoreChecks, specificAuditCourseOfAction, type AuditCheckResult, type AuditIssue, type AuditScoreResult, type LighthouseRun } from "@/lib/auditChecklist";
-import { apiKeyForMode, openAIError, responseText } from "@/lib/openaiServer";
+import { apiKeyForMode, createOpenAIResponseForMode, openAIError, responseText } from "@/lib/openaiServer";
 import { runLighthouse } from "@/lib/pageSpeedServer";
 import { discoverSitemapUrls, scanWebsite } from "@/lib/websiteScanner";
 import { automatedAuditChecks, collectWebsiteEvidence, type WebsiteEvidenceBundle } from "@/lib/renderedWebsiteEvidence";
@@ -174,7 +174,7 @@ const STAGE_BRIEFS: Record<AiGenerationMode, Record<string, string>> = {
     plan: "Turn the audit context into a prioritized, practical improvement plan. Sequence quick wins before larger structural work and make every action specific enough to assign.",
   },
   brand: {
-    report: "Create a practical brand kit and consolidated guideline draft from the supplied evidence. Cover brand foundation, positioning, audience, voice, messaging, logo usage, typography, colour direction, imagery, and consistency. Clearly label inferred decisions and identify gaps that still need confirmation.",
+    report: "Create a practical brand kit and consolidated guideline draft from the supplied evidence. Cover brand foundation, positioning, audience, voice, messaging, logo usage, typography, colour direction, imagery, and consistency. Label every material conclusion as Verified strength, Verified gap, Unverified, or Not applicable and name its supporting submitted answer, supplied asset, website, or social touchpoint. Recommendations may come only from Verified gaps. Unverified items must request missing evidence. Do not create a numeric brand score.",
     plan: "Turn the brand findings into specific improvement priorities. Preserve the approved brand kit and guidelines, then sequence corrections for positioning, messaging, visual consistency, templates, and governance.",
   },
   seo: {
@@ -182,13 +182,13 @@ const STAGE_BRIEFS: Record<AiGenerationMode, Record<string, string>> = {
     plan: "Turn the SEO findings into a prioritized implementation plan. Separate technical fixes, on-page improvements, content opportunities, measurement corrections, and longer-term authority work.",
   },
   website_builder: {
-    direction: "Create a concise, owner-ready full website design and development plan that mirrors the hierarchy of a funnel development plan but is tailored to a complete website rebuild. This is direction for the entire website, not only the homepage. Use exactly these five section headings in order: Redesign plan; Pages to redesign; Full website design direction; Development phases and milestones; Approval and rollout. Redesign plan must state Main objective, Tone, Primary action, Platform, and What changes differently as clearly labeled bullets. Pages to redesign will be replaced by the application with the complete discovered sitemap, so use its body to explain the page-scope approach. Full website design direction must define the sitewide information architecture, navigation behavior, content hierarchy, tone, visual system, reusable components, responsive rules, and conversion patterns for every page type. Within that direction, specify the homepage navigation, hero, and ordered section structure as the single visual proof of direction sent to the owner for approval. The homepage is the approval reference for the vibe and system; it is not the only page being designed or rebuilt. Development phases and milestones must contain exactly five milestones in execution order: (1) priority, scope, and content preparation; (2) homepage design and owner approval; (3) remaining-page rollout, development, and integrations; (4) content migration and QA; (5) launch and measurement. Include a realistic week or date range in parentheses in every milestone, such as 'Milestone 2 (Weeks 2–3):'. The first bullet must begin with 'Milestone 1 — Priority' and identify the highest-priority outcome and why it comes first. The Development phases and milestones body must state the estimated total project timeline and explain that approvals, content readiness, and scope changes can affect it. Approval and rollout must state that homepage approval confirms the full-site direction, then explain what happens next, responsibilities, dependencies, and what is not included. Recommendations must focus only on the most important changes from the current site to this rebuild.",
-    tasks: "Turn the approved build direction and page inventory into an implementation-ready task list. Group tasks by discovery, content, UX, design, development, integrations, migration, QA, launch, and measurement. Keep copy tasks optional when the intake says copy is not included.",
+    direction: "Create a clear, concise, build-ready website brief. Use exactly these five section headings in order: Build-ready brief; Final sitemap and page briefs; Copy and website direction; Development phases and milestones; Approval and handoff. Build-ready brief must state Source strategy, Main objective, Audience, Primary action, Platform, and Success measure as clearly labeled bullets. Final sitemap and page briefs must contain only the pages explicitly confirmed in pagesToDesign. Use exactly one bullet per confirmed page or template in this format: 'Page · Page name — purpose; key message; primary action; copy source' or 'Template · Template name — purpose; content model; primary action; copy source'. Do not add speculative pages. Copy and website direction must explain how existing website copy, uploaded briefs, uploaded copy, audit context, and new writing will be mapped across those pages, then define the shared information architecture, navigation, content hierarchy, visual system, reusable components, responsive rules, and conversion patterns. Development phases and milestones must contain exactly five concise milestones in execution order: scope and content preparation; design-system approval; remaining-page design and build; content population and QA; launch and measurement. Include a realistic week or date range in every milestone. Approval and handoff must state what is approved, who supplies or approves remaining copy and assets, dependencies, exclusions, and the exact materials handed to design and development. Recommendations must focus only on decisions needed to make the scoped website build-ready.",
+    tasks: "Turn the approved sitemap, page briefs, copy plan, site direction, functionality, and dependencies into an implementation-ready task list. Group tasks by content, UX, design, development, integrations, population, QA, launch, and measurement. Create page-specific tasks only for pages confirmed in the final sitemap.",
   },
   funnel: {
     flow: "Design the conversion journey from traffic source to the primary outcome. Explain why each step exists and where drop-off risk should be reduced.",
-    copy: "Draft the messaging strategy, offer framing, headline direction, proof plan, objection handling, and call-to-action hierarchy for this funnel.",
-    wireframe: "Describe the conversion-first page structure and section order. Connect every section to a visitor question, objection, or decision.",
+    copy: "Write page-ready sales copy for the buyer, not commentary about building the page. Lead with a specific offer-led promise, then develop the buyer's problem and stakes, desired outcome, product or service benefits, concrete offer details, buying process, proof, objection handling, pricing or value framing, FAQ, and repeated primary CTA. Use the client's exact offer, audience, problem, price, and action wherever supplied. Never sell the website, design, mobile responsiveness, tracking, or funnel mechanics to the end customer. Never invent testimonials, ratings, guarantees, prices, ingredients, certifications, results, or delivery claims; label missing evidence as an approval input.",
+    wireframe: "Create a polished, page-ready SALES PAGE structure, not a generic website outline. Sequence it as: focused navigation; offer-led hero with primary purchase CTA; verified proof strip; problem and stakes; buyer benefits; product or service details; how buying works; verified testimonial or explicit proof placeholder; offer stack; one evidence-backed price or price-to-approve state; objection-led FAQ; final purchase CTA; legal footer. Every section must answer a buyer question and move toward the same primary action. Omit internal build details such as integrations, analytics, responsive design, and tracking from customer-facing sections. Never invent proof, pricing, guarantees, results, or product claims.",
     brief: "Produce a build-ready development brief covering pages, content, integrations, measurement, QA, dependencies, and launch priorities. Give the final brief a distinctive, outcome-led title tailored to this funnel. Never use only 'Development plan', 'Build direction', the funnel name, or another generic repeated stage label as the title.",
   },
 };
@@ -256,6 +256,28 @@ function websiteBuildScopeItems(urls: string[]) {
   ];
 }
 
+function websiteScopeLines(value: string | string[] | undefined) {
+  const entries = Array.isArray(value) ? value : typeof value === "string" ? value.split(/\r?\n/) : [];
+  return entries
+    .map(entry => entry.trim().replace(/^(?:[-*•]|\d+[.)])\s*/, "").replace(/^(?:Page|Template)\s*·\s*/i, "").trim())
+    .filter(Boolean);
+}
+
+function requestedWebsiteScope(data: Record<string, string | string[]>) {
+  const pages = websiteScopeLines(data.pagesToDesign);
+  const briefs = websiteScopeLines(data.pageBriefs);
+  return pages.map((page, index) => {
+    const pageName = page.split(/\s+[—–-]\s+/)[0].trim();
+    const matchedBrief = briefs.find(brief => brief.toLowerCase().startsWith(pageName.toLowerCase()))
+      || (briefs.length === pages.length ? briefs[index] : "");
+    const detail = matchedBrief
+      ? matchedBrief.replace(new RegExp(`^${pageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*(?:[—–-]|:)?\\s*`, "i"), "").trim()
+      : page.slice(pageName.length).replace(/^\s*(?:[—–-]|:)\s*/, "").trim();
+    const kind = /template/i.test(pageName) ? "Template" : "Page";
+    return `${kind} · ${pageName}${detail ? ` — ${detail}` : ""}`;
+  });
+}
+
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Cross-origin requests are not allowed." }, { status: 403 });
   if (!withinRateLimit(request)) return NextResponse.json({ error: "Too many AI requests. Please wait a minute and try again." }, { status: 429 });
@@ -271,6 +293,7 @@ export async function POST(request: NextRequest) {
   if (!apiKey) return NextResponse.json({ error: `AI generation is not configured for ${mode}.` }, { status: 503 });
 
   const data = cleanData(body?.data);
+  const clientNotes = cleanData(body?.clientNotes);
   const personName = typeof body?.personName === "string" && body.personName.trim()
     ? body.personName.trim().slice(0, 100)
     : typeof data.nickname === "string" ? data.nickname.slice(0, 100) : "";
@@ -317,9 +340,11 @@ export async function POST(request: NextRequest) {
   let sitemapUrls: string[] = [];
   if (mode === "website_builder" && stageKey === "direction") {
     const url = typeof data.url === "string" ? data.url : "";
-    if (!url) return NextResponse.json({ error: "Add the current website URL before generating build direction." }, { status: 400 });
-    try { scannedPages = await scanWebsite(url); sitemapUrls = await discoverSitemapUrls(url); }
-    catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "The website could not be scanned." }, { status: 422 }); }
+    if (url) {
+      try { scannedPages = await scanWebsite(url); sitemapUrls = await discoverSitemapUrls(url); }
+      catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "The website could not be scanned." }, { status: 422 }); }
+    }
+    if (!requestedWebsiteScope(data).length && !sitemapUrls.length && !scannedPages.length) return NextResponse.json({ error: "Confirm at least one page to design before generating the build-ready brief." }, { status: 400 });
   }
   const instructions = [
     "You are the strategy engine inside Baltazar Studio's client portal.",
@@ -341,16 +366,18 @@ export async function POST(request: NextRequest) {
     ] : []),
     ...(mode === "website_builder" ? [
       "This is a website redesign planning workflow, not a website audit.",
-      "For the Build direction stage, create a full website design direction covering the complete page scope and sitewide system. Do not create a funnel.",
-      "Only the homepage is developed as the visual approval reference at this stage. Homepage approval confirms the vibe, structure, content hierarchy, components, and responsive rules that will be applied across the rest of the website.",
-      "Do not imply that the homepage is the only page being redesigned. The entire supplied website scope is part of the build direction.",
-      "Use the supplied sitemap to explain the rollout scope. The final Task plan must still account for every page as rebuild, merge, redirect, archive, proposed, or out of scope.",
-      "Do not invent pages without labeling them proposed. Turn all approved scope into assignable implementation tasks.",
+      "The confirmed pagesToDesign answer is the authority for the design and build scope.",
+      "Use a discovered current sitemap only as reference material for preservation, migration, redirects, or copy reuse. Never silently add every discovered URL to the new design scope.",
+      "Create one concise purpose, key-message, primary-action, and copy-source brief for every confirmed page. Do not create page briefs for unconfirmed pages.",
+      "Map existing website copy, uploaded brief or copy evidence summarized in discovery, audit handoff context, and new-copy requirements without inventing claims or proof.",
+      "Turn the approved scope into assignable, build-ready implementation tasks. Do not create a funnel.",
+      "Read the Client workspace notes before drafting any copy. Treat them as approved client context, not as permission to invent unsupported claims. If a note conflicts with a confirmed intake answer, call out the conflict for review and use the confirmed intake answer until resolved.",
     ] : []),
     ...(mode === "funnel" ? [
       "Preserve the funnel panel sequence exactly: Funnel flow, Copy, Wireframe, then Development plan.",
       "Each stage must build on the supplied prior approved stages. Do not contradict or replace the approved objective, page order, primary action, offer, audience, or platform unless the discovery context explicitly changes it.",
       "Return only content relevant to the current panel. Flow defines the journey; Copy follows that flow; Wireframe arranges the approved flow and copy; Development plan turns all approved panels into implementation tasks, integrations, QA, and launch requirements.",
+      "Read the Client workspace notes before drafting any copy. Use them for audience language, offer details, objections, brand voice, and constraints only where supported. Flag conflicts and missing proof rather than guessing.",
     ] : []),
     STAGE_BRIEFS[mode][stageKey],
     ...(isAuditReport ? [
@@ -363,25 +390,19 @@ export async function POST(request: NextRequest) {
   ].join("\n");
 
   try {
-    const openaiResponse = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || "gpt-5.6-luna",
-        store: false,
-        safety_identifier: safetyIdentifier,
-        reasoning: { effort: "low" },
-        max_output_tokens: isAuditReport ? 18_000 : 2_400,
-        instructions,
-        input: `Person name: ${personName || "Not supplied"}\nBrand name: ${brandName}\nClient record: ${clientName}\nWorkflow: ${mode}\nStage: ${stageKey}\nDiscovery context:\n${JSON.stringify(data, null, 2)}\nPrior audit result:\n${priorResult}${sitemapUrls.length ? `\n\nComplete sitemap URL inventory:\n${sitemapUrls.join("\n")}` : ""}${scannedPages.length ? `\n\nGoogle Lighthouse results:\n${JSON.stringify(lighthouse, null, 2)}\n\nRendered browser and technical evidence:\n${JSON.stringify(websiteEvidence, null, 2)}\n\nScanned website pages:\n${scannedPages.map((page, index) => `--- PAGE ${index + 1}: ${page.url} ---\n${page.text}`).join("\n\n")}` : ""}`,
-        text: {
-          verbosity: "medium",
-          format: { type: "json_schema", name: isAuditReport ? "audit_score_result" : "ai_stage_result", strict: true, schema: isAuditReport ? AUDIT_SCORE_SCHEMA : RESULT_SCHEMA },
-        },
-      }),
+    const { response: openaiResponse, payload } = await createOpenAIResponseForMode(mode, {
+      model: process.env.OPENAI_MODEL || "gpt-5.6-luna",
+      store: false,
+      safety_identifier: safetyIdentifier,
+      reasoning: { effort: "low" },
+      max_output_tokens: isAuditReport ? 18_000 : 2_400,
+      instructions,
+      input: `Person name: ${personName || "Not supplied"}\nBrand name: ${brandName}\nClient record: ${clientName}\nWorkflow: ${mode}\nStage: ${stageKey}\n\nClient workspace notes (read before discovery context):\n${Object.keys(clientNotes).length ? JSON.stringify(clientNotes, null, 2) : "No saved client notes."}\n\nDiscovery context:\n${JSON.stringify(data, null, 2)}\nPrior audit result:\n${priorResult}${sitemapUrls.length ? `\n\nComplete sitemap URL inventory:\n${sitemapUrls.join("\n")}` : ""}${scannedPages.length ? `\n\nGoogle Lighthouse results:\n${JSON.stringify(lighthouse, null, 2)}\n\nRendered browser and technical evidence:\n${JSON.stringify(websiteEvidence, null, 2)}\n\nScanned website pages:\n${scannedPages.map((page, index) => `--- PAGE ${index + 1}: ${page.url} ---\n${page.text}`).join("\n\n")}` : ""}`,
+      text: {
+        verbosity: "medium",
+        format: { type: "json_schema", name: isAuditReport ? "audit_score_result" : "ai_stage_result", strict: true, schema: isAuditReport ? AUDIT_SCORE_SCHEMA : RESULT_SCHEMA },
+      },
     });
-
-    const payload = await openaiResponse.json().catch(() => null);
     if (!openaiResponse.ok) {
       const mapped = openAIError(openaiResponse.status, payload, "OpenAI could not generate this stage.");
       console.error("OpenAI stage generation failed.", { status: openaiResponse.status, code: payload?.error?.code });
@@ -391,8 +412,18 @@ export async function POST(request: NextRequest) {
     const parsed = JSON.parse(responseText(payload));
     if (mode === "website_builder" && stageKey === "direction" && Array.isArray(parsed?.sections)) {
       const pageInventory = [...new Set([...sitemapUrls, ...scannedPages.map(page => page.url)])];
-      const pageSection = parsed.sections.find((section: any) => String(section?.heading || "").toLowerCase() === "pages to redesign");
-      if (pageSection && pageInventory.length) pageSection.bullets = websiteBuildScopeItems(pageInventory);
+      const confirmedScope = requestedWebsiteScope(data);
+      const pageSection = parsed.sections.find((section: any) => String(section?.heading || "").toLowerCase() === "final sitemap and page briefs");
+      if (pageSection && confirmedScope.length) {
+        const generatedBullets: string[] = Array.isArray(pageSection.bullets) ? pageSection.bullets.filter((item: unknown): item is string => typeof item === "string") : [];
+        pageSection.bullets = confirmedScope.map(scopeItem => {
+          const kind = scopeItem.startsWith("Template · ") ? "Template" : "Page";
+          const scopedName = scopeItem.replace(/^(?:Page|Template)\s*·\s*/i, "").split(/\s+[—–-]\s+/)[0].trim().toLowerCase();
+          const generatedMatch = generatedBullets.find(item => item.replace(/^(?:Page|Template)\s*·\s*/i, "").split(/\s+[—–-]\s+/)[0].trim().toLowerCase() === scopedName);
+          return generatedMatch ? (/^(?:Page|Template)\s*·\s*/i.test(generatedMatch) ? generatedMatch : `${kind} · ${generatedMatch}`) : scopeItem;
+        });
+      }
+      else if (pageSection && pageInventory.length) pageSection.bullets = websiteBuildScopeItems(pageInventory);
     }
     const result = isAuditReport ? normalizeAuditAnalysis(parsed as RawAuditAnalysis, scannedPages.map(page => page.url), lighthouse, websiteEvidence) : parsed;
     if (!isGeneratedStageResult(result) || isAuditReport && !isAuditScoreResult(result)) throw new Error("The AI response did not match the expected format.");

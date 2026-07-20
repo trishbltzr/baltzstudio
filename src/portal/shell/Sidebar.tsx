@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Icon } from "../icons";
 import { css, eyebrowStyle, roleBadgeStyle, roleMeta, sidebarEyebrowStyle } from "../helpers";
-import { MOBILE_PRIMARY_VIEWS, NAV_SECTIONS, navItemMeta } from "../navigation";
+import { mobilePrimaryViewsForState, navItemMeta, navSectionsForState } from "../navigation";
 import { inboxUnread } from "../selectors";
 import type { PortalActions, PortalState } from "../store";
 import type { Role, View } from "../types";
@@ -61,7 +61,7 @@ export function Sidebar({ state, actions, rail, onLogout }: { state: PortalState
   };
 
   const accountPop = state.sidePop === "account";
-  const hiddenOnMobile = new Set(isMobile ? MOBILE_PRIMARY_VIEWS[role] : []);
+  const hiddenOnMobile = new Set(isMobile ? mobilePrimaryViewsForState(state) : []);
   const accountPopoverStyle = rail
     ? "position:absolute;bottom:0;left:calc(100% + 0.55rem);width:11rem;z-index:60;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius);padding:0.4rem;display:flex;flex-direction:column;gap:0.1rem"
     : "position:absolute;bottom:100%;left:0;right:0;margin-bottom:0.4rem;z-index:60;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius);padding:0.4rem;display:flex;flex-direction:column;gap:0.1rem";
@@ -98,7 +98,7 @@ export function Sidebar({ state, actions, rail, onLogout }: { state: PortalState
 
         {/* nav */}
         <nav style={css("flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:0.12rem;padding-top:0.7rem")}>
-          {NAV_SECTIONS[role].map(section => (
+          {navSectionsForState(state).map(section => (
             <div key={section.label || "snapshot"} style={{ display: "contents" }}>
               {section.label && (
                 <div style={css("padding:0.62rem " + ROWPAD + " 0.24rem;" + slideBlock("2rem", eyebrowStyle("var(--fg-faint)")))}>{section.label}</div>
@@ -135,17 +135,17 @@ export function Sidebar({ state, actions, rail, onLogout }: { state: PortalState
                         {(["brand", "website", "seo"] as const).map(auditType => {
                           const selected = state.auditType === auditType;
                           const label = auditType === "seo" ? "SEO" : auditType.charAt(0).toUpperCase() + auditType.slice(1);
-                          return <button key={auditType} type="button" onClick={() => { actions.patch({ auditType }); actions.setView(id); }} style={css("position:relative;display:flex;align-items:center;gap:0.45rem;width:100%;height:2.4rem;padding:0 0.5rem 0 3rem;border:none;border-radius:999px;background:transparent;color:" + (selected ? "var(--accent)" : "var(--fg-muted)") + ";font-size:0.9rem;font-weight:500;cursor:pointer;text-align:left")}>{selected && <span aria-hidden="true" style={css("position:absolute;left:1.45rem;top:0;bottom:0;width:1.5px;border-radius:1px;background:var(--accent)")} />}<span>{label}</span>{auditType === "seo" && <span className="pt-beta-badge">Soon</span>}</button>;
+                          return <button key={auditType} type="button" onClick={() => { actions.patch({ auditType }); actions.setView(id); }} style={css("position:relative;display:flex;align-items:center;gap:0.45rem;width:100%;height:2.4rem;padding:0 0.5rem 0 3rem;border:none;border-radius:999px;background:transparent;color:" + (selected ? "var(--accent)" : "var(--fg-muted)") + ";font-size:0.9rem;font-weight:500;cursor:pointer;text-align:left")}>{selected && <span aria-hidden="true" style={css("position:absolute;left:1.45rem;top:0;bottom:0;width:1.5px;border-radius:1px;background:var(--accent)")} />}<span>{label}</span></button>;
                         })}
                       </div>
                     )}
                     {builderParent && active && textOpen && (
                       <div style={css("position:relative;display:flex;flex-direction:column;gap:1px;margin:0.12rem 0 0.28rem;padding-right:0.28rem") }>
                         <span aria-hidden="true" style={css("position:absolute;left:1.45rem;top:0.25rem;bottom:0.25rem;width:1.5px;border-radius:1px;background:var(--border);pointer-events:none") } />
-                        {(["funnel", "website"] as const).map(builderType => {
+                        {(["funnel", "website", "social"] as const).map(builderType => {
                           const selected = state.builderType === builderType;
-                          const label = builderType === "funnel" ? "Funnel" : "Website";
-                          return <button key={builderType} type="button" onClick={() => { actions.patch({ builderType }); actions.setView(id); }} style={css("position:relative;display:flex;align-items:center;width:100%;height:2.4rem;padding:0 0.5rem 0 3rem;border:none;border-radius:999px;background:transparent;color:" + (selected ? "var(--accent)" : "var(--fg-muted)") + ";font-size:0.9rem;font-weight:500;cursor:pointer;text-align:left")}>{selected && <span aria-hidden="true" style={css("position:absolute;left:1.45rem;top:0;bottom:0;width:1.5px;border-radius:1px;background:var(--accent)")} />}{label}</button>;
+                          const label = builderType === "funnel" ? "Funnel" : builderType === "website" ? "Website" : "Social Media";
+                          return <button key={builderType} type="button" onClick={() => { actions.patch({ builderType }); actions.setView(id); }} style={css("position:relative;display:flex;align-items:center;gap:0.45rem;width:100%;height:2.4rem;padding:0 0.5rem 0 3rem;border:none;border-radius:999px;background:transparent;color:" + (selected ? "var(--accent)" : "var(--fg-muted)") + ";font-size:0.9rem;font-weight:500;cursor:pointer;text-align:left")}>{selected && <span aria-hidden="true" style={css("position:absolute;left:1.45rem;top:0;bottom:0;width:1.5px;border-radius:1px;background:var(--accent)")} />}<span>{label}</span></button>;
                         })}
                       </div>
                     )}

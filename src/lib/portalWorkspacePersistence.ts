@@ -17,6 +17,15 @@ export type PortalApprovalRecord = {
   sentAt?: string;
   threadId?: string;
   escalated?: boolean;
+  outputType?: "audit" | "builder";
+  summary?: string;
+  sections?: PortalApprovalSection[];
+};
+
+export type PortalApprovalSection = {
+  heading: string;
+  body: string;
+  bullets: string[];
 };
 
 export type PortalProposalRecord = {
@@ -138,7 +147,9 @@ export function emptyPortalClientWorkspace(clientId: string): PortalClientWorksp
 export function mergePortalApprovals(clientId: string, approvals: PortalApprovalRecord[]) {
   const defaults = DEFAULT_PORTAL_APPROVALS.filter(approval => approval.clientId === clientId);
   const byId = new Map(approvals.map(approval => [approval.id, approval]));
-  return defaults.map(approval => ({ ...approval, ...(byId.get(approval.id) || {}) }));
+  const mergedDefaults = defaults.map(approval => ({ ...approval, ...(byId.get(approval.id) || {}) }));
+  const defaultIds = new Set(defaults.map(approval => approval.id));
+  return [...mergedDefaults, ...approvals.filter(approval => !defaultIds.has(approval.id))];
 }
 
 export function mergePortalClientWorkspace(clientId: string, workspace?: Partial<PortalClientWorkspace> | null): PortalClientWorkspace {

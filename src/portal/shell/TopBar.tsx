@@ -2,7 +2,7 @@
 
 import { Icon, SidebarToggleIcon } from "../icons";
 import { css, headFor } from "../helpers";
-import { quickActionsForRole, runQuickAction } from "../navigation";
+import { quickActionsForState, runQuickAction } from "../navigation";
 import { portalNotificationSummary } from "../selectors";
 import type { PortalActions, PortalState } from "../store";
 import type { View } from "../types";
@@ -23,7 +23,7 @@ export function TopBar({ state, actions, onCollapse }: { state: PortalState; act
   const quickOpen = state.pop === "quick";
   const notifTarget: View = notificationSummary.target;
   const notifTargetLabel = notificationSummary.targetLabel;
-  const quickActions = quickActionsForRole(role);
+  const quickActions = quickActionsForState(state);
   const showQuickCreate = !isMobile && !state.previewFrom && quickActions.length > 0;
   const quickActionLabel = "New";
   const compactTaskHeader = !isMobile && view === "tasks";

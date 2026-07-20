@@ -8,6 +8,8 @@ Create a client-facing service workflow map that shows the full journey from fir
 
 This file should stay practical and editable. If something does not match the current system, revise the source here first before updating any visual artifact.
 
+SEO report presentation keeps page decisions in a stable vertical register: Page, Finding and next step, and Action align as desktop columns, then collapse into a page/action header with the explanation below on mobile. Recommendation workstreams use recognizable icons in matching circular holders.
+
 Related planning docs:
 
 - `BALTZ_CLIENT_CHAT_PREVIEW_MVP.md` for the In Full Flight client chat-to-edit product model and stack.
@@ -113,13 +115,50 @@ The build path is:
 
 Next stage: the client either continues into In Full Flight or receives a follow-up nurture path.
 
+The Website Builder starts by reading the selected client's saved workspace notes, then combines them with the best available source: an existing website, an uploaded brief or copy document, pasted planning notes, or a combination. The client then confirms the exact pages to design. That confirmed list becomes the final sitemap and the only automatic page-design scope; a discovered current sitemap is reference material for content reuse, SEO preservation, migration, redirects, and retirement. The builder produces one concise purpose, key-message, primary-action, and copy-source brief per scoped page before creating the implementation task plan. Confirmed intake answers win when a note conflicts, and unsupported claims remain flagged for approval.
+
+The Funnel Builder follows the same client-notes-first rule before it processes conversion copy. Its wireframe offers five actual layout directions — Conversion Stack, Split Hero, Editorial Story, Modular Bento, and Immersive Visual — across a complete page skeleton: navigation, hero, trust proof, problem and stakes, benefits, audience fit, solution or features, process, proof, offer, relevant integrations, pricing or value, FAQ, final call to action, and footer or legal needs. Sections that do not apply to the selected funnel remain explicitly conditional instead of silently disappearing.
+
+The final Funnel Development Plan keeps its editable task checklist inside the document immediately below Preview, Copy, and Share. Selected tasks can still be renamed, prioritized, exported as CSV, or imported into To-do's. Preview generates a real A4 PDF and displays that PDF in the built-in viewer before download or printing. Share first persists the client-safe result into Approvals, then opens a popup with a direct client review link and an explicit copy action.
+
+### Client Engine Access And Approvals
+
+Audits and Builders are studio execution tools by default. Standard client workspaces do not expose those engines, their drafts, or their internal generation steps. When the studio finishes an audit report or builder output, it deliberately shares that final result into the matching client's Approvals area. Approvals is therefore the single client-facing review surface for standard engagements.
+
+In Full Flight is the exception because it is an active partnership workspace. Clients whose current service is In Full Flight can open and use Audits and Builders directly in addition to reviewing shared final outputs. This access follows the active project service, not a manually assigned UI role, so it closes when the partnership is no longer active.
+
 ### Stage 7: In Full Flight
 
-Status: planned as the post-launch support layer.
+Status: active for retained Social Media and SEO planning, with the broader post-launch support layer continuing to expand.
 
 In Full Flight is the ongoing support and hypercare stage after WIAW. It can include maintenance, content updates, social media support, optimization, reporting, experiments, and continued execution.
 
 Next stage: continue, adjust, pause, or eventually end dashboard access.
+
+### Service Playbooks As The Execution Source Of Truth
+
+The Playbooks area is the operating contract for the studio and its AI. Before executing a task, the assigned person or AI should open the playbook that matches the service and function, preserve its prerequisites and approved inputs, and produce the enumerated outputs. If the live feature set changes, update the playbook in the same implementation turn so the product and operating method cannot drift.
+
+| Service | Required operating playbooks | Boundary |
+| --- | --- | --- |
+| Cocoon Consult | Brand Audit, Website Audit, SEO Audit | Own discovery, evidence, findings, approvals, and the builder handoff. |
+| Winged In A Week | Funnel Build, Website Build | Own fixed-scope implementation planning, approval gates, tasks, launch, and handoff. |
+| In Full Flight | Social Media Operations, SEO Planning And Execution | Own recurring monthly content delivery and crawl-led 90-day SEO growth cycles. |
+
+Execution rules:
+
+- Keep one playbook per sold service function. Shared steps such as intake, consultation, proposals, approval gates, chat requests, upkeep, escalation, handoff, and offboarding belong inside the relevant service manual instead of becoming separate library cards.
+- Every playbook follows the same delivery boundary: standard clients provide source material through their workspace and receive only studio-shared final outputs in Approvals; active In Full Flight partners may collaborate directly inside the relevant engine.
+- AI generation stays server-side with service-specific credentials, recorded sources, explicit assumptions, studio review, and no provider keys or internal prompts exposed in client records or exports.
+- Every audit lives under Cocoon Consult, even when its findings later power a builder.
+- SEO Audit owns the crawl evidence and prioritized findings; In Full Flight SEO owns keywords, page mapping, metadata, proposed information architecture, and the execution roadmap.
+- Winged In A Week owns Funnel Build and Website Build. Both must start from approved Cocoon strategy or audit context.
+- In Full Flight Social Media keeps each client month isolated and carries the approved source, voice, pillars, channels, cadence, cross-posting, posts, approvals, and schedule through one recurring record.
+- The detailed playbook must enumerate every supported input, stage, control, decision, output, handoff, and fail-safe that the dashboard exposes.
+- Every playbook must also enumerate the live questionnaire or source fields, every assessed or produced area, the exact scoring or readiness formula, missing-evidence treatment, and the path from raw submission through normalization, generation or analysis, human review, persistence, approval, and handoff.
+- A displayed score must come from recorded evidence and a published deterministic formula. Empty, failed, or incomplete analyses remain Pending or Provisional; client names, seeded records, self-assessment defaults, and AI prose must never synthesize a score.
+- Services without an evidence-valid quality formula use explicit completeness and approval gates instead of a cosmetic percentage. Reported performance always comes from a named measurement source.
+- AI must not silently invent missing client facts, change an approved strategy, merge client records, or bypass a prerequisite. It should name the missing input or assumption and stop when it would materially change the sold scope.
 
 ### Stage 8: Nurture And Access End
 
@@ -482,6 +521,44 @@ The audit should happen before build planning so the studio can identify:
 - Whether WIAW is the right next step
 
 The audit turns Cocoon into the strategic foundation for WIAW. It also gives the studio a client-safe reason to recommend the next stage without making the recommendation feel random or sales-led.
+
+### Evidence-Based SEO Audit Checklist
+
+SEO audits include a 27-item evidence checklist inside Audit findings. It evaluates the website itself rather than implementation access or CMS administration. The checklist is grouped into:
+
+- Crawlability & indexation
+- On-page content signals
+- Architecture & internal linking
+- Technical experience
+- AIO, GEO & measurement
+
+The collapsed checklist reveals these as five labeled category panels. Each check uses two content lines only: the check title first, followed by its crawl evidence or concise review description. Status remains in a separate trailing indicator so it does not interrupt the explanation.
+
+Website Audit and SEO Audit share one guided loading treatment. For SEO, it appears while a crawler CSV or live sitemap is being analyzed, and it visibly connects inventory normalization, technical checks, page decisions, AIO/GEO evidence, and the client-facing report before the findings appear.
+
+Every checklist item must be assigned one of three outcomes:
+
+- **Confirmed** — the requirement is met.
+- **Warning** — SEO work may proceed, but the limitation must remain visible in the audit record and plan.
+- **Blocks build** — reoptimization cannot begin until the issue is resolved.
+
+Checks supported by crawl or public-site evidence are evaluated automatically. This includes response health, redirects, indexability, metadata, headings, thin and duplicate pages, canonicals, internal linking, crawl depth, URL quality, HTTPS, server errors, sitemap and robots evidence, structured data, crawler access, answer readiness, and available analytics/search evidence. Qualitative intent, mobile usability, Core Web Vitals, keyword conflicts, citations, and connected performance data remain unverified until the relevant evidence is reviewed. CMS administrator access, plugin licences, page-builder timing, tracking-snippet placement, and OneLogin are implementation prerequisites and are not presented as SEO audit findings.
+
+The SEO Audit keeps everything in one five-stage client workspace ordered as Crawl & inventory, Audit findings, Keywords & pages, Report & priorities, then Action plan. AIO/GEO is an integrated evidence layer rather than another gate or stage: it measures AI-search eligibility, citation-ready pages, answer gaps, AI crawler access, and structured-data evidence, repeats the summary in the report, and creates crawler, content, entity, citation, and referral-measurement tasks in the Roadmap. Keywords & pages is one consolidated planning view: it summarizes demand and intent, visualizes keyword opportunity, and connects each focused keyword to its current page, final destination, and decision without separate sub-tabs. Action plan groups the metadata plan, proposed information architecture, and delivery roadmap. Crawl-source controls and the discovered site inventory share one screen, so CSV uploads and sitemap crawls populate the page register immediately. Crawled pages shows six essential columns first and places an icon-only column filter beside Search; users can add or remove individual imported fields or restore the Essential and All presets without displacing Search. Technical evidence is not duplicated in Report & priorities. The Pages audited register is also collapsed by default and is revealed from the Crawl report card only when requested. The SEO audit checklist stays inside Audit findings as a collapsible, one-column list; each row uses one short explanation and a clear Confirmed, Done, Needs checking, Failed, or Unverified state. It is not repeated in Report & priorities. During visual review, planning may be exposed behind a visible `Preview mode · Not approved for delivery` notice; the same record carries the crawl inventory, prioritized findings, checklist outcomes, and documented warnings forward without another upload or a separate Builder handoff.
+
+### SEO Audit Evidence And Page Action Plan
+
+SEO Audit accepts exactly two crawl sources: a complete CSV upload or a live sitemap.xml crawl. CSV imports preserve every supplied audit column in the report while also normalizing the core inventory fields used by dashboard visualizations.
+
+SEO and Social Media generation use separate server-side OpenAI credentials. The dashboard never exposes those credentials to the browser. SEO planning reads keyword, ranking, volume, intent, target-page, metadata, and redirect fields from the imported crawl rather than inventing them; Social Media analyzes the supplied handle, posts, website, or brand notes before it generates the requested month. When source evidence is absent, both workflows show an empty or needs-input state instead of seeded client results.
+
+Every crawled URL must receive one report decision: Keep, Improve, No-index, Delete, Redirect, or Consolidate. The report must show the evidence, destination or removal instruction, and reason for that decision. Duplicate and moved pages flow into a 301 redirect and consolidation plan; dead pages without a relevant replacement are removed from the sitemap and internal links; intentionally excluded pages remain visible as no-index decisions.
+
+The approved page actions, redirect targets, and full crawl evidence continue into the In Full Flight planning stages inside the SEO Audit workspace, where the implementation roadmap is itemized without another upload.
+
+Every SEO data visualization follows the same inspection rule: hover, keyboard focus, or tap reveals the exact value behind a chart mark. Crawl composition, crawl depth, issue volume, report outcomes, and other page-backed graphs also list every affected URL so visual summaries remain traceable to the source inventory.
+
+The client-facing report must explain the result before exposing the implementation detail. It follows the Website Audit evidence hierarchy: health and coverage first, separate crawl evidence, category bars, one vertical audited-page register, visual page-decision mix, issue concentration, and three plain-language recommendations. Pages requiring a decision appear in a second vertical action list; the complete page register, redirect plan, and raw CSV evidence remain available as expandable supporting detail. The internal 27-item SEO audit checklist remains traceable in Audit findings, while clients enter the final stage directly through `Your report` and see a clear explanation of what happens next.
 
 ### WIAW To In Full Flight Hypercare Series
 

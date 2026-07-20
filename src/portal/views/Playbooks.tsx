@@ -180,7 +180,10 @@ export function Playbooks({ state, actions }: { state: PortalState; actions: Por
             {toggle(!pbRaw, "Document", () => setPbRaw(false))}
             {toggle(pbRaw, "Markdown", () => setPbRaw(true))}
           </div>
-          <button onClick={() => copyMd(md)} className="pt-iconbtn" style={css("display:inline-flex;align-items:center;gap:0.35rem;height:2rem;padding:0 0.85rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-sm);font-weight:500;cursor:pointer")}><Icon name="file" size={14} />Copy markdown</button>
+          <div style={css("display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap")}>
+            {d.sourceDocId && <button onClick={() => actions.patch({ playbookDoc: d.sourceDocId })} className="pt-iconbtn" style={css("display:inline-flex;align-items:center;gap:0.35rem;height:2rem;padding:0 0.85rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-sm);font-weight:500;cursor:pointer")}><Icon name="layers" size={14} />Source reference</button>}
+            <button onClick={() => copyMd(md)} className="pt-iconbtn" style={css("display:inline-flex;align-items:center;gap:0.35rem;height:2rem;padding:0 0.85rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-sm);font-weight:500;cursor:pointer")}><Icon name="file" size={14} />Copy markdown</button>
+          </div>
         </div>
 
         {pbRaw ? (

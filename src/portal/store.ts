@@ -22,6 +22,7 @@ import { STATUS_ORDER } from "./helpers";
 import { progressChatTranscript, summarizeProgressChatTitle } from "./progressChat";
 import { buildProgressChatContext } from "./progressChatContext";
 import { clientsVisibleToRole, DEFAULT_CLIENT_NAME, DEV_USER_NAME } from "./clients";
+import { BASE_ROLE_VIEWS, canAccessPortalView } from "./access";
 
 export type TaskView = "board" | "calendar";
 export const NEW_TASK_DRAFT_ID = "__new_task_draft__";
@@ -143,7 +144,7 @@ function normalizeRequestedView(requestedView: string | null, role: Role): View 
       ? (role === "client" ? "audit" : "audits_new")
       : requestedView;
 
-  return aliasedView && ROLE_VIEWS[role].has(aliasedView as View) ? aliasedView as View : null;
+  return aliasedView && BASE_ROLE_VIEWS[role].has(aliasedView as View) ? aliasedView as View : null;
 }
 
 function initialRequestedView(role: Role): View | null {
@@ -220,12 +221,6 @@ export function initialState(role: Role, requestedView?: View | null, clientName
   };
 }
 
-const ROLE_VIEWS: Record<Role, Set<View>> = {
-  admin: new Set(["progress", "clients", "tasks", "inbox", "audits_new", "funnels", "activity", "team", "playbooks", "invoices", "billing", "profile", "settings", "onboarding"]),
-  dev: new Set(["progress", "clients", "tasks", "review", "inbox", "audits_new", "funnels", "playbooks", "profile", "settings", "onboarding"]),
-  client: new Set(["progress", "milestones", "tasks", "inbox", "activity", "audit", "funnels", "files", "assistant", "profile", "settings"]),
-};
-
 export interface PortalActions {
   patch: (p: Partial<PortalState>) => void;
   update: (fn: (s: PortalState) => Partial<PortalState>) => void;
@@ -279,6 +274,7 @@ export interface PortalActions {
   sendProgressChatAsTicket: () => void;
   createJourneyRequest: (payload: JourneyRequestPayload) => { ticketId: string; threadId: string; assignee: string };
   sendApproval: (approvalId: string) => void;
+  shareFinalOutput: (payload: { clientName: string; title: string; outputType: "audit" | "builder"; summary: string; sections: PortalApprovalRecord["sections"] }) => void;
   sendProposal: (clientName: string, proposal: { iffOn: boolean }) => void;
   inviteCollaborator: (clientName: string, collaborator: { name: string; email: string; access: string }) => void;
   addClientNote: (clientName: string, text: string) => void;
@@ -309,7 +305,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
       const requestedBuilderType = params.get("builderType");
       const view = normalizeRequestedView(requestedView, s.role) ?? s.view;
       const auditType = requestedAuditType === "brand" || requestedAuditType === "website" || requestedAuditType === "seo" ? requestedAuditType : s.auditType;
-      const builderType = requestedBuilderType === "website" || requestedBuilderType === "funnel" ? requestedBuilderType : s.builderType;
+      const builderType = requestedBuilderType === "website" || requestedBuilderType === "funnel" || requestedBuilderType === "social" ? requestedBuilderType : s.builderType;
       return { ...s, ...persisted, savedViews: loadSavedViews(), isMobile: window.innerWidth < 900, view, auditType, builderType, hydrated: true };
     });
     setHasHydrated(true);
@@ -325,6 +321,13 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
       syncPortalViewUrl(state.view);
     }
   }, [hasHydrated, state.role, state.view]);
+
+  useEffect(() => {
+    if (!hasHydrated || canAccessPortalView(state, state.view)) return;
+    const nextView: View = state.role === "client" ? "review" : "progress";
+    syncPortalViewUrl(nextView);
+    setState(current => ({ ...current, view: nextView }));
+  }, [hasHydrated, state.clientName, state.projectOverrides, state.role, state.view]);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -511,7 +514,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
       },
       setView: v => {
         const requestedView = v === "escalations" ? "inbox" : v;
-        const nextView = ROLE_VIEWS[stateRef.current.role].has(requestedView) ? requestedView : "progress";
+        const nextView = canAccessPortalView(stateRef.current, requestedView) ? requestedView : stateRef.current.role === "client" ? "review" : "progress";
         syncPortalViewUrl(nextView);
         setState(s => ({ ...s, view: nextView, navOpen: false, notifOpen: false, pop: null, sidePop: null, playbookDoc: null }));
       },
@@ -1051,6 +1054,41 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
           };
         });
         showToast("Sent to client");
+      },
+      shareFinalOutput: payload => {
+        setState(s => {
+          const clientId = portalClientId(payload.clientName);
+          const approvalId = `${clientId}-${payload.outputType}-${payload.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+          const threadUpdate = upsertStudioThread(s, {
+            clientName: payload.clientName,
+            text: `${payload.title} is available in Approvals.`,
+            category: "Approval",
+            assignee: "Trish Baltazar",
+          });
+          const approval: PortalApprovalRecord = {
+            id: approvalId,
+            clientId,
+            clientName: payload.clientName,
+            title: payload.title,
+            thumb: payload.outputType === "audit" ? "var(--success-soft)" : "var(--accent-soft)",
+            sent: true,
+            sentAt: displayDate(),
+            threadId: threadUpdate.threadId,
+            outputType: payload.outputType,
+            summary: payload.summary,
+            sections: payload.sections || [],
+          };
+          return {
+            ...s,
+            ticketSeq: threadUpdate.ticketSeq,
+            threads: threadUpdate.threads,
+            clientWorkspaces: withClientWorkspace(s, clientId, workspace => ({
+              ...workspace,
+              approvals: [approval, ...mergePortalApprovals(clientId, workspace.approvals).filter(item => item.id !== approvalId)],
+            })),
+          };
+        });
+        showToast(`Shared in ${payload.clientName}'s Approvals`);
       },
       sendProposal: (clientName, proposal) => {
         setState(s => {

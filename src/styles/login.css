@@ -448,6 +448,73 @@
   gap: 0.95rem;
 }
 
+.login-remembered-profile {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface-alt) 72%, white 28%);
+}
+
+.login-remembered-avatar {
+  width: 2.45rem;
+  height: 2.45rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--fg);
+  color: var(--surface);
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+
+.login-remembered-identity {
+  min-width: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.login-remembered-identity strong,
+.login-remembered-identity span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.login-remembered-identity strong {
+  color: var(--fg);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.login-remembered-identity span {
+  color: var(--fg-muted);
+  font-size: 0.72rem;
+}
+
+.login-remembered-switch {
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.login-remembered-switch:hover,
+.login-remembered-switch:focus-visible {
+  border-color: var(--accent-dim);
+  outline: none;
+  box-shadow: var(--ring-soft);
+}
+
 .login-field {
   display: grid;
   gap: 0.3rem;
@@ -598,14 +665,63 @@
   color: color-mix(in srgb, var(--success) 70%, black 30%);
 }
 
-.login-assist-panel {
+.login-invite-modal-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
   display: grid;
-  gap: 0.8rem;
-  margin-top: 0.15rem;
-  padding: 0.9rem 0.95rem;
+  place-items: center;
+  overflow-y: auto;
+  padding: 1rem;
+  background: rgba(47, 31, 28, 0.42);
+  backdrop-filter: blur(5px);
+}
+
+.login-invite-modal {
+  width: min(31rem, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  display: grid;
+  gap: 1rem;
+  padding: 1.15rem;
   border: 1px solid var(--border-soft);
-  border-radius: calc(var(--radius) + 2px);
-  background: color-mix(in srgb, var(--surface-alt) 72%, white 28%);
+  border-radius: 1.75rem;
+  background: var(--surface);
+  box-shadow: 0 28px 70px rgba(50, 30, 28, 0.24);
+}
+
+.login-invite-modal .login-field input {
+  border-radius: var(--radius-pill);
+}
+
+.login-invite-modal .login-field textarea {
+  border-radius: 1rem;
+}
+
+.login-invite-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.login-invite-modal-close {
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 50%;
+  background: var(--surface-alt);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.login-invite-modal-close:hover {
+  border-color: var(--accent-dim);
+  color: var(--accent);
 }
 
 .login-assist-panel-header {
@@ -615,7 +731,7 @@
 
 .login-assist-panel-header strong {
   color: var(--fg);
-  font-size: 0.82rem;
+  font-size: 1rem;
   font-weight: 500;
 }
 
@@ -818,5 +934,14 @@
 
   .login-role-grid {
     grid-template-columns: 1fr;
+  }
+
+  .login-remembered-profile {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .login-remembered-switch {
+    grid-column: 1 / -1;
+    width: 100%;
   }
 }

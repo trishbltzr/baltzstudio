@@ -47,6 +47,28 @@ Proceed one checklist item at a time:
 - [x] **System and AI actions added to source workflow:** white-labeled audits, Wise payment emails, notifications, access timers, dashboard creation, AI review gates, and dashboard deletion scheduling are now mapped.
 - [x] **Landing page boundary clarified:** landing page lives outside this repo on `localhost:3411`; this repo should use dummy/mock signup data for now.
 - [x] **Dashboard implementation alignment:** the preview dashboard now has lifecycle mock states, Cocoon audit preview behavior, Wise/access copy, shared admin/client selected-client state, and verified route/build checks. Deeper production automation remains intentionally out of scope until the full structure is finalized.
+- [x] **Evidence-based SEO audit checklist:** SEO audits use 27 relevant checks across Crawlability & indexation, On-page content signals, Architecture & internal linking, Technical experience, and AIO/GEO & measurement; crawl-supported checks are evaluated automatically while qualitative or connected-data checks remain for review.
+- [x] **Categorized SEO checklist presentation:** reveal the 27 checks inside five labeled category panels, with each row showing its title on the first line and evidence or a short description on the second.
+- [x] **Shared audit loading state:** Website Audit and SEO Audit use one guided loading component; SEO applies it to CSV/sample processing and live sitemap crawling before opening the findings.
+- [x] **SEO audit evidence and page actions:** limit crawl inputs to CSV upload or sitemap crawl, retain every imported CSV column in the report, classify every URL as Keep, Improve, No-index, Delete, Redirect, or Consolidate, and carry duplicate redirect targets and removal instructions into the roadmap in the same SEO Audit workspace.
+- [x] **Client-facing SEO report:** lead with a visual health story, page-decision mix, issue-concentration chart, and plain-language next steps; show changed pages before technical evidence; keep the studio readiness gate internal and route clients directly to `Your report`.
+- [x] **Evidence-based SEO readiness:** automatically evaluate only checks proved by the crawl/public site, retain the evidence source in the report, and leave backend-only requirements for client or administrator confirmation.
+- [x] **Website Audit visual parity:** use readiness score and evidence coverage, separate crawl evidence, category bars, vertical audited-page and decision registers, and original checklist result cards in SEO reports.
+- [x] **SEO workflow consolidation:** keep crawl, audit, report, keywords and page mapping, metadata and information architecture, and roadmap stages in one SEO Audit workspace; remove the duplicate SEO Builder navigation entry.
+- [x] **SEO crawl workspace:** combine data-source controls and the site inventory on one screen so every CSV upload or sitemap crawl updates the page register automatically.
+- [x] **SEO final stage order:** present Crawl & inventory, Audit findings, Keywords & pages, Report & priorities, and Action plan; Action plan contains metadata, proposed IA, and the delivery roadmap.
+- [x] **Inline SEO readiness:** place readiness directly in Audit findings as a collapsed one-column checklist with a single-line explanation and clear status per item; remove separate readiness navigation and report duplication.
+- [x] **Filterable crawl columns:** keep six essential Crawled pages columns visible by default, let users add or remove imported fields from an icon-only filter beside Search, provide Essential and All presets, and keep Search in its original toolbar position.
+- [x] **Progressive audit evidence:** keep Pages audited collapsed by default in Report & priorities, and reveal or hide its vertical register from one button in the Crawl report card.
+- [x] **Unified keyword planning:** combine keyword opportunities and page mapping in the Keywords & pages stage, with summary metrics, a visual opportunity matrix, and one vertical current-page-to-destination register.
+- [x] **Audit-finding visual consistency:** stretch Crawl composition and Crawl depth to equal heights, and show finding severity as a compact flag beside the row count instead of a leading status pill.
+- [x] **AIO/GEO audit coverage:** include AI crawler access, answer readiness, entity clarity, citation signals, and discovery measurement inside the 27-item SEO audit checklist, alongside the visual AI discovery score and executable Roadmap tasks.
+- [x] **Guided SEO visualizations:** use a shared accessible tooltip for hover, focus, and tap across SEO graphs, with exact values and complete URL lists wherever a mark represents crawled pages.
+- [x] **SEO report register alignment:** keep page, finding and next step, and action in stable desktop columns; stack the explanation beneath the page and action on mobile; use recognizable glyphs in consistent circular recommendation-card holders.
+- [x] **Production AI source wiring:** use the renamed per-feature OpenAI keys for Web Audit, SEO Audit, Funnel Builder, Social Media Builder, and Chat; remove active demo login, sample crawl, and hardcoded social-plan generators while retaining only explicitly documented landing-page placeholder data.
+- [x] **Service playbooks synchronized:** all Brand Audit, Website Audit, SEO Audit, Funnel Build, Website Build, Social Media, and SEO Planning manuals now reflect server-side AI generation, source preservation, studio review, approval-only standard-client delivery, and direct engine access for active In Full Flight partners.
+- [x] **Builder note continuity and complete wireframes:** Website and Funnel Builders read saved client workspace notes before copy generation, conflicts stay reviewable, and Funnel Builder exposes five distinct design styles across the complete conversion-page section inventory.
+- [x] **Funnel plan delivery actions:** keep the task checklist inside the final Development Plan below its actions, generate and preview an actual printable PDF, and persist shared plans into Approvals before exposing a copyable client review link.
 
 ## Current Dashboard Snapshot
 
@@ -457,6 +479,22 @@ Goal: make notifications dynamic, assignee-aware, and generated from completed w
 ## Batch 9: WIAW And In Full Flight
 
 Goal: gate WIAW behind Cocoon strategy and make In Full Flight feel like support continuity.
+
+### Playbook Source-Of-Truth Coverage
+
+- [x] Put Brand Audit, Website Audit, and SEO Audit under Cocoon Consult.
+- [x] Put Funnel Build and Website Build under Winged In A Week.
+- [x] Add Social Media Operations and SEO Planning And Execution under In Full Flight.
+- [x] Enumerate each function's live inputs, stages, controls, decisions, outputs, handoffs, and fail-safe rules in the Playbooks library.
+- [x] Add source-reference records that expose the canonical workflow map and relevant implementation files to the playbook reader and AI source endpoint.
+- [x] Document the rule that product changes and their playbook instructions must be updated in the same implementation turn.
+- [x] Consolidate the Playbooks library to the seven sold service functions instead of separate cards for shared operating steps.
+- [x] Fold Cocoon intake, guided consult, and proposal rules into each audit; fold WIAW gates and handoff into each build; fold IFF requests, upkeep, scope controls, and offboarding into each retained service.
+- [x] Enumerate every live questionnaire, accepted source, audit test or produced area, scoring or readiness rule, missing-evidence state, and data-processing step across all seven service manuals.
+- [x] Tie Website Audit documentation directly to the canonical questionnaire and complete checklist, including pass/fail scoring, evidence coverage, confidence, targets, and Lighthouse separation.
+- [x] Document the SEO Audit crawl-health, coverage, AI-readiness, 27-check status, and deterministic page-decision calculations.
+- [x] Remove name-seeded and self-assessment fallback scores from active audit cards and completion; keep unverified work Pending until an evidence-backed report exists.
+- [x] Use fixed completeness and approval gates for Brand Audit, Funnel Build, Website Build, Social Media Operations, and SEO Planning And Execution wherever an evidence-valid numeric quality score does not exist.
 
 ### Checklist
 
