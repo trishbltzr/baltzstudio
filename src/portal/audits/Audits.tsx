@@ -23,6 +23,7 @@ import { AuditCardScoreSkeleton } from "../components/AuditCardScoreSkeleton";
 import { StartOverDialog } from "../components/StartOverDialog";
 import { AUDIT_CHECKLIST, isAuditScoreResult } from "@/lib/auditChecklist";
 import type { GeneratedStageResult } from "@/lib/aiStageGeneration";
+import { DASHBOARD_USER_EMAIL_HEADER } from "@/lib/dashboardPersistence";
 type Ans = Record<string, string | string[]>;
 
 type AuditRun = PersistedAuditRun;
@@ -138,7 +139,7 @@ function seedAuditRuns(): AuditRun[] {
   });
 }
 
-export function Audits({ state, actions }: { state: PortalState; actions: PortalActions }) {
+export function Audits({ state, actions, userEmail }: { state: PortalState; actions: PortalActions; userEmail: string }) {
   const [s, dispatch] = useReducer(reducer, init);
   const [drafts, setDrafts] = useState<PersistedAuditDraft[]>([]);
   const draftsRef = useRef<PersistedAuditDraft[]>([]);
@@ -455,7 +456,10 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
       if (runIds.length) {
         const response = await fetch("/api/portal-audit-runs", {
           method: "DELETE",
-          headers: { "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            [DASHBOARD_USER_EMAIL_HEADER]: userEmail,
+          },
           body: JSON.stringify({ runIds }),
         });
         const payload = await response.json().catch(() => null);

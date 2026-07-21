@@ -35,7 +35,7 @@ const Builders = dynamic(() => import("./builders/Builders").then(module => modu
 const Invoices = dynamic(() => import("./views/Invoices").then(module => module.Invoices), { loading: () => <PortalViewLoader /> });
 const Onboarding = dynamic(() => import("./views/Onboarding").then(module => module.Onboarding), { loading: () => <PortalViewLoader /> });
 
-export function Portal({ seedRole, clientName, canSwitchRoles, onLogout }: { seedRole: Role; clientName?: string; canSwitchRoles: boolean; onLogout: () => void }) {
+export function Portal({ seedRole, clientName, userEmail, canSwitchRoles, onLogout }: { seedRole: Role; clientName?: string; userEmail: string; canSwitchRoles: boolean; onLogout: () => void }) {
   const { state, actions } = usePortal(seedRole, clientName, canSwitchRoles);
   const deniedClientEngine = state.role === "client" && !clientHasEngineAccess(state) && (state.view === "audit" || state.view === "funnels");
   const fullBleedView = !deniedClientEngine && (state.view === "funnels" || state.view === "audits_new" || state.view === "audit");
@@ -98,7 +98,7 @@ export function Portal({ seedRole, clientName, canSwitchRoles, onLogout }: { see
           </div>
         ) : state.view === "audits_new" || state.view === "audit" || state.view === "funnels" ? (
           state.view === "audits_new" || state.view === "audit"
-            ? <Audits state={state} actions={actions} />
+            ? <Audits state={state} actions={actions} userEmail={userEmail} />
             : <Builders state={state} actions={actions} />
         ) : (
           <div style={css(shellFrame + ";" + shellContentPadding)}>

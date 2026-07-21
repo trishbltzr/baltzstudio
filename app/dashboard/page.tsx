@@ -51,6 +51,7 @@ export default function Dashboard() {
       <Portal
         seedRole={mapPortalRole(currentUser.role)}
         clientName={currentUser.clientName}
+        userEmail={currentUser.email}
         canSwitchRoles={currentUser.role === "admin"}
         onLogout={handleLogout}
       />

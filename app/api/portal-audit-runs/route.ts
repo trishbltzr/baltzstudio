@@ -2,7 +2,31 @@ import { NextResponse } from "next/server";
 import { PORTAL_WORKSPACE_FALLBACK_RUN_ID } from "@/lib/portalWorkspacePersistence";
 import { coercePersistedAuditDrafts, normalizePersistedAuditDraft } from "@/lib/portalAuditPersistence";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { DASHBOARD_USER_EMAIL_HEADER, normalizeDashboardUserEmail } from "@/lib/dashboardPersistence";
 import type { Json } from "@/lib/supabase/types";
+
+const QUICK_LOGIN_EMAILS = new Set([
+  "trisha@baltazarstudio.co",
+  "creator-iq@client.baltazarstudio.co",
+]);
+
+async function softDeleteAuditRuns(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, runIds: string[]) {
+  const { data, error } = await supabase
+    .from("portal_audit_runs")
+    .update({ client_id: "__deleted__", updated_at: new Date().toISOString() })
+    .in("run_id", runIds)
+    .select("run_id");
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    deletedIds: (data ?? []).map(row => row.run_id),
+    recoverable: true,
+  });
+}
 
 export async function GET(request: Request) {
   const requestedClientId = new URL(request.url).searchParams.get("clientId")?.trim() || "";
@@ -75,28 +99,16 @@ export async function DELETE(request: Request) {
   const supabase = await createSupabaseServerClient();
   const { data: auth, error: authError } = await supabase.auth.getUser();
   if (authError || !auth.user) {
-    if (process.env.NODE_ENV === "production") {
+    const dashboardUserEmail = normalizeDashboardUserEmail(request.headers.get(DASHBOARD_USER_EMAIL_HEADER));
+    const isQuickLogin = dashboardUserEmail ? QUICK_LOGIN_EMAILS.has(dashboardUserEmail) : false;
+
+    if (process.env.NODE_ENV === "production" && !isQuickLogin) {
       return NextResponse.json({ error: "Sign in before deleting an audit." }, { status: 401 });
     }
 
-    // Local dashboard credentials intentionally do not create a Supabase
-    // session. Keep the production delete policy strict, but let the local
-    // preview remove a run recoverably through the table's update policy.
-    const { data, error } = await supabase
-      .from("portal_audit_runs")
-      .update({ client_id: "__deleted__", updated_at: new Date().toISOString() })
-      .in("run_id", runIds)
-      .select("run_id");
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({
-      ok: true,
-      deletedIds: (data ?? []).map(row => row.run_id),
-      recoverable: true,
-    });
+    // Quick-login identities intentionally do not create a Supabase session.
+    // Soft-delete their audit runs so restart works on live and stays recoverable.
+    return softDeleteAuditRuns(supabase, runIds);
   }
   const { data, error } = await supabase
     .from("portal_audit_runs")
