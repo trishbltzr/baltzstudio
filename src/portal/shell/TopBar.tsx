@@ -7,9 +7,8 @@ import { portalNotificationSummary } from "../selectors";
 import type { PortalActions, PortalState } from "../store";
 import type { View } from "../types";
 
-const ROLE_SWITCH_OPTIONS: Array<{ id: "admin" | "dev" | "client"; label: string }> = [
+const ROLE_SWITCH_OPTIONS: Array<{ id: "admin" | "client"; label: string }> = [
   { id: "admin", label: "Admin" },
-  { id: "dev", label: "Dev" },
   { id: "client", label: "Client" },
 ];
 

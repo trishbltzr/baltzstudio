@@ -1,7 +1,7 @@
 "use client";
 
 import { Icon } from "../icons";
-import { activeJourneyGate, css, journeyProgressForGate, milestoneStatusFromGate, statusPill } from "../helpers";
+import { activeJourneyGate, css, displayPortalIdentity, journeyProgressForGate, milestoneStatusFromGate, statusPill } from "../helpers";
 import { MILESTONES, SVC_META } from "../data";
 import { clientHasEngineAccess } from "../access";
 import type { PortalActions, PortalState } from "../store";
@@ -62,7 +62,7 @@ function projectStateForGate(gate: JourneyGate | undefined) {
       stageSub: "Milestone " + gate.g + " of 3 · in revision",
       waitHeading: "With the Studio",
       waitTitle: "Milestone " + gate.g + " — " + gate.title,
-      waitSub: (gate.request?.assignee || "Kier Mangibin") + " is revising this round",
+      waitSub: displayPortalIdentity(gate.request?.assignee || "Kier Mangibin") + " is revising this round",
     };
   }
   if (gate.status === "ready") {
@@ -263,7 +263,7 @@ export function ClientProgressBody({ state, actions, hideHero = false, hideStats
           </div>
           <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:linear-gradient(135deg,var(--surface),color-mix(in srgb,var(--accent) 5%,var(--surface) 95%));padding:1rem 1.1rem")}>
             <h3 style={css("margin:0 0 0.25rem;font-size:var(--text-lg);font-weight:500")}>Message your team</h3>
-            <p style={css("margin:0 0 0.75rem;font-size:0.8rem;color:var(--fg-muted)")}>Trisha and Kier will receive messages sent here.</p>
+            <p style={css("margin:0 0 0.75rem;font-size:0.8rem;color:var(--fg-muted)")}>The studio team will receive messages sent here.</p>
             <button onClick={go("inbox")} className="pt-op" style={css("width:100%;height:2.35rem;border-radius:0.8rem;border:1px solid color-mix(in srgb,var(--accent) 18%,transparent 82%);background:var(--accent);color:#fff;font-weight:500;font-size:var(--text-base);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.48rem")}>
               <span style={css("width:1.45rem;height:1.45rem;border-radius:0.48rem;background:rgba(255,255,255,.16);display:grid;place-items:center;flex-shrink:0")}><Icon name="msg" size={14} /></span>
               Open team chat

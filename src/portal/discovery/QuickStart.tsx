@@ -5,6 +5,10 @@ import { css, eyebrowStyle } from "../helpers";
 import { Icon } from "../icons";
 import { fromFiles, mergeKnow, type Know } from "./knowledge";
 
+export interface QuickStartApplyOptions {
+  replaceSourceReview?: boolean;
+}
+
 const INPUT = "width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:var(--radius);padding:0.58rem 0.72rem;font-size:0.88rem;font-family:inherit;background:var(--surface-alt);color:var(--fg);outline:none";
 const SCAN_STEPS = [
   "Opening the website and finding key pages",
@@ -18,20 +22,37 @@ const WEBSITE_BUILD_STEPS = [
   "Mapping page purpose, messages, and actions",
   "Preparing the build intake for confirmation",
 ];
+
+function domainFromSource(value: string) {
+  const input = value.trim();
+  if (!input) return "";
+  try {
+    return new URL(/^https?:\/\//i.test(input) ? input : `https://${input}`).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function websiteUrlFromDomain(value: string) {
+  const domain = domainFromSource(value);
+  if (!domain || !domain.includes(".")) throw new Error("Enter a valid public domain, such as brand.com.");
+  return `https://${domain}/`;
+}
 // AI Jumpstart reads public website pages and/or a pasted brief, then returns only
 // evidence-backed questionnaire answers. Known answers are sent as exclusions so
 // the client is asked only for genuine gaps.
-export function QuickStart({ mode, accent, known, questionLabels, onApply, onContinue, showToast, mobile, clientName, clientId }: {
+export function QuickStart({ mode, accent, known, questionLabels, onApply, onContinue, showToast, mobile, clientName, clientId, currentUrl }: {
   mode: "audit" | "brand" | "seo" | "website_builder" | "funnel";
   accent: string;
   known: Know;
   questionLabels: Record<string, string>;
-  onApply: (delta: Know) => void;
+  onApply: (delta: Know, options?: QuickStartApplyOptions) => void;
   onContinue?: () => void;
   showToast?: (m: string) => void;
   mobile?: boolean;
   clientName?: string;
   clientId?: string;
+  currentUrl?: string;
 }) {
   const [link, setLink] = useState("");
   const [brief, setBrief] = useState("");
@@ -50,23 +71,27 @@ export function QuickStart({ mode, accent, known, questionLabels, onApply, onCon
   const relevantKnown = Object.fromEntries(Object.entries(known.data).filter(([key]) => {
     if (!questionLabels[key]) return false;
     const source = known.sources[key] || "";
-    if (/^(Website scan|AI inference|AI Jumpstart)/.test(source)) return false;
+    if (/^(Website scan|Source inference|Source review|AI inference|AI Jumpstart)/.test(source)) return false;
     return key === "nickname" || key === "clientEmail" || /Audit intake|Funnel intake|Client-confirmed/.test(source);
   }));
   const knownCount = Object.keys(relevantKnown).length;
-  const hasPreviousScan = Object.values(known.sources).some(source => /^(Website scan|AI inference|AI Jumpstart)/.test(source));
+  const rememberedSourceUrl = currentUrl || (typeof known.data.url === "string" ? known.data.url : "");
+  const enteredDomain = domainFromSource(link);
+  const rememberedDomain = domainFromSource(rememberedSourceUrl);
+  const sourceChanged = mode === "brand" && !!enteredDomain && !!rememberedDomain && enteredDomain !== rememberedDomain;
+  const hasPreviousScan = !sourceChanged && Object.values(known.sources).some(source => /^(Website scan|Source inference|Source review|AI inference|AI Jumpstart)/.test(source));
 
   useEffect(() => {
     const clientChanged = previousClient.current !== clientName;
     previousClient.current = clientName;
-    const rememberedUrl = known.data.url;
-    setLink(current => clientChanged || !current ? (typeof rememberedUrl === "string" ? rememberedUrl : "") : current);
+    const rememberedUrl = currentUrl || known.data.url;
+    setLink(current => clientChanged || !current ? (typeof rememberedUrl === "string" ? (mode === "brand" ? domainFromSource(rememberedUrl) : rememberedUrl) : "") : current);
     if (clientChanged) {
       setFiles([]);
       setBrief("");
       setScanError("");
     }
-  }, [clientName, known.data.url]);
+  }, [clientName, currentUrl, known.data.url, mode]);
 
   useEffect(() => {
     if (mode !== "seo" || !clientId) return;
@@ -104,6 +129,7 @@ export function QuickStart({ mode, accent, known, questionLabels, onApply, onCon
     setScanning(true);
     setScanError("");
     try {
+      const requestUrl = mode === "brand" && link.trim() ? websiteUrlFromDomain(link) : link.trim();
       const guidelineFiles = mode === "brand" || mode === "funnel" || mode === "website_builder" ? await Promise.all(files.slice(0, mode === "brand" ? 1 : 3).map(async file => {
         if (file.size > 4_000_000) throw new Error(`${file.name} is larger than 4 MB. Compress it before uploading.`);
         const bytes = new Uint8Array(await file.arrayBuffer());
@@ -120,16 +146,24 @@ export function QuickStart({ mode, accent, known, questionLabels, onApply, onCon
       const response = await fetch("/api/ai/jumpstart", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode, url: link, brief: [brief, ga4Brief].filter(Boolean).join("\n\n"), socialLinks: socialLinks.split(/\n|,/).map(value => value.trim()).filter(Boolean), guidelineFiles, clientName, known: relevantKnown }),
+        body: JSON.stringify({ mode, url: requestUrl, brief: [brief, ga4Brief].filter(Boolean).join("\n\n"), socialLinks: socialLinks.split(/\n|,/).map(value => value.trim()).filter(Boolean), guidelineFiles, clientName, known: relevantKnown }),
       });
       const payload = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(typeof payload?.error === "string" ? payload.error : "AI Jumpstart could not analyze these sources.");
-      if (!payload?.result?.data || !payload?.result?.sources) throw new Error("AI Jumpstart returned an incomplete prefill.");
+      if (!response.ok) throw new Error(typeof payload?.error === "string" ? payload.error : "The source review could not analyze these materials.");
+      if (!payload?.result?.data || !payload?.result?.sources) throw new Error("The source review returned an incomplete prefill.");
       let delta = payload.result as Know;
       if (files.length) delta = mergeKnow(delta, fromFiles(mode === "brand" || mode === "audit" ? "brand" : "working", files.length));
       const n = typeof payload.result.answeredCount === "number" ? payload.result.answeredCount : Object.keys(delta.data).length;
       const pages = Array.isArray(payload.pagesScanned) ? payload.pagesScanned.length : 0;
-      onApply(delta);
+      if (sourceChanged) {
+        const preservedSources = Object.fromEntries(Object.keys(relevantKnown).map(key => [key, known.sources[key] || "Client-confirmed"]));
+        delta = {
+          ...delta,
+          data: { ...relevantKnown, ...delta.data },
+          sources: { ...preservedSources, ...delta.sources },
+        };
+      }
+      onApply(delta, { replaceSourceReview: sourceChanged });
       showToast?.(pages
         ? `We found ${n} answer${n === 1 ? "" : "s"} across ${pages} page${pages === 1 ? "" : "s"} — review starts now`
         : `We found ${n} answer${n === 1 ? "" : "s"} in the supplied material — review starts now`);
@@ -141,12 +175,10 @@ export function QuickStart({ mode, accent, known, questionLabels, onApply, onCon
     }
   };
 
-  const label = mode === "website_builder" ? "Choose the source. We’ll map the pages and copy." : mode === "brand" ? "Add your brand sources. We’ll build the first pass." : mode === "seo" ? "Connect analytics and scan the website." : mode === "audit" ? "Drop the URL. We’ll do the first pass." : "AI Jumpstart this funnel";
-  const sub = mode === "website_builder" ? "Use the existing website, upload a brief or copy document, paste planning notes, or combine them. You’ll confirm the exact pages we will design before the brief is generated." : mode === "brand" ? "Upload existing guidelines and add the website or public social profiles. AI will prefill the brand intake, then you’ll review every answer." : mode === "seo" ? "GA4 adds real behavioral evidence when connected. The website scan still works on its own when GA4 is unavailable." : mode === "audit"
-    ? "We’ll use the public website to prefill the Audit, then take you through every answer so you can confirm or change it."
-    : "Add a funnel link or paste the brief. AI checks the source against saved client memory and prefills only supported answers.";
-  const remainingCount = Math.max(0, Object.keys(questionLabels).length - knownCount);
-
+  const label = mode === "website_builder" ? "Add the website sources." : mode === "brand" ? "Add the brand sources." : mode === "seo" ? "Add the SEO sources." : mode === "audit" ? "Add the website." : "Add the funnel sources.";
+  const sub = mode === "website_builder" ? "Add the website, brief, or copy. Then confirm the pages to build." : mode === "brand" ? "Add a domain, guidelines, or social profiles. Then review the intake." : mode === "seo" ? "Add the website. Connect GA4 when it is available." : mode === "audit"
+    ? "Enter the website. Then review the intake."
+    : "Add a funnel link or paste the brief. We’ll check the source against saved client notes and prefill only supported answers.";
   return (
     <div style={css("border:1px solid color-mix(in srgb," + accent + " 22%,var(--border-soft) 78%);border-radius:var(--radius-panel);background:color-mix(in srgb," + accent + " 5%,var(--surface) 95%);padding:" + (mobile ? "0.9rem 1rem" : "1.05rem 1.15rem"))}>
       <div style={css("display:flex;align-items:center;gap:0.55rem;margin-bottom:0.2rem")}>
@@ -162,7 +194,7 @@ export function QuickStart({ mode, accent, known, questionLabels, onApply, onCon
 
       <div style={css("display:flex;flex-direction:column;gap:0.55rem")}>
         <label style={css("display:flex;flex-direction:column;gap:0.32rem;font-size:0.8rem;font-weight:500;color:var(--fg-muted)")}>
-          {mode === "website_builder" ? "Existing website URL (optional)" : mode === "brand" ? "Website URL (optional when guidelines are uploaded)" : mode === "seo" || mode === "audit" ? "Website URL" : "Link to an existing funnel (optional)"}
+          {mode === "website_builder" ? "Existing website URL (optional)" : mode === "brand" ? "Domain (optional when guidelines are uploaded)" : mode === "seo" || mode === "audit" ? "Website URL" : "Link to an existing funnel (optional)"}
           <div style={css("display:flex;gap:0.4rem")}>
             <input value={link} onChange={e => setLink(e.target.value)} placeholder={mode === "funnel" ? "get.brand.com/offer" : "brand.com"} className="pt-input" style={css(INPUT)} />
           </div>
@@ -192,11 +224,11 @@ export function QuickStart({ mode, accent, known, questionLabels, onApply, onCon
 
       <div style={css("display:flex;align-items:center;gap:0.6rem;margin-top:0.85rem;flex-wrap:wrap")}>
         <button type="button" onClick={() => void understand()} disabled={scanning} className="pt-op" style={css("display:inline-flex;align-items:center;gap:0.42rem;min-height:2.35rem;padding:0 1.05rem;border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;font-size:0.84rem;font-weight:500;cursor:" + (scanning ? "wait" : "pointer") + ";opacity:" + (scanning ? ".72" : "1"))}>
-          <Icon name="sparkle" size={15} />{scanning ? (mode === "website_builder" ? "Reading sources…" : "Scanning website…") : mode === "funnel" || mode === "website_builder" ? "AI understand & prefill" : `Scan & prefill ${remainingCount} questions`}
+          <Icon name="sparkle" size={15} />{scanning ? (mode === "website_builder" ? "Reading sources…" : "Reviewing sources…") : mode === "brand" ? "Review brand sources" : mode === "audit" ? "Review website" : mode === "seo" ? "Review SEO sources" : "Review sources"}
         </button>
         {onContinue && !scanning && hasPreviousScan && <button type="button" onClick={onContinue} className="pt-softbtn" style={css("display:inline-flex;align-items:center;justify-content:center;min-height:2.35rem;padding:0 .95rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:.82rem;font-weight:500;cursor:pointer")}>Use previous scan</button>}
       </div>
-      <p aria-live="polite" style={css("margin:0.55rem 0 0;font-size:0.78rem;line-height:1.45;color:var(--fg-muted)")}>{scanning ? activeScanSteps[scanStep] + "…" : mode === "website_builder" ? "Next, you’ll confirm the final pages, page purpose, copy direction, and build requirements." : "Next, you’ll review the prefilled Audit one question at a time."}</p>
+      <p aria-live="polite" style={css("margin:0.55rem 0 0;font-size:0.78rem;line-height:1.45;color:var(--fg-muted)")}>{scanning ? activeScanSteps[scanStep] + "…" : mode === "website_builder" ? "Next: confirm the pages and build requirements." : "Next: review each answer."}</p>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Icon } from "../icons";
-import { css, healthMap, initials, statusPill, svcBadge } from "../helpers";
+import { css, displayPortalIdentity, healthMap, initials, statusPill, svcBadge } from "../helpers";
 import { SVC_META } from "../data";
 import { STUDIO_CLIENTS } from "../clients";
 import { roleProjects } from "../selectors";
@@ -115,7 +115,7 @@ export function Clients({ state, actions }: { state: PortalState; actions: Porta
                   <span style={css("font-size:0.7rem;color:var(--fg-muted)")}>{p.progress}%</span>
                 </div>
                 <div style={css("display:flex;align-items:center;gap:var(--space-2);font-size:0.74rem;color:var(--fg-muted)")}>
-                  <span style={css("width:1.5rem;height:1.5rem;border-radius:50%;background:oklch(0.95 0.004 50);color:var(--fg-muted);font-size:0.6rem;font-weight:500;display:grid;place-items:center")}>{initials(p.dev)}</span>{p.dev}
+                  <span style={css("width:1.5rem;height:1.5rem;border-radius:50%;background:oklch(0.95 0.004 50);color:var(--fg-muted);font-size:0.6rem;font-weight:500;display:grid;place-items:center")}>{initials(displayPortalIdentity(p.dev))}</span>{displayPortalIdentity(p.dev)}
                   <span style={css("margin-left:auto;display:inline-flex;align-items:center;gap:0.3rem")}><Icon name="cal" size={12} />{p.due}</span>
                 </div>
               </div>

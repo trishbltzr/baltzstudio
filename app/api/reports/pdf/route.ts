@@ -42,8 +42,11 @@ export async function POST(request: NextRequest) {
     const pagelessHeight = pageless
       ? await page.evaluate(() => Math.ceil(document.documentElement.scrollHeight))
       : null;
-    if (pagelessHeight && pagelessHeight > 18_000) throw new Error("The pageless report exceeds the supported document height.");
-    const pdf = pageless
+    // Chromium has a practical single-page height limit. Keep the requested
+    // pageless layout when it fits, then fall back to a printable A4 document
+    // instead of failing the download for a long report.
+    const usePageless = Boolean(pagelessHeight && pagelessHeight <= 18_000);
+    const pdf = usePageless
       ? await page.pdf({
           width: "210mm",
           height: `${Math.max(pagelessHeight || 0, 1123)}px`,
@@ -51,7 +54,7 @@ export async function POST(request: NextRequest) {
           preferCSSPageSize: false,
           margin: { top: 0, right: 0, bottom: 0, left: 0 },
         })
-      : await page.pdf({ format: "A4", printBackground: true, preferCSSPageSize: true, margin: { top: "12mm", right: "10mm", bottom: "12mm", left: "10mm" } });
+      : await page.pdf({ format: "A4", printBackground: true, preferCSSPageSize: false, margin: { top: "12mm", right: "10mm", bottom: "12mm", left: "10mm" } });
     const fileName = `${title.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "report"}.pdf`;
     return new NextResponse(Buffer.from(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${fileName}"`, "Cache-Control": "no-store" } });
   } catch (error) {

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { css } from "../helpers";
-import { createReportPdf, reportDocumentHtml } from "../printReport";
+import { printReportHtml, reportDocumentHtml } from "../printReport";
 import { Icon } from "../icons";
 import type { PortalActions, PortalState } from "../store";
 import {
@@ -10,8 +10,10 @@ import {
   type FQuestion, type FlowStep,
 } from "./data";
 import { DelivBody, GRAD } from "./deliverables";
-import { clientsVisibleToRole, STUDIO_CLIENTS, type ClientFacet } from "../clients";
-import { ClientPickerGrid } from "../components/ClientPickerGrid";
+import { clientsVisibleToRole, type ClientFacet } from "../clients";
+import { GuidedIntakeSelector } from "../components/GuidedIntakeSelector";
+import { EngineIndexControls } from "../components/EngineIndexControls";
+import { assignedEngineWork, clientsForEngineWork, isUnassignedEngineClient, latestEngineWork, startClientForEngine } from "../engineLifecycle";
 import { GuidedIntakeShell, GuidedOptionPill, GuidedPipelinePanel, GuidedUnsureToggle } from "../components/GuidedIntakeShell";
 import { DiscoveryBuilder } from "../discovery/DiscoveryBuilder";
 import { fromClientMemory, getKnowledge, loadPersistedKnowledge, recordKnowledge, rememberKnowledge, mergeKnow, type Know } from "../discovery/knowledge";
@@ -22,7 +24,6 @@ import { BuilderTaskPanel } from "../builders/BuilderTaskPanel";
 import type { TaskImportDraft } from "../types";
 import { mergePortalClientWorkspace, type PortalFunnelPlanRecord } from "@/lib/portalWorkspacePersistence";
 import { coercePersistedAuditDrafts, type GuidedAuditSession } from "@/lib/portalAuditPersistence";
-import { ReportPreviewDialog } from "../components/ReportPreviewDialog";
 import { ShareLinkDialog } from "../components/ShareLinkDialog";
 
 // ── state ────────────────────────────────────────────────────────────────────
@@ -66,7 +67,7 @@ export function buildFunnelAiHandover(post: FunnelPlanPost): string {
   const faq = (docs.blueprint?.faq?.items || []).map((item: { q: string; a: string }) => "- Q: " + item.q + "\n  A: " + item.a).join("\n");
 
   return [
-    "# AI Funnel Handover",
+    "# Funnel Build Handover",
     "",
     "Use this as the source of truth for building, refining, or generating assets for this funnel. Do not invent a different funnel strategy unless a missing input blocks execution. Preserve the objective, primary action, page flow, and build requirements below.",
     "",
@@ -113,7 +114,7 @@ export function buildFunnelAiHandover(post: FunnelPlanPost): string {
     "## FAQ Copy",
     faq || "- To confirm",
     "",
-    "## AI Instructions",
+    "## Build Instructions",
     "- Generate only work that backs this funnel plan.",
     "- Keep copy specific to " + post.clientName + " and the stated audience.",
     "- If you create page sections, match the page flow and primary CTA.",
@@ -254,25 +255,18 @@ function fmt(q: FQuestion, s: FState): string {
 export function Funnels({ state, actions }: { state: PortalState; actions: PortalActions }) {
   const flow = useMemo(() => buildFlow(), []);
   const visibleClients = useMemo(() => clientsVisibleToRole(state.role, state.clientName), [state.clientName, state.role]);
+  const workingClients = useMemo(() => clientsForEngineWork(state.role, visibleClients), [state.role, visibleClients]);
   const visibleClientIds = useMemo(() => new Set(visibleClients.map(item => item.id)), [visibleClients]);
+  const workingClientIds = useMemo(() => new Set(workingClients.map(item => item.id)), [workingClients]);
   const [s, dispatch] = useReducer(reducer, init);
   const [builds, setBuilds] = useState<FunnelBuild[]>(() => seedFunnelBuilds(state.role, state.clientName));
-  const [launchOpen, setLaunchOpen] = useState(false);
   const [deleteBuildConfirm, setDeleteBuildConfirm] = useState(false);
   const [exitingToPicker, setExitingToPicker] = useState(false);
   const [activePlanPost, setActivePlanPost] = useState<FunnelPlanPost | null>(null);
   const [quickKnow, setQuickKnow] = useState<Know>({ data: {}, sources: {} });
   const [auditedClientIds, setAuditedClientIds] = useState<Set<string>>(() => new Set(visibleClients.filter(item => item.audited).map(item => item.id)));
-  const client = visibleClients.find(c => c.id === s.clientId) || null;
+  const client = workingClients.find(c => c.id === s.clientId) || null;
   const build = builds.find(item => item.id === s.buildId) || null;
-  const auditedClients = useMemo(() => visibleClients.filter(clientItem => auditedClientIds.has(clientItem.id)), [auditedClientIds, visibleClients]);
-  const funnelsByClient = useMemo(
-    () => builds.reduce<Record<string, number>>((acc, item) => {
-      acc[item.clientId] = (acc[item.clientId] || 0) + 1;
-      return acc;
-    }, {}),
-    [builds],
-  );
   const funnelGroups = useMemo(
     () => visibleClients.map(client => ({
       client,
@@ -328,8 +322,8 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
 
   useEffect(() => {
     const rawPersistedBuilds = Object.values(state.clientWorkspaces).flatMap(workspace => workspace.funnelPlans.flatMap(record => {
-      if (!visibleClientIds.has(record.clientId)) return [];
-      const source = STUDIO_CLIENTS.find(item => item.id === record.clientId);
+      if (!workingClientIds.has(record.clientId)) return [];
+      const source = workingClients.find(item => item.id === record.clientId);
       if (!source) return [];
       const progress = typeof record.progress === "number" ? record.progress : record.statusLabel === "Complete" ? 100 : 0;
       return [{
@@ -363,7 +357,7 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
       persistedBuilds.forEach(item => merged.set(item.id, { ...merged.get(item.id), ...item }));
       return Array.from(merged.values());
     });
-  }, [state.clientWorkspaces, visibleClientIds]);
+  }, [state.clientWorkspaces, workingClientIds, workingClients]);
 
   // Restore confirmed and AI-extracted client facts when switching clients.
   useEffect(() => { setQuickKnow(s.clientId ? loadPersistedKnowledge(s.clientId) : { data: {}, sources: {} }); }, [s.clientId]);
@@ -431,7 +425,6 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
 
   const maxW = cur.kind === "welcome" ? "67rem" : cur.kind === "section" ? "47rem" : cur.kind === "gate" ? "520px" : cur.kind === "deliv" ? "680px" : "640px";
   const startFunnel = (clientId: string, buildId: string) => {
-    setLaunchOpen(false);
     setActivePlanPost(null);
     setExitingToPicker(false);
     dispatch({ t: "select", clientId, buildId });
@@ -516,15 +509,15 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
     return post;
   };
   const previewFunnel = (clientId: string, buildId: string) => {
-    setLaunchOpen(false);
     setExitingToPicker(false);
     const planBuild = builds.find(item => item.clientId === clientId && item.id === buildId);
     if (!planBuild) return;
     setActivePlanPost(ensurePlanPost(planBuild));
   };
   const createFunnel = (clientId: string) => {
-    const source = STUDIO_CLIENTS.find(item => item.id === clientId);
-    if (!source || !visibleClientIds.has(source.id) || !auditedClientIds.has(source.id)) return;
+    const source = workingClients.find(item => item.id === clientId);
+    const unassigned = isUnassignedEngineClient(source);
+    if (!source || (!unassigned && (!visibleClientIds.has(source.id) || !auditedClientIds.has(source.id)))) return;
     const id = "funnel-" + clientId + "-" + Math.random().toString(36).slice(2, 8);
     const nextBuild: FunnelBuild = {
       id,
@@ -544,6 +537,13 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
     startFunnel(source.id, id);
     actions.showToast("New funnel draft ready for " + source.name);
   };
+  const startOrResumeFunnel = () => {
+    const target = startClientForEngine(state.role, visibleClients);
+    if (!target) return;
+    const existing = latestEngineWork(builds.filter(item => item.clientId === target.id));
+    if (existing) startFunnel(target.id, existing.id);
+    else createFunnel(target.id);
+  };
   const deleteFunnel = (item: FunnelBuild) => {
     setBuilds(current => current.filter(buildItem => buildItem.id !== item.id));
     if (activePlanPost?.buildId === item.id || activePlanPost?.id === item.id) setActivePlanPost(null);
@@ -562,13 +562,8 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
     });
     actions.showToast("Funnel deleted");
   };
-  const openClientOnboarding = () => {
-    setLaunchOpen(false);
-    actions.setView("onboarding");
-  };
   const exitToPicker = () => {
     if (exitingToPicker) return;
-    setLaunchOpen(false);
     setActivePlanPost(null);
     setExitingToPicker(true);
     if (exitTimer.current) clearTimeout(exitTimer.current);
@@ -579,61 +574,50 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
     }, 220);
   };
 
+  useEffect(() => {
+    if (state.role !== "client" || s.clientId) return;
+    const ownClient = visibleClients[0];
+    const ownBuild = ownClient
+      ? latestEngineWork(builds.filter(item => item.clientId === ownClient.id))
+      : null;
+    if (ownBuild) dispatch({ t: "select", clientId: ownBuild.clientId, buildId: ownBuild.id });
+  }, [builds, s.clientId, state.role, visibleClients]);
+
   if (!client) {
+    if (state.role === "client" && visibleClients[0]) {
+      const ownClient = visibleClients[0];
+      const canCreate = auditedClientIds.has(ownClient.id);
+      return (
+        <div style={css("width:100%;padding:" + (state.isMobile ? "1rem .9rem 1.5rem" : "1.6rem 2rem 2.4rem"))}>
+          <GuidedIntakeSelector
+            eyebrow={`Funnel Builder · ${ownClient.name}`}
+            eyebrowColor="var(--accent)"
+            title="Start your first funnel build"
+            description={canCreate ? "Use your approved audit to create the strategy, sales-page wireframe, copy, and launch plan." : "Complete your website audit first so this build can use the approved findings and brand context."}
+            controlsBelow
+            controls={<EngineIndexControls
+              metrics={[{ label: canCreate ? "Audit ready" : "Website audit required", tone: canCreate ? "success" : "warn" }]}
+              action={{ label: "Generate funnel", onClick: () => createFunnel(ownClient.id), disabled: !canCreate }}
+            />}
+            countLabel="build"
+            cards={[]}
+          />
+        </div>
+      );
+    }
     return (
       <div style={css("width:100%;padding:1.6rem 2rem 2.4rem")}>
-        <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap;padding:1rem 1.1rem;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);margin-bottom:1rem")}>
-          <div style={{ minWidth: 0 }}>
-            <span style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;display:block;color:var(--accent);margin-bottom:0.45rem")}>Funnel plans</span>
-            <h2 style={css("margin:0;font-size:1.22rem;font-weight:500;line-height:1.15")}>Generate or reopen a funnel</h2>
-            <p style={css("margin:0.45rem 0 0;font-size:var(--text-base);color:var(--fg-muted);line-height:1.55;max-width:36rem")}>Start a new funnel for an audited client, or reopen a generated plan when you need to review the full build direction.</p>
-          </div>
-          <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2);flex-wrap:wrap;flex-shrink:0")}>
-            <span style={css("display:inline-flex;align-items:center;gap:0.35rem;padding:0.45rem 0.75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:0.73rem;color:var(--fg-muted)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--success)")} />{auditedClients.length} audited</span>
-            <span style={css("display:inline-flex;align-items:center;gap:0.35rem;padding:0.45rem 0.75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:0.73rem;color:var(--fg-muted)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--accent)")} />{builds.length} created</span>
-            <div style={{ position: "relative" }}>
-              <button type="button" onClick={() => setLaunchOpen(v => !v)} style={css("display:inline-flex;align-items:center;gap:0.42rem;min-height:2.3rem;padding:0 0.95rem;border:none;border-radius:999px;background:var(--accent);color:#fff;font-size:0.78rem;font-weight:500;cursor:pointer")}><Icon name="plus" size={15} />Generate funnel</button>
-              {launchOpen && (
-                <>
-                  <div onClick={() => setLaunchOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 34 }} />
-                  <div style={{ ...css("position:absolute;top:2.7rem;right:0;width:min(24rem,calc(100vw - 2rem));padding:0.45rem;border:1px solid var(--border);border-radius:1rem;background:color-mix(in srgb,var(--surface) 94%,white 6%);z-index:35"), animation: "pt-ddin .16s ease" }}>
-                    <div style={css("padding:0.5rem 0.65rem 0.45rem")}>
-                      <div style={css("font-size:0.8rem;font-weight:500;color:var(--fg)")}>Choose an audited client</div>
-                      <div style={css("font-size:0.69rem;color:var(--fg-faint);margin-top:0.18rem")}>A completed Cocoon Consult audit is required before a funnel can be generated.</div>
-                    </div>
-                    <div style={css("display:flex;flex-direction:column;gap:0.2rem")}>
-                      <button
-                        type="button"
-                        onClick={openClientOnboarding}
-                        style={css("width:100%;min-height:2.55rem;border:none;border-top:1px dashed var(--border);border-bottom:1px dashed var(--border);border-radius:0;background:transparent;color:var(--fg);font-size:0.76rem;font-weight:500;text-align:center;cursor:pointer")}
-                      >
-                        Add a new brand
-                      </button>
-                      {auditedClients.map(item => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => createFunnel(item.id)}
-                          style={css("display:flex;align-items:center;gap:0.65rem;width:100%;padding:0.62rem 0.7rem;border:none;border-radius:0.85rem;background:transparent;color:var(--fg);text-align:left;cursor:pointer")}
-                        >
-                          <span style={css("width:1.8rem;height:1.8rem;border-radius:0.55rem;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:var(--text-xs);font-weight:500;flex-shrink:0")}>{item.name[0]}</span>
-                          <span style={{ flex: 1, minWidth: 0 }}>
-                            <span style={css("display:block;font-size:0.8rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{item.name}</span>
-                            <span style={css("display:block;font-size:0.7rem;color:var(--fg-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{funnelsByClient[item.id] || 0} existing funnel{(funnelsByClient[item.id] || 0) === 1 ? "" : "s"} · audit complete</span>
-                          </span>
-                          <span style={css("display:inline-flex;align-items:center;font-size:0.63rem;font-weight:500;padding:0.16rem 0.5rem;border-radius:999px;background:var(--accent-soft);color:var(--accent)")}>New</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-        <ClientPickerGrid
-          countLabel="brand"
-          compact
+        <GuidedIntakeSelector
+          eyebrow="Funnel Builder"
+          eyebrowColor="var(--accent)"
+          title="Start or continue a funnel build"
+          description="Add the offer, audience, and sales goal. Get the strategy, sales-page wireframe, copy, and launch plan."
+          controlsBelow
+          controls={<EngineIndexControls
+            metrics={[{ label: `${assignedEngineWork(builds, visibleClients).length} created`, tone: "accent" }]}
+            action={{ label: "Generate funnel", onClick: startOrResumeFunnel }}
+          />}
+          countLabel="build"
           cards={funnelGroups.map(group => {
             const latest = group.funnels[0];
             const readyCount = group.funnels.filter(item => item.progress >= 100).length;
@@ -689,7 +673,7 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
             mobile={mobile}
             onClose={() => setActivePlanPost(null)}
             showToast={actions.showToast}
-            showAiHandover={state.role !== "client"}
+            showAiHandover
             onImportTasks={actions.bulkImportTasks}
             onShare={() => actions.shareFinalOutput({ clientName: activePlanPost.clientName, title: "Funnel Builder · Final development plan", outputType: "builder", ...funnelApprovalOutput(activePlanPost.content) })}
           />
@@ -785,15 +769,18 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
         prefillSources={funnelKnow.sources}
         prefillNotes={funnelKnow.notes}
         quickStartMode="funnel"
+        backLabel={state.role === "client" ? "← Back to dashboard" : "← All funnels"}
+        hideHeader={state.role === "client"}
         onIngest={delta => {
           rememberKnowledge(client.id, delta);
           setQuickKnow(k => mergeKnow(k, delta));
         }}
-        onExit={exitToPicker}
+        onExit={() => state.role === "client" ? actions.setView("progress") : exitToPicker()}
         onComplete={data => {
           if (build) persistPlanPost(buildPlanPost(build, data));
           recordKnowledge(client.id, data, "Funnel intake");
-          exitToPicker();
+          if (state.role === "client") actions.setView("progress");
+          else exitToPicker();
         }}
       />
     </div>
@@ -803,12 +790,9 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
 export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImportTasks, onShare, showAiHandover = true }: { post: FunnelPlanPost; mobile: boolean; onClose: () => void; showToast: (message: string) => void; onImportTasks: (drafts: TaskImportDraft[]) => void; onShare?: () => void; showAiHandover?: boolean }) {
   const docs = post.content;
   const [handoverOpen, setHandoverOpen] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [pdfPreparing, setPdfPreparing] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const handover = useMemo(() => buildFunnelAiHandover(post), [post]);
   const taskDrafts = useMemo(() => funnelTaskDrafts(docs, post.clientName), [docs, post.clientName]);
-  useEffect(() => () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); }, [pdfUrl]);
   const copyAiHandover = async () => {
     try {
       if (navigator.clipboard) {
@@ -824,7 +808,7 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImp
         document.execCommand("copy");
         document.body.removeChild(area);
       }
-      showToast("AI handover copied");
+      showToast("Build handover copied");
     } catch {
       const area = document.createElement("textarea");
       area.value = handover;
@@ -835,18 +819,13 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImp
       area.select();
       const copied = document.execCommand("copy");
       document.body.removeChild(area);
-      showToast(copied ? "AI handover copied" : "AI handover ready to copy");
+      showToast(copied ? "Build handover copied" : "Build handover ready to copy");
     }
   };
   const reportTitle = `${post.clientName} · Development plan`;
-  const openPdfPreview = async () => {
+  const openPrintDialog = () => {
     const html = reportDocumentHtml(document.querySelector("[data-funnel-report-document]"), reportTitle);
-    if (!html) { showToast("The PDF preview could not be prepared"); return; }
-    setPdfPreparing(true);
-    const pdf = await createReportPdf(html, reportTitle, { pageless: true });
-    setPdfPreparing(false);
-    if (!pdf) { showToast("The printable PDF could not be generated"); return; }
-    setPdfUrl(URL.createObjectURL(pdf));
+    if (!html || !printReportHtml(html, reportTitle)) showToast("The print dialog could not be opened");
   };
   const openShare = () => {
     onShare?.();
@@ -868,7 +847,7 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImp
         <div style={css("display:flex;align-items:center;gap:var(--space-3);margin-bottom:0.8rem")}>
           <div style={css("font-size:0.92rem;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.2);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1")}>{post.title} · {post.clientName}</div>
           <div style={css("margin-left:auto;display:flex;align-items:center;gap:0.6rem;flex-shrink:0")}>
-            {showAiHandover && <button type="button" onClick={() => { setHandoverOpen(open => !open); void copyAiHandover(); }} className="pt-iconbtn" style={css("display:inline-flex;align-items:center;gap:0.4rem;min-height:2.1rem;padding:0 0.85rem;border-radius:999px;border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.9);color:var(--fg);font-size:0.74rem;font-weight:500;cursor:pointer;white-space:nowrap")}><Icon name="send" size={13} />AI handover</button>}
+            {showAiHandover && <button type="button" onClick={() => { setHandoverOpen(open => !open); void copyAiHandover(); }} className="pt-iconbtn" style={css("display:inline-flex;align-items:center;gap:0.4rem;min-height:2.1rem;padding:0 0.85rem;border-radius:999px;border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.9);color:var(--fg);font-size:0.74rem;font-weight:500;cursor:pointer;white-space:nowrap")}><Icon name="send" size={13} />Build handover</button>}
             <button type="button" onClick={onClose} className="pt-iconbtn" style={css("width:2.1rem;height:2.1rem;border-radius:50%;border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.86);color:var(--fg-muted);display:grid;place-items:center;cursor:pointer;flex-shrink:0")}><Icon name="x" size={15} /></button>
           </div>
         </div>
@@ -878,7 +857,7 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImp
             <span style={css("width:3rem;height:3rem;border-radius:0.68rem;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex-shrink:0")}><Icon name="checklist" size={22} /></span>
             <div style={{ minWidth: 0, flex: "1 1 auto" }}>
               <h2 style={css("margin:0;font-size:" + (mobile ? "1.2rem" : "1.45rem") + ";font-weight:500;letter-spacing:-0.015em;line-height:1.1")}>Development plan</h2>
-              {showAiHandover && <p style={css("margin:0.3rem 0 0;font-size:0.76rem;color:var(--fg-muted);line-height:1.4")}>Includes an AI-ready handover generated from this plan.</p>}
+              {showAiHandover && <p style={css("margin:0.3rem 0 0;font-size:0.76rem;color:var(--fg-muted);line-height:1.4")}>Includes a build-ready handover generated from this plan.</p>}
             </div>
             <span style={css("margin-left:auto;display:inline-flex;align-items:center;min-height:2.15rem;padding:0 0.95rem;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:var(--text-base);font-weight:500;white-space:nowrap")}>Ready for review</span>
           </header>
@@ -887,8 +866,8 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImp
             <div data-report-exclude style={css("padding:" + (mobile ? "0.95rem 1.15rem" : "1rem 1.9rem") + ";border-bottom:1px solid var(--border-soft);background:color-mix(in srgb,var(--accent) 7%,white 93%)")}>
               <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);flex-wrap:wrap;margin-bottom:0.65rem")}>
                 <div>
-                  <div style={css("font-size:var(--text-base);font-weight:500;color:var(--fg)")}>AI handover prompt</div>
-                  <div style={css("font-size:0.7rem;color:var(--fg-muted);margin-top:0.15rem")}>Paste this into an AI builder or dev assistant as the source of truth.</div>
+                  <div style={css("font-size:var(--text-base);font-weight:500;color:var(--fg)")}>Build handover</div>
+                  <div style={css("font-size:0.7rem;color:var(--fg-muted);margin-top:0.15rem")}>Use this with your builder or development team as the source of truth.</div>
                 </div>
                 <button type="button" onClick={copyAiHandover} className="pt-iconbtn" style={css("display:inline-flex;align-items:center;gap:0.35rem;min-height:2rem;padding:0 0.8rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;cursor:pointer")}><Icon name="file" size={13} />Copy handover</button>
               </div>
@@ -912,7 +891,7 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImp
               mobile,
               accent: "var(--accent)",
               onAdvance: onClose,
-              onDownload: () => void openPdfPreview(),
+              onDownload: openPrintDialog,
               onShare: openShare,
               onCopy: () => showToast("Development plan copied"),
               afterActions: <BuilderTaskPanel embedded drafts={taskDrafts} fileName={`${post.clientId || "client"}-funnel-tasks.csv`} mobile={mobile} onImport={onImportTasks}/>,
@@ -920,8 +899,6 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImp
           </div>
         </article>
       </div>
-      {pdfPreparing && <div role="status" onClick={event => event.stopPropagation()} style={css("position:fixed;inset:0;z-index:120;background:rgba(35,25,18,.5);display:grid;place-items:center;color:#fff;font-size:.8rem;font-weight:500")}>Creating the printable PDF…</div>}
-      {pdfUrl && <ReportPreviewDialog pdfUrl={pdfUrl} title={reportTitle} onClose={() => setPdfUrl(null)}/>}
       {shareUrl && <ShareLinkDialog title={post.title} clientName={post.clientName} url={shareUrl} onClose={() => setShareUrl(null)} showToast={showToast}/>}
     </div>
   );
@@ -993,7 +970,7 @@ function FunnelPlanDoc() {
   );
 }
 
-function Welcome({ mobile, onStart, onDemo }: { mobile: boolean; onStart: () => void; onDemo: () => void }) {
+function Welcome({ mobile, onStart }: { mobile: boolean; onStart: () => void }) {
   const leftPanel = (
     <div style={css("position:relative;z-index:2;flex-shrink:0;width:" + (mobile ? "100%" : "452px") + ";height:" + (mobile ? "auto" : "100%") + ";padding:" + (mobile ? "26px 22px 4px" : "44px 0 44px 44px") + ";display:flex;flex-direction:column")}>
       <div style={css("display:flex;align-items:center;gap:8px;margin-bottom:22px")}><span style={css("width:6px;height:6px;border-radius:50%;background:var(--accent)")} /><span style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;font-size:11px;color:var(--accent)")}>Lead-Gen Funnel · Guided Build</span></div>
@@ -1013,7 +990,6 @@ function Welcome({ mobile, onStart, onDemo }: { mobile: boolean; onStart: () => 
 
       <div style={css("margin-top:" + (mobile ? "22px" : "auto") + ";padding-top:20px")}>
         <button type="button" onClick={onStart} className="pt-op" style={css("width:100%;border:0;cursor:pointer;background:var(--accent-grad);color:#fff;font-family:inherit;font-size:15px;font-weight:500;padding:14px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;gap:9px")}>Start intake →</button>
-        <div style={css("text-align:center;margin-top:12px")}><button type="button" onClick={onDemo} style={css("border:0;background:transparent;font-family:inherit;font-size:13px;color:var(--fg-faint);cursor:pointer")}>or preview a finished build</button></div>
       </div>
     </div>
   );
@@ -1213,7 +1189,6 @@ function ActionBar({ cur, s, dispatch }: { cur: FlowStep; s: FState; dispatch: (
       <div style={css(wrap)}>
         <span style={css("font-size:var(--text-base);color:var(--success);font-weight:500")}>✓ Everything approved — your funnel is ready to build</span>
         <div style={css("display:flex;gap:0.6rem;flex-shrink:0")}>
-          <button type="button" style={css(ghost)}>Export PDF</button>
           <button type="button" onClick={() => dispatch({ t: "restart" })} style={css(ghost)}>Start over</button>
         </div>
       </div>

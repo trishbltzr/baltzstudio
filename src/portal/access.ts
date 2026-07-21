@@ -1,4 +1,3 @@
-import { ALL_PROJECTS } from "./data";
 import type { ClientProject, Role, View } from "./types";
 
 export type PortalAccessState = {
@@ -13,11 +12,11 @@ export const BASE_ROLE_VIEWS: Record<Role, ReadonlySet<View>> = {
   client: new Set(["progress", "review", "milestones", "tasks", "inbox", "activity", "audit", "funnels", "files", "assistant", "profile", "settings"]),
 };
 
-export function clientHasEngineAccess(state: PortalAccessState) {
-  if (state.role !== "client") return true;
-  const baseProject = ALL_PROJECTS.find(project => project.client === state.clientName);
-  const service = state.projectOverrides[state.clientName]?.service ?? baseProject?.service;
-  return service === "iff";
+export function clientHasEngineAccess(_state: PortalAccessState) {
+  // Every authenticated portal role can use the engine workspaces. Client data
+  // remains scoped by clientsVisibleToRole, so clients can create and edit only
+  // audits and builds belonging to their own brand.
+  return true;
 }
 
 export function canAccessPortalView(state: PortalAccessState, view: View) {

@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { AI_STAGES, isGeneratedStageResult, type AiGenerationMode } from "@/lib/aiStageGeneration";
+import { AI_STAGES, isAiStageResult, isGeneratedStageResult, type AiGenerationMode } from "@/lib/aiStageGeneration";
 import { ALL_AUDIT_CHECKS, AUDIT_CHECKLIST, auditPrioritiesFromEvidence, isAuditScoreResult, scoreChecks, specificAuditCourseOfAction, type AuditCheckResult, type AuditIssue, type AuditScoreResult, type LighthouseRun } from "@/lib/auditChecklist";
 import { apiKeyForMode, createOpenAIResponseForMode, openAIError, responseText } from "@/lib/openaiServer";
 import { runLighthouse } from "@/lib/pageSpeedServer";
 import { discoverSitemapUrls, scanWebsite } from "@/lib/websiteScanner";
 import { automatedAuditChecks, collectWebsiteEvidence, type WebsiteEvidenceBundle } from "@/lib/renderedWebsiteEvidence";
+import { brandVisualsFromEvidence } from "@/lib/brandVisualEvidence";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -175,7 +176,7 @@ const STAGE_BRIEFS: Record<AiGenerationMode, Record<string, string>> = {
   },
   brand: {
     report: "Create a practical brand kit and consolidated guideline draft from the supplied evidence. Cover brand foundation, positioning, audience, voice, messaging, logo usage, typography, colour direction, imagery, and consistency. Label every material conclusion as Verified strength, Verified gap, Unverified, or Not applicable and name its supporting submitted answer, supplied asset, website, or social touchpoint. Recommendations may come only from Verified gaps. Unverified items must request missing evidence. Do not create a numeric brand score.",
-    plan: "Turn the brand findings into specific improvement priorities. Preserve the approved brand kit and guidelines, then sequence corrections for positioning, messaging, visual consistency, templates, and governance.",
+    plan: "Create an overview-first brand action plan from the approved findings. Preserve the approved brand kit and guidelines, then sequence no more than four priority sections across positioning, messaging, visual consistency, templates, and governance. Keep each section body under 45 words, include no more than three bullets per section with each bullet under 18 words, and return no more than three recommendations. Make every action specific enough to assign. Do not create a numeric brand score.",
   },
   seo: {
     report: "Create an evidence-conscious SEO audit from the supplied website, technical, and analytics context. Cover crawlability, indexability, metadata, content, internal linking, search landing pages, engagement, conversion measurement, and mobile performance. Never invent rankings, backlinks, traffic, or GA4 results.",
@@ -225,6 +226,19 @@ function cleanData(value: unknown): Record<string, string | string[]> {
     else if (Array.isArray(entry)) clean[key.slice(0, 80)] = entry.filter((item): item is string => typeof item === "string").slice(0, 20).map(item => item.slice(0, 400));
   }
   return clean;
+}
+
+function conciseBrandSummary(value: string) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (normalized.length <= 190 && normalized.split(" ").length <= 28) return normalized;
+  const words = normalized.split(" ");
+  const kept: string[] = [];
+  for (const word of words) {
+    const next = [...kept, word].join(" ");
+    if (kept.length >= 28 || next.length > 190) break;
+    kept.push(word);
+  }
+  return `${kept.join(" ").replace(/[,:;.!?–—-]+$/, "")}…`;
 }
 
 function websiteBuildScopeItems(urls: string[]) {
@@ -280,17 +294,17 @@ function requestedWebsiteScope(data: Record<string, string | string[]>) {
 
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Cross-origin requests are not allowed." }, { status: 403 });
-  if (!withinRateLimit(request)) return NextResponse.json({ error: "Too many AI requests. Please wait a minute and try again." }, { status: 429 });
+  if (!withinRateLimit(request)) return NextResponse.json({ error: "Too many generation requests. Please wait a minute and try again." }, { status: 429 });
 
   const body = await request.json().catch(() => null);
   const mode = body?.mode as AiGenerationMode;
   const stageKey = typeof body?.stageKey === "string" ? body.stageKey : "";
   const clientName = typeof body?.clientName === "string" ? body.clientName.slice(0, 160) : "Client";
   if (!(mode in AI_STAGES) || !AI_STAGES[mode].includes(stageKey)) {
-    return NextResponse.json({ error: "Unsupported AI generation stage." }, { status: 400 });
+    return NextResponse.json({ error: "Unsupported generation stage." }, { status: 400 });
   }
   const apiKey = apiKeyForMode(mode);
-  if (!apiKey) return NextResponse.json({ error: `AI generation is not configured for ${mode}.` }, { status: 503 });
+  if (!apiKey) return NextResponse.json({ error: `Generation is not configured for ${mode}.` }, { status: 503 });
 
   const data = cleanData(body?.data);
   const clientNotes = cleanData(body?.clientNotes);
@@ -335,6 +349,10 @@ export async function POST(request: NextRequest) {
       catch (error) { console.warn("Rendered SEO inspection was unavailable.", error instanceof Error ? error.message : error); }
       try { lighthouse = await runLighthouse(scannedPages[0].url); }
       catch (error) { console.warn("Google Lighthouse was unavailable for SEO.", error instanceof Error ? error.message : error); }
+    }
+    if (mode === "brand" && scannedPages.length) {
+      try { websiteEvidence = await collectWebsiteEvidence(scannedPages.slice(0, 3).map(page => page.url)); }
+      catch (error) { console.warn("Rendered brand inspection was unavailable.", error instanceof Error ? error.message : error); }
     }
   }
   let sitemapUrls: string[] = [];
@@ -426,10 +444,14 @@ export async function POST(request: NextRequest) {
       else if (pageSection && pageInventory.length) pageSection.bullets = websiteBuildScopeItems(pageInventory);
     }
     const result = isAuditReport ? normalizeAuditAnalysis(parsed as RawAuditAnalysis, scannedPages.map(page => page.url), lighthouse, websiteEvidence) : parsed;
-    if (!isGeneratedStageResult(result) || isAuditReport && !isAuditScoreResult(result)) throw new Error("The AI response did not match the expected format.");
+    if (mode === "brand" && stageKey === "report" && isAiStageResult(result)) {
+      result.summary = conciseBrandSummary(result.summary);
+      result.brandVisuals = brandVisualsFromEvidence(websiteEvidence);
+    }
+    if (!isGeneratedStageResult(result) || isAuditReport && !isAuditScoreResult(result)) throw new Error("The generated response did not match the expected format.");
     return NextResponse.json({ result, model: payload?.model || process.env.OPENAI_MODEL || "gpt-5.6-luna" });
   } catch (error) {
-    console.error("Unable to generate AI stage.", error instanceof Error ? error.message : error);
+    console.error("Unable to generate stage.", error instanceof Error ? error.message : error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to generate this stage." }, { status: 502 });
   }
 }

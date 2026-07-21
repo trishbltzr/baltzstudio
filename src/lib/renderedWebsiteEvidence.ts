@@ -2,6 +2,12 @@ import { launch } from "chrome-launcher";
 import puppeteer, { type Browser, type Page } from "puppeteer-core";
 import type { AuditCheckResult, LighthouseRun } from "./auditChecklist";
 
+export interface ObservedWebsiteColor {
+  hex: string;
+  count: number;
+  contexts: string[];
+}
+
 export interface RenderedPageEvidence {
   strategy: "mobile" | "desktop";
   url: string;
@@ -11,6 +17,7 @@ export interface RenderedPageEvidence {
   lang: string;
   viewport: { width: number; height: number; horizontalOverflow: boolean; documentHeight: number };
   typography: { bodyFontSize: number; minTextSize: number; fontFamilies: string[]; uppercaseRatio: number; headingLevels: number[]; headingStyleCount: number };
+  visualIdentity: { colors: ObservedWebsiteColor[]; headingFonts: string[]; bodyFonts: string[]; logoUrl: string };
   navigation: { visible: boolean; nearTop: boolean; linkCount: number; hasAbout: boolean; hasContact: boolean; hasSupport: boolean; hasHomeLogo: boolean; hasCurrentPage: boolean };
   footer: { visible: boolean; linkCount: number; socialLinkCount: number };
   controls: { count: number; undersized: number; medianHeight: number; distinctStyles: number; semanticRatio: number; linkDistinctRatio: number; disabledCount: number; explainedDisabledCount: number };
@@ -56,9 +63,39 @@ async function inspectPage(page: Page, url: string, strategy: "mobile" | "deskto
     const elements = <T extends Element>(selector: string) => Array.from(document.querySelectorAll<T>(selector)).filter(visible);
     const textNodes = elements<HTMLElement>("p,li,label,a,button,input,textarea,select,h1,h2,h3,h4,h5,h6").filter(element => clean(element.innerText || element.getAttribute("value")).length > 0);
     const fontSizes = textNodes.map(element => parseFloat(getComputedStyle(element).fontSize)).filter(Number.isFinite);
-    const families = [...new Set(textNodes.map(element => getComputedStyle(element).fontFamily.split(",")[0].replace(/["']/g, "").trim()).filter(Boolean))];
+    const fontName = (element: Element) => getComputedStyle(element).fontFamily.split(",")[0].replace(/["']/g, "").trim();
+    const rankFonts = (items: Element[]) => {
+      const counts = new Map<string, number>();
+      items.map(fontName).filter(Boolean).forEach(font => counts.set(font, (counts.get(font) || 0) + 1));
+      return [...counts].sort((left, right) => right[1] - left[1]).map(([font]) => font).slice(0, 6);
+    };
+    const families = rankFonts(textNodes);
     const headings = elements<HTMLElement>("h1,h2,h3,h4,h5,h6");
+    const bodyText = elements<HTMLElement>("p,li,label,a,button,input,textarea,select").filter(element => clean(element.innerText || element.getAttribute("value")).length > 0);
     const headingStyles = new Set(headings.map(element => { const style = getComputedStyle(element); return `${element.tagName}:${style.fontSize}:${style.fontWeight}:${style.fontFamily}`; }));
+    const toHex = (value: string) => {
+      const numbers = value.match(/[\d.]+/g)?.map(Number) || [];
+      if (numbers.length < 3 || numbers.length > 3 && numbers[3] === 0) return "";
+      return `#${numbers.slice(0, 3).map(channel => Math.max(0, Math.min(255, Math.round(channel))).toString(16).padStart(2, "0")).join("")}`.toUpperCase();
+    };
+    const observedColors = new Map<string, { count: number; contexts: Set<string> }>();
+    const recordColor = (value: string, context: string, weight = 1) => {
+      const hex = toHex(value);
+      if (!hex) return;
+      const current = observedColors.get(hex) || { count: 0, contexts: new Set<string>() };
+      current.count += weight;
+      current.contexts.add(context);
+      observedColors.set(hex, current);
+    };
+    elements<HTMLElement>("body,header,nav,main,section,article,footer,h1,h2,h3,h4,h5,h6,p,a,button,[role=button]").slice(0, 1_200).forEach(element => {
+      const style = getComputedStyle(element);
+      recordColor(style.color, "text");
+      recordColor(style.backgroundColor, "background", 3);
+      if (style.borderTopStyle !== "none" && parseFloat(style.borderTopWidth) > 0) recordColor(style.borderTopColor, "border");
+    });
+    const logoCandidate = elements<HTMLImageElement>("header img,nav img,[class*=logo] img,img[class*=logo]")
+      .find(image => /logo|brand/i.test(`${image.alt} ${image.className} ${image.src}`))
+      || elements<HTMLImageElement>("header img,nav img")[0];
     const uppercaseChars = textNodes.reduce((sum, element) => sum + (clean(element.innerText).match(/[A-Z]/g)?.length || 0), 0);
     const letterChars = textNodes.reduce((sum, element) => sum + (clean(element.innerText).match(/[A-Za-z]/g)?.length || 0), 0);
     const nav = elements<HTMLElement>("nav,[role=navigation]")[0];
@@ -115,6 +152,12 @@ async function inspectPage(page: Page, url: string, strategy: "mobile" | "deskto
         uppercaseRatio: letterChars ? Math.round((uppercaseChars / letterChars) * 100) : 0,
         headingLevels: headings.map(element => Number(element.tagName.slice(1))),
         headingStyleCount: headingStyles.size,
+      },
+      visualIdentity: {
+        colors: [...observedColors].sort((left, right) => right[1].count - left[1].count).slice(0, 18).map(([hex, value]) => ({ hex, count: value.count, contexts: [...value.contexts] })),
+        headingFonts: rankFonts(headings),
+        bodyFonts: rankFonts(bodyText),
+        logoUrl: clean(logoCandidate?.currentSrc || logoCandidate?.src),
       },
       navigation: {
         visible: !!nav,

@@ -14,11 +14,27 @@ export interface AiStageRecommendation {
   action: string;
 }
 
+export interface BrandColorEvidence {
+  role: "Primary" | "Ink" | "Secondary" | "Accent" | "Paper";
+  hex: string;
+  evidence: string;
+}
+
+export interface BrandVisualEvidence {
+  status: "verified" | "unverified";
+  sourceUrl: string | null;
+  colors: BrandColorEvidence[];
+  displayFont: string | null;
+  bodyFont: string | null;
+  logoUrl: string | null;
+}
+
 export interface AiStageResult {
   title: string;
   summary: string;
   sections: AiStageSection[];
   recommendations: AiStageRecommendation[];
+  brandVisuals?: BrandVisualEvidence;
 }
 
 export type GeneratedStageResult = AiStageResult | AuditScoreResult;

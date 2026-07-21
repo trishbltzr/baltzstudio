@@ -4,7 +4,7 @@ import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from
 import { css } from "../helpers";
 import { printReportNode } from "../printReport";
 import { Icon } from "../icons";
-import { QuickStart } from "./QuickStart";
+import { QuickStart, type QuickStartApplyOptions } from "./QuickStart";
 import type { Know } from "./knowledge";
 import { isAiStageResult, isGeneratedStageResult, type AiGenerationMode, type GeneratedStageResult } from "@/lib/aiStageGeneration";
 import { AUDIT_SCORING_STEPS, isAuditScoreResult } from "@/lib/auditChecklist";
@@ -92,6 +92,24 @@ const ACTION_PLAN_STEPS = [
   "Sequencing the implementation plan",
 ];
 
+const BRAND_REPORT_STEPS = [
+  "Reading the approved brand intake and client notes",
+  "Inspecting live website colours, typography, and logo",
+  "Organizing purpose, audience, promise, and differentiation",
+  "Consolidating voice, messaging, and visual direction",
+  "Separating verified evidence from items to confirm",
+  "Preparing the brand system for review",
+];
+
+const BRAND_PLAN_STEPS = [
+  "Reading the approved brand system",
+  "Prioritizing verified gaps and inconsistencies",
+  "Turning positioning and messaging gaps into actions",
+  "Sequencing visual-system and governance improvements",
+  "Removing duplicate or unsupported recommendations",
+  "Preparing the action plan for review",
+];
+
 const FUNNEL_GENERATION_STEPS: Record<string, string[]> = {
   flow: [
     "Reading the funnel objective and primary action",
@@ -152,6 +170,7 @@ type Act =
   | { t: "sendText"; k: string; v?: string } | { t: "next" } | { t: "skip" } | { t: "back" }
   | { t: "restart" } | { t: "fill"; data: Ans; qIdx: number }
   | { t: "ingest"; data: Ans }
+  | { t: "replaceIngest"; data: Ans }
   | { t: "beginBuild" } | { t: "gotoStage"; i: number } | { t: "setStage"; i: number }
   | { t: "approve"; k: string } | { t: "proposal"; v: boolean };
 
@@ -174,6 +193,7 @@ function reducer(s: DState, a: Act): DState {
     case "restart": return { ...init, entered: true, introReveal: 0, typing: true };
     case "fill": return { ...s, entered: true, introReveal: 2, data: a.data, qIdx: a.qIdx, draft: "", typing: false };
     case "ingest": return { ...s, data: { ...s.data, ...a.data } };
+    case "replaceIngest": return { ...s, data: a.data, qIdx: 0, draft: "", stage: 0, approved: {}, proposal: false };
     case "beginBuild": return { ...s, approved: { ...s.approved, discovery: true }, stage: 1, proposal: false };
     case "gotoStage": return { ...s, stage: a.i, proposal: false };
     case "setStage": return { ...s, stage: a.i, proposal: false };
@@ -185,11 +205,12 @@ function reducer(s: DState, a: Act): DState {
 // ── component ─────────────────────────────────────────────────────────────────
 export function DiscoveryBuilder({
   accent, title, clientName, intro, wizard, stages, introSteps, startLabel = "Start discovery →",
-  backLabel = "← All funnels", previewLabel = "or preview a finished plan",
+  backLabel = "← All funnels",
+  hideHeader = false,
   completeTitle = "Discovery complete", completeMsg, completeCta = "See the result →", progressLabel = "discovery",
   completeExtra, stageExtra, demo, demoAction = "complete", onExit, onComplete, mobile, pipeline, showToast,
   prefill, prefillSources, prefillNotes, quickStartMode, onIngest, onPipelineComplete,
-  sessionKey, initialSession, onSessionChange, generationMode, quickStartClientId, onImportTasks, onShareFinal,
+  sessionKey, initialSession, onSessionChange, generationMode, quickStartClientId, onImportTasks, onShareFinal, onStartOverRequest,
 }: {
   accent: string;
   title: string;
@@ -200,7 +221,7 @@ export function DiscoveryBuilder({
   introSteps: DiscoveryIntroStep[];
   startLabel?: string;
   backLabel?: string;
-  previewLabel?: string;
+  hideHeader?: boolean;
   completeTitle?: string;
   completeMsg: string;
   completeCta?: string;
@@ -223,10 +244,11 @@ export function DiscoveryBuilder({
   quickStartMode?: "audit" | "brand" | "seo" | "website_builder" | "funnel";
   quickStartClientId?: string;
   generationMode?: AiGenerationMode;
-  onIngest?: (delta: Know) => void;
+  onIngest?: (delta: Know, options?: QuickStartApplyOptions) => void;
   sessionKey?: string;
   initialSession?: GuidedAuditSession;
   onSessionChange?: (session: GuidedAuditSession) => void;
+  onStartOverRequest?: () => void;
 }) {
   const restoredSession = useMemo(() => readGuidedSession(sessionKey, initialSession), [sessionKey, initialSession]);
   const effectiveGenerationMode = generationMode || quickStartMode;
@@ -247,7 +269,7 @@ export function DiscoveryBuilder({
   const [generatingStage, setGeneratingStage] = useState<string | null>(null);
   const [generationTick, setGenerationTick] = useState(0);
   const [generationError, setGenerationError] = useState<string | null>(null);
-  const isAiSuggestion = (k: string) => /^(Website scan|AI inference|AI Jumpstart)/.test(prefillSources?.[k] || "");
+  const isAiSuggestion = (k: string) => /^(Website scan|Source inference|Source review|AI inference|AI Jumpstart)/.test(prefillSources?.[k] || "");
   const isKnown = (k: string) => { const v = prefill?.[k]; return v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0) && !isAiSuggestion(k); };
   const questionLabels = useMemo(() => Object.fromEntries(wizard.flatMap(topic => topic.qs.map(question => [question.key, question.label]))), [wizard]);
   const askWizard = useMemo(() => wizard.map(t => ({ ...t, qs: t.qs.filter(q => !isKnown(q.key)) })).filter(t => t.qs.length > 0), [wizard, prefill, prefillSources]);
@@ -397,6 +419,8 @@ export function DiscoveryBuilder({
   const funnelGeneration = effectiveGenerationMode === "funnel" ? FUNNEL_GENERATION_COPY[curKey] : undefined;
   const generationSteps = effectiveGenerationMode === "funnel"
     ? FUNNEL_GENERATION_STEPS[curKey] || FUNNEL_GENERATION_STEPS.flow
+    : effectiveGenerationMode === "brand"
+      ? curKey === "plan" ? BRAND_PLAN_STEPS : BRAND_REPORT_STEPS
     : curKey === "plan" ? ACTION_PLAN_STEPS : AUDIT_SCORING_STEPS;
   const guidedGeneration = ["audit", "brand", "seo"].includes(effectiveGenerationMode || "") && (curKey === "report" || curKey === "plan")
     || effectiveGenerationMode === "website_builder" && (curKey === "direction" || curKey === "tasks")
@@ -409,12 +433,16 @@ export function DiscoveryBuilder({
     "Preparing the review-ready audit report",
   ];
   const finalPlanMessages = ["Checking the action order", "Linking Lighthouse findings to fixes", "Removing duplicate recommendations", "Preparing the implementation-ready plan"];
+  const finalBrandMessages = curKey === "plan"
+    ? ["Checking each action against an approved finding", "Preparing the brand action plan"]
+    : ["Checking every visual value against live evidence", "Preparing the brand system for review"];
   const funnelFinalMessages = funnelGeneration?.final || [];
   const finalGenerationMessages = effectiveGenerationMode === "funnel" && funnelFinalMessages.length
     ? funnelFinalMessages
+    : effectiveGenerationMode === "brand" ? finalBrandMessages
     : curKey === "plan" ? finalPlanMessages : finalScoringMessages;
-  const generationHeading = funnelGeneration?.heading || (curKey === "plan" || curKey === "tasks" ? "Building your action plan" : effectiveGenerationMode === "website_builder" ? "Mapping the website rebuild" : effectiveGenerationMode === "brand" ? "Building your brand kit and guidelines" : effectiveGenerationMode === "seo" ? "Preparing your SEO audit" : "Scoring your site against the checklist");
-  const generationDescription = funnelGeneration?.description || (curKey === "plan" || curKey === "tasks" ? "We are sequencing the approved direction into clear implementation tasks." : effectiveGenerationMode === "website_builder" ? "We are matching every sitemap page to the redesign scope before design begins." : effectiveGenerationMode === "brand" ? "We are translating the supplied brand evidence into a usable system and improvement insights." : effectiveGenerationMode === "seo" ? "We are combining website evidence with available analytics context without inventing search data." : "We are checking the rendered pages systematically—not grading from intake alone.");
+  const generationHeading = funnelGeneration?.heading || (effectiveGenerationMode === "brand" ? curKey === "plan" ? "Planning the brand improvements" : "Building the verified brand system" : curKey === "plan" || curKey === "tasks" ? "Building your action plan" : effectiveGenerationMode === "website_builder" ? "Mapping the website rebuild" : effectiveGenerationMode === "seo" ? "Preparing your SEO audit" : "Scoring your site against the checklist");
+  const generationDescription = funnelGeneration?.description || (effectiveGenerationMode === "brand" ? curKey === "plan" ? "We are turning the approved brand findings into a focused, evidence-backed sequence of actions." : "We are matching the intake and client notes to live website colours, typography, logo, messaging, and voice." : curKey === "plan" || curKey === "tasks" ? "We are sequencing the approved direction into clear implementation tasks." : effectiveGenerationMode === "website_builder" ? "We are matching every sitemap page to the redesign scope before design begins." : effectiveGenerationMode === "seo" ? "We are combining website evidence with available analytics context without inventing search data." : "We are checking the rendered pages systematically—not grading from intake alone.");
   const stageApproved = !!s.approved[curKey];
   const currentStageExtra = stageExtra?.(curKey);
   const docs = useMemo(() => (pipeline ? pipeline.buildDocs(collected) : null), [pipeline, collected]);
@@ -456,8 +484,8 @@ export function DiscoveryBuilder({
         body: JSON.stringify({ mode: effectiveGenerationMode, stageKey: curKey, clientName, personName, brandName, data: collected, clientNotes: prefillNotes, priorResult: priorStageContext }),
       });
       const payload = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(typeof payload?.error === "string" ? payload.error : "AI generation failed.");
-      if (!isGeneratedStageResult(payload?.result)) throw new Error("The AI response was incomplete. Please try again.");
+      if (!response.ok) throw new Error(typeof payload?.error === "string" ? payload.error : "Generation failed.");
+      if (!isGeneratedStageResult(payload?.result)) throw new Error("The generated response was incomplete. Please try again.");
       const nextResults = { ...aiResults, [curKey]: payload.result };
       setAiResults(nextResults);
       if (["audit", "brand", "seo"].includes(effectiveGenerationMode) && curKey === "report") {
@@ -472,7 +500,7 @@ export function DiscoveryBuilder({
         toast(`${curStage.label} is ready to review`);
       }
     } catch (error) {
-      setGenerationError(error instanceof Error ? error.message : "AI generation failed.");
+      setGenerationError(error instanceof Error ? error.message : "Generation failed.");
     } finally {
       setGeneratingStage(null);
     }
@@ -499,6 +527,14 @@ export function DiscoveryBuilder({
     dispatch({ t: "typing", v: true });
     const id = setTimeout(() => dispatch({ t: "typing", v: false }), 620);
     timers.current.push(id);
+  };
+  const applyQuickStart = (delta: Know, options?: QuickStartApplyOptions) => {
+    if (options?.replaceSourceReview) {
+      dispatch({ t: "replaceIngest", data: delta.data });
+      setAiResults({});
+      setGenerationError(null);
+    }
+    onIngest?.(delta, options);
   };
   const restartDiscovery = () => {
     setMemoryResolved(!hasMemoryChoice);
@@ -579,7 +615,6 @@ export function DiscoveryBuilder({
       <h2 style={css("margin:0.75rem 0 0;font-size:1.55rem;font-weight:500;line-height:1.1;letter-spacing:-0.02em")}>{intro.heading}</h2>
       {introList}
       <button type="button" onClick={() => dispatch({ t: "enter" })} className="pt-op" style={css("margin-top:1.2rem;border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;padding:0.68rem 1.5rem;font-size:0.86rem;font-weight:500;cursor:pointer;font-family:inherit;width:100%")}>{startLabel}</button>
-      {demo && <button type="button" onClick={runFill} style={css("margin-top:0.7rem;border:none;background:none;color:var(--fg-faint);font-size:0.76rem;cursor:pointer;font-family:inherit;display:block;margin-left:auto;margin-right:auto")}>{previewLabel}</button>}
     </div>
   );
   const introScreen = (
@@ -597,8 +632,7 @@ export function DiscoveryBuilder({
         <div style={css("display:flex;align-items:center;gap:0.7rem")}>
           <span style={css("width:2.1rem;height:2.1rem;border-radius:10px;background:" + accent + ";color:#fff;display:grid;place-items:center;flex-shrink:0")}><Icon name="feather" size={16} /></span>
           <div style={css("flex:1;min-width:0")}><div style={css("font-size:var(--text-lg);font-weight:500")}>{stages[0]?.label || "Discovery"}</div><div style={css("font-size:0.74rem;color:var(--fg-muted)")}>{pct}% of {progressLabel}</div></div>
-          {memoryResolved && <button type="button" onClick={restartDiscovery} className="pt-softbtn" style={css("border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);font-size:0.78rem;font-weight:500;padding:0.36rem 0.74rem;border-radius:var(--radius-pill);cursor:pointer;font-family:inherit")}>{quickStartMode === "funnel" ? "Start funnel over" : "Start audit over"}</button>}
-          {demo && <button type="button" onClick={runFill} className="pt-softbtn" style={css("border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;padding:0.32rem 0.7rem;border-radius:var(--radius-pill);cursor:pointer;font-family:inherit")}>Skip to finish →</button>}
+          {memoryResolved && <button type="button" onClick={onStartOverRequest || restartDiscovery} className="pt-softbtn" style={css("border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);font-size:0.78rem;font-weight:500;padding:0.36rem 0.74rem;border-radius:var(--radius-pill);cursor:pointer;font-family:inherit")}>{quickStartMode === "funnel" ? "Start funnel over" : "Start audit over"}</button>}
         </div>
         <div style={css("height:0.45rem;border-radius:999px;background:oklch(0.92 0.006 50);overflow:hidden;margin-top:0.8rem")}><div style={css("height:100%;border-radius:999px;background:" + accent + ";width:" + pct + "%;transition:width .5s ease")} /></div>
       </div>
@@ -606,14 +640,14 @@ export function DiscoveryBuilder({
       <div ref={scrollRef} style={css("padding:1.1rem;display:flex;flex-direction:column;gap:var(--space-3);max-height:" + (mobile ? "60vh" : "32rem") + ";overflow-y:auto;scroll-behavior:smooth")}>
         {s.introReveal >= 0 && (
           <div style={css("flex-shrink:0;display:flex;gap:0.6rem;align-items:flex-start;animation:cocoonFade .3s ease both")}>
-            <span style={css("width:1.9rem;height:1.9rem;flex-shrink:0;border-radius:50%;display:grid;place-items:center;font-size:0.6rem;font-weight:500;background:color-mix(in srgb," + accent + " 14%,white 86%);color:" + accent)}>AI</span>
-            <div style={css(bubble)}>{"Hey — I’m your co-pilot. I’ll walk through a thorough discovery, then draft everything from your answers. Answer what you can; skip anything you’re unsure of."}</div>
+            <span style={css("width:1.9rem;height:1.9rem;flex-shrink:0;border-radius:50%;display:grid;place-items:center;font-size:0.56rem;font-weight:500;background:color-mix(in srgb," + accent + " 14%,white 86%);color:" + accent)}>BS</span>
+            <div style={css(bubble)}>{quickStartMode === "brand" ? "Add the brand sources, then review each answer. Skip anything you do not know." : quickStartMode === "audit" ? "Add the website, then review each answer. Skip anything you do not know." : "Answer what you can. Skip anything you do not know."}</div>
           </div>
         )}
 
         {hasMemoryChoice && !memoryResolved && s.introReveal > 0 && s.introReveal < 2 && (
           <div style={css("flex-shrink:0;display:flex;gap:0.55rem;align-items:flex-start")}>
-            <span style={css("width:1.7rem;height:1.7rem;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:0.56rem;font-weight:500;background:color-mix(in srgb," + accent + " 14%,white 86%);color:" + accent)}>AI</span>
+            <span style={css("width:1.7rem;height:1.7rem;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:0.52rem;font-weight:500;background:color-mix(in srgb," + accent + " 14%,white 86%);color:" + accent)}>BS</span>
             <div style={css("display:flex;align-items:center;gap:0.28rem;background:var(--surface);border:1px solid var(--border-soft);border-radius:14px;border-top-left-radius:4px;padding:0.7rem 0.85rem")}>
               {[0, 1, 2].map(i => <span key={i} className="pt-typing-dot" style={{ background: accent, animationDelay: i * 0.15 + "s" }} />)}
             </div>
@@ -622,7 +656,7 @@ export function DiscoveryBuilder({
 
         {quickStartMode && onIngest && !memoryResolved && s.introReveal >= 2 && (
           <div style={css("flex-shrink:0")}>
-            <QuickStart mode={quickStartMode} accent={accent} known={{ data: prefill || {}, sources: prefillSources || {} }} questionLabels={questionLabels} onApply={onIngest} onContinue={continueFromMemory} showToast={showToast} mobile={mobile} clientName={clientName} clientId={quickStartClientId} />
+            <QuickStart mode={quickStartMode} accent={accent} known={{ data: { ...(prefill || {}), ...s.data }, sources: prefillSources || {} }} questionLabels={questionLabels} onApply={applyQuickStart} onContinue={continueFromMemory} showToast={showToast} mobile={mobile} clientName={clientName} clientId={quickStartClientId} currentUrl={typeof s.data.url === "string" ? s.data.url : undefined} />
           </div>
         )}
 
@@ -647,7 +681,7 @@ export function DiscoveryBuilder({
 
         {memoryResolved && s.typing && !complete && (
           <div style={css("flex-shrink:0;display:flex;gap:0.55rem;align-items:flex-start")}>
-            <span style={css("width:1.7rem;height:1.7rem;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:0.56rem;font-weight:500;background:color-mix(in srgb," + accent + " 14%,white 86%);color:" + accent)}>AI</span>
+            <span style={css("width:1.7rem;height:1.7rem;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:0.52rem;font-weight:500;background:color-mix(in srgb," + accent + " 14%,white 86%);color:" + accent)}>BS</span>
             <div style={css("display:flex;align-items:center;gap:0.28rem;background:var(--surface);border:1px solid var(--border-soft);border-radius:14px;border-top-left-radius:4px;padding:0.7rem 0.85rem")}>
               {[0, 1, 2].map(i => <span key={i} className="pt-typing-dot" style={{ background: accent, animationDelay: i * 0.15 + "s" }} />)}
             </div>
@@ -656,7 +690,7 @@ export function DiscoveryBuilder({
 
         {memoryResolved && cur && !s.typing && (
           <div style={css("flex-shrink:0;display:flex;gap:0.55rem;align-items:flex-start;animation:cocoonFade .3s ease both")}>
-            <span style={css("width:1.9rem;height:1.9rem;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:0.6rem;font-weight:500;background:" + accent + ";color:#fff")}>AI</span>
+            <span style={css("width:1.9rem;height:1.9rem;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:0.56rem;font-weight:500;background:" + accent + ";color:#fff")}>BS</span>
             <div style={css("flex:1;min-width:0;display:flex;flex-direction:column;gap:0.6rem")}>
               <div style={css("background:color-mix(in srgb," + accent + " 6%,white 94%);border:1px solid " + activeQuestionBorder + ";border-radius:16px;border-top-left-radius:5px;padding:0.85rem 1rem")}>
                 <div style={css("display:flex;align-items:center;gap:var(--space-2);margin-bottom:0.5rem")}>
@@ -744,15 +778,15 @@ export function DiscoveryBuilder({
           {!isGenerating && <p style={css("margin:0 auto 0.95rem;font-size:0.9rem;color:var(--fg-muted);line-height:1.55;max-width:30rem")}>{pipeline.genPrompt(curKey)}</p>}
           {isGenerating && guidedGeneration ? (
             <GuidedLoadingState accent={accent} heading={generationHeading} description={generationDescription} steps={generationSteps} tick={generationTick} finalMessages={finalGenerationMessages} fullWidth={quickStartMode === "funnel"}/>
-          ) : <button type="button" onClick={() => void onGen()} disabled={isGenerating} className="pt-op" style={css("border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;padding:0.6rem 1.3rem;font-size:0.85rem;font-weight:500;cursor:" + (isGenerating ? "wait" : "pointer") + ";font-family:inherit;opacity:" + (isGenerating ? ".72" : "1"))}>{isGenerating ? "Generating with AI…" : `✦ ${pipeline.genCta(curKey)}`}</button>}
+          ) : <button type="button" onClick={() => void onGen()} disabled={isGenerating} className="pt-op" style={css("border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;padding:0.6rem 1.3rem;font-size:0.85rem;font-weight:500;cursor:" + (isGenerating ? "wait" : "pointer") + ";font-family:inherit;opacity:" + (isGenerating ? ".72" : "1"))}>{isGenerating ? "Generating…" : `✦ ${pipeline.genCta(curKey)}`}</button>}
           {generationError && (
             <div role="alert" style={css("margin:0.9rem auto 0;max-width:30rem;border:1px solid color-mix(in srgb,var(--danger) 28%,var(--border) 72%);border-radius:var(--radius);background:color-mix(in srgb,var(--danger) 7%,white 93%);padding:0.7rem 0.85rem;color:var(--danger);font-size:0.76rem;line-height:1.45")}>{generationError}</div>
           )}
         </div>
       ) : (
         <div style={css("padding:1.15rem 1.25rem")}>
-          {isAiStageResult(aiResult) && !["funnel", "website_builder", "brand"].includes(quickStartMode || "") && !(quickStartMode === "audit" && curKey === "plan") && <section aria-label="AI generated strategy" style={css("margin-bottom:1.1rem;border:1px solid color-mix(in srgb," + accent + " 22%,var(--border) 78%);border-radius:var(--radius-panel);background:color-mix(in srgb," + accent + " 5%,white 95%);padding:1rem 1.05rem") }>
-            <div style={css("display:flex;align-items:center;gap:0.55rem;margin-bottom:0.5rem")}><span style={css("width:1.65rem;height:1.65rem;border-radius:50%;display:grid;place-items:center;background:" + accent + ";color:#fff;font-size:0.55rem;font-weight:500")}>AI</span><strong style={css("font-size:0.94rem;font-weight:500")}>{aiResult.title}</strong></div>
+          {isAiStageResult(aiResult) && !["funnel", "website_builder", "brand"].includes(quickStartMode || "") && !(quickStartMode === "audit" && curKey === "plan") && <section aria-label="Generated strategy" style={css("margin-bottom:1.1rem;border:1px solid color-mix(in srgb," + accent + " 22%,var(--border) 78%);border-radius:var(--radius-panel);background:color-mix(in srgb," + accent + " 5%,white 95%);padding:1rem 1.05rem") }>
+            <div style={css("display:flex;align-items:center;gap:0.55rem;margin-bottom:0.5rem")}><span style={css("width:1.65rem;height:1.65rem;border-radius:50%;display:grid;place-items:center;background:" + accent + ";color:#fff;font-size:0.52rem;font-weight:500")}>BS</span><strong style={css("font-size:0.94rem;font-weight:500")}>{aiResult.title}</strong></div>
             <p style={css("margin:0;color:var(--fg-muted);font-size:0.8rem;line-height:1.55")}>{aiResult.summary}</p>
             <div style={css("display:grid;grid-template-columns:" + (mobile ? "1fr" : "repeat(2,minmax(0,1fr))") + ";gap:0.65rem;margin-top:0.85rem") }>
               {aiResult.sections.map(section => (
@@ -776,9 +810,9 @@ export function DiscoveryBuilder({
             stageKey: curKey, docs, aiResult, aiResults, reveal: Number.POSITIVE_INFINITY, building: false, approved: stageApproved, mobile, accent,
             onAdvance: approveStage,
             onDownload: async () => {
-              toast("Preparing the pageless PDF…");
+              toast("Opening the print dialog…");
               const ok = await printReportNode(document.querySelector(`[data-pipeline-stage="${curKey}"]`), `${clientName} · ${curStage.label}`);
-              toast(ok ? "Pageless PDF ready" : "The PDF could not be generated");
+              toast(ok ? "Choose Print or Save as PDF" : "The print dialog could not be opened");
             },
             onShare: () => toast("Share link copied — send it to your client"),
             onCopy: () => toast("Copied to clipboard"),
@@ -814,10 +848,10 @@ export function DiscoveryBuilder({
 
   return (
     <div style={css("width:100%;max-width:60rem;margin:0 auto;display:flex;flex-direction:column;gap:0.85rem;box-sizing:border-box;animation:cocoonFade .2s ease both")}>
-      <div style={css("display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap")}>
+      {!hideHeader && <div style={css("display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap")}>
         <button type="button" onClick={onExit} className="pt-softbtn" style={css("border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);padding:0.4rem 0.8rem;font-size:0.78rem;cursor:pointer;font-family:inherit")}>{backLabel}</button>
         <div style={{ minWidth: 0 }}><span style={css("font-size:var(--text-lg);font-weight:500")}>{title}</span><span style={css("font-size:var(--text-base);color:var(--fg-muted)")}> · {clientName}</span></div>
-      </div>
+      </div>}
       <div style={css(mobile ? "display:flex;flex-direction:column;gap:0.85rem" : "display:grid;grid-template-columns:17rem minmax(0,1fr);gap:0.85rem;align-items:start")}>
         {rail}
         <div style={css("width:100%;min-width:0")}>{main}</div>

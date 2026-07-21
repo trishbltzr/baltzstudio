@@ -1,6 +1,6 @@
 "use client";
 
-// Turns an on-screen report node into a downloadable pageless PDF document.
+// Turns an on-screen report node into a standalone printable document.
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"]/g, char =>
@@ -124,78 +124,45 @@ export function reportDocumentHtml(node: Element | null | undefined, title: stri
   </div></body></html>`;
 }
 
-export async function createReportPdf(html: string, title: string, options: { pageless?: boolean } = {}): Promise<Blob | null> {
+export function printReportHtml(html: string, title: string): boolean {
+  if (typeof window === "undefined" || !html) return false;
+  // Open the browsing context synchronously while the click gesture is still
+  // active. This avoids popup/modal blocking caused by preparing the document
+  // asynchronously or trying to print from inside the dashboard overlay.
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return false;
+
   try {
-    const response = await fetch("/api/reports/pdf", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ html, title, pageless: options.pageless !== false }),
-    });
-    if (!response.ok) return null;
-    return await response.blob();
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.document.title = title;
+    printWindow.opener = null;
+
+    const openNativePrint = () => {
+      window.setTimeout(() => {
+        try {
+          printWindow.focus();
+          printWindow.print();
+        } catch {
+          // The standalone document remains open so the user can still invoke
+          // the browser's native Print command directly.
+        }
+      }, 120);
+    };
+
+    if (printWindow.document.readyState === "complete") openNativePrint();
+    else printWindow.addEventListener("load", openNativePrint, { once: true });
+    return true;
   } catch {
-    return null;
+    printWindow.close();
+    return false;
   }
-}
-
-function showReportPdfPreview(pdf: Blob, title: string): void {
-  const pdfUrl = URL.createObjectURL(pdf);
-  const fileName = `${title.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "report"}.pdf`;
-  const layer = document.createElement("div");
-  layer.setAttribute("role", "dialog");
-  layer.setAttribute("aria-modal", "true");
-  layer.setAttribute("aria-label", `${title} pageless PDF preview`);
-  layer.style.cssText = "position:fixed;inset:0;z-index:140;background:rgba(35,25,18,.5);padding:1rem;display:flex;align-items:center;justify-content:center";
-
-  const panel = document.createElement("section");
-  panel.style.cssText = "width:min(62rem,100%);height:min(52rem,calc(100vh - 2rem));border:1px solid #dfd5d0;border-radius:1rem;background:#fff;box-shadow:0 24px 70px rgba(30,20,16,.28);overflow:hidden;display:flex;flex-direction:column";
-  const header = document.createElement("header");
-  header.style.cssText = "display:flex;align-items:center;gap:.7rem;padding:.75rem .85rem;border-bottom:1px solid #ebe4e0";
-  const heading = document.createElement("div");
-  heading.style.cssText = "min-width:0;flex:1";
-  const label = document.createElement("strong");
-  label.textContent = "Pageless PDF preview";
-  label.style.cssText = "display:block;font-size:.8rem;font-weight:500";
-  const name = document.createElement("span");
-  name.textContent = fileName;
-  name.style.cssText = "display:block;font-size:.66rem;color:#756862;white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
-  heading.append(label, name);
-  const download = document.createElement("a");
-  download.href = pdfUrl;
-  download.download = fileName;
-  download.textContent = "Download PDF";
-  download.style.cssText = "height:2.1rem;padding:0 .85rem;border-radius:999px;background:#d86e76;color:#fff;font-size:.7rem;font-weight:500;display:inline-flex;align-items:center;text-decoration:none";
-  const close = document.createElement("button");
-  close.type = "button";
-  close.setAttribute("aria-label", "Close PDF preview");
-  close.textContent = "×";
-  close.style.cssText = "width:2.1rem;height:2.1rem;border:1px solid #dfd5d0;border-radius:50%;background:#fff;color:#756862;font-size:1rem;cursor:pointer";
-  const frame = document.createElement("iframe");
-  frame.title = `${title} PDF document`;
-  frame.src = pdfUrl;
-  frame.style.cssText = "width:100%;flex:1;border:0;background:#eee";
-  const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") dispose(); };
-  const dispose = () => {
-    document.removeEventListener("keydown", onKeyDown);
-    URL.revokeObjectURL(pdfUrl);
-    layer.remove();
-  };
-  close.addEventListener("click", dispose);
-  layer.addEventListener("click", event => { if (event.target === layer) dispose(); });
-  document.addEventListener("keydown", onKeyDown);
-  header.append(heading, download, close);
-  panel.append(header, frame);
-  layer.append(panel);
-  document.body.append(layer);
-  close.focus();
 }
 
 export async function printReportNode(node: Element | null | undefined, title: string): Promise<boolean> {
   if (typeof window === "undefined" || !node) return false;
   const html = reportDocumentHtml(node, title);
   if (!html) return false;
-  const pdf = await createReportPdf(html, title);
-  if (!pdf) return false;
-  showReportPdfPreview(pdf, title);
-  return true;
+  return printReportHtml(html, title);
 }

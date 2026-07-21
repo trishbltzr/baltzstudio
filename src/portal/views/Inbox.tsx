@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon } from "../icons";
-import { css, initials, roleMeta } from "../helpers";
+import { css, displayPortalIdentity, initials, roleMeta } from "../helpers";
 import { MY_CLIENTS } from "../data";
 import type { PortalActions, PortalState } from "../store";
 import type { Thread } from "../types";
@@ -84,7 +84,7 @@ function InboxDetailsRail({
 
       <div style={css("padding:1rem 1.05rem;display:flex;flex-direction:column;gap:0.72rem;border-bottom:1px solid var(--border-soft)")}>
         <DetailField icon="briefcase" label="Client">{thread.clientName}</DetailField>
-        <DetailField icon="user" label="Owner">{thread.assignee}</DetailField>
+        <DetailField icon="user" label="Owner">{displayPortalIdentity(thread.assignee)}</DetailField>
         <DetailField icon="activity" label="Status">
           <span style={css("display:inline-flex;align-items:center;gap:0.35rem;color:" + status[1])}>
             <span style={css("width:0.45rem;height:0.45rem;border-radius:50%;background:" + status[1])} />
@@ -322,12 +322,12 @@ export function Inbox({ state, actions }: { state: PortalState; actions: PortalA
             </div>
             {/* assignee dropdown */}
             <div style={{ position: "relative" }}>
-              <span onClick={() => actions.patch({ assignMenuOpen: !state.assignMenuOpen, statusMenuOpen: false })} style={css("display:inline-flex;align-items:center;gap:0.34rem;font-size:0.7rem;font-weight:500;padding:0.22rem 0.42rem 0.22rem 0.32rem;border-radius:var(--radius-pill);cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);max-width:" + (mobile ? "9.2rem" : "none") + ";overflow:hidden;white-space:nowrap")}><span style={css("width:1.3rem;height:1.3rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:0.54rem;font-weight:500;display:grid;place-items:center;flex-shrink:0")}>{initials(active.assignee)}</span><span style={css("overflow:hidden;text-overflow:ellipsis")}>{active.assignee}</span><Icon name="chev" size={12} /></span>
+              <span onClick={() => actions.patch({ assignMenuOpen: !state.assignMenuOpen, statusMenuOpen: false })} style={css("display:inline-flex;align-items:center;gap:0.34rem;font-size:0.7rem;font-weight:500;padding:0.22rem 0.42rem 0.22rem 0.32rem;border-radius:var(--radius-pill);cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);max-width:" + (mobile ? "9.2rem" : "none") + ";overflow:hidden;white-space:nowrap")}><span style={css("width:1.3rem;height:1.3rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:0.54rem;font-weight:500;display:grid;place-items:center;flex-shrink:0")}>{initials(displayPortalIdentity(active.assignee))}</span><span style={css("overflow:hidden;text-overflow:ellipsis")}>{displayPortalIdentity(active.assignee)}</span><Icon name="chev" size={12} /></span>
               {state.assignMenuOpen && (
                 <>
                   <div onClick={() => actions.patch({ assignMenuOpen: false })} style={{ position: "fixed", inset: 0, zIndex: 19 }} />
                   <div style={css("position:absolute;top:calc(100% + 0.3rem);left:0;z-index:20;min-width:11rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;padding:0.2rem 0")}>
-                    {TEAM_POOL.map(n => <button key={n} onClick={() => setAssignee(n)} className="pt-dditem" style={css("display:flex;align-items:center;gap:var(--space-2);width:100%;padding:0.5rem 0.75rem;border:0;background:" + (active.assignee === n ? "var(--surface-alt)" : "transparent") + ";font-size:0.78rem;color:var(--fg);cursor:pointer;text-align:left")}><span style={css("width:1.3rem;height:1.3rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:0.54rem;font-weight:500;display:grid;place-items:center;flex-shrink:0")}>{initials(n)}</span>{n}</button>)}
+                    {TEAM_POOL.map(n => <button key={n} onClick={() => setAssignee(n)} className="pt-dditem" style={css("display:flex;align-items:center;gap:var(--space-2);width:100%;padding:0.5rem 0.75rem;border:0;background:" + (active.assignee === n ? "var(--surface-alt)" : "transparent") + ";font-size:0.78rem;color:var(--fg);cursor:pointer;text-align:left")}><span style={css("width:1.3rem;height:1.3rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:0.54rem;font-weight:500;display:grid;place-items:center;flex-shrink:0")}>{initials(displayPortalIdentity(n))}</span>{displayPortalIdentity(n)}</button>)}
                   </div>
                 </>
               )}

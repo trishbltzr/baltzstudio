@@ -31,7 +31,7 @@ export const FUNNEL_WIZARD: DiscoveryTopic[] = [
   ] },
   { id: "assets", num: "06", title: "Brand & assets", icon: "palette", qs: [
     { key: "brand", label: "Brand system", hint: "Where the look comes from.", kind: "single", opts: ["Use existing Brand System", "Client will provide", "Studio to create"] },
-    { key: "copy", label: "Who writes the copy?", kind: "single", opts: ["Studio drafts (AI-assisted)", "Client provides", "Collaborative"] },
+    { key: "copy", label: "Who writes the copy?", kind: "single", opts: ["Studio drafts", "Client provides", "Collaborative"] },
     { key: "need", label: "Assets we’ll collect", hint: "Each becomes a folder on the funnel.", kind: "multi", opts: ["Logo & brand kit", "Product photos", "Headshots / team", "Video (VSL)", "Testimonials", "Lead magnet file", "Legal / policy pages"] },
   ] },
   { id: "tech", num: "07", title: "Tech & integrations", icon: "settings", qs: [
@@ -74,21 +74,21 @@ export const AUDIT_WIZARD: DiscoveryTopic[] = [
     { key: "expM", label: "How would you rate the browsing experience?", kind: "single", opts: ["Clunky & slow", "Works but dated", "Fine on desktop only", "Smooth on most devices", "Fast & effortless everywhere"] },
     { key: "platform", label: "What is it built on?", kind: "single", opts: ["Wix / Squarespace", "WordPress", "Webflow", "Shopify", "Custom / other"] },
   ] },
-  { id: "msg", num: "04", title: "Messaging & Voice", icon: "msg", qs: [
-    { key: "msgM", label: "How clear is your value proposition?", kind: "single", opts: ["Not sure we have one", "Feature-led, not outcome-led", "Clear once you read a while", "Mostly clear up top", "Instantly obvious"] },
-    { key: "tone", label: "Is your tone of voice defined?", kind: "single", opts: ["Not at all", "Loosely", "Documented guidelines"] },
+  { id: "msg", num: "04", title: "On-page messaging", icon: "msg", qs: [
+    { key: "msgM", label: "How quickly does the site explain the value?", kind: "single", opts: ["Not sure we have one", "Feature-led, not outcome-led", "Clear once you read a while", "Mostly clear up top", "Instantly obvious"] },
+    { key: "tone", label: "Does the website use a consistent tone?", kind: "single", opts: ["Not at all", "Loosely", "Documented guidelines"] },
   ] },
   { id: "find", num: "05", title: "Findability", icon: "eye", qs: [
     { key: "findM", label: "How is your search visibility?", kind: "single", opts: ["Invisible", "A few brand terms", "Some traffic, no strategy", "Ranking for key terms", "Strong organic engine"] },
     { key: "seo", label: "What is in place?", hint: "Select all that apply.", kind: "multi", opts: ["Title tags & meta", "Blog / content", "Backlinks", "Analytics", "Sitemap"] },
   ] },
-  { id: "vis", num: "06", title: "Visual Identity", icon: "palette", qs: [
-    { key: "visM", label: "How consistent is your visual design?", kind: "single", opts: ["All over the place", "A few recurring styles", "Consistent-ish", "Mostly systematic", "A tight design system"] },
-    { key: "brandSys", label: "Do you have a brand system?", kind: "single", opts: ["No", "A logo & colours", "Full guidelines"] },
+  { id: "vis", num: "06", title: "Visual consistency", icon: "palette", qs: [
+    { key: "visM", label: "How consistent does the website look page to page?", kind: "single", opts: ["All over the place", "A few recurring styles", "Consistent-ish", "Mostly systematic", "A tight design system"] },
+    { key: "brandSys", label: "What visual guidance does the website follow?", kind: "single", opts: ["No", "A logo & colours", "Full guidelines"] },
   ] },
-  { id: "brand", num: "07", title: "Brand Foundation", icon: "sparkle", qs: [
-    { key: "brandM", label: "How sharp is your positioning?", kind: "single", opts: ["Unclear", "We know it, it is not written", "Written but generic", "Clear & differentiated", "Owns a category in one line"] },
-    { key: "diff", label: "What sets you apart?", kind: "textarea", ph: "In a sentence — why you over the alternatives…" },
+  { id: "brand", num: "07", title: "Site positioning", icon: "sparkle", qs: [
+    { key: "brandM", label: "How clearly does the website communicate your position?", kind: "single", opts: ["Unclear", "We know it, it is not written", "Written but generic", "Clear & differentiated", "Owns a category in one line"] },
+    { key: "diff", label: "What should the website make clear about why you are different?", kind: "textarea", ph: "In a sentence — why you over the alternatives…" },
   ] },
 ];
 
@@ -101,10 +101,10 @@ export const AUDIT_STAGES: DiscoveryStage[] = [
 export const AUDIT_INTRO_STEPS: DiscoveryIntroStep[] = [
   { title: "Conversion Path", tag: "CTAs & forms", icon: "activity" },
   { title: "Website Experience", tag: "Nav & speed", icon: "eye" },
-  { title: "Messaging & Voice", tag: "Voice & clarity", icon: "msg" },
+  { title: "On-page messaging", tag: "Value & clarity", icon: "msg" },
   { title: "Findability", tag: "SEO & meta", icon: "target" },
-  { title: "Visual Identity", tag: "Design system", icon: "palette" },
-  { title: "Brand Foundation", tag: "Positioning", icon: "grid" },
+  { title: "Visual consistency", tag: "Page-to-page design", icon: "palette" },
+  { title: "Site positioning", tag: "Why choose this brand", icon: "grid" },
 ];
 
 export const FUNNEL_DEMO: Record<string, string | string[]> = {};

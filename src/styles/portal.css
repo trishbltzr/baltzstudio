@@ -170,6 +170,13 @@
   line-height: 1;
   letter-spacing: 0;
   text-transform: none;
+  font-family: var(--font-mono);
+}
+
+/* Badges carry system metadata rather than body copy. Keep their typography
+   consistent across the shared admin and client portal surfaces. */
+.bs-portal :where(.dashboard-status, .role-badge, .assignee-badge, [class*="-badge"], .pt-badge) {
+  font-family: var(--font-mono);
 }
 .pt-navitem.is-active .pt-beta-badge {
   border-color: oklch(1 0 0 / 0.34);

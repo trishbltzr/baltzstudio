@@ -2,13 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { clientsVisibleToRole, type StudioClient } from "../clients";
-import { ClientPickerGrid } from "../components/ClientPickerGrid";
+import { GuidedIntakeSelector } from "../components/GuidedIntakeSelector";
+import { EngineIndexControls } from "../components/EngineIndexControls";
+import { clientsForEngineWork, saveEngineWork, startClientForEngine } from "../engineLifecycle";
 import { css } from "../helpers";
 import { Icon } from "../icons";
 import type { PortalActions, PortalState } from "../store";
 import { CategoryBars, type CatBar } from "../components/AuditCharts";
 import { AuditCardScoreSkeleton } from "../components/AuditCardScoreSkeleton";
 import { GuidedLoadingState } from "../components/GuidedLoadingState";
+import { StartOverDialog } from "../components/StartOverDialog";
 
 type SeoSection = "sources" | "overview" | "inventory" | "issues" | "readiness" | "audit-report" | "keywords" | "metadata" | "architecture" | "roadmap";
 type SourceType = "CSV upload" | "Sitemap crawl";
@@ -190,13 +193,13 @@ const SEO_READINESS_GROUPS: Array<{ title: string; description: string; items: A
   },
   {
     title: "AIO, GEO & measurement",
-    description: "Review whether content can be understood, cited, and measured across search and AI answer experiences.",
+    description: "Review whether content can be understood, cited, and measured across modern search and answer experiences.",
     items: [
-      { id: "ai-crawlers", label: "Search and AI crawlers can reach priority content", detail: "Googlebot, Bingbot, and relevant AI crawlers are not unintentionally blocked from public pages." },
+      { id: "ai-crawlers", label: "Search and answer-engine crawlers can reach priority content", detail: "Googlebot, Bingbot, and relevant discovery crawlers are not unintentionally blocked from public pages." },
       { id: "ai-answers", label: "Priority pages are answer-ready", detail: "Pages use clear headings, direct answers, sufficient context, and extractable supporting details." },
       { id: "ai-entities", label: "Entities and relationships are explicit", detail: "Organization, service, author, product, and location information is consistently named and structured." },
       { id: "ai-citations", label: "Important claims have citation signals", detail: "Expertise, authorship, dates, evidence, and trustworthy references support material claims." },
-      { id: "measurement-baseline", label: "Organic and AI discovery measurement is available", detail: "Analytics and search-performance sources can establish clicks, landing pages, conversions, and AI referrals." },
+      { id: "measurement-baseline", label: "Organic and answer-engine discovery measurement is available", detail: "Analytics and search-performance sources can establish clicks, landing pages, conversions, and referral traffic." },
     ],
   },
 ];
@@ -300,8 +303,8 @@ function readinessAi(stats: SeoStats, rows: CrawlRow[], sourceType: SourceType):
     : { status: "confirmed", evidence: "No 5xx server responses were found in the crawl." };
 
   if (crawlerEvidence) out["ai-crawlers"] = /block|deny|disallow/.test(crawlerEvidence)
-    ? { status: "warning", evidence: "Crawler evidence indicates at least one search or AI crawler may be blocked." }
-    : { status: "confirmed", evidence: "Imported crawler evidence allows search and AI discovery bots." };
+    ? { status: "warning", evidence: "Crawler evidence indicates at least one search or answer-engine crawler may be blocked." }
+    : { status: "confirmed", evidence: "Imported crawler evidence allows search and discovery bots." };
   out["ai-answers"] = ai.answerGaps
     ? { status: "warning", evidence: `${ai.answerGaps} eligible page${ai.answerGaps === 1 ? " lacks" : "s lack"} complete headings, metadata, or sufficient answer context.` }
     : { status: "confirmed", evidence: `${ai.answerReady} eligible page${ai.answerReady === 1 ? " is" : "s are"} answer-ready from the crawl evidence.` };
@@ -310,7 +313,7 @@ function readinessAi(stats: SeoStats, rows: CrawlRow[], sourceType: SourceType):
     ? { status: "confirmed", evidence: `${citationReady} page${citationReady === 1 ? " includes" : "s include"} authorship and date evidence.` }
     : { status: "warning", evidence: "Citation fields were measured, but authorship and date signals are incomplete." };
   if (analyticsCount || searchDataMeasured) out["measurement-baseline"] = searchDataMeasured
-    ? { status: "confirmed", evidence: "Search-performance or AI-referral data was included with the audit evidence." }
+    ? { status: "confirmed", evidence: "Search-performance or discovery-referral data was included with the audit evidence." }
     : { status: "warning", evidence: `Analytics code was detected on ${analyticsCount} page${analyticsCount === 1 ? "" : "s"}; connect search-performance data for the complete baseline.` };
   return out;
 }
@@ -505,7 +508,6 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
   const [sourceName, setSourceName] = useState("");
   const [rows, setRows] = useState<CrawlRow[]>([]);
   const [importedAt, setImportedAt] = useState("");
-  const [launchOpen, setLaunchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [dragging, setDragging] = useState(false);
   const [sitemapUrl, setSitemapUrl] = useState("");
@@ -515,8 +517,21 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
   const [processingTick, setProcessingTick] = useState(0);
   const [readiness, setReadiness] = useState<Record<string, SeoReadinessStatus>>({});
   const [savedProjects, setSavedProjects] = useState<Record<string, SavedSeoProject>>({});
+  const [resetClient, setResetClient] = useState<StudioClient | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const availableClients = useMemo(() => clientsVisibleToRole(state.role, state.clientName), [state.clientName, state.role]);
+  const workingClients = useMemo(() => clientsForEngineWork(state.role, availableClients), [availableClients, state.role]);
+  const persistSeoProject = (clientId: string, project: SavedSeoProject) => {
+    window.localStorage.setItem(`baltazar:seo-project:${clientId}`, JSON.stringify(project));
+    actions.update(current => ({
+      clientWorkspaces: saveEngineWork(current.clientWorkspaces, clientId, "seoAudit", {
+        status: project.rows.length ? "ready" : "intake",
+        progress: project.rows.length ? 67 : 0,
+        updatedAt: project.importedAt || new Date().toISOString(),
+        payload: { project },
+      }),
+    }));
+  };
 
   useEffect(() => {
     if (!processingType) return;
@@ -526,16 +541,17 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
   }, [processingType]);
 
   useEffect(() => {
-    if (selectedClient && !availableClients.some(client => client.id === selectedClient.id)) setSelectedClient(null);
-  }, [availableClients, selectedClient]);
+    if (selectedClient && !workingClients.some(client => client.id === selectedClient.id)) setSelectedClient(null);
+  }, [selectedClient, workingClients]);
 
   useEffect(() => {
     const projects: Record<string, SavedSeoProject> = {};
-    availableClients.forEach(client => {
+    workingClients.forEach(client => {
       try {
-        const saved = window.localStorage.getItem(`baltazar:seo-project:${client.id}`);
-        if (saved) {
-          const project = JSON.parse(saved) as SavedSeoProject;
+        const persistedPayload = state.clientWorkspaces[client.id]?.engineWork.seoAudit?.payload as { project?: SavedSeoProject } | undefined;
+        const localPayload = window.localStorage.getItem(`baltazar:seo-project:${client.id}`);
+        const project = persistedPayload?.project || (localPayload ? JSON.parse(localPayload) as SavedSeoProject : undefined);
+        if (project) {
           if (project.sourceName === "blue-ribbon_crawl.csv") {
             window.localStorage.removeItem(`baltazar:seo-project:${client.id}`);
             return;
@@ -545,23 +561,24 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
       } catch { /* skip invalid legacy summaries */ }
     });
     setSavedProjects(projects);
-  }, [availableClients, selectedClient]);
+  }, [selectedClient, state.clientWorkspaces, workingClients]);
 
   useEffect(() => {
     if (selectedClient) return;
     const storageKey = "baltazar:audit-active:seo";
     const clientId = window.localStorage.getItem(storageKey);
-    const client = availableClients.find(item => item.id === clientId);
+    const client = workingClients.find(item => item.id === clientId) || (state.role === "client" ? availableClients[0] : undefined);
     if (client) setSelectedClient(client);
     if (clientId) window.localStorage.removeItem(storageKey);
-  }, [availableClients, selectedClient]);
+  }, [availableClients, selectedClient, state.role, workingClients]);
 
   useEffect(() => {
     if (!selectedClient) return;
     try {
-      const saved = window.localStorage.getItem(`baltazar:seo-project:${selectedClient.id}`);
-      if (!saved) { setRows([]); setSourceName(""); setImportedAt(""); setReadiness({}); setActiveSection("sources"); return; }
-      const project = JSON.parse(saved) as SavedSeoProject;
+      const persistedPayload = state.clientWorkspaces[selectedClient.id]?.engineWork.seoAudit?.payload as { project?: SavedSeoProject } | undefined;
+      const localPayload = window.localStorage.getItem(`baltazar:seo-project:${selectedClient.id}`);
+      const project = persistedPayload?.project || (localPayload ? JSON.parse(localPayload) as SavedSeoProject : undefined);
+      if (!project) { setRows([]); setSourceName(""); setImportedAt(""); setReadiness({}); setActiveSection("sources"); return; }
       if (project.sourceName === "blue-ribbon_crawl.csv") {
         window.localStorage.removeItem(`baltazar:seo-project:${selectedClient.id}`);
         setRows([]); setSourceName(""); setImportedAt(""); setReadiness({}); setActiveSection("sources");
@@ -574,39 +591,40 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
       setReadiness(project.readiness || {});
       setActiveSection(project.rows?.length ? "overview" : "sources");
     } catch { setRows([]); setReadiness({}); setActiveSection("sources"); }
-  }, [selectedClient]);
+  }, [selectedClient, state.clientWorkspaces]);
 
   const persist = (nextRows: CrawlRow[], nextSourceName: string, nextSourceType = sourceType) => {
     if (!selectedClient) return;
     const nextImportedAt = new Date().toISOString();
     setRows(nextRows); setSourceName(nextSourceName); setImportedAt(nextImportedAt); setSourceType(nextSourceType); setReadiness({});
     const project = { rows: nextRows, sourceType: nextSourceType, sourceName: nextSourceName, importedAt: nextImportedAt, readiness: {} } satisfies SavedSeoProject;
-    window.localStorage.setItem(`baltazar:seo-project:${selectedClient.id}`, JSON.stringify(project));
+    persistSeoProject(selectedClient.id, project);
     setSavedProjects(current => ({ ...current, [selectedClient.id]: project }));
   };
 
   const updateReadiness = (itemId: string, status: SeoReadinessStatus) => {
     if (!selectedClient) return;
-    setReadiness(current => {
-      const next = { ...current };
-      if (next[itemId] === status) delete next[itemId];
-      else next[itemId] = status;
-      let existing: SavedSeoProject | undefined;
+    const next = { ...readiness };
+    if (next[itemId] === status) delete next[itemId];
+    else next[itemId] = status;
+    const persistedPayload = state.clientWorkspaces[selectedClient.id]?.engineWork.seoAudit?.payload as { project?: SavedSeoProject } | undefined;
+    let existing = persistedPayload?.project;
+    if (!existing) {
       try {
         const saved = window.localStorage.getItem(`baltazar:seo-project:${selectedClient.id}`);
         if (saved) existing = JSON.parse(saved) as SavedSeoProject;
       } catch { /* rebuild from the current project state */ }
-      const project: SavedSeoProject = {
-        rows: existing?.rows || rows,
-        sourceType: normalizeSourceType(existing?.sourceType as string) || sourceType,
-        sourceName: existing?.sourceName || sourceName,
-        importedAt: existing?.importedAt || importedAt || new Date().toISOString(),
-        readiness: next,
-      };
-      window.localStorage.setItem(`baltazar:seo-project:${selectedClient.id}`, JSON.stringify(project));
-      setSavedProjects(projects => ({ ...projects, [selectedClient.id]: project }));
-      return next;
-    });
+    }
+    const project: SavedSeoProject = {
+      rows: existing?.rows || rows,
+      sourceType: normalizeSourceType(existing?.sourceType as string) || sourceType,
+      sourceName: existing?.sourceName || sourceName,
+      importedAt: existing?.importedAt || importedAt || new Date().toISOString(),
+      readiness: next,
+    };
+    setReadiness(next);
+    persistSeoProject(selectedClient.id, project);
+    setSavedProjects(projects => ({ ...projects, [selectedClient.id]: project }));
   };
 
   const importFile = async (file?: File) => {
@@ -654,10 +672,42 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
   const readinessReady = readinessReviewed === SEO_READINESS_ITEMS.length && readinessBlocked === 0;
 
   const filteredRows = useMemo(() => rows.filter(row => !query || `${row.url} ${row.title}`.toLowerCase().includes(query.toLowerCase())), [query, rows]);
-  const openClient = (client: StudioClient) => { setLaunchOpen(false); setSelectedClient(client); };
+  const openClient = (client: StudioClient) => { setSelectedClient(client); };
+  const confirmStartOver = (client: StudioClient) => {
+    window.localStorage.removeItem(`baltazar:seo-project:${client.id}`);
+    actions.update(current => ({
+      clientWorkspaces: saveEngineWork(current.clientWorkspaces, client.id, "seoAudit", null),
+    }));
+    setSavedProjects(current => {
+      const next = { ...current };
+      delete next[client.id];
+      return next;
+    });
+    if (selectedClient?.id === client.id) {
+      setRows([]);
+      setSourceType("CSV upload");
+      setSourceName("");
+      setImportedAt("");
+      setQuery("");
+      setDragging(false);
+      setSitemapUrl("");
+      setSitemapError("");
+      setSitemapLoading(false);
+      setProcessingType(null);
+      setReadiness({});
+      setActiveSection("sources");
+      setSelectedClient(null);
+    }
+    setResetClient(null);
+    actions.showToast(`${client.name} SEO audit deleted`);
+  };
+  const startSeoAudit = () => {
+    const target = startClientForEngine(state.role, availableClients);
+    if (target) openClient(target);
+  };
   const stages = AUDIT_STAGES;
-  const createdCount = Object.values(savedProjects).filter(project => project.rows?.length).length;
-  const cards = useMemo(() => availableClients.map(client => {
+  const createdCount = availableClients.filter(client => savedProjects[client.id]?.rows?.length).length;
+  const cards = useMemo(() => availableClients.filter(client => savedProjects[client.id]?.rows?.length).map(client => {
     const project = savedProjects[client.id];
     const projectRows = project?.rows || [];
     const cardStats = seoStatsFor(projectRows);
@@ -681,19 +731,35 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
       hero: <AuditCardScoreSkeleton summary={cardScore.summary} scored={scored} cats={cardScore.categories} projectionLabel="Projected after SEO recommendations" />,
       primaryLabel: "Open audit",
       onPrimary: () => openClient(client),
-      secondaryLabel: scored ? "Recrawl" : "New audit",
-      secondaryIcon: scored ? "replay" : "plus",
-      onSecondary: () => openClient(client),
+      secondaryLabel: "Start over",
+      secondaryIcon: "replay",
+      onSecondary: () => setResetClient(client),
     };
   }), [availableClients, savedProjects]);
 
   if (!selectedClient) {
     return <div style={css("width:100%;padding:" + (state.isMobile ? "1rem .9rem 1.5rem" : "1.6rem 2rem 2.4rem"))}>
-      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap;padding:1rem 1.1rem;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);margin-bottom:1rem") }>
-        <div style={{ minWidth: 0 }}><span style={css("text-transform:uppercase;font-size:.68rem;font-weight:400;letter-spacing:.04em;line-height:1.2;display:block;color:var(--accent);margin-bottom:.45rem")}>SEO audits</span><h2 style={css("margin:0;font-size:1.22rem;font-weight:500;line-height:1.15")}>Generate or reopen an SEO audit</h2><p style={css("margin:.45rem 0 0;font-size:var(--text-base);color:var(--fg-muted);line-height:1.55;max-width:36rem")}>Import a crawler export or crawl the live sitemap.xml to inventory the site, identify issues, and build the full plan — from prioritized report to keyword, metadata, and architecture.</p></div>
-        <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2);flex-wrap:wrap;flex-shrink:0") }><span style={css("display:inline-flex;align-items:center;gap:.35rem;padding:.45rem .75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:.73rem;color:var(--fg-muted)")}><span style={css("width:.42rem;height:.42rem;border-radius:50%;background:var(--accent)")}/>{createdCount} created</span><div style={{ position: "relative" }}><button type="button" onClick={() => setLaunchOpen(value => !value)} style={css("display:inline-flex;align-items:center;gap:.42rem;min-height:2.3rem;padding:0 .95rem;border:none;border-radius:999px;background:var(--accent);color:#fff;font-size:.78rem;font-weight:500;cursor:pointer")}><Icon name="plus" size={15}/>Generate SEO</button>{launchOpen && <><div onClick={() => setLaunchOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 34 }}/><div style={css("position:absolute;top:2.7rem;right:0;width:min(24rem,calc(100vw - 2rem));padding:.45rem;border:1px solid var(--border);border-radius:1rem;background:var(--surface);z-index:35") }><div style={css("padding:.5rem .65rem .45rem") }><div style={css("font-size:.8rem;font-weight:500")}>Choose a client</div><div style={css("font-size:.69rem;color:var(--fg-faint);margin-top:.18rem")}>Start from a crawler export or the client’s live sitemap.xml.</div></div><div style={css("display:flex;flex-direction:column;gap:.2rem")}>{availableClients.map(client => <button key={client.id} type="button" onClick={() => openClient(client)} style={css("display:flex;align-items:center;gap:.65rem;width:100%;padding:.62rem .7rem;border:none;border-radius:.85rem;background:transparent;color:var(--fg);text-align:left;cursor:pointer") }><span style={css("width:1.8rem;height:1.8rem;border-radius:.55rem;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:var(--text-xs);font-weight:500")}>{client.name[0]}</span><span style={css("font-size:.8rem;font-weight:500")}>{client.name}</span></button>)}</div></div></>}</div></div>
-      </div>
-      <ClientPickerGrid countLabel="client" cards={cards}/>
+      <GuidedIntakeSelector
+        eyebrow="SEO Audit"
+        eyebrowColor="var(--accent)"
+        title="Start or continue an SEO audit"
+        description="Add a crawl or sitemap. See the issues and what to fix first."
+        controlsBelow
+        controls={<EngineIndexControls
+          metrics={[{ label: `${createdCount} created`, tone: "accent" }]}
+          action={{ label: "Generate audit", onClick: startSeoAudit, disabled: state.role === "client" && !availableClients.length }}
+        />}
+        countLabel="audit"
+        cards={cards}
+      />
+      <StartOverDialog
+        open={!!resetClient}
+        auditLabel="SEO audit"
+        subject={resetClient?.name || "this website"}
+        detail="crawl, source inventory, readiness decisions, and report"
+        onCancel={() => setResetClient(null)}
+        onConfirm={() => { if (resetClient) confirmStartOver(resetClient); }}
+      />
     </div>;
   }
 
@@ -701,14 +767,17 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
   const activeStage = stages.find(stage => stage.sections.includes(activeSection)) || stages[0];
   const activeStageIndex = stages.findIndex(stage => stage.id === activeStage.id);
   const completedStages = !rows.length ? 0 : Math.min(stages.length, Math.max(2, activeStageIndex + 1));
-  const clientReport = state.role === "client";
+  const clientReport = false;
   const activeStageSections = clientReport && activeStage.id === "report" ? (["audit-report"] as SeoSection[]) : activeStage.sections;
   return <div style={css("width:100%;padding:" + (state.isMobile ? "1rem .9rem 1.5rem" : "1.4rem 1.5rem"))}>
     <div style={css("width:100%;max-width:60rem;margin:0 auto;display:flex;flex-direction:column;gap:.85rem;box-sizing:border-box") }>
-      <div style={css("display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap") }><button type="button" onClick={() => setSelectedClient(null)} className="pt-softbtn" style={css("border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);padding:.4rem .8rem;font-size:.78rem;cursor:pointer")}>← All audits</button><div style={{ minWidth: 0 }}><span style={css("font-size:var(--text-lg);font-weight:500")}>SEO Audit</span><span style={css("font-size:var(--text-base);color:var(--fg-muted)")}> · {selectedClient.name}</span></div></div>
+      <div style={css("display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap") }>
+        {state.role !== "client" && <><button type="button" onClick={() => setSelectedClient(null)} className="pt-softbtn" style={css("border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);padding:.4rem .8rem;font-size:.78rem;cursor:pointer")}>← All audits</button><div style={{ minWidth: 0 }}><span style={css("font-size:var(--text-lg);font-weight:500")}>SEO Audit</span><span style={css("font-size:var(--text-base);color:var(--fg-muted)")}> · {selectedClient.name}</span></div></>}
+        <button type="button" onClick={() => setResetClient(selectedClient)} className="pt-softbtn" style={css("margin-left:auto;display:inline-flex;align-items:center;gap:.35rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);padding:.4rem .8rem;font-size:.74rem;font-weight:500;cursor:pointer")}><Icon name="replay" size={13}/>Start over</button>
+      </div>
       <div style={css(state.isMobile ? "display:flex;flex-direction:column;gap:.85rem" : "display:grid;grid-template-columns:17rem minmax(0,1fr);gap:.85rem;align-items:start") }>
       <aside style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden" + (state.isMobile ? "" : ";position:sticky;top:.5rem")) }>
-        <div style={css("padding:.9rem 1rem;border-bottom:1px solid var(--border-soft)") }><div style={css("display:flex;align-items:center;gap:.55rem") }><span style={css("width:2rem;height:2rem;border-radius:.65rem;background:var(--accent);color:#fff;display:grid;place-items:center;flex-shrink:0") }><Icon name="layers" size={16}/></span><div style={{ minWidth: 0 }}><div style={css("font-size:var(--text-md);font-weight:500;line-height:1.15")}>SEO + AI visibility</div><div style={css("font-size:var(--text-sm);color:var(--fg-muted);margin-top:.12rem")}>AIO + GEO · {stages.length}-stage workflow</div></div></div></div>
+        <div style={css("padding:.9rem 1rem;border-bottom:1px solid var(--border-soft)") }><div style={css("display:flex;align-items:center;gap:.55rem") }><span style={css("width:2rem;height:2rem;border-radius:.65rem;background:var(--accent);color:#fff;display:grid;place-items:center;flex-shrink:0") }><Icon name="layers" size={16}/></span><div style={{ minWidth: 0 }}><div style={css("font-size:var(--text-md);font-weight:500;line-height:1.15")}>SEO visibility</div><div style={css("font-size:var(--text-sm);color:var(--fg-muted);margin-top:.12rem")}>Search discovery · {stages.length}-stage workflow</div></div></div></div>
         <nav aria-label="SEO project sections" style={css("padding:.35rem 0") }>
           {stages.map((stage, index) => {
             const active = activeStage.id === stage.id;
@@ -730,9 +799,9 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
       <main style={css("min-width:0;flex:1;display:flex;flex-direction:column;gap:.85rem") }>
         <WorkspaceHeader section={activeSection} client={selectedClient} mobile={state.isMobile} />
         {activeStageSections.length > 1 && <div role="tablist" aria-label={`${activeStage.label} views`} style={css("display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;padding:.35rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill);background:var(--surface);align-self:flex-start") }>{activeStageSections.map(sectionId => { const section = SECTIONS.find(item => item.id === sectionId)!; const selected = activeSection === sectionId; return <button key={sectionId} type="button" role="tab" aria-selected={selected} onClick={() => setActiveSection(sectionId)} style={css("height:1.9rem;padding:0 .72rem;border:none;border-radius:999px;background:" + (selected ? "var(--accent-soft)" : "transparent") + ";color:" + (selected ? "var(--accent)" : "var(--fg-muted)") + ";font-size:.68rem;font-weight:" + (selected ? "500" : "400") + ";cursor:pointer;display:inline-flex;align-items:center;gap:.35rem") }><Icon name={section.icon} size={12}/>{section.label}</button>; })}</div>}
-        {(activeSection === "sources" || activeSection === "inventory") && (processingType ? <Panel style="padding:2.4rem 1.5rem"><GuidedLoadingState accent="var(--accent)" heading={processingType === "Sitemap crawl" ? "Crawling and analyzing the site" : "Analyzing the SEO crawl"} description={processingType === "Sitemap crawl" ? "We are turning the live sitemap into one connected audit, page-decision register, and client report." : "We are connecting every imported crawl field to the findings, checklist, page decisions, and report."} steps={SEO_ANALYSIS_STEPS} tick={processingTick} finalMessages={SEO_ANALYSIS_FINAL_MESSAGES}/></Panel> : <div style={css("display:flex;flex-direction:column;gap:.85rem") }><SourcesView sourceType={sourceType} sourceName={sourceName} rows={rows} importedAt={importedAt} dragging={dragging} sitemapUrl={sitemapUrl} sitemapError={sitemapError} sitemapLoading={sitemapLoading} onSitemapUrl={value => { setSitemapUrl(value); setSitemapError(""); }} onSitemap={() => void crawlSitemap()} onSource={value => { setSourceType(value); setSitemapError(""); }} onBrowse={() => fileInput.current?.click()} onDrop={event => { event.preventDefault(); setDragging(false); void importFile(event.dataTransfer.files[0]); }} onDrag={setDragging} onContinue={() => setActiveSection("overview")} /><InventoryView rows={filteredRows} allRows={rows} query={query} onQuery={setQuery} /></div>)}
+        {(activeSection === "sources" || activeSection === "inventory") && (processingType ? <Panel style="padding:2.4rem 1.5rem"><GuidedLoadingState accent="var(--accent)" heading={processingType === "Sitemap crawl" ? "Crawling the site" : "Reading the SEO crawl"} description="Building the findings and action plan." steps={SEO_ANALYSIS_STEPS} tick={processingTick} finalMessages={SEO_ANALYSIS_FINAL_MESSAGES}/></Panel> : <div style={css("display:flex;flex-direction:column;gap:.85rem") }><SourcesView sourceType={sourceType} sourceName={sourceName} rows={rows} importedAt={importedAt} dragging={dragging} sitemapUrl={sitemapUrl} sitemapError={sitemapError} sitemapLoading={sitemapLoading} onSitemapUrl={value => { setSitemapUrl(value); setSitemapError(""); }} onSitemap={() => void crawlSitemap()} onSource={value => { setSourceType(value); setSitemapError(""); }} onBrowse={() => fileInput.current?.click()} onDrop={event => { event.preventDefault(); setDragging(false); void importFile(event.dataTransfer.files[0]); }} onDrag={setDragging} onContinue={() => setActiveSection("overview")} /><InventoryView rows={filteredRows} allRows={rows} query={query} onQuery={setQuery} /></div>)}
         {activeSection === "overview" && <OverviewView rows={rows} stats={stats} onGo={setActiveSection} mobile={state.isMobile} readiness={readiness} ai={readinessAiMap} />}
-        {activeSection === "audit-report" && <AuditReportView client={selectedClient} rows={rows} stats={stats} clientView={state.role === "client"} mobile={state.isMobile} onContinue={() => actions.showToast(`SEO plan ready to share with ${selectedClient.name}`)}/>} 
+        {activeSection === "audit-report" && <AuditReportView client={selectedClient} rows={rows} stats={stats} clientView={false} mobile={state.isMobile} onContinue={() => actions.showToast(`SEO plan ready to share with ${selectedClient.name}`)}/>}
         {activeSection === "keywords" && <KeywordPagePlanView rows={rows} mobile={state.isMobile} />}
         {activeSection === "metadata" && <MetadataView rows={rows} />}
         {activeSection === "architecture" && <ArchitectureView rows={rows} />}
@@ -741,6 +810,14 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
     </div>
     <input ref={fileInput} type="file" accept=".csv,text/csv" hidden onChange={event => { void importFile(event.target.files?.[0]); event.currentTarget.value = ""; }} />
     </div>
+    <StartOverDialog
+      open={!!resetClient}
+      auditLabel="SEO audit"
+      subject={resetClient?.name || selectedClient.name}
+      detail="crawl, source inventory, readiness decisions, and report"
+      onCancel={() => setResetClient(null)}
+      onConfirm={() => { if (resetClient) confirmStartOver(resetClient); }}
+    />
   </div>;
 }
 
@@ -776,7 +853,7 @@ function SourcesView({ sourceType, sourceName, rows, importedAt, dragging, sitem
   ];
   return <div style={css("display:grid;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));gap:.85rem") }>
     <Panel style="padding:1rem;grid-column:1/-1">
-      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap") }><div><h2 style={css("margin:0;font-size:.95rem;font-weight:500")}>1. Choose the crawl source</h2><p style={css("margin:.35rem 0 0;font-size:.73rem;color:var(--fg-muted)")}>Use an exported crawl or let the dashboard discover and crawl the site from its sitemap.xml.</p></div><Pill tone="accent">Required first</Pill></div>
+      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap") }><div><h2 style={css("margin:0;font-size:.95rem;font-weight:500")}>1. Choose a source</h2><p style={css("margin:.35rem 0 0;font-size:.73rem;color:var(--fg-muted)")}>Upload a crawl or use the live sitemap.</p></div><Pill tone="accent">Start here</Pill></div>
       <div style={css("display:grid;grid-template-columns:repeat(auto-fit,minmax(10.5rem,1fr));gap:.55rem;margin-top:.85rem") }>{sources.map(source => <button key={source.id} type="button" onClick={() => onSource(source.id)} style={css("padding:.75rem;border:1px solid " + (sourceType === source.id ? "var(--accent)" : "var(--border-soft)") + ";border-radius:.8rem;background:" + (sourceType === source.id ? "var(--accent-soft)" : "var(--surface-alt)") + ";text-align:left;cursor:pointer;color:var(--fg)") }><div style={css("display:flex;align-items:center;justify-content:space-between;gap:.5rem") }><span style={css("display:flex;align-items:center;gap:.42rem;font-size:.73rem;font-weight:500") }><Icon name={source.icon} size={13}/>{source.id}</span>{sourceType === source.id && <Icon name="checkmark" size={14}/>}</div><span style={css("display:block;margin-top:.28rem;font-size:.62rem;color:var(--fg-faint)")}>{source.sub}</span></button>)}</div>
     </Panel>
 
@@ -785,13 +862,13 @@ function SourcesView({ sourceType, sourceName, rows, importedAt, dragging, sitem
       {sourceType === "Sitemap crawl" ? <div style={css("margin-top:.75rem;min-height:12rem;border:1px solid var(--border-soft);border-radius:.9rem;background:var(--surface-alt);padding:1rem;display:flex;flex-direction:column;justify-content:center") }>
         <span style={css("width:2.6rem;height:2.6rem;border-radius:.9rem;background:var(--surface);color:var(--accent);display:grid;place-items:center;margin-bottom:.7rem") }><Icon name="link" size={18}/></span>
         <label htmlFor="seo-sitemap-url" style={css("font-size:.72rem;font-weight:500")}>Website or sitemap URL</label>
-        <p style={css("margin:.22rem 0 .65rem;font-size:.62rem;line-height:1.45;color:var(--fg-faint)")}>Enter the website address. We’ll look for <strong>/sitemap.xml</strong>, follow sitemap indexes, and crawl up to 100 listed pages.</p>
+        <p style={css("margin:.22rem 0 .65rem;font-size:.62rem;line-height:1.45;color:var(--fg-faint)")}>Enter the website. We’ll find and crawl the sitemap.</p>
         <div style={css("display:flex;gap:.45rem;align-items:center") }><input id="seo-sitemap-url" type="url" value={sitemapUrl} onChange={event => onSitemapUrl(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !sitemapLoading) onSitemap(); }} placeholder="https://example.com" aria-invalid={Boolean(sitemapError)} style={css("height:2.35rem;min-width:0;flex:1;border:1px solid " + (sitemapError ? "var(--danger)" : "var(--border)") + ";border-radius:999px;background:var(--surface);padding:0 .78rem;outline:none;color:var(--fg);font-size:.68rem")}/><button type="button" disabled={sitemapLoading} onClick={onSitemap} style={css("height:2.35rem;padding:0 .82rem;border:none;border-radius:999px;background:var(--accent);color:#fff;font-size:.68rem;font-weight:500;cursor:" + (sitemapLoading ? "wait" : "pointer") + ";opacity:" + (sitemapLoading ? ".72" : "1") + ";white-space:nowrap")}>{sitemapLoading ? "Crawling…" : "Crawl sitemap"}</button></div>
         {sitemapError && <div role="alert" style={css("display:flex;align-items:flex-start;gap:.45rem;margin-top:.65rem;padding:.62rem .68rem;border:1px solid color-mix(in srgb,var(--danger) 25%,var(--border-soft) 75%);border-radius:.7rem;background:color-mix(in srgb,var(--danger) 7%,var(--surface) 93%);color:var(--danger);font-size:.62rem;line-height:1.45") }><Icon name="alert" size={13}/><span><strong style={css("display:block;font-weight:500")}>Sitemap unavailable</strong>{sitemapError}</span></div>}
       </div> : <div onDrop={onDrop} onDragOver={event => { event.preventDefault(); onDrag(true); }} onDragLeave={() => onDrag(false)} style={css("margin-top:.75rem;min-height:12rem;border:1.5px dashed " + (dragging ? "var(--accent)" : "var(--border)") + ";border-radius:.9rem;background:" + (dragging ? "var(--accent-soft)" : "var(--surface-alt)") + ";display:flex;align-items:center;justify-content:center;text-align:center;padding:1rem") }><div><span style={css("width:2.6rem;height:2.6rem;border-radius:.9rem;background:var(--surface);color:var(--accent);display:grid;place-items:center;margin:0 auto .7rem") }><Icon name="arrowup" size={18}/></span><div style={css("font-size:.78rem;font-weight:500")}>Drop the crawl CSV here</div><div style={css("margin:.25rem 0 .7rem;font-size:.66rem;color:var(--fg-faint)")}>Every imported audit column is retained in the report.</div><button type="button" onClick={onBrowse} style={css("height:2rem;padding:0 .75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface);font-size:.68rem;cursor:pointer")}>Choose CSV</button></div></div>}
     </Panel>
 
-    <Panel style="padding:1rem"><h2 style={css("margin:0;font-size:.95rem;font-weight:500")}>3. Validate the inventory</h2>{rows.length ? <div style={css("margin-top:.75rem") }><div style={css("padding:.75rem;border-radius:.8rem;background:var(--success-soft);color:var(--success);display:flex;gap:.6rem;align-items:center") }><Icon name="check" size={17}/><div style={{ minWidth: 0 }}><div style={css("font-size:.75rem;font-weight:500")}>{rows.length} URLs ready</div><div title={sourceName} style={css("font-size:.63rem;margin-top:.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{sourceName}</div></div></div><div style={css("display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.65rem") }><MetricMini value={rows.filter(row => row.statusCode >= 200 && row.statusCode < 300).length} label="Active 2xx"/><MetricMini value={rows.filter(row => row.indexability.toLowerCase() === "indexable").length} label="Indexable"/><MetricMini value={rows.filter(row => row.statusCode >= 300 && row.statusCode < 400).length} label="Redirects"/><MetricMini value={rows.filter(row => row.statusCode === 0 || row.statusCode >= 400).length} label="Broken"/></div><div style={css("font-size:.61rem;color:var(--fg-faint);margin-top:.6rem")}>Imported {importedAt ? new Date(importedAt).toLocaleString() : "just now"}</div><button type="button" onClick={onContinue} style={css("width:100%;height:2.25rem;margin-top:.7rem;border:none;border-radius:999px;background:var(--accent);color:#fff;font-size:.72rem;font-weight:500;cursor:pointer")}>Open SEO overview →</button></div> : <div style={css("min-height:12rem;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--fg-faint);font-size:.72rem;line-height:1.5")}>The URL count, status mix, and indexability check will appear after import.</div>}</Panel>
+    <Panel style="padding:1rem"><h2 style={css("margin:0;font-size:.95rem;font-weight:500")}>3. Check the pages</h2>{rows.length ? <div style={css("margin-top:.75rem") }><div style={css("padding:.75rem;border-radius:.8rem;background:var(--success-soft);color:var(--success);display:flex;gap:.6rem;align-items:center") }><Icon name="check" size={17}/><div style={{ minWidth: 0 }}><div style={css("font-size:.75rem;font-weight:500")}>{rows.length} URLs ready</div><div title={sourceName} style={css("font-size:.63rem;margin-top:.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{sourceName}</div></div></div><div style={css("display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.65rem") }><MetricMini value={rows.filter(row => row.statusCode >= 200 && row.statusCode < 300).length} label="Active 2xx"/><MetricMini value={rows.filter(row => row.indexability.toLowerCase() === "indexable").length} label="Indexable"/><MetricMini value={rows.filter(row => row.statusCode >= 300 && row.statusCode < 400).length} label="Redirects"/><MetricMini value={rows.filter(row => row.statusCode === 0 || row.statusCode >= 400).length} label="Broken"/></div><div style={css("font-size:.61rem;color:var(--fg-faint);margin-top:.6rem")}>Imported {importedAt ? new Date(importedAt).toLocaleString() : "just now"}</div><button type="button" onClick={onContinue} style={css("width:100%;height:2.25rem;margin-top:.7rem;border:none;border-radius:999px;background:var(--accent);color:#fff;font-size:.72rem;font-weight:500;cursor:pointer")}>Open SEO overview →</button></div> : <div style={css("min-height:12rem;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--fg-faint);font-size:.72rem;line-height:1.5")}>The URL count, status mix, and indexability check will appear after import.</div>}</Panel>
   </div>;
 }
 
@@ -883,13 +960,13 @@ function AiVisibilityPanel({ rows, compact = false }: { rows: CrawlRow[]; compac
   const scoreColor = ai.score >= 75 ? "var(--success)" : ai.score >= 55 ? "var(--warn)" : "var(--danger)";
   const crawlerLabel = ai.crawlerAccess === "allowed" ? "Allowed" : ai.crawlerAccess === "blocked" ? "Blocked" : "Verify robots.txt";
   const signals = [
-    { label: "Discovery eligibility", value: `${ai.eligible} indexable pages can support AI-search links and snippets.`, status: ai.eligible ? "Ready" : "Blocked", color: ai.eligible ? "var(--success)" : "var(--danger)" },
+    { label: "Discovery eligibility", value: `${ai.eligible} indexable pages can support search links and answer snippets.`, status: ai.eligible ? "Ready" : "Blocked", color: ai.eligible ? "var(--success)" : "var(--danger)" },
     { label: "Answer extraction", value: `${ai.answerReady} pages have complete headings, metadata, and enough textual context.`, status: ai.answerGaps ? `${ai.answerGaps} gaps` : "Ready", color: ai.answerGaps ? "var(--warn)" : "var(--success)" },
-    { label: "AI crawler access", value: "Confirm Googlebot, Bingbot, and OAI-SearchBot can reach priority content.", status: crawlerLabel, color: ai.crawlerAccess === "allowed" ? "var(--success)" : ai.crawlerAccess === "blocked" ? "var(--danger)" : "var(--warn)" },
+    { label: "Crawler access", value: "Confirm Googlebot, Bingbot, and answer-engine crawlers can reach priority content.", status: crawlerLabel, color: ai.crawlerAccess === "allowed" ? "var(--success)" : ai.crawlerAccess === "blocked" ? "var(--danger)" : "var(--warn)" },
     { label: "Structured context", value: "Validate that supported structured data agrees with the visible page content.", status: ai.schemaMeasured ? `${ai.schemaReady} detected` : "Not in crawl", color: ai.schemaMeasured ? "var(--success)" : "var(--warn)" },
   ];
   return <Panel style="padding:1rem 1.1rem;background:linear-gradient(135deg,var(--surface),color-mix(in srgb,#6b5bd2 6%,var(--surface-alt) 94%))">
-    <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;flex-wrap:wrap") }><div style={css("display:flex;align-items:flex-start;gap:.65rem") }><span style={css("width:2.15rem;height:2.15rem;border-radius:.72rem;background:color-mix(in srgb,#6b5bd2 12%,var(--surface) 88%);color:#6b5bd2;display:grid;place-items:center;flex-shrink:0") }><Icon name="sparkle" size={16}/></span><div><div style={css("display:flex;align-items:center;gap:.45rem;flex-wrap:wrap") }><h2 style={css("margin:0;font-size:.9rem;font-weight:500")}>AI discovery readiness</h2><Pill tone="accent">AIO + GEO</Pill></div><p style={css("margin:.28rem 0 0;font-size:.66rem;line-height:1.45;color:var(--fg-muted);max-width:34rem")}>Checks whether priority content can be discovered, understood, and cited across AI-powered search and answer experiences.</p></div></div><div style={css("display:flex;align-items:baseline;gap:.22rem;padding:.5rem .65rem;border-radius:.72rem;background:var(--surface)") }><strong style={css("font-size:1.3rem;font-weight:500;color:" + scoreColor)}>{ai.score}</strong><span style={css("font-size:.56rem;color:var(--fg-faint)")}>/100</span></div></div>
+    <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;flex-wrap:wrap") }><div style={css("display:flex;align-items:flex-start;gap:.65rem") }><span style={css("width:2.15rem;height:2.15rem;border-radius:.72rem;background:color-mix(in srgb,#6b5bd2 12%,var(--surface) 88%);color:#6b5bd2;display:grid;place-items:center;flex-shrink:0") }><Icon name="sparkle" size={16}/></span><div><div style={css("display:flex;align-items:center;gap:.45rem;flex-wrap:wrap") }><h2 style={css("margin:0;font-size:.9rem;font-weight:500")}>Discovery readiness</h2><Pill tone="accent">Search + answers</Pill></div><p style={css("margin:.28rem 0 0;font-size:.66rem;line-height:1.45;color:var(--fg-muted);max-width:34rem")}>Checks whether priority content can be discovered, understood, and cited across modern search and answer experiences.</p></div></div><div style={css("display:flex;align-items:baseline;gap:.22rem;padding:.5rem .65rem;border-radius:.72rem;background:var(--surface)") }><strong style={css("font-size:1.3rem;font-weight:500;color:" + scoreColor)}>{ai.score}</strong><span style={css("font-size:.56rem;color:var(--fg-faint)")}>/100</span></div></div>
     <div style={css("display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.5rem;margin-top:.8rem") }>{[["Search eligible", ai.eligible], ["Citation-ready", ai.answerReady], ["Answer gaps", ai.answerGaps]].map(([label, value]) => <div key={String(label)} style={css("padding:.62rem .68rem;border:1px solid var(--border-soft);border-radius:.7rem;background:var(--surface)") }><strong style={css("display:block;font-size:.9rem;font-weight:500")}>{value}</strong><span style={css("display:block;margin-top:.12rem;font-size:.56rem;color:var(--fg-faint)")}>{label}</span></div>)}</div>
     {!compact && <div style={css("display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:.5rem;margin-top:.65rem") }>{signals.map(signal => <div key={signal.label} style={css("display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.65rem;align-items:start;padding:.68rem .72rem;border:1px solid var(--border-soft);border-radius:.72rem;background:var(--surface)") }><div><strong style={css("display:block;font-size:.66rem;font-weight:500")}>{signal.label}</strong><span style={css("display:block;margin-top:.18rem;font-size:.58rem;line-height:1.4;color:var(--fg-faint)")}>{signal.value}</span></div><span style={css("font-size:.55rem;font-weight:500;white-space:nowrap;color:" + signal.color)}>{signal.status}</span></div>)}</div>}
   </Panel>;
@@ -928,7 +1005,7 @@ function IssuesView({ rows, stats, ai, onRoadmap }: { rows: CrawlRow[]; stats: S
     { title: "Missing meta descriptions", count: stats.missingDescription.length, severity: "Medium", why: "Priority pages cannot control their search-result message.", tone: "warn" as const, pages: stats.missingDescription },
     { title: "Missing H1 headings", count: stats.missingH1.length, severity: "Medium", why: "The page hierarchy lacks a clear primary topic.", tone: "warn" as const, pages: stats.missingH1 },
     { title: "Thin pages", count: stats.thin.length, severity: "Opportunity", why: "Low-context pages may not satisfy the target search intent.", tone: "accent" as const, pages: stats.thin },
-    { title: "AI answer gaps", count: ai.answerGaps, severity: "AI visibility", why: "Priority pages lack complete, extractable answers for AI-powered discovery.", tone: "accent" as const, pages: aiGapPages },
+    { title: "Answer gaps", count: ai.answerGaps, severity: "Discovery", why: "Priority pages lack complete, extractable answers for modern search discovery.", tone: "accent" as const, pages: aiGapPages },
   ];
   const toneColor = { danger: "var(--danger)", warn: "var(--warn)", accent: "var(--accent)" } as const;
   const total = items.reduce((sum, item) => sum + item.count, 0);
@@ -1002,7 +1079,7 @@ function SeoReadinessView({ value, ai, onChange, onRequestAccess, onContinue }: 
           <p style={css("margin:.3rem 0 0;font-size:.7rem;line-height:1.55;color:var(--fg-muted)")}>{needs.length ? `We verified everything the crawl can prove. ${needs.length} check${needs.length === 1 ? "" : "s"} still need human review or connected search data.` : "Everything supported by the available evidence is verified. Resolve any flags below, then continue into the SEO plan."}</p>
         </div>
         <div style={css("display:flex;gap:.5rem;flex-wrap:wrap") }>
-          <div style={css("min-width:5.4rem;padding:.6rem .7rem;border:1px solid var(--border-soft);border-radius:.75rem;background:var(--surface)") }><div style={css("display:flex;align-items:baseline;gap:.2rem") }><strong style={css("font-size:1.5rem;font-weight:500;line-height:.9;color:var(--success);font-variant-numeric:tabular-nums")}>{aiCount}</strong></div><span style={css("display:block;margin-top:.25rem;font-size:.56rem;color:var(--fg-faint)")}>AI-verified</span></div>
+          <div style={css("min-width:5.4rem;padding:.6rem .7rem;border:1px solid var(--border-soft);border-radius:.75rem;background:var(--surface)") }><div style={css("display:flex;align-items:baseline;gap:.2rem") }><strong style={css("font-size:1.5rem;font-weight:500;line-height:.9;color:var(--success);font-variant-numeric:tabular-nums")}>{aiCount}</strong></div><span style={css("display:block;margin-top:.25rem;font-size:.56rem;color:var(--fg-faint)")}>evidence-verified</span></div>
           <div style={css("min-width:5.4rem;padding:.6rem .7rem;border:1px solid var(--border-soft);border-radius:.75rem;background:var(--surface)") }><div style={css("display:flex;align-items:baseline;gap:.2rem") }><strong style={css("font-size:1.5rem;font-weight:500;line-height:.9;color:" + (needs.length ? "var(--accent)" : "var(--fg-faint)") + ";font-variant-numeric:tabular-nums")}>{needs.length}</strong></div><span style={css("display:block;margin-top:.25rem;font-size:.56rem;color:var(--fg-faint)")}>unverified</span></div>
           {blockCount > 0 && <div style={css("min-width:5.4rem;padding:.6rem .7rem;border:1px solid var(--border-soft);border-radius:.75rem;background:var(--surface)") }><div style={css("display:flex;align-items:baseline;gap:.2rem") }><strong style={css("font-size:1.5rem;font-weight:500;line-height:.9;color:var(--danger);font-variant-numeric:tabular-nums")}>{blockCount}</strong></div><span style={css("display:block;margin-top:.25rem;font-size:.56rem;color:var(--fg-faint)")}>blocking</span></div>}
         </div>
@@ -1164,34 +1241,34 @@ function RoadmapSummaryView({ mobile = false }: { mobile?: boolean }) {
   const phases = [
     {
       name: "Now · Fix the foundation", tone: "danger" as const, color: "var(--danger)", time: "Weeks 1–2", focus: "Technical health & access",
-      objective: "Clear the technical blockers stopping search engines and AI crawlers from reaching, reading, and trusting the site.",
+      objective: "Clear the technical blockers stopping search and answer-engine crawlers from reaching, reading, and trusting the site.",
       actions: [
         { title: "Repair broken links & redirect chains", detail: "Fix every 4xx error and redirect loop so crawl budget and link equity flow to live pages instead of dead ends." },
         { title: "Complete core on-page signals", detail: "Add the missing titles, meta descriptions, and H1s on priority pages so each one clearly states what it is about." },
         { title: "Publish valid XML & HTML sitemaps", detail: "Generate a clean XML sitemap declared in robots.txt so crawlers discover every priority URL, plus a linked HTML sitemap that helps users navigate and reinforces internal linking." },
-        { title: "Confirm search & AI crawler access", detail: "Verify Googlebot, Bingbot, and AI agents (OAI-SearchBot and peers) can reach the site and that robots.txt allows the right paths." },
+        { title: "Confirm crawler access", detail: "Verify Googlebot, Bingbot, and answer-engine crawlers can reach the site and that robots.txt allows the right paths." },
       ],
-      outcome: "A clean, fully crawlable foundation — sitemaps submitted and access confirmed — that both search and AI engines can index without friction.",
+      outcome: "A clean, fully crawlable foundation — sitemaps submitted and access confirmed — that search and answer engines can index without friction.",
     },
     {
-      name: "Next · Align demand", tone: "warn" as const, color: "var(--warn)", time: "Weeks 3–6", focus: "Keywords, content & AI readiness",
-      objective: "Match every priority page to real search and AI demand, then rewrite it to be answer-ready and citation-worthy.",
+      name: "Next · Align demand", tone: "warn" as const, color: "var(--warn)", time: "Weeks 3–6", focus: "Keywords, content & answer readiness",
+      objective: "Match every priority page to real search and answer demand, then rewrite it to be answer-ready and citation-worthy.",
       actions: [
         { title: "Approve the keyword & page map", detail: "Give each priority page a focused keyword, clear intent, and defined role so effort targets attainable, high-intent demand." },
-        { title: "Build answer-first copy with FAQ blocks", detail: "Lead pages with the answer and add FAQ sections for the real questions users and AI ask, backed by explicit entities and evidence, so pages earn AI citations and featured snippets." },
+        { title: "Build answer-first copy with FAQ blocks", detail: "Lead pages with the answer and add FAQ sections for real customer questions, backed by explicit entities and evidence, so pages earn citations and featured snippets." },
         { title: "Implement & validate schema markup", detail: "Add Organization, Service, Article, and FAQ schema aligned to visible content across priority templates so engines can trust the page and surface rich results." },
       ],
-      outcome: "Priority pages aligned to demand, marked up with schema and FAQs, and written to be cited by AI assistants and ranked in search.",
+      outcome: "Priority pages aligned to demand, marked up with schema and FAQs, and written to earn citations and rank in search.",
     },
     {
       name: "Later · Build authority", tone: "success" as const, color: "var(--success)", time: "Months 2–3", focus: "Content, links & measurement",
       objective: "Compound the foundation into durable topical authority, broader visibility, and a measurement loop that proves ROI.",
       actions: [
         { title: "Publish the priority content cluster", detail: "Ship the planned topic cluster with a deliberate internal-linking plan to establish topical authority and entity clarity." },
-        { title: "Strengthen internal linking & entities", detail: "Route authority through the architecture to the money pages and make entities unambiguous to both search and AI models." },
-        { title: "Track rankings, AI citations & referrals", detail: "Measure rankings, conversions, ChatGPT / Bing AI citations, and referral traffic to prove impact and steer the next cycle." },
+        { title: "Strengthen internal linking & entities", detail: "Route authority through the architecture to the money pages and make entities unambiguous across search systems." },
+        { title: "Track rankings, citations & referrals", detail: "Measure rankings, conversions, answer-engine citations, and referral traffic to prove impact and steer the next cycle." },
       ],
-      outcome: "Growing organic and AI-driven visibility, with a reporting loop that guides continuous improvement.",
+      outcome: "Growing organic and answer-engine visibility, with a reporting loop that guides continuous improvement.",
     },
   ];
   return <div style={css("display:flex;flex-direction:column;gap:.7rem") }>{phases.map((phase, pi) => <Panel key={phase.name} style="padding:1.1rem 1.2rem">
@@ -1211,10 +1288,10 @@ function RoadmapView({ showToast, rows = [], mobile = false }: { showToast?: (me
     ...rows.filter(row => row.statusCode === 200 && pageDecisionFor(row).action === "Keep").map(row => ({ workstream: "Metadata", item: "Review and optimize page signals", page: row.url, phase: "Next", owner: "SEO + Copy", status: "Planned" })),
     ...keywords.map(row => ({ workstream: "Keywords", item: `Target “${row.keyword}”`, page: row.page, phase: "Next", owner: "SEO", status: "Planned" })),
     ...pageMap.map(row => ({ workstream: "Page map", item: `${row.status}: ${row.current} → ${row.proposed}`, page: row.proposed, phase: "Next", owner: "SEO + UX", status: "Needs approval" })),
-    { workstream: "AI visibility", item: "Confirm Googlebot, Bingbot, and OAI-SearchBot access in robots.txt", page: "Sitewide", phase: "Now", owner: "SEO + Developer", status: "Needs verification" },
-    { workstream: "AI visibility", item: "Add answer-first summaries, explicit entities, and evidence-backed claims to priority pages", page: "Priority pages", phase: "Next", owner: "SEO + Copy", status: "Planned" },
-    { workstream: "AI visibility", item: "Validate supported structured data against visible page content", page: "Priority templates", phase: "Next", owner: "SEO + Developer", status: "Planned" },
-    { workstream: "Measurement", item: "Track rankings, conversions, ChatGPT referrals, Bing AI citations, and cited pages", page: "Sitewide", phase: "Later", owner: "SEO", status: "Planned" },
+    { workstream: "Search visibility", item: "Confirm Googlebot, Bingbot, and answer-engine crawler access in robots.txt", page: "Sitewide", phase: "Now", owner: "SEO + Developer", status: "Needs verification" },
+    { workstream: "Search visibility", item: "Add answer-first summaries, explicit entities, and evidence-backed claims to priority pages", page: "Priority pages", phase: "Next", owner: "SEO + Copy", status: "Planned" },
+    { workstream: "Search visibility", item: "Validate supported structured data against visible page content", page: "Priority templates", phase: "Next", owner: "SEO + Developer", status: "Planned" },
+    { workstream: "Measurement", item: "Track rankings, conversions, answer-engine referrals, citations, and cited pages", page: "Sitewide", phase: "Later", owner: "SEO", status: "Planned" },
   ];
   const workstreams = Array.from(new Set(planItems.map(item => item.workstream))).map(workstream => ({ workstream, count: planItems.filter(item => item.workstream === workstream).length }));
   const total = planItems.length;

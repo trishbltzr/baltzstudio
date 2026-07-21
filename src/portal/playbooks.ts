@@ -3,10 +3,9 @@
 import { SVC_META } from "./data";
 import type { Service } from "./types";
 import { AUDIT_CHECKLIST } from "@/lib/auditChecklist";
-import { BRAND_AUDIT_WIZARD, SEO_AUDIT_WIZARD } from "./audits/auditTypeData";
+import { BRAND_AUDIT_WIZARD } from "./audits/auditTypeData";
 import { AUDIT_WIZARD, FUNNEL_WIZARD } from "./discovery/discoveryData";
 import { WEBSITE_BUILDER_WIZARD } from "./builders/websiteBuilderData";
-import { WEBSITE_AUDIT_DISCOVERY_QUESTIONS, WEBSITE_AUDIT_DISCOVERY_SECTIONS } from "./audits/websiteAuditData";
 
 export type Owner = "admin" | "dev" | "client" | "assistant" | "";
 
@@ -30,7 +29,7 @@ export interface PlaybookSeed {
 
 export const OWNER_META: Record<string, { label: string; c: string; s: string }> = {
   admin: { label: "Admin", c: "var(--accent)", s: "var(--accent-soft)" },
-  dev: { label: "Dev", c: "var(--fg)", s: "color-mix(in srgb,var(--fg) 8%,white 92%)" },
+  dev: { label: "Studio", c: "var(--fg)", s: "color-mix(in srgb,var(--fg) 8%,white 92%)" },
   client: { label: "Client", c: "var(--lane-client)", s: "var(--lane-client-soft)" },
   assistant: { label: "Assistant", c: "var(--lane-ai)", s: "var(--lane-ai-soft)" },
 };
@@ -54,11 +53,6 @@ function questionnaireMarkdown(topics: DocumentationTopic[]): string {
 
 const BRAND_AUDIT_QUESTIONNAIRE = questionnaireMarkdown(BRAND_AUDIT_WIZARD);
 const WEBSITE_AUDIT_QUESTIONNAIRE = questionnaireMarkdown(AUDIT_WIZARD);
-const WEBSITE_AUDIT_DISCOVERY_QUESTIONNAIRE = questionnaireMarkdown(WEBSITE_AUDIT_DISCOVERY_SECTIONS.map((title, sectionIndex) => ({
-  title,
-  qs: WEBSITE_AUDIT_DISCOVERY_QUESTIONS.filter(question => question.s === sectionIndex).map(question => ({ label: `${question.prompt}${question.required ? " (required)" : ""}`, opts: question.options })),
-})));
-const SEO_AUDIT_QUESTIONNAIRE = questionnaireMarkdown(SEO_AUDIT_WIZARD);
 const FUNNEL_BUILD_QUESTIONNAIRE = questionnaireMarkdown(FUNNEL_WIZARD);
 const WEBSITE_BUILD_QUESTIONNAIRE = questionnaireMarkdown(WEBSITE_BUILDER_WIZARD);
 
@@ -105,7 +99,7 @@ const SEO_AUDIT_TESTS = `### Crawlability and indexation
 
 const STANDARD_CLIENT_DELIVERY_POLICY = `## Client delivery and access
 - Standard client accounts submit source material through assigned intake, To-do's, Files, Inbox, or the guided consult; they do not open the Audit or Builder engine.
-- Admin and Dev own draft generation, evidence review, internal stage gates, and corrections inside the engine.
+- Admin and the studio team own draft generation, evidence review, internal stage gates, and corrections inside the engine.
 - The client sees an audit report or builder brief only after the studio deliberately shares the client-safe final version into Approvals.
 - Client feedback and the final decision stay attached to that Approvals record; draft prompts, internal notes, and unreviewed generations remain private.
 - An active In Full Flight service unlocks direct Audit and Builder collaboration for that partner workspace without changing the underlying client role.
@@ -133,7 +127,7 @@ We assess how the brand is positioned, communicated, and expressed, then turn th
 1. **Admin** — Select the client and open a new Brand Audit record.
 2. **Client** — Submit foundation, positioning, audience, messaging, voice, visual identity, touchpoint, asset, and priority inputs through the assigned intake, Files, Inbox, or guided consult.
 3. **Assistant** — Consolidate uploaded knowledge and generate the audit report from the approved inputs.
-4. **Dev** — Review the generated report, correct weak assumptions, and confirm the six audit areas.
+4. **Studio** — Review the generated report, correct weak assumptions, and confirm the six audit areas.
 5. **Admin** — Complete internal report gates and deliberately share the client-safe final audit into Approvals.
 6. **Client** — Review the final audit in Approvals and approve it or send a specific change request.
 7. **Admin** — Approve the action plan and move the findings into Website Builder when implementation is selected.
@@ -172,7 +166,7 @@ The questionnaire is supplemented by the live website, supplied social-profile U
 2. Text, single-choice, and multi-choice answers are normalized; the jump-start process may propose questionnaire answers from supplied sources but cannot select values outside the live question options.
 3. The server-side generator turns the approved evidence into structured report sections, evidence-state labels, recommendations, and an action plan. It must label inferred decisions and missing confirmations.
 4. Visual palette and typography examples are working direction, not factual extraction or a score; the studio validates them against the supplied identity before client use.
-5. Dev reviews claims, weak assumptions, source gaps, and all six assessment areas. Admin completes the report and action-plan gates.
+5. The studio team reviews claims, weak assumptions, source gaps, and all six assessment areas. Admin completes the report and action-plan gates.
 6. Only the reviewed client-safe report is persisted as the final output and shared into Approvals or carried into an approved Website Build handoff.
 
 ${STANDARD_CLIENT_DELIVERY_POLICY}
@@ -199,9 +193,9 @@ We evaluate how effectively the website communicates, guides, converts, and perf
 
 ## Process
 1. **Admin** — Create or reopen the client audit and confirm the website and core offer in scope.
-2. **Client** — Submit Business and Brand, Audience and Offer, Goals and Conversion, Site and Messaging, and Assets and Priorities inputs through assigned intake, Files, Inbox, or the guided consult.
+2. **Client** — Answer the guided website questions about the site, conversion path, experience, messaging, findability, visual consistency, and positioning.
 3. **Assistant** — Generate the Discovery Brief, Offer and Audience Read, Conversion Journey Read, Priority Findings, and Recommended Action Plan.
-4. **Dev** — Review content, design, navigation, accessibility, mobile responsiveness, and SEO or performance evidence.
+4. **Studio** — Review content, design, navigation, accessibility, mobile responsiveness, and SEO or performance evidence.
 5. **Admin** — Complete internal checkpoint review, finalize the Audit Action Plan, and share the client-safe final report into Approvals.
 6. **Client** — Review the final report in Approvals and approve it or request changes with a written note.
 7. **Admin** — Hand approved insights to Website Builder or another scoped next step.
@@ -216,10 +210,6 @@ We evaluate how effectively the website communicates, guides, converts, and perf
 - Walk the client through the findings and produce a final action plan that can move directly into Website Build without repeating discovery.
 
 ## Questionnaire and source inputs
-### Studio discovery questionnaire
-${WEBSITE_AUDIT_DISCOVERY_QUESTIONNAIRE}
-
-### Guided evidence self-assessment
 ${WEBSITE_AUDIT_QUESTIONNAIRE}
 
 The submitted self-assessment is combined with the website URL, every public page successfully scanned for evidence, uploaded context, and mobile and desktop Google Lighthouse results when those services return data. Public evidence can correct or leave an intake answer unverified; the questionnaire alone never proves that a website passes a test.
@@ -243,7 +233,7 @@ ${WEBSITE_AUDIT_TESTS}
 3. Deterministic checks use captured page and Lighthouse evidence first; the structured audit analysis evaluates the remaining observable criteria. Any unsupported item defaults to Unverified.
 4. Results are normalized against the exact checklist IDs above. Issues are kept only when their linked criterion actually failed, preventing unsupported findings from entering the score.
 5. Category totals, overall score, evidence coverage, targets, confidence, and the first five evidence-backed priorities are calculated from the normalized statuses.
-6. Dev reviews every failure, unverified item, source URL, course of action, and Lighthouse limitation. Admin finalizes the action plan and persists the reviewed report.
+6. The studio team reviews every failure, unverified item, source URL, course of action, and Lighthouse limitation. Admin finalizes the action plan and persists the reviewed report.
 7. The client-safe output is shared into Approvals; the approved findings and source evidence are then carried into Website Build without rescoring from stale data.
 
 ${STANDARD_CLIENT_DELIVERY_POLICY}
@@ -272,10 +262,10 @@ We establish a verified crawl inventory, assess technical, on-page, architectura
 1. **Admin** — Select the client and choose one of two crawl sources: CSV upload or sitemap crawl.
 2. **Client** — Supply the website URL or complete crawler export through assigned intake or Files when the studio does not already have it.
 3. **Assistant** — Import or crawl the URL inventory and validate that crawlable pages were found.
-4. **Dev** — Review crawl composition, indexability, depth, metadata, canonicals, inlinks, issue pressure, and AIO/GEO discovery readiness.
-5. **Dev** — Complete the 27-item SEO audit checklist across crawl/indexation, on-page content, architecture/internal linking, technical experience, and AIO/GEO plus measurement.
-6. **Dev** — Let crawl-supported checks populate automatically, review qualitative and connected-data checks, and record every outcome as Confirmed, Warning, or Failed.
-7. **Dev** — Finalize the prioritized audit report and separate repair work from growth planning.
+4. **Studio** — Review crawl composition, indexability, depth, metadata, canonicals, inlinks, issue pressure, and AIO/GEO discovery readiness.
+5. **Studio** — Complete the 27-item SEO audit checklist across crawl/indexation, on-page content, architecture/internal linking, technical experience, and AIO/GEO plus measurement.
+6. **Studio** — Let crawl-supported checks populate automatically, review qualitative and connected-data checks, and record every outcome as Confirmed, Warning, or Failed.
+7. **Studio** — Finalize the prioritized audit report and separate repair work from growth planning.
 8. **Admin** — Share the client-safe visual report into Approvals.
 9. **Client** — Review the final report in Approvals and approve the priorities or request a correction.
 10. **Admin** — Send the approved crawl inventory, readiness record, and findings to In Full Flight SEO Planning and Execution.
@@ -290,10 +280,8 @@ We establish a verified crawl inventory, assess technical, on-page, architectura
 - Prioritize technical repairs and on-page improvements, then present a client-safe report that separates evidence from future growth strategy.
 - Hand the approved crawl, page decisions, and priorities into SEO Planning And Execution without asking for the same audit again.
 
-## Questionnaire and source inputs
-${SEO_AUDIT_QUESTIONNAIRE}
-
-The questionnaire establishes goals and context. The tested dataset must come from either a complete crawler CSV or a successful sitemap crawl. The normalized fields are URL, HTTP status, content type, indexability, title, meta description, H1, canonical, crawl depth, internal inlinks, and word count; every additional imported CSV column is retained as raw evidence for checks such as redirects, robots, duplicates, alt text, structured data, performance, authorship, Search Console, analytics, and AI referrals.
+## Source inputs
+SEO Audit does not repeat the Brand or Website questionnaire. The client or studio supplies a domain or a complete crawler CSV, then confirms business goals and any available analytics context. The tested dataset must come from either that crawler export or a successful sitemap crawl. The normalized fields are URL, HTTP status, content type, indexability, title, meta description, H1, canonical, crawl depth, internal inlinks, and word count; every additional imported CSV column is retained as raw evidence for checks such as redirects, robots, duplicates, alt text, structured data, performance, authorship, Search Console, analytics, and AI referrals.
 
 ## Every part we test
 ${SEO_AUDIT_TESTS}
@@ -312,7 +300,7 @@ ${SEO_AUDIT_TESTS}
 2. URLs and technical fields are normalized, then the inventory is separated into HTML, active, redirecting, broken, indexable, metadata-gap, heading-gap, and thin-content sets.
 3. The fixed readiness rules evaluate only the evidence actually present. Unmeasured fields do not pass by default.
 4. Crawl health, page coverage, AI visibility, issue totals, and page-by-page actions are calculated from the same normalized rows so dashboard totals and report details stay reconcilable.
-5. Dev reviews warnings, failed and unverified checks, qualitative content judgments, redirect targets, representative performance evidence, and any connected analytics data.
+5. The studio team reviews warnings, failed and unverified checks, qualitative content judgments, redirect targets, representative performance evidence, and any connected analytics data.
 6. The reviewed crawl, checklist statuses, evidence, page decisions, and prioritized report are persisted together and shared into Approvals.
 7. The approved dataset becomes the source for SEO Planning And Execution; missing keyword, ranking, or performance fields remain blank rather than being generated as facts.
 
@@ -345,7 +333,7 @@ We turn an approved offer and conversion strategy into the complete funnel journ
 1. **Admin** — Create or reopen the named funnel plan for the selected client and confirm the audit or strategy source.
 2. **Client** — Submit objective, audience, offer, traffic, page, email, platform, payment, tracking, asset, and launch inputs through assigned intake, Files, Inbox, or the guided consult.
 3. **Assistant** — Read the saved client workspace notes first, then generate the funnel flow, landing-page-ready copy, one of five selectable wireframe directions, and development plan from the approved inputs.
-4. **Dev** — Review page order, primary action, integrations, responsive layout, build tasks, and launch requirements.
+4. **Studio** — Review page order, primary action, integrations, responsive layout, build tasks, and launch requirements.
 5. **Admin** — Complete internal stage gates and share the final build-ready brief, proposal, or AI handover into Approvals.
 6. **Client** — Review the final output in Approvals and approve it or request a specific correction.
 7. **Admin** — Import approved tasks and move implementation through the client-visible design, build, and launch approval gates.
@@ -418,7 +406,7 @@ We turn approved audit insights and source material into a scoped sitemap, page 
 1. **Admin** — Open the client Website Builder and confirm whether Brand Audit or Website Audit findings are being carried forward.
 2. **Client** — Supply an existing website, uploaded brief or copy, pasted planning notes, or a blank brief through assigned intake, Files, or Inbox, then confirm the exact pages to design.
 3. **Assistant** — Read the saved client workspace notes first, then map the approved source material into the final sitemap, one concise copy brief per page, the shared website direction, and the implementation task plan.
-4. **Dev** — Review the confirmed page and template scope, copy sources, page purposes, primary actions, design system, milestones, integrations, and dependencies.
+4. **Studio** — Review the confirmed page and template scope, copy sources, page purposes, primary actions, design system, milestones, integrations, and dependencies.
 5. **Admin** — Complete internal stage review and share the final build-ready brief and sitemap into Approvals.
 6. **Client** — Approve the final brief and sitemap in Approvals or request a specific correction before page design begins.
 7. **Admin** — Import the approved implementation tasks and run the standard design, build, QA, launch, and handoff gates.
@@ -462,7 +450,7 @@ Accepted planning sources are an existing website, an uploaded brief or copy doc
 3. Server-side generation is constrained to the confirmed pages and produces the build-ready brief in a fixed five-section structure.
 4. Each sitemap item is matched to one page brief. Source copy and audit evidence are mapped to that item, while unsupported claims and unconfirmed dependencies stay visible.
 5. The approved brief is converted into implementation tasks only for confirmed pages plus shared system, integration, QA, and launch work.
-6. The client workspace persists the intake and generated stages; Admin and Dev review them before the final sitemap and brief are shared into Approvals.
+6. The client workspace persists the intake and generated stages; Admin and the studio team review them before the final sitemap and brief are shared into Approvals.
 7. Approved context is retained through design, build, QA, launch, analytics checks, training, and handoff so discovery is not repeated or silently changed.
 
 ${STANDARD_CLIENT_DELIVERY_POLICY}
@@ -493,9 +481,9 @@ We plan and prepare recurring social content that follows the client's brand, go
 ## Process
 1. **Admin** — Create or reopen the client month and confirm the content source, channels, duration, and cadence.
 2. **Assistant** — Analyze the source to detect brand voice and content pillars, then build the monthly content plan.
-3. **Dev** — Review the monthly theme, channel split, pillar mix, post ideas, cross-posting destinations, formats, and dates.
+3. **Studio** — Review the monthly theme, channel split, pillar mix, post ideas, cross-posting destinations, formats, and dates.
 4. **Client** — Approve the content plan and review or edit each generated post.
-5. **Dev** — Add art direction or artwork, finalize captions, hashtags, graphic copy, links, times, and channel-specific formatting.
+5. **Studio** — Add art direction or artwork, finalize captions, hashtags, graphic copy, links, times, and channel-specific formatting.
 6. **Admin** — Confirm the calendar, export the schedule, and record the month as scheduled.
 
 ## What we do
@@ -574,8 +562,8 @@ We turn an approved SEO Audit into search priorities, page and metadata decision
 ## Process
 1. **Admin** — Open the client's SEO Audit and confirm its Cocoon crawl, readiness record, and report are complete.
 2. **Assistant** — Load the approved URL inventory and findings without requesting a duplicate crawl.
-3. **Dev** — Approve priority keywords, intent, volume, difficulty, rank context, and the current-to-proposed page map.
-4. **Dev** — Write page-level metadata and approve the proposed information architecture.
+3. **Studio** — Approve priority keywords, intent, volume, difficulty, rank context, and the current-to-proposed page map.
+4. **Studio** — Write page-level metadata and approve the proposed information architecture.
 5. **Assistant** — Generate the 90-day repair, re-map, restructure, and growth roadmap from the approved decisions.
 6. **Admin** — Share the client proposal, create execution tasks, and use each reporting cycle to update the next plan.
 
@@ -620,7 +608,7 @@ We turn an approved SEO Audit into search priorities, page and metadata decision
 ## Data processing
 1. The approved audit rows and all retained raw columns are loaded directly; the client is not asked to upload the crawl again.
 2. Keyword, page-map, metadata, redirect, and architecture views read named imported columns. They do not seed sample keywords, ranks, volumes, or page decisions.
-3. Each URL receives the same deterministic action logic used by the audit, then Dev reviews destinations, business intent, and any destructive change.
+3. Each URL receives the same deterministic action logic used by the audit, then the studio team reviews destinations, business intent, and any destructive change.
 4. Active 200 URLs are grouped by path to visualize current information architecture; proposed pages and destinations come from supplied or approved planning fields.
 5. The approved decisions are converted into a 90-day sequence and assignable tasks by phase and workstream, with dependencies and approval status retained.
 6. Execution updates and connected measurements are persisted against the client cycle. Reporting compares real baseline and current values and feeds the next plan.

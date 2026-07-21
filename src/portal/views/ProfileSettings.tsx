@@ -27,7 +27,7 @@ export function ProfileSettings({
           <label style={css("display:flex;flex-direction:column;gap:0.3rem;font-size:0.76rem;font-weight:500;color:var(--fg-muted)")}>
             Display name
             <input
-              defaultValue={state.role === "admin" ? "Trish Baltazar" : state.role === "dev" ? "Kier Mangibin" : "Client"}
+              defaultValue={state.role === "admin" ? "Trish Baltazar" : state.role === "dev" ? "Studio team" : "Client"}
               className="pt-input"
               style={css("border:1px solid var(--border);border-radius:var(--radius);padding:0.62rem 0.75rem;font-size:0.84rem;background:var(--surface-alt);color:var(--fg)")}
             />
@@ -35,7 +35,7 @@ export function ProfileSettings({
           <label style={css("display:flex;flex-direction:column;gap:0.3rem;font-size:0.76rem;font-weight:500;color:var(--fg-muted)")}>
             Contact email
             <input
-              defaultValue={state.role === "admin" ? "trish@baltazar.studio" : state.role === "dev" ? "noa@baltazar.studio" : "flora@floraandco.com"}
+              defaultValue={state.role === "admin" ? "trish@baltazar.studio" : state.role === "dev" ? "studio@baltazar.studio" : "flora@floraandco.com"}
               className="pt-input"
               style={css("border:1px solid var(--border);border-radius:var(--radius);padding:0.62rem 0.75rem;font-size:0.84rem;background:var(--surface-alt);color:var(--fg)")}
             />

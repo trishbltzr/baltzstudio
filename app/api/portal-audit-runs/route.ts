@@ -54,3 +54,33 @@ export async function PUT(request: Request) {
 
   return NextResponse.json({ ok: true, updatedAt });
 }
+
+export async function DELETE(request: Request) {
+  const body = await request.json().catch(() => null);
+  const requestedRunIds: unknown[] = Array.isArray(body?.runIds) ? body.runIds : [];
+  const runIds: string[] = requestedRunIds.length
+    ? Array.from(new Set(requestedRunIds.filter((value): value is string => typeof value === "string" && !!value.trim()).map(value => value.trim()))).slice(0, 50)
+    : [];
+
+  if (!runIds.length || runIds.includes(PORTAL_WORKSPACE_FALLBACK_RUN_ID)) {
+    return NextResponse.json({ error: "Expected one or more valid audit run IDs." }, { status: 400 });
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: auth, error: authError } = await supabase.auth.getUser();
+  if (authError || !auth.user) {
+    return NextResponse.json({ error: "Sign in before deleting an audit." }, { status: 401 });
+  }
+  const { data, error } = await supabase
+    .from("portal_audit_runs")
+    .delete()
+    .in("run_id", runIds)
+    .select("run_id");
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const deletedIds = (data ?? []).map(row => row.run_id);
+  return NextResponse.json({ ok: true, deletedIds });
+}

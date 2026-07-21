@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Cross-origin requests are not allowed." }, { status: 403 });
   }
   const apiKey = socialMediaApiKey();
-  if (!apiKey) return NextResponse.json({ error: "Social media AI is not configured." }, { status: 503 });
+  if (!apiKey) return NextResponse.json({ error: "Social media generation is not configured." }, { status: 503 });
 
   const body = await request.json().catch(() => null);
   const action = body?.action === "plan" ? "plan" : body?.action === "analyze" ? "analyze" : null;

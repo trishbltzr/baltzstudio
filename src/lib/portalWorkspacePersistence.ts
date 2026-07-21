@@ -1,5 +1,6 @@
-import { STUDIO_CLIENTS } from "@/portal/clients";
+import { STUDIO_CLIENTS, UNASSIGNED_WORK_CLIENT } from "@/portal/clients";
 import type { ClientProject } from "@/portal/types";
+import type { GuidedAuditSession } from "./portalAuditPersistence";
 
 export const PORTAL_WORKSPACE_ROW_ID = "client-slate-v2";
 export const PORTAL_WORKSPACE_FALLBACK_RUN_ID = "__portal_workspace_client_slate_v2__";
@@ -88,6 +89,31 @@ export type PortalClientNoteRecord = {
   createdAt: string;
 };
 
+export type PortalBrandSystemRecord = {
+  colors: [string, string][];
+  fonts: [string, string, string][];
+  tone: { traits: string[]; scales: [string, string, number][]; avoid?: string };
+  logoUrl?: string;
+  sourceUrl?: string;
+  updatedAt: string;
+};
+
+export type PortalBrandAuditRecord = {
+  status: "intake" | "report_ready" | "plan_ready" | "complete";
+  progress: number;
+  session: GuidedAuditSession;
+  updatedAt: string;
+};
+
+export type PortalEngineWorkKey = "websiteBuilder" | "seoAudit" | "socialBuilder";
+
+export type PortalEngineWorkRecord = {
+  status: "intake" | "in_progress" | "ready" | "complete";
+  progress: number;
+  updatedAt: string;
+  payload?: unknown;
+};
+
 export type PortalClientWorkspace = {
   approvals: PortalApprovalRecord[];
   proposal: PortalProposalRecord | null;
@@ -95,6 +121,9 @@ export type PortalClientWorkspace = {
   files: PortalWorkspaceFile[];
   funnelPlans: PortalFunnelPlanRecord[];
   notes: PortalClientNoteRecord[];
+  brandSystem: PortalBrandSystemRecord | null;
+  brandAudit: PortalBrandAuditRecord | null;
+  engineWork: Partial<Record<PortalEngineWorkKey, PortalEngineWorkRecord>>;
 };
 
 export type PersistedPortalWorkspaceState = {
@@ -129,6 +158,7 @@ function asRecord<T>(value: unknown) {
 }
 
 export function portalClientId(name: string) {
+  if (name === UNASSIGNED_WORK_CLIENT.name) return UNASSIGNED_WORK_CLIENT.id;
   const studioClient = STUDIO_CLIENTS.find(client => client.name === name);
   return studioClient?.id || slugify(name) || "client";
 }
@@ -141,6 +171,9 @@ export function emptyPortalClientWorkspace(clientId: string): PortalClientWorksp
     files: [],
     funnelPlans: [],
     notes: [],
+    brandSystem: null,
+    brandAudit: null,
+    engineWork: {},
   };
 }
 
@@ -161,6 +194,9 @@ export function mergePortalClientWorkspace(clientId: string, workspace?: Partial
     files: asArray<PortalWorkspaceFile>(workspace?.files),
     funnelPlans: asArray<PortalFunnelPlanRecord>(workspace?.funnelPlans),
     notes: asArray<PortalClientNoteRecord>(workspace?.notes),
+    brandSystem: isRecord(workspace?.brandSystem) ? workspace?.brandSystem as PortalBrandSystemRecord : null,
+    brandAudit: isRecord(workspace?.brandAudit) ? workspace?.brandAudit as PortalBrandAuditRecord : null,
+    engineWork: isRecord(workspace?.engineWork) ? workspace.engineWork as Partial<Record<PortalEngineWorkKey, PortalEngineWorkRecord>> : {},
   };
 }
 

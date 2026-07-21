@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { Icon } from "../icons";
-import { css, initials, svcBadge } from "../helpers";
+import { css, displayPortalIdentity, initials, svcBadge } from "../helpers";
 import { formatDashboardDate } from "@/lib/dateDisplay";
-import { ALL_PROJECTS, BRAND_SYSTEMS, DETAIL_BIRTHDAYS, DETAIL_CITIES, DETAIL_NOTES, DETAIL_SINCE, STUDIO_SYSTEM, SVC_META, emailSlug } from "../data";
+import { ALL_PROJECTS, BRAND_SYSTEMS, DETAIL_BIRTHDAYS, DETAIL_CITIES, DETAIL_NOTES, DETAIL_SINCE, SVC_META, emailSlug } from "../data";
 import { STUDIO_CLIENTS } from "../clients";
 import type { PortalActions, PortalState } from "../store";
 import type { ClientProject } from "../types";
@@ -13,12 +13,12 @@ interface AccessUser { name: string; email: string; access: string; studio: bool
 
 function accessUsers(clientName: string, i: number, dev: string): AccessUser[] {
   const slug = emailSlug(clientName);
-  const devFirst = (dev || "").split(" ")[0].toLowerCase();
+  const visibleStudioMember = displayPortalIdentity(dev);
   const users: AccessUser[] = [
     { name: clientName.replace(/\s*(&|and)\s*Co\.?$/i, "") + " (owner)", email: "hello@" + slug + ".com", access: "Client", studio: false },
   ];
   if (i % 2 === 0) users.push({ name: "Client collaborator", email: "team@" + slug + ".com", access: "Client", studio: false });
-  users.push({ name: dev, email: devFirst + "@baltazar.studio", access: "Development", studio: true });
+  users.push({ name: visibleStudioMember, email: "studio@baltazar.studio", access: "Studio", studio: true });
   return users;
 }
 
@@ -52,7 +52,7 @@ export function ClientDetail({ state, actions }: { state: PortalState; actions: 
   const slug = emailSlug(name);
   const city = DETAIL_CITIES[i % DETAIL_CITIES.length];
   const fields = [
-    ["Client owner", pr.dev], ["Service · stage", pr.stage], ["Client since", DETAIL_SINCE[i % DETAIL_SINCE.length]],
+    ["Client owner", displayPortalIdentity(pr.dev)], ["Service · stage", pr.stage], ["Client since", DETAIL_SINCE[i % DETAIL_SINCE.length]],
     ["Birthday", DETAIL_BIRTHDAYS[i % DETAIL_BIRTHDAYS.length]], ["Email", "hello@" + slug + ".com"], ["Phone", "+44 20 7" + (100 + (i * 37) % 900) + " " + (2040 + (i * 53) % 9000)],
     ["Location", city[0]], ["Timezone", city[1]],
   ].filter(([, value]) => Boolean(value));
@@ -73,9 +73,17 @@ export function ClientDetail({ state, actions }: { state: PortalState; actions: 
     ...FILES,
   ];
 
-  const sys = BRAND_SYSTEMS[name] || STUDIO_SYSTEM;
-  const secondary = sys.colors[1][1];
-  const roleNames = ["Primary", "Secondary", "Neutral", "Utility"];
+  const sys = workspace.brandSystem || BRAND_SYSTEMS[name] || { colors: [], fonts: [], tone: { traits: [], scales: [], avoid: "" } };
+  const secondary = sys.colors[1]?.[1] || sys.colors[0]?.[1] || "var(--accent)";
+  const auditData = workspace.brandAudit?.session.data;
+  const auditToneTraits = Array.isArray(auditData?.voice)
+    ? auditData.voice.map(value => String(value).trim()).filter(Boolean)
+    : typeof auditData?.voice === "string"
+      ? auditData.voice.split(/\r?\n|,|;/).map(value => value.trim()).filter(Boolean)
+      : [];
+  const toneTraits = sys.tone.traits.length ? sys.tone.traits : auditToneTraits;
+  const auditToneAvoid = typeof auditData?.avoid === "string" ? auditData.avoid.trim() : "";
+  const toneAvoid = sys.tone.avoid?.trim() || auditToneAvoid;
 
   return (
     <div style={css("display:flex;flex-direction:column;gap:var(--space-4)")}>
@@ -103,6 +111,11 @@ export function ClientDetail({ state, actions }: { state: PortalState; actions: 
             <div style={css("font-size:0.62rem;letter-spacing:0;color:var(--fg-faint);font-weight:500;margin-bottom:0.28rem")}>Notes</div>
             <div style={css("font-size:0.85rem;color:var(--fg);line-height:1.5")}>{notes}</div>
           </div>}
+          {(toneTraits.length > 0 || toneAvoid) && <div style={css("grid-column:1/-1;background:var(--surface-alt);border:1px solid var(--border-soft);border-radius:var(--radius);padding:0.75rem 0.85rem")}>
+            <div style={css("font-size:0.62rem;letter-spacing:0;color:var(--fg-faint);font-weight:500;margin-bottom:0.45rem")}>Voice &amp; Tone</div>
+            {toneTraits.length > 0 && <div style={css("display:flex;flex-wrap:wrap;gap:0.38rem")}>{toneTraits.map(trait => <span key={trait} style={css("font-size:0.7rem;font-weight:500;padding:0.28rem 0.65rem;border-radius:999px;border:1px solid color-mix(in srgb," + secondary + " 38%,var(--border-soft));background:color-mix(in srgb," + secondary + " 10%,var(--surface));color:var(--fg)")}>{trait}</span>)}</div>}
+            {toneAvoid && <div style={css("margin-top:" + (toneTraits.length ? "0.55rem" : "0") + ";font-size:0.75rem;line-height:1.5;color:var(--fg-muted)")}><strong style={css("font-weight:600;color:var(--danger)")}>Avoid:</strong> {toneAvoid}</div>}
+          </div>}
         </div>
       </div>
 
@@ -128,12 +141,13 @@ export function ClientDetail({ state, actions }: { state: PortalState; actions: 
           <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface-alt);padding:var(--space-4)")}>
             <div style={css("font-size:0.62rem;letter-spacing:0;color:var(--fg-faint);font-weight:500;margin-bottom:0.85rem")}>Colours</div>
             <div style={css("display:flex;flex-direction:column;gap:var(--space-2)")}>
-              {sys.colors.map(([cn, hex], ci) => (
+              {sys.colors.map(([cn, hex]) => (
                 <div key={hex} style={css("display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.65rem;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface);min-width:0")}>
                   <span style={css("width:2.2rem;height:2.2rem;border-radius:0.55rem;flex-shrink:0;background:" + hex + ";border:1px solid oklch(0 0 0 / 0.1)")} />
-                  <div style={{ minWidth: 0 }}><div style={css("font-weight:500;font-size:0.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{roleNames[ci] || cn}</div><div style={css("font-size:0.68rem;color:var(--fg-faint);font-family:'Courier New',monospace")}>{hex.toUpperCase()}</div></div>
+                  <div style={{ minWidth: 0 }}><div style={css("font-weight:500;font-size:0.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{cn}</div><div style={css("font-size:0.68rem;color:var(--fg-faint);font-family:'Courier New',monospace")}>{hex.toUpperCase()}</div></div>
                 </div>
               ))}
+              {!sys.colors.length && <div style={css("font-size:0.74rem;line-height:1.5;color:var(--fg-muted)")}>Run a Brand Audit to capture verified colours from this client’s website.</div>}
             </div>
           </div>
           <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface-alt);padding:var(--space-4)")}>
@@ -145,13 +159,16 @@ export function ClientDetail({ state, actions }: { state: PortalState; actions: 
                   <div style={{ minWidth: 0 }}><div style={{ fontWeight: 500, fontSize: "0.92rem", fontFamily: ff }}>{fn}</div><div style={css("font-size:0.74rem;color:var(--fg-muted)")}>{frole}</div></div>
                 </div>
               ))}
+              {!sys.fonts.length && <div style={css("font-size:0.74rem;line-height:1.5;color:var(--fg-muted)")}>No verified typography has been saved yet.</div>}
             </div>
           </div>
           <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface-alt);padding:var(--space-4)")}>
             <div style={css("font-size:0.62rem;letter-spacing:0;color:var(--fg-faint);font-weight:500;margin-bottom:0.85rem")}>Brand Tone</div>
             <div style={css("display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1.15rem")}>
-              {sys.tone.traits.map(t => <span key={t} style={{ fontSize: "0.74rem", fontWeight: 500, padding: "0.3rem 0.75rem", borderRadius: "999px", background: secondary + "22", color: "var(--fg)", border: "1px solid " + secondary + "66" }}>{t}</span>)}
+              {toneTraits.map(t => <span key={t} style={{ fontSize: "0.74rem", fontWeight: 500, padding: "0.3rem 0.75rem", borderRadius: "999px", background: secondary + "22", color: "var(--fg)", border: "1px solid " + secondary + "66" }}>{t}</span>)}
+              {!toneTraits.length && <span style={css("font-size:0.74rem;line-height:1.5;color:var(--fg-muted)")}>No approved voice traits have been saved yet.</span>}
             </div>
+            {toneAvoid && <div style={css("margin:-0.35rem 0 0.85rem;font-size:0.72rem;line-height:1.5;color:var(--fg-muted)")}><strong style={css("font-weight:600;color:var(--danger)")}>Avoid:</strong> {toneAvoid}</div>}
             <div style={css("display:flex;flex-direction:column;gap:0.8rem")}>
               {sys.tone.scales.map(([l, r, pct]) => (
                 <div key={l}>

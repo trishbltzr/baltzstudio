@@ -13,6 +13,7 @@ const P: Record<string, Prim[]> = {
   check: [["rect", { x: 3, y: 3, width: 18, height: 18, rx: 4 }], ["path", { d: "M8 12l2.5 2.5L16 9" }]],
   inbox: [["path", { d: "M3 12l3-7h12l3 7v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" }], ["path", { d: "M3 12h5l1.5 3h5L16 12h5" }]],
   file: [["path", { d: "M6 3h8l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" }], ["path", { d: "M14 3v5h5" }]],
+  print: [["path", { d: "M7 8V3h10v5" }], ["rect", { x: 4, y: 8, width: 16, height: 9, rx: 2 }], ["path", { d: "M7 14h10v7H7zM8 11h.01" }]],
   users: [["circle", { cx: 9, cy: 8, r: 3 }], ["path", { d: "M4 20c0-3 2.2-5 5-5s5 2 5 5" }], ["path", { d: "M16 5.5a3 3 0 0 1 0 6" }], ["path", { d: "M18.5 20c0-2-1-3.6-2.6-4.4" }]],
   card: [["rect", { x: 3, y: 5, width: 18, height: 14, rx: 2 }], ["path", { d: "M3 10h18" }]],
   settings: [["circle", { cx: 12, cy: 12, r: 3 }], ["path", { d: "M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2" }]],

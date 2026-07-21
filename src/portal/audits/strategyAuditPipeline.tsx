@@ -1,7 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { isAiStageResult, type AiStageResult } from "@/lib/aiStageGeneration";
+import { useEffect, useState, type ReactNode } from "react";
+import { isAiStageResult, type AiStageResult, type BrandVisualEvidence } from "@/lib/aiStageGeneration";
 import { css } from "../helpers";
 import { Icon } from "../icons";
 import type { Ans, Pipeline, ProposalRenderCtx, StageRenderCtx } from "../discovery/DiscoveryBuilder";
@@ -9,7 +9,7 @@ import type { AuditType } from "../types";
 
 type StrategyAuditType = Exclude<AuditType, "website">;
 
-// ── brand kit synthesis (deterministic, reads like it was scraped from the brand) ──
+// ── brand kit synthesis ────────────────────────────────────────────────────────
 function asList(v: unknown): string[] {
   if (Array.isArray(v)) return v.map(x => String(x).trim()).filter(Boolean);
   if (typeof v === "string") return v.split(/\r?\n|,|;/).map(s => s.trim()).filter(Boolean);
@@ -19,46 +19,28 @@ function asText(v: unknown): string {
   if (Array.isArray(v)) return v.join(", ");
   return typeof v === "string" ? v.trim() : "";
 }
-function hashStr(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return h;
-}
-function hslToHex(h: number, s: number, l: number): string {
-  s /= 100; l /= 100;
-  const k = (n: number) => (n + h / 30) % 12;
-  const a = s * Math.min(l, 1 - l);
-  const f = (n: number) => {
-    const c = l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
-    return Math.round(255 * c).toString(16).padStart(2, "0");
-  };
-  return `#${f(0)}${f(8)}${f(4)}`;
-}
 function readable(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
   return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? "#2c211c" : "#ffffff";
 }
-interface Swatch { role: string; hex: string; }
-function buildPalette(seed: string): Swatch[] {
-  const base = hashStr(seed || "brand") % 360;
-  return [
-    { role: "Primary", hex: hslToHex(base, 58, 46) },
-    { role: "Ink", hex: hslToHex(base, 26, 15) },
-    { role: "Secondary", hex: hslToHex((base + 28) % 360, 40, 55) },
-    { role: "Accent", hex: hslToHex((base + 188) % 360, 62, 52) },
-    { role: "Paper", hex: hslToHex(base, 22, 96) },
-  ];
+function conciseSummary(value: string) {
+  return compactText(value, 28, 190);
 }
-const DISPLAY_FACES = ["Fraunces", "Canela", "Playfair Display", "GT Sectra", "Ivar Display", "Reckless"];
-const BODY_FACES = ["Inter", "Söhne", "Suisse Int’l", "General Sans", "Neue Montreal", "Graphik"];
-function typePairing(seed: string): { display: string; body: string } {
-  const h = hashStr(seed || "brand");
-  return { display: DISPLAY_FACES[h % DISPLAY_FACES.length], body: BODY_FACES[(h >> 3) % BODY_FACES.length] };
+function compactText(value: string, maxWords = 24, maxCharacters = 160) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  if (normalized.length <= maxCharacters && normalized.split(" ").length <= maxWords) return normalized;
+  const words = normalized.split(" ");
+  const kept: string[] = [];
+  for (const word of words) {
+    const next = [...kept, word].join(" ");
+    if (kept.length >= maxWords || next.length > maxCharacters) break;
+    kept.push(word);
+  }
+  return `${kept.join(" ").replace(/[,:;.!?–—-]+$/, "")}…`;
 }
-function initials(name: string): string {
-  const parts = name.split(/\s+/).filter(Boolean);
-  if (!parts.length) return "B";
-  return (parts[0][0] + (parts[1]?.[0] || "")).toUpperCase();
+function cleanPriorityTitle(value: string) {
+  return value.replace(/^priority\s*\d*\s*[—–:-]\s*/i, "").trim() || value;
 }
 
 function KitCard({ icon, label, accent, children }: { icon: string; label: string; accent: string; children: ReactNode }): ReactNode {
@@ -77,15 +59,28 @@ function Chips({ items, accent, muted }: { items: string[]; accent: string; mute
 
 function BrandKitReport({ docs, result, accent, mobile }: { docs: Ans; result: AiStageResult; accent: string; mobile: boolean }): ReactNode {
   const brand = asText(docs.name) || asText(docs.nickname) || "This brand";
-  const palette = buildPalette(brand + asText(docs.url));
-  const faces = typePairing(brand + asList(docs.visualFeel).join(""));
+  const websiteUrl = asText(docs.url);
+  const emptyVisual: BrandVisualEvidence = { status: "unverified", sourceUrl: null, colors: [], displayFont: null, bodyFont: null, logoUrl: null };
+  const [visual, setVisual] = useState<BrandVisualEvidence>(result.brandVisuals || emptyVisual);
+  useEffect(() => {
+    if (result.brandVisuals?.status === "verified") {
+      setVisual(result.brandVisuals);
+      return;
+    }
+    setVisual(result.brandVisuals || emptyVisual);
+    if (!websiteUrl) return;
+    const controller = new AbortController();
+    fetch(`/api/brand/visuals?url=${encodeURIComponent(websiteUrl)}`, { signal: controller.signal })
+      .then(response => response.ok ? response.json() : null)
+      .then(payload => { if (payload?.result?.status) setVisual(payload.result); })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [result.brandVisuals, websiteUrl]);
+  const palette = visual.colors;
   const voice = asList(docs.voice);
   const feel = asList(docs.visualFeel);
-  const assets = asList(docs.assets);
-  const kitNeeds = asList(docs.kitNeeds);
   const touchpoints = asList(docs.touchpoints);
   const phrases = asList(docs.phrases);
-  const socials = asList(docs.socialLinks);
   const twoCol = css("display:grid;grid-template-columns:" + (mobile ? "1fr" : "1fr 1fr") + ";gap:0.9rem");
   const facts: [string, string][] = [
     ["Purpose", asText(docs.purpose)],
@@ -93,64 +88,52 @@ function BrandKitReport({ docs, result, accent, mobile }: { docs: Ans; result: A
     ["Differentiator", asText(docs.difference)],
     ["Promise", asText(docs.promise)],
   ];
-  const sources: { icon: string; label: string; value: string }[] = [
-    { icon: "link", label: "Website", value: asText(docs.url) || "—" },
-    { icon: "grid", label: "Social profiles", value: socials.length ? `${socials.length} scanned` : "None supplied" },
-    { icon: "file", label: "Existing guidelines", value: asText(docs.guidelines) || "None" },
-  ];
-  const anchors: { icon: string; name: string; inherits: string }[] = [
-    { icon: "layers", name: "Funnels & panel", inherits: "Palette · type scale · voice · messaging framework" },
-    { icon: "grid", name: "Website builder", inherits: "Full kit · logo rules · imagery direction · UI colours" },
-    { icon: "send", name: "Social media", inherits: "Palette · templates · voice · imagery direction" },
-  ];
-
   return <div style={css("display:flex;flex-direction:column;gap:1rem")}>
     {/* Audit header */}
     <section style={css("border:1px solid color-mix(in srgb," + accent + " 22%,var(--border-soft) 78%);border-radius:1rem;background:color-mix(in srgb," + accent + " 5%,var(--surface) 95%);padding:1.15rem 1.2rem")}>
+      {visual.logoUrl && <div style={css("display:flex;align-items:center;min-height:2.75rem;margin-bottom:0.8rem")}><img src={visual.logoUrl} alt={`${brand} logo`} style={css("display:block;max-width:min(10rem,55%);max-height:2.75rem;width:auto;height:auto;object-fit:contain;object-position:left center")} /></div>}
       <div style={css("font-size:0.68rem;text-transform:uppercase;letter-spacing:.04em;color:" + accent)}>Brand audit · Consolidated</div>
       <h3 style={css("margin:0.25rem 0 0;font-size:1.15rem;font-weight:500")}>Brand kit & guidelines</h3>
-      <p style={css("margin:0.4rem 0 0;font-size:0.8rem;line-height:1.55;color:var(--fg-muted)")}>{result.summary}</p>
-      <div style={css("display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.85rem")}>{sources.map(s => <span key={s.label} style={css("display:inline-flex;align-items:center;gap:0.4rem;font-size:0.72rem;padding:0.32rem 0.6rem;border-radius:999px;border:1px solid var(--border-soft);background:var(--surface)")}><span style={css("color:" + accent + ";display:inline-flex")}><Icon name={s.icon} size={13} /></span><span style={css("color:var(--fg-muted)")}>{s.label}:</span><span style={css("font-weight:500")}>{s.value}</span></span>)}</div>
+      <p style={css("margin:0.4rem 0 0;font-size:0.8rem;line-height:1.55;color:var(--fg-muted);max-width:48rem")}>{conciseSummary(result.summary)}</p>
     </section>
 
     {/* Colour palette */}
     <KitCard icon="palette" label="Colour palette" accent={accent}>
-      <div style={css("display:grid;grid-template-columns:repeat(" + (mobile ? "2" : "5") + ",1fr);gap:0.5rem")}>{palette.map(sw => <div key={sw.role} style={css("border-radius:0.7rem;overflow:hidden;border:1px solid var(--border-soft)")}>
-        <div style={css("height:3.4rem;background:" + sw.hex + ";display:flex;align-items:flex-end;padding:0.4rem;color:" + readable(sw.hex))}><span style={css("font-size:0.66rem;font-weight:600;letter-spacing:.02em")}>{sw.role}</span></div>
-        <div style={css("padding:0.35rem 0.45rem;background:var(--surface);font-size:0.68rem;font-weight:500;color:var(--fg-muted);text-transform:uppercase;letter-spacing:.02em")}>{sw.hex}</div>
-      </div>)}</div>
+      {palette.length ? <><div style={css("display:grid;grid-template-columns:repeat(" + (mobile ? "3" : Math.min(5, palette.length)) + ",minmax(0,1fr));gap:.85rem .65rem")}>{palette.map(sw => <div key={sw.role} title={sw.evidence} style={css("min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center")}>
+        <div style={css("width:min(4.25rem,100%);aspect-ratio:1;border-radius:50%;background:" + sw.hex + ";border:1px solid color-mix(in srgb," + readable(sw.hex) + " 18%,var(--border-soft));box-shadow:0 4px 12px color-mix(in srgb,var(--fg) 8%,transparent)")} />
+        <span style={css("margin-top:.45rem;font-size:.68rem;font-weight:500;color:var(--fg)")}>{sw.role}</span>
+        <span className="pt-badge" style={css("margin-top:.12rem;font-size:.63rem;color:var(--fg-muted);text-transform:uppercase;letter-spacing:.02em")}>{sw.hex}</span>
+      </div>)}</div><div style={css("font-size:.68rem;color:var(--fg-faint)")}>Observed from computed live-site styles · {visual.sourceUrl || asText(docs.url)}</div></> : <div style={css("border:1px dashed var(--border);border-radius:.75rem;padding:.8rem;font-size:.74rem;color:var(--fg-muted)")}>Unverified — regenerate this report with a public website or supplied brand guidelines. No colours were invented.</div>}
     </KitCard>
 
     <div style={twoCol}>
       {/* Typography */}
       <KitCard icon="type" label="Typography" accent={accent}>
-        <div style={css("display:flex;flex-direction:column;gap:0.6rem")}>
+        {visual.displayFont || visual.bodyFont ? <div style={css("display:flex;flex-direction:column;gap:0.6rem")}>
           <div style={css("padding:0.7rem 0.85rem;border:1px solid var(--border-soft);border-radius:0.7rem;background:var(--surface-alt)")}>
-            <div style={css("font-family:'" + faces.display + "',Georgia,'Times New Roman',serif;font-size:2rem;line-height:1;color:var(--fg)")}>Aa</div>
-            <div style={css("margin-top:0.35rem;font-size:0.73rem")}><strong style={css("font-weight:600")}>{faces.display}</strong> <span style={css("color:var(--fg-faint)")}>· Display & headlines</span></div>
+            <div style={css("font-family:'" + (visual.displayFont || visual.bodyFont) + "',sans-serif;font-size:2rem;line-height:1;color:var(--fg)")}>Aa</div>
+            <div style={css("margin-top:0.35rem;font-size:0.73rem")}><strong style={css("font-weight:500")}>{visual.displayFont || visual.bodyFont}</strong> <span style={css("color:var(--fg-faint)")}>· Display & headlines</span></div>
           </div>
           <div style={css("padding:0.7rem 0.85rem;border:1px solid var(--border-soft);border-radius:0.7rem;background:var(--surface-alt)")}>
-            <div style={css("font-size:0.95rem;line-height:1.4;color:var(--fg)")}>The quick brown fox jumps.</div>
-            <div style={css("margin-top:0.35rem;font-size:0.73rem")}><strong style={css("font-weight:600")}>{faces.body}</strong> <span style={css("color:var(--fg-faint)")}>· Body & UI</span></div>
+            <div style={css("font-family:'" + (visual.bodyFont || visual.displayFont) + "',sans-serif;font-size:0.95rem;line-height:1.4;color:var(--fg)")}>The quick brown fox jumps.</div>
+            <div style={css("margin-top:0.35rem;font-size:0.73rem")}><strong style={css("font-weight:500")}>{visual.bodyFont || visual.displayFont}</strong> <span style={css("color:var(--fg-faint)")}>· Body & UI</span></div>
           </div>
-        </div>
+        </div> : <div style={css("border:1px dashed var(--border);border-radius:.75rem;padding:.8rem;font-size:.74rem;color:var(--fg-muted)")}>Unverified — no live or supplied typography evidence was available. No typeface was seeded.</div>}
       </KitCard>
 
       {/* Logo & lockup */}
       <KitCard icon="grid" label="Logo & lockup" accent={accent}>
-        <div style={css("display:grid;grid-template-columns:1fr 1fr;gap:0.5rem")}>
-          <div style={css("aspect-ratio:1.6;border-radius:0.7rem;display:grid;place-items:center;background:" + palette[0].hex + ";color:" + readable(palette[0].hex))}><span style={css("font-family:'" + faces.display + "',Georgia,serif;font-size:1.6rem;font-weight:600")}>{initials(brand)}</span></div>
-          <div style={css("aspect-ratio:1.6;border-radius:0.7rem;display:grid;place-items:center;background:" + palette[4].hex + ";border:1px solid var(--border-soft);color:" + palette[1].hex)}><span style={css("font-family:'" + faces.display + "',Georgia,serif;font-size:1.6rem;font-weight:600")}>{initials(brand)}</span></div>
-        </div>
-        <div style={css("font-size:0.72rem;line-height:1.5;color:var(--fg-muted)")}>Clear space = the height of the monogram. Minimum size 24px. Use the paper lockup on photography.</div>
+        {visual.logoUrl ? <div style={css("min-height:6.4rem;border:1px solid var(--border-soft);border-radius:.75rem;background:var(--surface-alt);display:grid;place-items:center;padding:1rem")}><img src={visual.logoUrl} alt={`${brand} logo observed on the website`} style={css("display:block;max-width:min(15rem,80%);max-height:4rem;width:auto;height:auto")} /></div> : <div style={css("border:1px dashed var(--border);border-radius:.75rem;padding:.8rem;font-size:.74rem;color:var(--fg-muted)")}>Unverified — no usable logo file was observed or supplied. No substitute monogram was generated.</div>}
+        <div style={css("font-size:0.72rem;line-height:1.5;color:var(--fg-muted)")}>{visual.logoUrl ? `Observed on ${visual.sourceUrl || asText(docs.url)}. Clear-space and minimum-size rules still require supplied guidelines.` : "Upload the approved logo suite to document lockups, clear space, and minimum-size rules."}</div>
       </KitCard>
     </div>
 
     {/* Positioning & messaging */}
     <KitCard icon="target" label="Positioning & messaging" accent={accent}>
-      <div style={css("display:grid;grid-template-columns:" + (mobile ? "1fr" : "1fr 1fr") + ";gap:0.6rem")}>{facts.map(([k, v]) => <div key={k} style={css("padding:0.6rem 0.75rem;border:1px solid var(--border-soft);border-radius:0.7rem;background:var(--surface-alt)")}>
-        <div style={css("font-size:0.66rem;text-transform:uppercase;letter-spacing:.04em;color:" + accent + ";margin-bottom:0.2rem")}>{k}</div>
-        <div style={css("font-size:0.78rem;line-height:1.5;color:var(--fg)")}>{v || <span style={css("color:var(--fg-faint)")}>To confirm with client</span>}</div>
+      <p style={css("margin:-0.15rem 0 0;font-size:0.76rem;line-height:1.5;color:var(--fg-muted)")}>The strategic foundation guiding how the brand is understood, chosen, and remembered.</p>
+      <div style={css("display:flex;flex-direction:column;gap:0.55rem")}>{facts.map(([k, v]) => <div key={k} style={css("display:grid;grid-template-columns:" + (mobile ? "1fr" : "8.5rem minmax(0,1fr)") + ";gap:" + (mobile ? "0.3rem" : "0.85rem") + ";align-items:start;padding:0.7rem 0.8rem;border:1px solid var(--border-soft);border-radius:0.7rem;background:var(--surface-alt)")}>
+        <div style={css("font-size:0.66rem;text-transform:uppercase;letter-spacing:.04em;color:" + accent)}>{k}</div>
+        <div><div style={css("margin-bottom:0.22rem;font-size:0.62rem;font-weight:500;text-transform:uppercase;letter-spacing:.04em;color:var(--fg-faint)")}>Summary</div><div style={css("font-size:0.78rem;line-height:1.5;color:var(--fg)")}>{v || <span style={css("color:var(--fg-faint)")}>To confirm with client</span>}</div></div>
       </div>)}</div>
       {phrases.length > 0 && <div>
         <div style={css("font-size:0.66rem;text-transform:uppercase;letter-spacing:.04em;color:var(--fg-muted);margin-bottom:0.35rem")}>Signature language</div>
@@ -171,29 +154,6 @@ function BrandKitReport({ docs, result, accent, mobile }: { docs: Ans; result: A
       </KitCard>
     </div>
 
-    {/* Asset inventory */}
-    <KitCard icon="layers" label="Asset inventory" accent={accent}>
-      <div style={css("display:grid;grid-template-columns:" + (mobile ? "1fr" : "1fr 1fr") + ";gap:0.8rem")}>
-        <div>
-          <div style={css("display:flex;align-items:center;gap:0.35rem;font-size:0.7rem;text-transform:uppercase;letter-spacing:.04em;color:var(--success);margin-bottom:0.4rem")}><Icon name="check" size={13} />In place</div>
-          {assets.length ? <div style={css("display:flex;flex-direction:column;gap:0.3rem")}>{assets.map(a => <div key={a} style={css("display:flex;align-items:center;gap:0.45rem;font-size:0.76rem")}><span style={css("color:var(--success)")}><Icon name="check" size={13} /></span>{a}</div>)}</div> : <span style={css("font-size:0.74rem;color:var(--fg-faint)")}>Nothing established yet</span>}
-        </div>
-        <div>
-          <div style={css("display:flex;align-items:center;gap:0.35rem;font-size:0.7rem;text-transform:uppercase;letter-spacing:.04em;color:" + accent + ";margin-bottom:0.4rem")}><Icon name="plus" size={13} />Kit delivers</div>
-          {kitNeeds.length ? <div style={css("display:flex;flex-direction:column;gap:0.3rem")}>{kitNeeds.map(a => <div key={a} style={css("display:flex;align-items:center;gap:0.45rem;font-size:0.76rem")}><span style={css("color:" + accent)}><Icon name="plus" size={13} /></span>{a}</div>)}</div> : <span style={css("font-size:0.74rem;color:var(--fg-faint)")}>Scope with client</span>}
-        </div>
-      </div>
-    </KitCard>
-
-    {/* Anchors the builders */}
-    <section style={css("border:1px solid color-mix(in srgb," + accent + " 24%,var(--border-soft));border-radius:1rem;background:color-mix(in srgb," + accent + " 6%,var(--surface));padding:1rem 1.1rem")}>
-      <div style={css("display:flex;align-items:center;gap:0.5rem;margin-bottom:0.15rem")}><span style={css("color:" + accent + ";display:inline-flex")}><Icon name="sparkle" size={15} /></span><span style={css("font-size:0.7rem;text-transform:uppercase;letter-spacing:.05em;color:" + accent)}>Anchors every build</span></div>
-      <p style={css("margin:0 0 0.8rem;font-size:0.78rem;line-height:1.5;color:var(--fg-muted)")}>Everything the studio builds pulls from this one source of truth — no re-deciding colours, type, or voice per project.</p>
-      <div style={css("display:grid;grid-template-columns:" + (mobile ? "1fr" : "repeat(3,1fr)") + ";gap:0.6rem")}>{anchors.map(a => <div key={a.name} style={css("padding:0.7rem 0.8rem;border:1px solid var(--border-soft);border-radius:0.75rem;background:var(--surface)")}>
-        <div style={css("display:flex;align-items:center;gap:0.45rem;font-size:0.82rem;font-weight:600")}><span style={css("color:" + accent + ";display:inline-flex")}><Icon name={a.icon} size={15} /></span>{a.name}</div>
-        <div style={css("margin-top:0.3rem;font-size:0.72rem;line-height:1.45;color:var(--fg-muted)")}>{a.inherits}</div>
-      </div>)}</div>
-    </section>
   </div>;
 }
 
@@ -201,7 +161,7 @@ const COPY = {
   brand: {
     railTitle: "Brand audit pipeline",
     reportTitle: "Brand kit & guidelines",
-    reportPrompt: "Generate the brand kit, consolidated guidelines, and evidence-based improvement insights. Label every material conclusion as Verified strength, Verified gap, Unverified, or Not applicable, and name the supporting submitted answer, supplied asset, website, or social touchpoint. Recommendations may come only from Verified gaps; Unverified items must request the missing evidence. Do not create a numeric brand score.",
+    reportPrompt: "Create a verified brand kit from the intake, client notes, and live website evidence.",
     reportCta: "Generate brand audit",
     begin: "Build brand kit →",
     complete: "I have everything I need to build the brand kit and guidelines.",
@@ -225,7 +185,59 @@ function preview(type: StrategyAuditType): ReactNode {
 
 function PdfBar({ onDownload }: { onDownload: () => void }): ReactNode {
   return <div style={css("display:flex;justify-content:flex-end")}>
-    <button type="button" onClick={onDownload} className="pt-softbtn" style={css("display:inline-flex;align-items:center;gap:0.4rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);padding:0.42rem 0.95rem;font-size:0.78rem;font-weight:500;cursor:pointer;font-family:inherit")}>⤢ Preview &amp; download PDF</button>
+    <button type="button" onClick={onDownload} className="pt-softbtn" style={css("min-height:2.5rem;display:inline-flex;align-items:center;justify-content:center;gap:0.48rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);padding:0 1.05rem;font-size:0.8rem;font-weight:500;cursor:pointer;font-family:inherit")}><Icon name="print" size={16} /> <span>Print / save PDF</span></button>
+  </div>;
+}
+
+function BrandActionPlan({ result, accent, mobile, onDownload }: { result: AiStageResult; accent: string; mobile: boolean; onDownload: () => void }): ReactNode {
+  const prioritySections = result.sections.filter(section => /priority/i.test(section.heading));
+  const roadmap = (prioritySections.length ? prioritySections : result.sections.filter(section => !/starting point|overview|summary/i.test(section.heading))).slice(0, 4);
+  const direction = result.sections.find(section => /starting point|direction|preserve|foundation|overview/i.test(section.heading)) || result.sections[0];
+  const actions = result.recommendations.slice(0, 3);
+  const metrics = [
+    { value: roadmap.length || result.sections.length, label: "Priority areas" },
+    { value: actions.length, label: "Next actions" },
+  ];
+
+  return <div style={css("display:flex;flex-direction:column;gap:1rem") }>
+    <section style={css("border:1px solid color-mix(in srgb," + accent + " 22%,var(--border-soft) 78%);border-radius:1rem;background:color-mix(in srgb," + accent + " 5%,var(--surface) 95%);padding:1.15rem 1.2rem") }>
+      <div style={css("font-size:0.68rem;text-transform:uppercase;letter-spacing:.04em;color:" + accent)}>Brand audit · Action plan</div>
+      <h3 style={css("margin:0.25rem 0 0;font-size:1.15rem;font-weight:500")}>Priority action plan</h3>
+      <p style={css("margin:0.4rem 0 0;font-size:0.8rem;line-height:1.55;color:var(--fg-muted);max-width:46rem")}>{compactText(result.summary, 30, 200)}</p>
+      <div style={css("display:flex;align-items:center;gap:0.85rem;flex-wrap:wrap;margin-top:0.9rem;padding:0.72rem 0.8rem;border:1px solid var(--border-soft);border-radius:0.9rem;background:var(--surface)") }>
+        <div style={css("display:flex;align-items:center;gap:" + (mobile ? "1rem" : "1.4rem") + ";flex:1 1 auto") }>
+          {metrics.map(item => <div key={item.label} style={css("display:flex;align-items:baseline;gap:0.38rem;min-width:0")}>
+            <strong style={css("font-size:1.18rem;line-height:1;font-weight:600;color:" + accent)}>{item.value}</strong>
+            <span style={css("font-size:0.7rem;line-height:1.3;color:var(--fg-muted)")}>{item.label}</span>
+          </div>)}
+        </div>
+        <span style={css("display:inline-flex;align-items:center;gap:0.38rem;min-height:1.9rem;padding:0 0.7rem;border-radius:999px;background:var(--success-soft);color:var(--success);font-size:0.68rem;font-weight:500;white-space:nowrap") }><Icon name="checkmark" size={12} />Evidence approved</span>
+      </div>
+    </section>
+
+    {direction && <section style={css("border:1px solid var(--border-soft);border-radius:1rem;background:var(--surface);padding:1rem 1.1rem") }>
+      <div style={css("display:flex;align-items:center;gap:0.55rem")}><span style={css("width:1.7rem;height:1.7rem;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb," + accent + " 12%,var(--surface-alt));color:" + accent)}><Icon name="target" size={14} /></span><div><div style={css("font-size:0.68rem;text-transform:uppercase;letter-spacing:.04em;color:" + accent)}>Direction to preserve</div><h4 style={css("margin:0.1rem 0 0;font-size:0.92rem;font-weight:500")}>{cleanPriorityTitle(direction.heading)}</h4></div></div>
+      <p style={css("margin:0.65rem 0 0;font-size:0.77rem;line-height:1.5;color:var(--fg-muted)")}>{compactText(direction.body, 24, 165)}</p>
+      {direction.bullets.length > 0 && <div style={css("display:flex;flex-wrap:wrap;gap:0.45rem;margin-top:0.7rem")}>{direction.bullets.slice(0, 3).map(bullet => <span key={bullet} style={css("padding:0.38rem 0.65rem;border-radius:999px;background:var(--surface-alt);border:1px solid var(--border-soft);font-size:0.7rem;color:var(--fg)")}>{compactText(bullet, 12, 90)}</span>)}</div>}
+    </section>}
+
+    {roadmap.length > 0 && <section style={css("border:1px solid var(--border-soft);border-radius:1rem;background:var(--surface);padding:1rem 1.1rem") }>
+      <div style={css("font-size:0.68rem;text-transform:uppercase;letter-spacing:.04em;color:" + accent)}>Priority roadmap</div>
+      <h4 style={css("margin:0.2rem 0 0;font-size:0.95rem;font-weight:500")}>What to focus on next</h4>
+      <div style={css("display:flex;flex-direction:column;gap:0.7rem;margin-top:0.8rem") }>{roadmap.map((section, index) => <article key={`${section.heading}-${index}`} style={css("position:relative;overflow:hidden;padding:0.9rem;border:1px solid var(--border-soft);border-radius:0.85rem;background:var(--surface-alt)")}>
+        <div style={css("position:absolute;inset:0 auto 0 0;width:3px;background:" + accent)} />
+        <div style={css("display:flex;align-items:flex-start;gap:0.65rem")}><span style={css("flex:0 0 auto;width:1.65rem;height:1.65rem;border-radius:50%;display:grid;place-items:center;background:" + accent + ";color:#fff;font-size:0.65rem;font-weight:600")}>{index + 1}</span><div style={css("min-width:0")}><h5 style={css("margin:0;font-size:0.82rem;font-weight:600;line-height:1.35")}>{cleanPriorityTitle(section.heading)}</h5><p style={css("margin:0.32rem 0 0;font-size:0.72rem;line-height:1.45;color:var(--fg-muted)")}>{compactText(section.body, 22, 145)}</p></div></div>
+        {section.bullets.length > 0 && <div style={css("display:flex;flex-direction:column;gap:0.3rem;margin:0.65rem 0 0 2.3rem")}>{section.bullets.slice(0, 2).map(bullet => <div key={bullet} style={css("display:grid;grid-template-columns:0.4rem minmax(0,1fr);gap:0.4rem;align-items:start;font-size:0.69rem;line-height:1.4;color:var(--fg)")}><span style={css("width:0.32rem;height:0.32rem;border-radius:50%;background:" + accent + ";margin-top:0.32rem")} /><span>{compactText(bullet, 14, 100)}</span></div>)}</div>}
+      </article>)}</div>
+    </section>}
+
+    {actions.length > 0 && <section style={css("border:1px solid var(--border-soft);border-radius:1rem;background:var(--surface);padding:1rem 1.1rem") }>
+      <div style={css("font-size:0.68rem;text-transform:uppercase;letter-spacing:.04em;color:" + accent)}>Next actions</div>
+      <h4 style={css("margin:0.2rem 0 0;font-size:0.95rem;font-weight:500")}>Ready to assign</h4>
+      <div style={css("display:flex;flex-direction:column;gap:0.5rem;margin-top:0.75rem")}>{actions.map((item, index) => <article key={`${item.title}-${index}`} style={css("display:grid;grid-template-columns:1.7rem minmax(0,1fr);gap:0.65rem;align-items:start;padding:0.72rem 0.8rem;border:1px solid var(--border-soft);border-radius:0.8rem;background:var(--surface-alt)")}><span style={css("width:1.55rem;height:1.55rem;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb," + accent + " 14%,var(--surface));color:" + accent)}><Icon name="arrowup" size={13} /></span><div><div style={css("font-size:0.78rem;font-weight:600")}>{compactText(item.title, 10, 74)}</div><div style={css("font-size:0.71rem;line-height:1.45;color:var(--fg-muted);margin-top:0.18rem")}>{compactText(item.action, 18, 125)}</div></div></article>)}</div>
+    </section>}
+
+    <PdfBar onDownload={onDownload} />
   </div>;
 }
 
@@ -233,10 +245,11 @@ function renderStage(type: StrategyAuditType, ctx: StageRenderCtx): ReactNode {
   const result = isAiStageResult(ctx.aiResult) ? ctx.aiResult : null;
   const title = ctx.stageKey === "plan" ? "Priority action plan" : COPY[type].reportTitle;
   if (!result) return <div style={css("padding:1rem;color:var(--fg-muted);font-size:0.82rem")}>Generate this stage to review the complete {type === "brand" ? "brand system" : "SEO findings"}.</div>;
-  if (type === "brand" && ctx.stageKey !== "plan") return <div style={css("display:flex;flex-direction:column;gap:1rem")}><PdfBar onDownload={ctx.onDownload} /><BrandKitReport docs={ctx.docs} result={result} accent={ctx.accent} mobile={ctx.mobile} /></div>;
+  if (type === "brand" && ctx.stageKey !== "plan") return <div style={css("display:flex;flex-direction:column;gap:1rem")}><BrandKitReport docs={ctx.docs} result={result} accent={ctx.accent} mobile={ctx.mobile} /><PdfBar onDownload={ctx.onDownload} /></div>;
+  if (type === "brand") return <BrandActionPlan result={result} accent={ctx.accent} mobile={ctx.mobile} onDownload={ctx.onDownload} />;
   return <div style={css("display:flex;flex-direction:column;gap:1rem") }>
     <PdfBar onDownload={ctx.onDownload} />
-    <section style={css("border:1px solid color-mix(in srgb," + ctx.accent + " 22%,var(--border-soft) 78%);border-radius:1rem;background:color-mix(in srgb," + ctx.accent + " 5%,var(--surface) 95%);padding:1.15rem 1.2rem") }><div style={css("font-size:0.68rem;text-transform:uppercase;letter-spacing:.04em;color:" + ctx.accent)}>{type === "brand" ? "Brand audit" : "SEO audit"}</div><h3 style={css("margin:0.25rem 0 0;font-size:1.15rem;font-weight:500")}>{title}</h3><p style={css("margin:0.4rem 0 0;font-size:0.8rem;line-height:1.55;color:var(--fg-muted)")}>{result.summary}</p></section>
+    <section style={css("border:1px solid color-mix(in srgb," + ctx.accent + " 22%,var(--border-soft) 78%);border-radius:1rem;background:color-mix(in srgb," + ctx.accent + " 5%,var(--surface) 95%);padding:1.15rem 1.2rem") }><div style={css("font-size:0.68rem;text-transform:uppercase;letter-spacing:.04em;color:" + ctx.accent)}>SEO audit</div><h3 style={css("margin:0.25rem 0 0;font-size:1.15rem;font-weight:500")}>{title}</h3><p style={css("margin:0.4rem 0 0;font-size:0.8rem;line-height:1.55;color:var(--fg-muted)")}>{result.summary}</p></section>
     {result.sections.map(section => <section key={section.heading} style={css("border:1px solid var(--border-soft);border-radius:1rem;background:var(--surface);padding:1rem 1.1rem") }><h4 style={css("margin:0;font-size:0.95rem;font-weight:500")}>{section.heading}</h4><p style={css("margin:0.38rem 0 0;font-size:0.78rem;line-height:1.55;color:var(--fg-muted)")}>{section.body}</p><ul style={css("margin:0.65rem 0 0;padding-left:1.1rem;display:flex;flex-direction:column;gap:0.35rem")}>{section.bullets.map(bullet => <li key={bullet} style={css("font-size:0.76rem;line-height:1.5;color:var(--fg)")}>{bullet}</li>)}</ul></section>)}
     {result.recommendations.length > 0 && <section style={css("border:1px solid var(--border-soft);border-radius:1rem;background:var(--surface);padding:1rem 1.1rem") }><h4 style={css("margin:0;font-size:0.95rem;font-weight:500")}>Improvement insights</h4><div style={css("display:flex;flex-direction:column;gap:0.6rem;margin-top:0.75rem")}>{result.recommendations.map((item, index) => <article key={item.title} style={css("display:grid;grid-template-columns:1.55rem minmax(0,1fr);gap:0.65rem;padding:0.7rem;border:1px solid var(--border-soft);border-radius:0.8rem;background:var(--surface-alt)")}><span style={css("width:1.45rem;height:1.45rem;border-radius:50%;display:grid;place-items:center;background:" + ctx.accent + ";color:#fff;font-size:0.65rem;font-weight:500")}>{index + 1}</span><div><div style={css("font-size:0.8rem;font-weight:500")}>{item.title}</div><div style={css("font-size:0.72rem;line-height:1.45;color:var(--fg-muted);margin-top:0.2rem")}>{item.rationale}</div><div style={css("font-size:0.72rem;line-height:1.45;margin-top:0.25rem")}><strong style={css("font-weight:500;color:" + ctx.accent)}>Action: </strong>{item.action}</div></div></article>)}</div></section>}
   </div>;

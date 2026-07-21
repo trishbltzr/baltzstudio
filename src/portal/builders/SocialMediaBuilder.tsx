@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { clientsVisibleToRole, type StudioClient } from "../clients";
-import { ClientPickerGrid } from "../components/ClientPickerGrid";
+import { GuidedIntakeSelector } from "../components/GuidedIntakeSelector";
+import { EngineIndexControls } from "../components/EngineIndexControls";
+import { isUnassignedEngineClient, saveEngineWork, startClientForEngine } from "../engineLifecycle";
 import { css } from "../helpers";
 import { Icon } from "../icons";
 import type { PortalActions, PortalState } from "../store";
@@ -232,7 +234,7 @@ function socialMonthStatus(project: SocialProject) {
   if (project.posts.length && approved === project.posts.length) return { label: "Ready", tone: "success" as const, stage: `${approved}/${project.posts.length} approved` };
   if (project.posts.length) return { label: "In progress", tone: "accent" as const, stage: `${approved}/${project.posts.length} approved` };
   if (project.analyzed || project.entered) return { label: "Brief started", tone: "warn" as const, stage: "Content brief" };
-  return { label: "Not started", tone: "muted" as const, stage: "Content brief" };
+  return { label: "Draft", tone: "muted" as const, stage: "Content brief" };
 }
 
 function channel(id: ChannelId) {
@@ -361,42 +363,91 @@ function SocialIntroScreen({ mobile, onStart }: { mobile: boolean; onStart: () =
 function StageShell({ stage, clientName, status, children }: { stage: Stage; clientName: string; status: string; children: ReactNode }) {
   const item = STAGES.find(candidate => candidate.id === stage) || STAGES[0];
   const complete = status === "Approved" || status === "Scheduled";
-  return <Panel style="overflow:hidden"><div style={css("padding:.9rem 1.15rem;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:.6rem") }><span style={css("width:1.9rem;height:1.9rem;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center") }><Icon name={item.icon} size={16}/></span><div style={css("flex:1;min-width:0") }><div style={css("font-size:.98rem;font-weight:500")}>{item.label}</div><div style={css("font-size:.72rem;color:var(--fg-muted)")}>{item.note} · {clientName}</div></div><span style={css("font-size:.68rem;font-weight:500;padding:.2rem .6rem;border-radius:999px;background:" + (complete ? "var(--success-soft)" : "var(--accent-soft)") + ";color:" + (complete ? "var(--success)" : "var(--accent)"))}>{status}</span></div><div style={css("padding:1.1rem")}>{children}</div></Panel>;
+  return <Panel style="overflow:hidden"><div style={css("padding:.9rem 1.15rem;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:.6rem") }><span style={css("width:1.9rem;height:1.9rem;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center") }><Icon name={item.icon} size={16}/></span><div style={css("flex:1;min-width:0") }><div style={css("font-size:.98rem;font-weight:500")}>{item.label}</div><div style={css("font-size:.72rem;color:var(--fg-muted)")}>{item.note} · {clientName}</div></div><span className="pt-badge" style={css("font-size:.68rem;font-weight:500;padding:.2rem .6rem;border-radius:999px;background:" + (complete ? "var(--success-soft)" : "var(--accent-soft)") + ";color:" + (complete ? "var(--success)" : "var(--accent)"))}>{status}</span></div><div style={css("padding:1.1rem")}>{children}</div></Panel>;
 }
 
 export function SocialMediaBuilder({ state, actions }: { state: PortalState; actions: PortalActions }) {
   const [activeMonth, setActiveMonth] = useState<{ client: StudioClient; monthId: string } | null>(null);
   const [savedMonths, setSavedMonths] = useState<Record<string, SocialMonthRecord[]>>({});
   const availableClients = useMemo(() => clientsVisibleToRole(state.role, state.clientName), [state.clientName, state.role]);
-  useEffect(() => { if (activeMonth && !availableClients.some(item => item.id === activeMonth.client.id)) setActiveMonth(null); }, [activeMonth, availableClients]);
+  const persistMonths = (clientId: string, months: SocialMonthRecord[]) => {
+    const sorted = sortSocialMonths(months);
+    writeSocialMonths(clientId, sorted);
+    const latest = sorted[0];
+    const stageIndex = latest ? STAGES.findIndex(stage => stage.id === latest.project.stage) : -1;
+    actions.update(current => ({
+      clientWorkspaces: saveEngineWork(current.clientWorkspaces, clientId, "socialBuilder", latest ? {
+        status: latest.project.sent ? "complete" : latest.project.posts.length ? "in_progress" : "intake",
+        progress: latest.project.sent ? 100 : Math.max(12, Math.round(((stageIndex + 1) / STAGES.length) * 90)),
+        updatedAt: latest.updatedAt,
+        payload: { months: sorted },
+      } : null),
+    }));
+  };
+  useEffect(() => { if (activeMonth && !isUnassignedEngineClient(activeMonth.client) && !availableClients.some(item => item.id === activeMonth.client.id)) setActiveMonth(null); }, [activeMonth, availableClients]);
   useEffect(() => {
     if (activeMonth) return;
-    setSavedMonths(Object.fromEntries(availableClients.map(item => [item.id, readSocialMonths(item.id)])));
-  }, [activeMonth, availableClients]);
+    setSavedMonths(Object.fromEntries(availableClients.map(item => {
+      const payload = state.clientWorkspaces[item.id]?.engineWork.socialBuilder?.payload as { months?: SocialMonthRecord[] } | undefined;
+      const persistedMonths = (payload?.months || []).filter(month => !isLegacySeededSocialProject(month.project));
+      return [item.id, persistedMonths.length ? sortSocialMonths(persistedMonths) : readSocialMonths(item.id)];
+    })));
+  }, [activeMonth, availableClients, state.clientWorkspaces]);
+  useEffect(() => {
+    if (state.role !== "client" || activeMonth) return;
+    const client = availableClients[0];
+    const latest = client ? sortSocialMonths(readSocialMonths(client.id))[0] : undefined;
+    if (client && latest) setActiveMonth({ client, monthId: latest.id });
+  }, [activeMonth, availableClients, state.role]);
 
   const createMonth = (client: StudioClient) => {
     // Always start from storage so a month created from inside the workspace
     // cannot overwrite edits that have not yet flowed back into the picker.
     const current = readSocialMonths(client.id);
     const monthKey = nextSocialMonthKey(current);
-    const record = newMonthRecord(monthKey);
+    const workspace = isUnassignedEngineClient(client) ? null : actions.workspaceForClient(client.name);
+    const voice = workspace?.brandSystem?.tone.traits || [];
+    const sourceText = [
+      ...(workspace?.notes || []).map(note => note.text.trim()).filter(Boolean),
+      voice.length ? `Voice: ${voice.join(", ")}` : "",
+      workspace?.brandSystem?.tone.avoid ? `Avoid: ${workspace.brandSystem.tone.avoid}` : "",
+    ].filter(Boolean).join("\n\n");
+    const record = newMonthRecord(monthKey, {
+      ...blankProject(),
+      source: sourceText ? "brand" : "handle",
+      sourceText,
+      voice,
+    });
     const next = sortSocialMonths([...current, record]);
-    writeSocialMonths(client.id, next);
+    persistMonths(client.id, next);
     setSavedMonths(months => ({ ...months, [client.id]: next }));
     setActiveMonth({ client, monthId: record.id });
     actions.showToast(`${formatMonthKey(monthKey)} calendar ready for ${client.name}`);
+  };
+
+  const startCalendar = () => {
+    const target = startClientForEngine(state.role, availableClients);
+    if (!target) return;
+    const current = readSocialMonths(target.id);
+    const latest = sortSocialMonths(current)[0];
+    if (latest) {
+      setSavedMonths(months => ({ ...months, [target.id]: current }));
+      setActiveMonth({ client: target, monthId: latest.id });
+      return;
+    }
+    createMonth(target);
   };
 
   const deleteMonth = (client: StudioClient, monthId: string) => {
     const current = readSocialMonths(client.id);
     const removed = current.find(item => item.id === monthId);
     const next = current.filter(item => item.id !== monthId);
-    writeSocialMonths(client.id, next);
+    persistMonths(client.id, next);
     setSavedMonths(months => ({ ...months, [client.id]: next }));
     if (removed) actions.showToast(`${formatMonthKey(removed.monthKey)} calendar deleted`);
   };
 
-  const cards = useMemo(() => availableClients.map(item => {
+  const cards = useMemo(() => availableClients.filter(item => (savedMonths[item.id] || []).length > 0).map(item => {
     const months = sortSocialMonths(savedMonths[item.id] || []);
     const latest = months[0];
     const totalPosts = months.reduce((sum, month) => sum + month.project.posts.length, 0);
@@ -450,22 +501,31 @@ export function SocialMediaBuilder({ state, actions }: { state: PortalState; act
     monthId={activeMonth.monthId}
     months={savedMonths[activeMonth.client.id] || []}
     mobile={state.isMobile}
+    hideIdentity={state.role === "client"}
     actions={actions}
     onSelectMonth={monthId => setActiveMonth(current => current ? { ...current, monthId } : current)}
     onCreateMonth={() => createMonth(activeMonth.client)}
-    onExit={() => setActiveMonth(null)}
+    onExit={() => state.role === "client" ? actions.setView("progress") : setActiveMonth(null)}
   />;
 
   return <div style={css("width:100%;padding:" + (state.isMobile ? "1rem .9rem 1.5rem" : "1.6rem 2rem 2.4rem"))}>
-    <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding:1rem 1.1rem;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);margin-bottom:1rem") }>
-      <div style={{ minWidth: 0 }}><span style={css("display:block;margin-bottom:.42rem;text-transform:uppercase;font-size:.68rem;letter-spacing:.04em;color:var(--accent)")}>Social media builder</span><h2 style={css("margin:0;font-size:1.22rem;font-weight:500;line-height:1.2")}>Build recurring, ready-to-publish content calendars</h2><p style={css("margin:.45rem 0 0;max-width:39rem;font-size:.8rem;line-height:1.55;color:var(--fg-muted)")}>Create a separate plan for every month, then turn brand voice, channels, and cadence into editable posts, approvals, and a schedule-ready export.</p></div>
-      <span style={css("display:inline-flex;align-items:center;gap:.4rem;padding:.45rem .75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:.72rem;color:var(--fg-muted)")}><Icon name="cal" size={13}/> Social content</span>
-    </div>
-    <ClientPickerGrid countLabel="brand" compact cards={cards}/>
+    <GuidedIntakeSelector
+      eyebrow="Social Media Builder"
+      eyebrowColor="var(--accent)"
+      title="Start or continue a content calendar"
+      description="Add the brand context, channels, and cadence. Get editable posts, approvals, and a schedule-ready monthly plan."
+      controlsBelow
+      controls={<EngineIndexControls
+        metrics={[{ label: `${cards.length} active`, tone: "accent", icon: "cal" }]}
+        action={{ label: "New calendar", onClick: startCalendar, disabled: state.role === "client" && !availableClients.length }}
+      />}
+      countLabel="calendar"
+      cards={cards}
+    />
   </div>;
 }
 
-function SocialWorkspace({ client, monthId, months, mobile, actions, onSelectMonth, onCreateMonth, onExit }: { client: StudioClient; monthId: string; months: SocialMonthRecord[]; mobile: boolean; actions: PortalActions; onSelectMonth: (monthId: string) => void; onCreateMonth: () => void; onExit: () => void }) {
+function SocialWorkspace({ client, monthId, months, mobile, hideIdentity, actions, onSelectMonth, onCreateMonth, onExit }: { client: StudioClient; monthId: string; months: SocialMonthRecord[]; mobile: boolean; hideIdentity: boolean; actions: PortalActions; onSelectMonth: (monthId: string) => void; onCreateMonth: () => void; onExit: () => void }) {
   const [project, setProject] = useState<SocialProject>(blankProject);
   const [loaded, setLoaded] = useState(false);
   const [aiBusy, setAiBusy] = useState<"analyze" | "plan" | null>(null);
@@ -474,17 +534,27 @@ function SocialWorkspace({ client, monthId, months, mobile, actions, onSelectMon
   const monthKey = monthRecord?.monthKey || monthId;
 
   useEffect(() => {
-    const selected = readSocialMonths(client.id).find(item => item.id === monthId);
+    const selected = months.find(item => item.id === monthId) || readSocialMonths(client.id).find(item => item.id === monthId);
     setProject(normalizeProject(selected?.project));
     setLoaded(true);
-  }, [client.id, monthId]);
+  }, [client.id, monthId, months]);
   useEffect(() => {
     if (!loaded) return;
     const current = readSocialMonths(client.id);
     const now = new Date().toISOString();
     const next = current.map(item => item.id === monthId ? { ...item, project: { ...project, savedAt: now }, updatedAt: now } : item);
-    writeSocialMonths(client.id, next.some(item => item.id === monthId) ? next : [...next, newMonthRecord(monthKey, project)]);
-  }, [client.id, loaded, monthId, monthKey, project]);
+    const months = sortSocialMonths(next.some(item => item.id === monthId) ? next : [...next, newMonthRecord(monthKey, project)]);
+    writeSocialMonths(client.id, months);
+    const activeStageIndex = Math.max(0, STAGES.findIndex(stage => stage.id === project.stage));
+    actions.update(currentState => ({
+      clientWorkspaces: saveEngineWork(currentState.clientWorkspaces, client.id, "socialBuilder", {
+        status: project.sent ? "complete" : project.posts.length ? "in_progress" : "intake",
+        progress: project.sent ? 100 : Math.max(12, Math.round(((activeStageIndex + 1) / STAGES.length) * 90)),
+        updatedAt: now,
+        payload: { months },
+      }),
+    }));
+  }, [actions, client.id, loaded, monthId, monthKey, project]);
 
   const stageIndex = STAGES.findIndex(item => item.id === project.stage);
   const approved = project.posts.filter(post => post.status === "approved").length;
@@ -500,7 +570,7 @@ function SocialWorkspace({ client, monthId, months, mobile, actions, onSelectMon
       body: JSON.stringify({ action, clientName: client.name, source: project.source, sourceText: project.sourceText, voice: project.voice, pillars: project.pillars, channels: project.channels.map(id => channel(id).label), weeks: project.weeks, count }),
     });
     const payload = await response.json().catch(() => null) as { result?: { voice?: string[]; pillars?: string[]; ideas?: SocialIdea[] }; error?: string } | null;
-    if (!response.ok || !payload?.result) throw new Error(payload?.error || "AI could not complete this social plan.");
+    if (!response.ok || !payload?.result) throw new Error(payload?.error || "The social plan could not be completed.");
     return payload.result;
   };
   const analyze = async () => {
@@ -548,8 +618,8 @@ function SocialWorkspace({ client, monthId, months, mobile, actions, onSelectMon
   return <div style={css("width:100%;padding:" + (mobile ? ".9rem .75rem 1.4rem" : "1.4rem 2rem 2rem") + ";box-sizing:border-box") }>
     <div style={css("width:100%;max-width:60rem;margin:0 auto;display:flex;flex-direction:column;gap:.85rem;box-sizing:border-box") }>
       <header style={css("display:flex;align-items:center;gap:.65rem;flex-wrap:wrap") }>
-        <button type="button" onClick={onExit} className="pt-softbtn" style={css(buttonSoft + ";min-height:2rem")}>← All builders</button>
-        <div style={{ minWidth: 0 }}><strong style={css("font-size:.95rem;font-weight:500")}>{client.name}</strong><span style={css("font-size:.82rem;color:var(--fg-muted)")}> · {formatMonthKey(monthKey)}</span></div>
+        {!hideIdentity && <button type="button" onClick={onExit} className="pt-softbtn" style={css(buttonSoft + ";min-height:2rem")}>← All builders</button>}
+        {!hideIdentity && <div style={{ minWidth: 0 }}><strong style={css("font-size:.95rem;font-weight:500")}>{client.name}</strong><span style={css("font-size:.82rem;color:var(--fg-muted)")}> · {formatMonthKey(monthKey)}</span></div>}
         <select aria-label="Switch monthly content plan" value={monthId} onChange={event => onSelectMonth(event.target.value)} style={css("min-height:2rem;padding:0 1.8rem 0 .68rem;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--fg-muted);font:inherit;font-size:.7rem;cursor:pointer")}>{sortSocialMonths(months).map(month => <option key={month.id} value={month.id}>{formatMonthKey(month.monthKey)}</option>)}</select>
         <button type="button" onClick={onCreateMonth} className="pt-softbtn" style={css(buttonSoft + ";min-height:2rem")}><Icon name="plus" size={12}/> New month</button>
         <button type="button" onClick={restart} className="pt-softbtn" style={css(buttonSoft + ";min-height:2rem;margin-left:auto")}>↻ Start over</button>

@@ -11,6 +11,20 @@ import type { TaskImportDraft } from "../types";
 // ── docs model (ported from Funnel Builder fbDocs) ─────────────────────────────
 const cap = (s: string) => { s = (s || "").trim(); return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; };
 
+function conciseHeroCopy(value: unknown, maxWords: number, maxCharacters: number): string {
+  const normalized = String(value || "").replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  const words = normalized.split(" ");
+  if (words.length <= maxWords && normalized.length <= maxCharacters) return normalized;
+  const kept: string[] = [];
+  for (const word of words) {
+    const next = [...kept, word].join(" ");
+    if (kept.length >= maxWords || next.length > maxCharacters) break;
+    kept.push(word);
+  }
+  return `${kept.join(" ").replace(/[,:;.!?–—-]+$/, "")}…`;
+}
+
 export interface UploadedLandingCopy {
   sourceName: string;
   headline: string;
@@ -134,9 +148,9 @@ export function buildFunnelDocs(data: Ans): FunnelDocs {
 
   const folders = [{ label: "00 · Copy & content" }, ...need.map(n => ({ label: NEED_FOLDER[n] || n })), { label: String(need.length + 1).padStart(2, "0") + " · Exports" }];
   const plan = [
-    { phase: "01", title: "Design & wireframe", owner: "Dev", tasks: ["Skeleton wireframe", "High-fidelity design", "Client design review"] },
-    { phase: "02", title: "Build", owner: "Dev", tasks: ["Build pages in " + platform, "Wire forms, " + payment + " & email", "Connect " + (tracking.length ? tracking.join(", ") : "tracking")] },
-    { phase: "03", title: "Launch", owner: "Dev", tasks: ["QA every funnel step", "Publish to " + (domain || "domain"), "Handoff & training"] },
+    { phase: "01", title: "Design & wireframe", owner: "Studio", tasks: ["Skeleton wireframe", "High-fidelity design", "Client design review"] },
+    { phase: "02", title: "Build", owner: "Studio", tasks: ["Build pages in " + platform, "Wire forms, " + payment + " & email", "Connect " + (tracking.length ? tracking.join(", ") : "tracking")] },
+    { phase: "03", title: "Launch", owner: "Studio", tasks: ["QA every funnel step", "Publish to " + (domain || "domain"), "Handoff & training"] },
   ];
   const brief = [
     { label: "Funnel", value: name }, { label: "Objective", value: cap(objective) }, { label: "Type", value: ftype },
@@ -189,7 +203,13 @@ export function buildFunnelDocs(data: Ans): FunnelDocs {
   const blueprint = {
     nav: { brand: name, links: ["Why it works", "What you get", "Reviews", "FAQ"], cta: salesCta },
     hero: { eyebrow: isFeedOffer ? "NON-GMO FEED FOR BACKYARD FLOCKS & SMALL FARMS" : "A CLEARER WAY TO CHOOSE", title: copy.headline, subhead: copy.subhead, cta: salesCta, note: salesPrice === "Final price to approve" ? "Final price and fulfilment details confirmed before checkout" : `${salesPrice} · Fulfilment details confirmed before checkout` },
-    proofBar: { heading: "Proof to approve before launch", items: proof.length ? proof.slice(0, 4).map(item => `Add verified ${item.toLowerCase()}`) : ["Customer result", "Product or service evidence", "Approved trust signal"] },
+    promotions: isFeedOffer ? [
+      { eyebrow: "Featured feed", heading: "Non-GMO feed for flocks, homesteads, and small farms.", body: "Compare the approved options and choose the right feed.", cta: salesCta },
+      { eyebrow: "Ready to order", heading: "Choose the right feed and check out with confidence.", body: "Review the product and fulfilment details before you buy.", cta: salesCta },
+    ] : [
+      { eyebrow: "Featured offer", heading: `A clearer path to ${objective.toLowerCase()}.`, body: `See what is included in ${offerName} and decide with confidence.`, cta: salesCta },
+      { eyebrow: "Your next step", heading: `Ready to ${action.toLowerCase()}?`, body: "Review the offer details, get your remaining questions answered, and move forward.", cta: salesCta },
+    ],
     problem: { heading: isFeedOffer ? "Your animals depend on what goes into every bag." : "Choosing the right offer should not feel this complicated.", body: problem ? `${cap(problem)}. Get the clarity you need to choose with confidence.` : isFeedOffer ? "When quality, sourcing, or fit is unclear, choosing the right bag can feel like a gamble. Get straightforward details before you stock up." : `Get the offer details, proof, and reassurance you need before you commit.` },
     benefits: { heading: isFeedOffer ? "A more confident way to buy feed" : "Why buyers choose this offer", items: copy.values },
     forwho: { heading: isFeedOffer ? "For flocks, homesteads, and small farms" : "Who this is for", items: [
@@ -283,7 +303,7 @@ export function FunnelFlowHero({
   readyCount: number;
 }) {
   return (
-      <div style={css("border:1px solid color-mix(in srgb,var(--accent) 12%,var(--border-soft) 88%);border-radius:0.82rem;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 6%,var(--surface) 94%),var(--surface));padding:0.68rem 0.72rem")}>
+      <div style={css("border:1px solid color-mix(in srgb,var(--accent) 12%,var(--border-soft) 88%);border-radius:0.82rem;background:color-mix(in srgb,var(--accent) 6%,var(--surface) 94%);padding:0.68rem 0.72rem")}>
       <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)")}>
         <div style={css("display:flex;align-items:center;gap:0.45rem;min-width:0")}><span style={css("width:1.4rem;height:1.4rem;border-radius:0.46rem;background:color-mix(in srgb,var(--accent) 12%,white 88%);color:" + ACCENT + ";display:grid;place-items:center;flex-shrink:0")}><Icon name="funnel" size={12} /></span><span style={css("font-size:0.74rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>Build direction</span></div>
         <span style={css("font-size:0.6rem;font-weight:500;color:var(--success);background:var(--success-soft);padding:0.13rem 0.44rem;border-radius:999px;white-space:nowrap")}>{readyCount} ready</span>
@@ -304,10 +324,10 @@ export function FunnelFlowHero({
   );
 }
 
-const WIREFRAME_SECTION_KEYS = ["hero", "proof", "stakes", "benefits", "audience", "details", "process", "testimonial", "offer", "price", "faq", "finalCta"] as const;
+const WIREFRAME_SECTION_KEYS = ["promoTop", "hero", "stakes", "benefits", "audience", "details", "promoMid", "process", "testimonial", "offer", "price", "faq", "finalCta"] as const;
 type WireframeSectionKey = typeof WIREFRAME_SECTION_KEYS[number];
 type WireframeRecipe = Record<WireframeSectionKey, number>;
-const WIREFRAME_VARIANT_COUNTS: WireframeRecipe = { hero: 4, proof: 3, stakes: 3, benefits: 3, audience: 3, details: 3, process: 3, testimonial: 3, offer: 3, price: 3, faq: 3, finalCta: 3 };
+const WIREFRAME_VARIANT_COUNTS: WireframeRecipe = { promoTop: 3, hero: 4, stakes: 3, benefits: 3, audience: 3, details: 3, promoMid: 3, process: 3, testimonial: 3, offer: 3, price: 3, faq: 3, finalCta: 3 };
 
 function seededRecipe(bp: any): WireframeRecipe {
   let seed = Array.from(`${bp?.nav?.brand || ""}:${bp?.hero?.title || ""}`).reduce((total, character) => total + character.charCodeAt(0), 0) || 1;
@@ -343,7 +363,6 @@ function salesPageBlueprint(docs: FunnelDocs, raw: any): any {
   const cta = isFeedOffer ? "Shop Feed" : /cart|checkout|buy|purchase|order/i.test(action) ? `Shop ${cap(offerName)}` : cap(action);
   const rawPrice = raw?.pricing?.plans?.map((plan: any) => String(plan?.price || "")).find((value: string) => value && !/^\$?0$|^free$/i.test(value)) || "";
   const selectedPrice = rawPrice && !/^(under|from|starting|budget|range)/i.test(rawPrice.trim()) ? rawPrice : "Final price to approve";
-  const proofItems = (raw?.proofBar?.items || []).filter((item: string) => !/proof to approve|result to add|credential to verify/i.test(item));
   const benefits = isFeedOffer ? [
     { h: "Know what you’re feeding", b: "See the approved Non-GMO product details in one place, so you know exactly what you’re choosing." },
     { h: "Choose the right feed", b: "Compare poultry and livestock options and find the feed that matches the animals in your care." },
@@ -375,7 +394,13 @@ function salesPageBlueprint(docs: FunnelDocs, raw: any): any {
       cta,
       note: selectedPrice === "Final price to approve" ? "Final price and fulfilment details confirmed before checkout" : `${selectedPrice} · Fulfilment details confirmed before checkout`,
     },
-    proofBar: { heading: "Proof to approve before launch", items: proofItems.length ? proofItems.slice(0, 4).map((item: string) => `Add verified ${item.toLowerCase()}`) : ["Customer result", "Product or service evidence", "Approved trust signal"] },
+    promotions: isFeedOffer ? [
+      { eyebrow: "Featured feed", heading: "Non-GMO feed for flocks, homesteads, and small farms.", body: "Compare the approved options and choose the right feed.", cta },
+      { eyebrow: "Ready to order", heading: "Choose the right feed and check out with confidence.", body: "Review the product and fulfilment details before you buy.", cta },
+    ] : [
+      { eyebrow: "Featured offer", heading: `A clearer path to ${docs.objective.toLowerCase()}.`, body: `See what is included in ${offerName} and decide with confidence.`, cta },
+      { eyebrow: "Your next step", heading: `Ready to ${action.toLowerCase()}?`, body: "Review the offer details, get your remaining questions answered, and move forward.", cta },
+    ],
     problem: { heading: isFeedOffer ? "Your animals depend on what goes into every bag." : "Choosing the right offer should not feel this complicated.", body: problem ? `${cap(problem)}. Get the clarity you need to choose with confidence.` : isFeedOffer ? "When quality, sourcing, or fit is unclear, choosing the right bag can feel like a gamble. Get straightforward details before you stock up." : "Get the offer details, proof, and reassurance you need before you commit." },
     benefits: { heading: isFeedOffer ? "A more confident way to buy feed" : "Why buyers choose this offer", items: benefits },
     forwho: { heading: isFeedOffer ? "For flocks, homesteads, and small farms" : "Who this is for", items: [
@@ -419,11 +444,60 @@ function salesPageRecommendations(docs: FunnelDocs): FunnelDocs["recommendations
   });
 }
 
+type PromotionCopy = { eyebrow: string; heading: string; body: string; cta: string };
+
+function PromotionBanner({ promotion, variant, mobile, position }: { promotion: PromotionCopy; variant: number; mobile: boolean; position: "promoTop" | "promoMid" }) {
+  const dark = variant === 1;
+  const filled = variant === 0;
+  const background = dark
+    ? "var(--fg)"
+    : filled
+      ? "var(--accent)"
+      : "var(--accent-soft)";
+  const foreground = dark || filled ? "#fff" : "var(--fg)";
+  const muted = dark || filled ? "rgba(255,255,255,.74)" : "var(--fg-muted)";
+  return (
+    <section
+      data-report-wireframe-block
+      data-promotional-banner={position}
+      data-section-layout={`${position}-${variant}`}
+      style={css("display:grid;grid-template-columns:" + (mobile || variant === 2 ? "1fr" : "minmax(0,1fr) auto") + ";align-items:center;gap:" + (mobile ? ".8rem" : "1.2rem") + ";padding:" + (position === "promoTop" ? (mobile ? ".85rem 1rem" : ".8rem 1.5rem") : (mobile ? "1.2rem 1.1rem" : "1.35rem 1.7rem")) + ";border-bottom:1px solid " + (dark || filled ? "rgba(255,255,255,.12)" : "var(--border-soft)") + ";background:" + background + ";color:" + foreground + ";text-align:" + (variant === 2 ? "center" : "left"))}
+    >
+      <div style={css("min-width:0;display:flex;flex-direction:column;align-items:" + (variant === 2 ? "center" : "flex-start") + ";gap:.2rem")}>
+        <span style={css("font-size:.61rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:" + muted)}>{promotion.eyebrow}</span>
+        <strong style={css("font-size:" + (position === "promoTop" ? ".86rem" : "1.02rem") + ";line-height:1.3;font-weight:500;text-wrap:balance")}>{promotion.heading}</strong>
+        {position === "promoMid" && <span style={css("font-size:.72rem;line-height:1.45;color:" + muted + ";max-width:34rem")}>{promotion.body}</span>}
+      </div>
+      <span style={css("justify-self:" + (mobile || variant === 2 ? "center" : "end") + ";display:inline-flex;align-items:center;justify-content:center;min-height:2.05rem;border:1px solid " + (dark || filled ? "rgba(255,255,255,.28)" : "color-mix(in srgb,var(--accent) 32%,var(--border) 68%)") + ";border-radius:999px;background:" + (dark || filled ? "#fff" : "var(--surface)") + ";color:" + (dark || filled ? ACCENT : "var(--accent)") + ";padding:0 .9rem;font-size:.7rem;font-weight:600;white-space:nowrap")}>{promotion.cta}</span>
+    </section>
+  );
+}
+
 function WireframeDoc({ bp: rawBlueprint, docs, mobile = false, compact = false }: { bp: any; docs: FunnelDocs; mobile?: boolean; compact?: boolean }) {
-  const bp = salesPageBlueprint(docs, rawBlueprint);
+  const sourceBlueprint = salesPageBlueprint(docs, rawBlueprint);
+  const sourceHeroTitle = String(sourceBlueprint.hero?.title || "");
+  const compactFeedTitle = /non-gmo/i.test(sourceHeroTitle) && /feed|poultry|livestock/i.test(sourceHeroTitle)
+    ? "Feed with confidence. Choose dependable Non-GMO feed."
+    : sourceHeroTitle;
+  const bp = {
+    ...sourceBlueprint,
+    hero: {
+      ...sourceBlueprint.hero,
+      title: conciseHeroCopy(compactFeedTitle, 9, 64),
+      subhead: conciseHeroCopy(sourceBlueprint.hero?.subhead, 22, 132),
+    },
+  };
   const [recipe, setRecipe] = useState<WireframeRecipe>(() => seededRecipe(bp));
   const navCta = (bp.nav.cta && bp.nav.cta.length <= 16) ? bp.nav.cta : "Get started";
-  const proofBar = bp.proofBar || { heading: "Why trust this offer", items: ["Proof to approve", "Client result to add", "Credential to verify"] };
+  const promotionIsFeed = /feed|poultry|livestock/i.test(`${docs.name} ${bp.hero.title} ${bp.hero.subhead}`);
+  const defaultPromotions: PromotionCopy[] = promotionIsFeed ? [
+    { eyebrow: "Featured feed", heading: "Non-GMO feed for flocks, homesteads, and small farms.", body: "Compare the approved options and choose the right feed.", cta: bp.hero.cta || navCta },
+    { eyebrow: "Ready to order", heading: "Choose the right feed and check out with confidence.", body: "Review the product and fulfilment details before you buy.", cta: bp.finalCta?.cta || navCta },
+  ] : [
+    { eyebrow: "Featured offer", heading: "See the complete offer in one clear place.", body: bp.hero.subhead, cta: bp.hero.cta || navCta },
+    { eyebrow: "Your next step", heading: bp.finalCta?.heading || "Ready to move forward?", body: bp.finalCta?.body || "Review the offer and take the next step.", cta: bp.finalCta?.cta || navCta },
+  ];
+  const promotions: PromotionCopy[] = Array.isArray(bp.promotions) && bp.promotions.length >= 2 ? bp.promotions.slice(0, 2) : defaultPromotions;
   const problem = bp.problem || { heading: "The problem we are solving", body: "Clarify the visitor's current challenge and why it matters now." };
   const features = bp.features || { heading: "The solution", items: bp.benefits?.items || [] };
   const process = bp.process || { heading: "How it works", items: [{ h: "Start", b: "Take the first clear step." }, { h: "Move forward", b: "Follow the approved conversion path." }, { h: "Reach the outcome", b: "Complete the primary action." }] };
@@ -438,26 +512,26 @@ function WireframeDoc({ bp: rawBlueprint, docs, mobile = false, compact = false 
   return (
     <div style={css("width:100%;display:flex;flex-direction:column;gap:0.7rem")}>
       <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.7rem;flex-wrap:wrap;border:1px solid var(--border-soft);border-radius:12px;background:var(--surface-alt);padding:0.65rem 0.75rem")}>
-        <div><div style={css("font-size:0.78rem;font-weight:500")}>Page formatting</div><div style={css("font-size:0.68rem;color:var(--fg-muted);margin-top:0.1rem")}>{compact ? "Every section has its own layout. Shuffle to recompose the full page." : "The hero, proof, benefits, offer, FAQ, and every other section format independently."}</div></div>
+        <div><div style={css("font-size:0.78rem;font-weight:500")}>Page formatting</div><div style={css("font-size:0.68rem;color:var(--fg-muted);margin-top:0.1rem")}>{compact ? "Every section has its own layout. Shuffle to recompose the full page." : "The hero, promotional banners, benefits, offer, FAQ, and every other section format independently."}</div></div>
         <button type="button" onClick={shuffle} aria-label="Shuffle page formatting" style={css("min-height:2rem;display:inline-flex;align-items:center;gap:0.38rem;border:1px solid var(--accent);border-radius:999px;background:color-mix(in srgb,var(--accent) 10%,white 90%);color:var(--accent);padding:0 0.8rem;font:inherit;font-size:0.7rem;font-weight:500;cursor:pointer")}><Icon name="replay" size={12} /> Shuffle page layout</button>
       </div>
       <div data-wireframe-layout="mixed" data-wireframe-recipe={WIREFRAME_SECTION_KEYS.map(key => recipe[key]).join("-")} style={css("width:100%;border:1px solid var(--border);border-radius:20px;overflow:hidden;background:var(--surface);box-shadow:0 18px 50px color-mix(in srgb,var(--fg) 7%,transparent)")}>
+      <PromotionBanner promotion={promotions[0]} variant={recipe.promoTop} mobile={mobile} position="promoTop" />
       <div data-report-wireframe-block style={css("display:flex;align-items:center;justify-content:space-between;gap:0.7rem;padding:" + (mobile ? "0.75rem 0.85rem" : "0.85rem 1.5rem") + ";border-bottom:1px solid var(--border-soft);min-width:0")}>
         <div style={css("display:flex;align-items:center;gap:0.55rem;flex:1;min-width:0")}><div style={css("width:1.5rem;height:1.5rem;border-radius:7px;background:var(--fg);flex-shrink:0")} /><span style={css("font-size:var(--text-md);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{bp.nav.brand}</span></div>
         {!mobile && !editorial && <div style={css("display:flex;gap:0.75rem;align-items:center;max-width:34%;overflow:hidden;flex-shrink:1")}>{bp.nav.links.map((l: string) => <span key={l} style={css("font-size:0.76rem;color:var(--fg-muted);white-space:nowrap")}>{l}</span>)}</div>}
         <span style={css("background:" + ACCENT + ";color:#fff;font-size:0.78rem;font-weight:500;padding:0.42rem 0.95rem;border-radius:999px;flex-shrink:0;white-space:nowrap")}>{navCta}</span>
       </div>
-      <div data-report-wireframe-block data-section-layout={`hero-${recipe.hero}`} style={css("padding:" + (mobile ? "1.8rem 1.1rem" : immersive ? "4rem 2.6rem" : editorial ? "3.2rem 2.3rem" : "2.8rem 2rem") + ";text-align:" + (split || editorial ? "left" : "center") + ";display:grid;grid-template-columns:" + (split ? "1.08fr 0.92fr" : "1fr") + ";align-items:center;gap:" + (split ? "2rem" : "0.8rem") + ";border-bottom:1px solid var(--border-soft);background:" + (immersive ? "linear-gradient(145deg,color-mix(in srgb,var(--accent) 82%,#17131a 18%),#231c24);color:#fff" : "linear-gradient(145deg,var(--surface),color-mix(in srgb,var(--accent-soft) 30%,var(--surface) 70%))"))}>
+      <div data-report-wireframe-block data-section-layout={`hero-${recipe.hero}`} style={css("padding:" + (mobile ? "1.8rem 1.1rem" : immersive ? "4rem 2.6rem" : editorial ? "3.2rem 2.3rem" : "2.8rem 2rem") + ";text-align:" + (split || editorial ? "left" : "center") + ";display:grid;grid-template-columns:" + (split ? "1.08fr 0.92fr" : "1fr") + ";align-items:center;gap:" + (split ? "2rem" : "0.8rem") + ";border-bottom:1px solid var(--border-soft);background:" + (immersive ? "var(--fg);color:#fff" : editorial ? "var(--accent-soft)" : "var(--surface)"))}>
         <div style={css("display:flex;flex-direction:column;align-items:" + (split || editorial ? "flex-start" : "center") + ";gap:0.65rem") }>
           <span style={css("font-size:0.64rem;text-transform:uppercase;letter-spacing:.11em;color:" + (immersive ? "rgba(255,255,255,.72)" : ACCENT) + ";font-weight:600")}>{bp.hero.eyebrow || "THE OFFER"}</span>
-          <div style={css("font-size:" + ((editorial || split) && !mobile ? "2.15rem" : "1.8rem") + ";font-weight:500;max-width:" + (editorial ? "33rem" : "38rem") + ";letter-spacing:-.025em;line-height:1.08")}>{bp.hero.title}</div>
-          <div style={css("font-size:0.96rem;color:" + (immersive ? "rgba(255,255,255,.78)" : "var(--fg-muted)") + ";max-width:32rem;line-height:1.5")}>{bp.hero.subhead}</div>
+          <div data-hero-title style={css("font-size:" + ((editorial || split) && !mobile ? "2.15rem" : "1.8rem") + ";font-weight:500;max-width:" + (editorial ? "31rem" : "34rem") + ";letter-spacing:-.025em;line-height:1.08;text-wrap:balance")}>{bp.hero.title}</div>
+          <div data-hero-subhead style={css("font-size:0.94rem;color:" + (immersive ? "rgba(255,255,255,.78)" : "var(--fg-muted)") + ";max-width:29rem;line-height:1.48;text-wrap:pretty")}>{bp.hero.subhead}</div>
           <span style={css("margin-top:0.45rem;background:" + ACCENT + ";color:#fff;font-size:0.9rem;font-weight:500;padding:0.62rem 1.6rem;border-radius:999px")}>{bp.hero.cta}</span>
           {bp.hero.note && <span style={css("font-size:.66rem;color:" + (immersive ? "rgba(255,255,255,.62)" : "var(--fg-faint)"))}>{bp.hero.note}</span>}
         </div>
-        <div style={css("margin:" + (split ? "0" : "1.2rem auto 0") + ";width:100%;max-width:" + (editorial ? "48rem" : "40rem") + ";height:" + (immersive ? "14rem" : editorial ? "8rem" : "11rem") + ";border:1px solid color-mix(in srgb,var(--accent) 24%,var(--border-soft) 76%);border-radius:" + (immersive ? "28px" : editorial ? "999px 22px 22px 999px" : "18px") + ";background:radial-gradient(circle at 72% 25%,color-mix(in srgb,var(--accent) 23%,white 77%),transparent 30%),linear-gradient(145deg,color-mix(in srgb,var(--accent-soft) 72%,white 28%),var(--surface));display:flex;align-items:flex-end;justify-content:flex-start;padding:1rem;color:var(--fg-muted);font-size:.72rem;font-weight:500")}>Approved product or lifestyle image</div>
+        <div style={css("margin:" + (split ? "0" : "1.2rem auto 0") + ";width:100%;max-width:" + (editorial ? "48rem" : "40rem") + ";height:" + (immersive ? "14rem" : editorial ? "8rem" : "11rem") + ";border:1px solid color-mix(in srgb,var(--accent) 24%,var(--border-soft) 76%);border-radius:" + (immersive ? "28px" : editorial ? "999px 22px 22px 999px" : "18px") + ";background:color-mix(in srgb,var(--accent-soft) 72%,var(--surface) 28%);display:flex;align-items:flex-end;justify-content:flex-start;padding:1rem;color:var(--fg-muted);font-size:.72rem;font-weight:500")}>Approved product or lifestyle image</div>
       </div>
-      <section data-report-wireframe-block data-section-layout={`proof-${recipe.proof}`} style={css("padding:1rem 1.5rem;border-bottom:1px solid var(--border-soft);background:" + (recipe.proof === 2 ? "var(--surface)" : "var(--surface-alt)") + ";text-align:" + (recipe.proof === 1 ? "left" : "center") + ";display:" + (recipe.proof === 1 && !mobile ? "grid" : "block") + ";grid-template-columns:.7fr 1.3fr;align-items:center;gap:1rem") }><div style={css("font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;color:" + ACCENT)}>{proofBar.heading}</div><div style={css("display:" + (recipe.proof === 2 && !mobile ? "grid" : "flex") + ";grid-template-columns:repeat(3,1fr);justify-content:center;gap:.55rem;flex-wrap:wrap;margin-top:" + (recipe.proof === 1 && !mobile ? "0" : ".65rem"))}>{proofBar.items.map((item: string) => <span key={item} style={css("border:1px dashed color-mix(in srgb,var(--accent) 35%,var(--border) 65%);border-radius:" + (recipe.proof === 2 ? "12px" : "999px") + ";background:var(--surface);padding:.45rem .65rem;font-size:.7rem;font-weight:500;color:var(--fg-muted);text-align:center")}>{item}</span>)}</div></section>
       <section data-report-wireframe-block data-section-layout={`stakes-${recipe.stakes}`} style={css("display:grid;grid-template-columns:" + (mobile || recipe.stakes === 1 ? "1fr" : recipe.stakes === 2 ? ".85fr 1.15fr" : "1.15fr .85fr") + ";gap:1.4rem;padding:2.4rem 2rem;border-bottom:1px solid var(--border-soft);align-items:center;text-align:" + (recipe.stakes === 1 ? "center" : "left")) }><div style={{ order: recipe.stakes === 2 && !mobile ? 2 : 1 }}><div style={css("font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;color:" + ACCENT)}>The stakes</div><h3 style={css("margin:.4rem 0 0;font-size:1.45rem;line-height:1.18;letter-spacing:-.015em;font-weight:500")}>{problem.heading}</h3><p style={css("margin:.65rem 0 0;font-size:.82rem;line-height:1.6;color:var(--fg-muted)")}>{problem.body}</p></div><aside style={{ ...css("border-radius:" + (recipe.stakes === 2 ? "26px 10px 26px 10px" : "18px") + ";background:var(--surface-alt);border:1px solid var(--border-soft);padding:1.25rem;text-align:left"), order: recipe.stakes === 2 && !mobile ? 1 : 2 }}><div style={css("font-size:.64rem;text-transform:uppercase;letter-spacing:.08em;color:var(--fg-faint)")}>The decision</div><div style={css("font-size:1.05rem;line-height:1.35;font-weight:500;margin-top:.45rem")}>“Why should I choose this—and why now?”</div><div style={css("font-size:.72rem;line-height:1.5;color:var(--fg-muted);margin-top:.55rem")}>Because the right choice should feel clear before you buy.</div></aside></section>
       <div data-report-wireframe-block data-section-layout={`benefits-${recipe.benefits}`} style={css("padding:1.7rem 1.5rem;text-align:" + (recipe.benefits === 1 ? "left" : "center") + ";border-bottom:1px solid var(--border-soft)")}>
         <div style={css("font-size:1.15rem;font-weight:500")}>{bp.benefits.heading}</div>
@@ -468,11 +542,12 @@ function WireframeDoc({ bp: rawBlueprint, docs, mobile = false, compact = false 
       <div data-report-wireframe-block data-section-layout={`audience-${recipe.audience}`} style={css("padding:1.7rem 1.5rem;text-align:" + (recipe.audience === 1 ? "left" : "center") + ";border-bottom:1px solid var(--border-soft);background:" + (recipe.audience === 2 ? "var(--surface-alt)" : "var(--surface)"))}>
         <div style={css("font-size:1.15rem;font-weight:500")}>{bp.forwho.heading}</div>
         <div style={css("display:grid;grid-template-columns:" + (mobile || recipe.audience === 1 ? "1fr" : recipe.audience === 2 ? "1.15fr .85fr 1.15fr" : "repeat(3,1fr)") + ";justify-content:center;gap:0.9rem;margin-top:1.15rem")}>
-          {bp.forwho.items.map((v: any) => <div key={v.h} style={css("flex:1;border-top:2px solid " + ACCENT + ";padding:1rem .4rem .2rem;display:flex;flex-direction:column;gap:.35rem;text-align:left")}><div style={css("font-size:0.86rem;font-weight:500")}>{v.h}</div><div style={css("font-size:0.74rem;color:var(--fg-muted);line-height:1.5")}>{v.b}</div></div>)}
+          {bp.forwho.items.map((v: any, index: number) => <div key={v.h} style={css("flex:1;border:" + (recipe.audience === 1 ? "1px solid var(--border-soft)" : "0") + ";border-top:" + (recipe.audience === 1 ? "1px solid var(--border-soft)" : "2px solid " + ACCENT) + ";border-radius:" + (recipe.audience === 1 ? "14px" : "0") + ";padding:" + (recipe.audience === 1 ? ".9rem 1rem" : "1rem .4rem .2rem") + ";display:grid;grid-template-columns:" + (recipe.audience === 1 && !mobile ? "2.2rem minmax(0,1fr)" : "1fr") + ";gap:" + (recipe.audience === 1 ? ".2rem .7rem" : ".35rem") + ";text-align:left;background:" + (recipe.audience === 1 && index === 0 ? "color-mix(in srgb,var(--accent-soft) 34%,var(--surface) 66%)" : "transparent"))}><span style={css("display:" + (recipe.audience === 1 ? "grid" : "none") + ";grid-row:1 / span 2;width:2rem;height:2rem;border-radius:50%;place-items:center;background:var(--accent-soft);color:" + ACCENT + ";font-size:.66rem;font-weight:600")}>0{index + 1}</span><div style={css("font-size:0.86rem;font-weight:500")}>{v.h}</div><div style={css("font-size:0.74rem;color:var(--fg-muted);line-height:1.5")}>{v.b}</div></div>)}
         </div>
       </div>
       <section data-report-wireframe-block data-section-layout={`details-${recipe.details}`} style={css("padding:1.7rem 1.5rem;border-bottom:1px solid var(--border-soft)") }><div style={css("font-size:1.15rem;font-weight:500;text-align:" + (recipe.details === 2 ? "left" : "center"))}>{features.heading}</div><div style={css("display:grid;grid-template-columns:" + (mobile || recipe.details === 2 ? "1fr" : recipe.details === 1 ? "repeat(3,minmax(0,1fr))" : "repeat(2,minmax(0,1fr))") + ";gap:.7rem;margin-top:1rem")}>{features.items.map((item: any, index: number) => <div key={item.h} style={css("border:1px solid var(--border-soft);border-radius:" + (recipe.details === 1 && index % 3 === 0 ? "18px" : "10px") + ";padding:.85rem;background:" + (recipe.details === 1 && index % 2 === 0 ? "var(--surface-alt)" : "var(--surface)") + ";display:" + (recipe.details === 2 ? "grid" : "block") + ";grid-template-columns:minmax(9rem,.6fr) 1.4fr;gap:.8rem;align-items:start") }><div style={css("font-size:.84rem;font-weight:500")}>{item.h}</div><div style={css("font-size:.74rem;line-height:1.45;color:var(--fg-muted);margin-top:" + (recipe.details === 2 ? "0" : ".25rem"))}>{item.b}</div></div>)}</div></section>
-      <section data-report-wireframe-block data-section-layout={`process-${recipe.process}`} style={css("padding:1.7rem 1.5rem;border-bottom:1px solid var(--border-soft);text-align:" + (recipe.process === 1 ? "left" : "center")) }><div style={css("font-size:1.15rem;font-weight:500")}>{process.heading}</div><div style={css("display:grid;grid-template-columns:" + (mobile || recipe.process === 1 ? "1fr" : recipe.process === 2 ? "1fr 1.2fr 1fr" : "repeat(3,1fr)") + ";gap:.8rem;margin-top:1rem")}>{process.items.map((item: any, index: number) => <div key={item.h} style={css("border:1px solid " + (recipe.process === 2 && index === 1 ? ACCENT : "var(--border-soft)") + ";border-radius:" + (recipe.process === 1 ? "999px" : "12px") + ";padding:1rem;text-align:left;background:" + (recipe.process === 2 && index === 1 ? "var(--accent-soft)" : "var(--surface)")) }><span style={css("font-size:.65rem;color:" + ACCENT)}>0{index + 1}</span><div style={css("font-size:.86rem;font-weight:500;margin-top:.25rem")}>{item.h}</div><div style={css("font-size:.74rem;color:var(--fg-muted);line-height:1.45;margin-top:.2rem")}>{item.b}</div></div>)}</div></section>
+      <PromotionBanner promotion={promotions[1]} variant={recipe.promoMid} mobile={mobile} position="promoMid" />
+      <section data-report-wireframe-block data-section-layout={`process-${recipe.process}`} style={css("padding:1.7rem 1.5rem;border-bottom:1px solid var(--border-soft);text-align:" + (recipe.process === 1 ? "left" : "center") + ";background:" + (recipe.process === 1 ? "var(--surface-alt)" : "var(--surface)")) }><div style={css("font-size:1.15rem;font-weight:500")}>{process.heading}</div><div style={css("display:grid;grid-template-columns:" + (mobile || recipe.process === 1 ? "1fr" : recipe.process === 2 ? "1fr 1.2fr 1fr" : "repeat(3,1fr)") + ";gap:.8rem;margin-top:1rem")}>{process.items.map((item: any, index: number) => <div key={item.h} style={css("border:1px solid " + (recipe.process === 2 && index === 1 ? ACCENT : "var(--border-soft)") + ";border-left:" + (recipe.process === 1 ? "3px solid " + ACCENT : "1px solid " + (recipe.process === 2 && index === 1 ? ACCENT : "var(--border-soft)")) + ";border-radius:" + (recipe.process === 1 ? "14px" : "12px") + ";padding:" + (recipe.process === 1 ? ".85rem 1rem" : "1rem") + ";text-align:left;background:" + (recipe.process === 2 && index === 1 ? "var(--accent-soft)" : "var(--surface)")) }><span style={css("font-size:.65rem;color:" + ACCENT + ";font-weight:600")}>0{index + 1}</span><div style={css("font-size:.86rem;font-weight:500;margin-top:.25rem")}>{item.h}</div><div style={css("font-size:.74rem;color:var(--fg-muted);line-height:1.45;margin-top:.2rem")}>{item.b}</div></div>)}</div></section>
       <div data-report-wireframe-block data-section-layout={`testimonial-${recipe.testimonial}`} style={css("padding:2.1rem 1.8rem;border-bottom:1px solid var(--border-soft);text-align:" + (recipe.testimonial === 2 ? "left" : "center") + ";background:" + (recipe.testimonial === 2 ? "var(--surface-alt)" : "var(--surface)"))}>
         <div style={css("font-size:1.15rem;font-weight:500;text-align:center")}>{bp.testimonials.heading}</div>
         <div style={css("margin:1.15rem auto 0;max-width:" + (recipe.testimonial === 2 ? "100%" : "42rem") + ";border:1px dashed color-mix(in srgb,var(--accent) 42%,var(--border) 58%);border-radius:" + (recipe.testimonial === 1 ? "28px" : "18px") + ";padding:1.4rem;display:flex;flex-direction:" + (recipe.testimonial === 1 ? "column" : "row") + ";gap:1.1rem;align-items:center;background:color-mix(in srgb,var(--accent-soft) 25%,var(--surface) 75%)")}>
@@ -493,8 +568,8 @@ function WireframeDoc({ bp: rawBlueprint, docs, mobile = false, compact = false 
           ))}
         </div>
       </div>
-      <section data-report-wireframe-block data-section-layout={`faq-${recipe.faq}`} style={css("padding:1.7rem 1.5rem;border-top:1px solid var(--border-soft)") }><div style={css("font-size:1.15rem;font-weight:500;text-align:" + (recipe.faq === 2 ? "left" : "center"))}>{faq.heading}</div><div style={css("max-width:" + (recipe.faq === 1 ? "100%" : "38rem") + ";margin:1rem auto 0;display:grid;grid-template-columns:" + (!mobile && recipe.faq === 1 ? "repeat(2,1fr)" : "1fr") + ";gap:.5rem")}>{faq.items.map((item: any) => <div key={item.q} style={css("border:1px solid var(--border-soft);border-radius:" + (recipe.faq === 2 ? "999px" : "10px") + ";padding:.75rem .85rem;background:" + (recipe.faq === 2 ? "var(--surface-alt)" : "var(--surface)")) }><div style={css("font-size:.8rem;font-weight:500")}>{item.q}</div><div style={css("font-size:.73rem;color:var(--fg-muted);line-height:1.45;margin-top:.22rem")}>{item.a}</div></div>)}</div></section>
-      <section data-report-wireframe-block data-section-layout={`finalCta-${recipe.finalCta}`} style={css("padding:2rem 1.5rem;text-align:" + (recipe.finalCta === 1 ? "left" : "center") + ";background:" + (recipe.finalCta === 2 ? "linear-gradient(145deg,var(--accent),#231c24);color:#fff" : recipe.finalCta === 1 ? "var(--surface)" : "var(--accent-soft)")) }><div style={css("font-size:1.25rem;font-weight:500")}>{finalCta.heading}</div><p style={css("font-size:.78rem;margin:.35rem " + (recipe.finalCta === 1 ? "0" : "auto") + " 0;max-width:30rem;color:" + (recipe.finalCta === 2 ? "rgba(255,255,255,.78)" : "var(--fg-muted)"))}>{finalCta.body}</p><span style={css("display:inline-flex;margin-top:.85rem;border-radius:999px;background:" + (recipe.finalCta === 2 ? "#fff" : ACCENT) + ";color:" + (recipe.finalCta === 2 ? ACCENT : "#fff") + ";padding:.55rem 1rem;font-size:.78rem;font-weight:500")}>{finalCta.cta}</span></section>
+      <section data-report-wireframe-block data-section-layout={`faq-${recipe.faq}`} style={css("padding:1.7rem 1.5rem;border-top:1px solid var(--border-soft);background:" + (recipe.faq === 2 ? "var(--surface-alt)" : "var(--surface)")) }><div style={css("font-size:1.15rem;font-weight:500;text-align:" + (recipe.faq === 2 ? "left" : "center"))}>{faq.heading}</div><div style={css("max-width:" + (recipe.faq === 1 ? "100%" : "38rem") + ";margin:1rem auto 0;display:grid;grid-template-columns:" + (!mobile && recipe.faq === 1 ? "repeat(2,1fr)" : "1fr") + ";gap:.6rem")}>{faq.items.map((item: any, index: number) => <div key={item.q} style={css("border:1px solid var(--border-soft);border-radius:" + (recipe.faq === 2 ? "16px" : "10px") + ";padding:" + (recipe.faq === 2 ? ".9rem 1rem" : ".75rem .85rem") + ";background:" + (recipe.faq === 2 ? (index === 0 ? "color-mix(in srgb,var(--accent-soft) 30%,var(--surface) 70%)" : "var(--surface)") : "var(--surface)")) }><div style={css("font-size:.8rem;font-weight:500")}>{item.q}</div><div style={css("font-size:.73rem;color:var(--fg-muted);line-height:1.45;margin-top:.22rem")}>{item.a}</div></div>)}</div></section>
+      <section data-report-wireframe-block data-section-layout={`finalCta-${recipe.finalCta}`} style={css("padding:2rem 1.5rem;text-align:" + (recipe.finalCta === 1 ? "left" : "center") + ";background:" + (recipe.finalCta === 2 ? "var(--accent);color:#fff" : recipe.finalCta === 1 ? "var(--surface)" : "var(--accent-soft)")) }><div style={css("font-size:1.25rem;font-weight:500")}>{finalCta.heading}</div><p style={css("font-size:.78rem;margin:.35rem " + (recipe.finalCta === 1 ? "0" : "auto") + " 0;max-width:30rem;color:" + (recipe.finalCta === 2 ? "rgba(255,255,255,.78)" : "var(--fg-muted)"))}>{finalCta.body}</p><span style={css("display:inline-flex;margin-top:.85rem;border-radius:999px;background:" + (recipe.finalCta === 2 ? "#fff" : ACCENT) + ";color:" + (recipe.finalCta === 2 ? ACCENT : "#fff") + ";padding:.55rem 1rem;font-size:.78rem;font-weight:500")}>{finalCta.cta}</span></section>
       <footer data-report-wireframe-block style={css("display:flex;justify-content:space-between;gap:.8rem;flex-wrap:wrap;padding:1rem 1.5rem;border-top:1px solid var(--border-soft);font-size:.7rem;color:var(--fg-muted)") }><strong style={css("color:var(--fg);font-weight:500")}>{footer.brand}</strong><span>{footer.tagline}</span><span>Privacy · Terms · Contact</span></footer>
     </div>
     </div>
@@ -509,7 +584,7 @@ function CopyModeSwitcher({ uploaded, mobile, children }: { uploaded?: UploadedL
   return (
     <div style={css("display:flex;flex-direction:column;gap:0.75rem")}>
       <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.7rem;flex-wrap:wrap;border:1px solid var(--border-soft);border-radius:12px;background:var(--surface-alt);padding:0.65rem 0.75rem;max-width:46rem;width:100%;box-sizing:border-box;margin:0 auto")}>
-        <div><div style={css("font-size:0.78rem;font-weight:500")}>Copy format</div><div style={css("font-size:0.68rem;color:var(--fg-muted);margin-top:0.1rem")}>{uploaded ? `Using ${uploaded.sourceName}` : "Upload working copy in AI Jumpstart to unlock the page-ready version."}</div></div>
+        <div><div style={css("font-size:0.78rem;font-weight:500")}>Copy format</div><div style={css("font-size:0.68rem;color:var(--fg-muted);margin-top:0.1rem")}>{uploaded ? `Using ${uploaded.sourceName}` : "Upload working copy during source review to unlock the page-ready version."}</div></div>
         <div style={css("display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap")}>{control("blueprint", "Blueprint draft")}{control("ready", "Uploaded → page-ready", !uploaded)}</div>
       </div>
       {mode === "blueprint" || !uploaded ? children : (
@@ -537,6 +612,11 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
   const { stageKey, docs, reveal } = ctx;
   const d = docs as FunnelDocs;
   const bp = d.blueprint;
+  const toolItems: string[] = Array.isArray(bp.tools?.items)
+    ? bp.tools.items
+    : d.launch
+        .filter(item => ["Build platform", "Email / CRM", "Payments", "Tracking"].includes(item.label))
+        .map(item => `${item.label}: ${item.value}`);
   const recommendations = salesPageRecommendations(d);
   const generatedTitle = isAiStageResult(ctx.aiResult) ? ctx.aiResult.title.trim() : "";
   const genericTitles = new Set(["development plan", "build direction", "funnel development plan", d.name.toLowerCase()]);
@@ -594,7 +674,7 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
         {row(3, "03", bp.forwho.heading, list(bp.forwho.items))}
         {row(4, "04", bp.features.heading, <div style={css("display:grid;grid-template-columns:1fr 1fr;gap:0.55rem 1.5rem")}>{bp.features.items.map((v: any) => <div key={v.h} style={css("font-size:0.9rem;line-height:1.5;color:var(--fg-muted)")}><span style={css("font-weight:500;color:var(--fg)")}>{v.h}</span> — {v.b}</div>)}</div>)}
         {row(5, "05", bp.testimonials.heading, <div style={css("border-left:2px solid var(--accent-dim);padding-left:1rem")}><div style={css("font-size:1.05rem;line-height:1.5")}>{bp.testimonials.quote}</div><div style={css("font-size:0.8rem;color:var(--fg-faint);margin-top:0.5rem")}>{bp.testimonials.author} · {bp.testimonials.metric}</div></div>)}
-        {row(6, "06", "Tools", <div style={css("display:flex;flex-wrap:wrap;gap:0.4rem 0.55rem")}>{bp.tools.items.map((t: string) => <span key={t} style={css("font-size:var(--text-md);padding:0.22rem 0.7rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill)")}>{t}</span>)}</div>)}
+        {row(6, "06", "Build stack", <div style={css("display:flex;flex-wrap:wrap;gap:0.4rem 0.55rem")}>{toolItems.map((t: string) => <span key={t} className="pt-badge" style={css("font-size:var(--text-md);padding:0.22rem 0.7rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill)")}>{t}</span>)}</div>)}
         {row(7, "07", bp.pricing.heading, <div>{bp.pricing.plans.map((p: any) => <div key={p.name} style={css("display:flex;justify-content:space-between;align-items:baseline;padding:0.55rem 0;border-bottom:1px dashed var(--border-soft)")}><div style={css("font-size:0.92rem;color:var(--fg-muted)")}><span style={css("font-weight:500;color:var(--fg)")}>{p.name}</span> · CTA: {p.cta}</div><div style={css("font-size:1.05rem;font-weight:500;white-space:nowrap")}>{p.price}</div></div>)}</div>)}
         {row(8, "08", bp.faq.heading, <div style={css("display:flex;flex-direction:column;gap:0.85rem")}>{bp.faq.items.map((q: any) => <div key={q.q}><div style={css("font-size:0.92rem;font-weight:500")}>{q.q}</div><div style={css("font-size:var(--text-md);color:var(--fg-muted);line-height:1.55;margin-top:0.2rem")}>{q.a}</div></div>)}</div>)}
         {row(9, "09", "Footer", <div style={css("font-size:0.9rem;color:var(--fg-muted);line-height:1.55")}>{bp.footer.tagline} Follow us on social.</div>)}
@@ -659,7 +739,7 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
       )}
       {reveal === Number.POSITIVE_INFINITY && (
         <div data-report-actions style={css("border-top:1px solid var(--border-soft);padding-top:1.2rem;display:flex;gap:var(--space-2);flex-wrap:wrap")}>
-          <button type="button" onClick={ctx.onDownload} className="pt-softbtn" style={css("border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);padding:0.45rem 1rem;font-size:0.8rem;cursor:pointer;font-family:inherit")}>⤢ Preview &amp; download PDF</button>
+          <button type="button" onClick={ctx.onDownload} className="pt-softbtn" style={css("border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);padding:0.45rem 1rem;font-size:0.8rem;cursor:pointer;font-family:inherit")}>⤢ Print / save PDF</button>
           <button type="button" onClick={ctx.onCopy} className="pt-softbtn" style={css("border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);padding:0.45rem 1rem;font-size:0.8rem;cursor:pointer;font-family:inherit")}>Copy brief</button>
           <button type="button" onClick={ctx.onShare} className="pt-op" style={css("margin-left:auto;border:none;border-radius:var(--radius-pill);background:" + ACCENT + ";color:#fff;padding:0.45rem 1.1rem;font-size:0.8rem;font-weight:500;cursor:pointer;font-family:inherit")}>↗ Share with client</button>
         </div>
@@ -725,12 +805,12 @@ function introPreview(): ReactNode {
       <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:" + ACCENT + ";margin-bottom:0.5rem")}>Final design</div>
       <div style={css("border:1px solid var(--border-soft);border-radius:10px;overflow:hidden")}>
         <div style={css("display:flex;align-items:center;gap:0.55rem;padding:0.45rem 0.7rem;border-bottom:1px solid var(--border-soft)")}><span style={css("width:0.8rem;height:0.8rem;border-radius:4px;background:var(--fg)")} /><span style={css("font-size:0.62rem;font-weight:600")}>Aurora</span><span style={css("flex:1")} /><span style={css("background:var(--accent);color:#fff;font-size:0.54rem;font-weight:600;padding:0.2rem 0.5rem;border-radius:999px")}>Get started</span></div>
-        <div style={css("text-align:center;padding:1rem 0.9rem;border-bottom:1px solid var(--border-soft)")}><div style={css("font-size:0.86rem;font-weight:600;max-width:14rem;margin:0 auto;line-height:1.25")}>Calmer skin in two weeks, guaranteed.</div><div style={css("font-size:0.64rem;color:var(--fg-muted);margin-top:0.3rem")}>A 3-step ritual set, made simple.</div><span style={css("display:inline-block;margin-top:0.5rem;background:var(--accent);color:#fff;font-size:0.62rem;font-weight:600;padding:0.35rem 0.9rem;border-radius:999px")}>Claim my bundle</span><div style={css("margin:0.6rem auto 0;max-width:15rem;height:2.6rem;border-radius:8px;background:linear-gradient(135deg,var(--accent),oklch(0.72 0.14 32))")} /></div>
+        <div style={css("text-align:center;padding:1rem 0.9rem;border-bottom:1px solid var(--border-soft)")}><div style={css("font-size:0.86rem;font-weight:600;max-width:14rem;margin:0 auto;line-height:1.25")}>Calmer skin in two weeks, guaranteed.</div><div style={css("font-size:0.64rem;color:var(--fg-muted);margin-top:0.3rem")}>A 3-step ritual set, made simple.</div><span style={css("display:inline-block;margin-top:0.5rem;background:var(--accent);color:#fff;font-size:0.62rem;font-weight:600;padding:0.35rem 0.9rem;border-radius:999px")}>Claim my bundle</span><div style={css("margin:0.6rem auto 0;max-width:15rem;height:2.6rem;border-radius:8px;background:var(--accent-soft)")} /></div>
         <div style={css("display:grid;grid-template-columns:repeat(3,1fr);gap:0.55rem;padding:var(--space-3)")}>{[0, 1, 2].map(i => <div key={i}><div style={css("width:1.3rem;height:1.3rem;border-radius:6px;background:color-mix(in srgb,var(--accent) 14%,white 86%);margin-bottom:0.3rem")} /><div style={css("height:0.38rem;border-radius:3px;background:var(--border);margin-bottom:0.22rem")} /><div style={css("height:0.38rem;width:60%;border-radius:3px;background:var(--border-soft)")} /></div>)}</div>
       </div>
       <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:" + ACCENT + ";margin:0.9rem 0 0.5rem")}>Build — phases</div>
       <div style={css("display:flex;flex-direction:column;gap:0.35rem")}>
-        {["Design & wireframe", "Build", "Launch"].map((t, i) => <div key={t} style={css("display:flex;align-items:center;gap:var(--space-2);border:1px solid var(--border-soft);border-radius:8px;padding:0.45rem 0.65rem")}><span style={css("font-size:0.56rem;font-weight:700;padding:0.1rem 0.38rem;border-radius:999px;background:color-mix(in srgb,var(--accent) 14%,white 86%);color:" + ACCENT)}>{"0" + (i + 1)}</span><span style={css("flex:1;font-size:var(--text-xs);font-weight:500")}>{t}</span><span style={css("font-size:0.6rem;color:var(--fg-faint)")}>Dev</span></div>)}
+        {["Design & wireframe", "Build", "Launch"].map((t, i) => <div key={t} style={css("display:flex;align-items:center;gap:var(--space-2);border:1px solid var(--border-soft);border-radius:8px;padding:0.45rem 0.65rem")}><span style={css("font-size:0.56rem;font-weight:700;padding:0.1rem 0.38rem;border-radius:999px;background:color-mix(in srgb,var(--accent) 14%,white 86%);color:" + ACCENT)}>{"0" + (i + 1)}</span><span style={css("flex:1;font-size:var(--text-xs);font-weight:500")}>{t}</span><span style={css("font-size:0.6rem;color:var(--fg-faint)")}>Studio</span></div>)}
       </div>
     </div>
   );
@@ -740,8 +820,8 @@ export const FUNNEL_PIPELINE: Pipeline = {
   railTitle: "Build pipeline",
   buildDocs: buildFunnelDocs,
   gen: (k) => ({ total: k === "flow" ? 6 : k === "brief" ? 4 : 9, ms: k === "wireframe" ? 6000 : k === "brief" ? 3800 : 4200, buildLabel: "Building" }),
-  genPrompt: (k) => "Generate the " + STAGE_LABEL[k] + " with AI, drafted from everything you shared in discovery.",
-  genCta: () => "Generate with AI",
+  genPrompt: (k) => "Generate the " + STAGE_LABEL[k] + " from everything you shared in discovery.",
+  genCta: () => "Generate draft",
   approveLabel: (_k, isLast) => (isLast ? "Approve & view plan →" : "Approve & continue"),
   beginLabel: "Map the funnel flow →",
   beginMsg: (data) => {

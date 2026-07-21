@@ -197,7 +197,7 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
       <div style={css("display:flex;flex-direction:column;gap:1.1rem")}>
         {reveal === Number.POSITIVE_INFINITY && (
           <div style={css("display:flex;justify-content:flex-end")}>
-            <button type="button" onClick={ctx.onDownload} className="pt-softbtn" style={css("display:inline-flex;align-items:center;gap:0.4rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);padding:0.42rem 0.95rem;font-size:0.78rem;font-weight:500;cursor:pointer;font-family:inherit")}>⤢ Preview &amp; download PDF</button>
+            <button type="button" onClick={ctx.onDownload} className="pt-softbtn" style={css("display:inline-flex;align-items:center;gap:0.4rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);padding:0.42rem 0.95rem;font-size:0.78rem;font-weight:500;cursor:pointer;font-family:inherit")}>⤢ Print / save PDF</button>
           </div>
         )}
         <section style={css("display:grid;grid-template-columns:" + (ctx.mobile ? "1fr" : "repeat(2,minmax(0,1fr))") + ";gap:0.8rem")}>
@@ -336,8 +336,8 @@ export const AUDIT_PIPELINE: Pipeline = {
   railTitle: "Audit pipeline",
   buildDocs: buildAuditDocs,
   gen: (k) => ({ total: k === "report" ? 1 + AREAS.length : 3, ms: k === "report" ? 8000 : 5000, buildLabel: k === "report" ? "Scoring" : "Building" }),
-  genPrompt: (k) => STAGE_PROMPT[k] || "Generate this stage with AI.",
-  genCta: (k) => STAGE_CTA[k] || "Generate with AI",
+  genPrompt: (k) => STAGE_PROMPT[k] || "Generate this stage from the approved evidence.",
+  genCta: (k) => STAGE_CTA[k] || "Generate draft",
   approveLabel: (_k, isLast) => (isLast ? "Finish & share →" : "Approve & continue →"),
   beginLabel: "Score my site →",
   beginMsg: (data) => {

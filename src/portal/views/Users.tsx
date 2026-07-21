@@ -31,7 +31,7 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
   const allMembers: Member[] = [
     ...TEAM,
     ...state.teamInvites.map(invite => ({ name: invite.name, access: invite.access, load: 0, prod: 0, invited: true })),
-  ];
+  ].filter(member => member.name !== "Kier Mangibin");
   const overworked = allMembers.filter(m => m.load >= 80 && !m.invited);
   const atCap = allMembers.filter(m => m.load >= 55 && !m.invited).length;
   const activeMembers = allMembers.filter(m => !m.invited);

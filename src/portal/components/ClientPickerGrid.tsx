@@ -100,7 +100,7 @@ function ClientCard({ c, compact }: { c: ClientCardData; compact: boolean }) {
             <div style={css("font-weight:500;font-size:" + (compact ? "0.86rem" : "0.88rem") + ";overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{c.name}</div>
             {c.subtitle && <div style={css("font-size:" + (compact ? "0.67rem" : "0.74rem") + ";color:var(--fg-muted);margin-top:0.1rem")}>{c.subtitle}</div>}
           </div>
-          {showStatus && <span style={css("display:inline-flex;align-items:center;gap:0.32rem;font-size:var(--text-2xs);font-weight:500;padding:0.18rem 0.52rem;border-radius:999px;white-space:nowrap;background:" + t.soft + ";color:" + t.color)}>
+          {showStatus && <span className="pt-badge" style={css("display:inline-flex;align-items:center;gap:0.32rem;font-size:var(--text-2xs);font-weight:500;padding:0.18rem 0.52rem;border-radius:999px;white-space:nowrap;background:" + t.soft + ";color:" + t.color)}>
             <span style={css("width:0.38rem;height:0.38rem;border-radius:50%;background:" + t.color + ";flex-shrink:0")} />
             {c.statusLabel}
           </span>}
@@ -122,7 +122,7 @@ function ClientCard({ c, compact }: { c: ClientCardData; compact: boolean }) {
           <div style={css("margin-bottom:" + (compact ? "0.58rem" : "0.85rem"))}>{c.hero}</div>
         ) : showProgress ? (
           <div style={css("display:flex;align-items:center;gap:0.6rem;margin-bottom:0.85rem")}>
-            <span style={css("display:inline-flex;align-items:center;font-size:var(--text-2xs);font-weight:500;padding:0.16rem 0.5rem;border-radius:999px;white-space:nowrap;background:var(--accent-soft);color:var(--accent)")}>{c.stage}</span>
+            <span className="pt-badge" style={css("display:inline-flex;align-items:center;font-size:var(--text-2xs);font-weight:500;padding:0.16rem 0.5rem;border-radius:999px;white-space:nowrap;background:var(--accent-soft);color:var(--accent)")}>{c.stage}</span>
             <div style={css("flex:1;height:0.35rem;border-radius:999px;background:oklch(0.94 0.006 50);overflow:hidden")}><div style={css("width:" + c.progress + "%;height:100%;background:var(--accent)")} /></div>
             <span style={css("font-size:0.7rem;color:var(--fg-muted)")}>{c.progress}%</span>
           </div>
@@ -213,7 +213,7 @@ function ClientCard({ c, compact }: { c: ClientCardData; compact: boolean }) {
                         <span style={css("font-size:0.78rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{row.title}</span>
                       </span>
 							<span style={css("display:flex;align-items:center;justify-content:flex-end;gap:0.42rem;min-width:0")}>
-								<span style={css("display:inline-flex;align-items:center;font-size:var(--text-2xs);font-weight:500;padding:0.22rem 0.5rem;border-radius:999px;white-space:nowrap;background:" + rowTone.soft + ";color:" + rowTone.color)}>{row.statusLabel}</span>
+								<span className="pt-badge" style={css("display:inline-flex;align-items:center;font-size:var(--text-2xs);font-weight:500;padding:0.22rem 0.5rem;border-radius:999px;white-space:nowrap;background:" + rowTone.soft + ";color:" + rowTone.color)}>{row.statusLabel}</span>
 								{row.trailing || <span style={css("display:inline-flex;align-items:center;gap:0.22rem;font-size:0.64rem;color:var(--fg-faint);white-space:nowrap")}><Icon name="cal" size={10} />{row.due}</span>}
 							</span>
                     </button>
@@ -241,7 +241,7 @@ function ClientCard({ c, compact }: { c: ClientCardData; compact: boolean }) {
                   <div style={{ minWidth: 0 }}>
                     <div style={css("display:flex;align-items:center;gap:0.45rem;min-width:0")}>
                       <span style={css("font-size:0.78rem;font-weight:500;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{row.title}</span>
-                      <span style={css("display:inline-flex;align-items:center;font-size:0.6rem;font-weight:500;padding:0.12rem 0.42rem;border-radius:999px;white-space:nowrap;background:" + rowTone.soft + ";color:" + rowTone.color)}>{row.statusLabel}</span>
+                      <span className="pt-badge" style={css("display:inline-flex;align-items:center;font-size:0.6rem;font-weight:500;padding:0.12rem 0.42rem;border-radius:999px;white-space:nowrap;background:" + rowTone.soft + ";color:" + rowTone.color)}>{row.statusLabel}</span>
                     </div>
                     <div style={css("display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap;margin-top:0.28rem;font-size:0.68rem;color:var(--fg-muted)")}>
                       <span>{row.stage}</span>

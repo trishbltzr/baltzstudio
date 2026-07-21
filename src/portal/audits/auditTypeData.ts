@@ -1,5 +1,4 @@
 import type { DiscoveryIntroStep, DiscoveryStage, DiscoveryTopic } from "../discovery/DiscoveryBuilder";
-import type { AuditType } from "../types";
 
 export const SHARED_AUDIT_STAGES: DiscoveryStage[] = [
   { key: "discovery", label: "Audit intake", icon: "inbox" },
@@ -40,40 +39,7 @@ export const BRAND_AUDIT_WIZARD: DiscoveryTopic[] = [
   ] },
 ];
 
-export const SEO_AUDIT_WIZARD: DiscoveryTopic[] = [
-  { id: "setup", num: "01", title: "Website & access", icon: "link", qs: [
-    { key: "nickname", label: "What should we call you?", kind: "text", ph: "Name or nickname" },
-    { key: "name", label: "What is the brand or business name?", kind: "text", ph: "Brand name" },
-    { key: "url", label: "What website should we audit?", kind: "text", ph: "https://brand.com" },
-    { key: "ga4Status", label: "Is GA4 available for this website?", kind: "single", opts: ["Connected", "Can be connected", "Not installed", "Not sure"] },
-  ] },
-  { id: "goals", num: "02", title: "Search goals", icon: "target", qs: [
-    { key: "seoGoal", label: "What should organic search help the business achieve?", kind: "multi", opts: ["Qualified traffic", "Leads", "Sales", "Local visibility", "Thought leadership", "Brand discovery"] },
-    { key: "markets", label: "Which countries, regions, or cities matter most?", kind: "textarea", ph: "Primary search markets and service areas…" },
-    { key: "audience", label: "Who is the priority search audience?", kind: "textarea", ph: "Who searches, what they need, and what they should do next…" },
-    { key: "conversion", label: "What is the main conversion from organic traffic?", kind: "single", opts: ["Purchase", "Book a call", "Submit an inquiry", "Visit a location", "Join the list", "Read or learn"] },
-  ] },
-  { id: "content", num: "03", title: "Content & keywords", icon: "file", qs: [
-    { key: "offers", label: "Which products, services, or topics matter most?", kind: "textarea", ph: "Priority offers and content themes…" },
-    { key: "keywords", label: "Which keywords or search themes are already important?", kind: "textarea", ph: "Known phrases, service terms, questions, or categories…" },
-    { key: "contentState", label: "What content exists today?", kind: "multi", opts: ["Service pages", "Product pages", "Blog", "Case studies", "Locations", "FAQs", "Guides", "Video"] },
-    { key: "contentGap", label: "Where does the current content feel weak or incomplete?", kind: "textarea", ph: "Missing topics, thin pages, outdated articles, unclear intent…" },
-  ] },
-  { id: "technical", num: "04", title: "Technical context", icon: "activity", qs: [
-    { key: "platform", label: "What platform is the website built on?", kind: "single", opts: ["Shopify", "WordPress", "Webflow", "Wix / Squarespace", "Custom", "Not sure"] },
-    { key: "changes", label: "Were there recent redesigns, migrations, or domain changes?", kind: "textarea", ph: "Dates, platforms, redirects, or known traffic changes…" },
-    { key: "issues", label: "Which SEO issues are already suspected?", kind: "multi", opts: ["Indexing", "Site speed", "Mobile UX", "Metadata", "Duplicate content", "Broken links", "Tracking", "Traffic decline"] },
-    { key: "constraints", label: "Are there technical or compliance constraints?", kind: "textarea", ph: "CMS limitations, approval requirements, regulated claims…" },
-  ] },
-  { id: "measurement", num: "05", title: "Measurement & priorities", icon: "chart", qs: [
-    { key: "tracking", label: "What measurement is available?", kind: "multi", opts: ["GA4", "Google Search Console", "Conversions", "Ecommerce", "Call tracking", "CRM", "None", "Not sure"] },
-    { key: "trafficChange", label: "Has organic performance changed recently?", kind: "textarea", ph: "Growth, decline, seasonality, or notable dates…" },
-    { key: "priorityPages", label: "Which pages should receive attention first?", kind: "textarea", ph: "URLs or page types tied most closely to revenue…" },
-    { key: "priority", label: "What would make this SEO audit successful?", kind: "textarea", ph: "The decisions or actions the report needs to unlock…" },
-  ] },
-];
-
-export const AUDIT_TYPE_INTRO: Record<Exclude<AuditType, "website">, DiscoveryIntroStep[]> = {
+export const AUDIT_TYPE_INTRO: Record<"brand", DiscoveryIntroStep[]> = {
   brand: [
     { title: "Brand Foundation", tag: "Purpose & positioning", icon: "grid" },
     { title: "Messaging & Voice", tag: "Promise & language", icon: "msg" },
@@ -81,14 +47,6 @@ export const AUDIT_TYPE_INTRO: Record<Exclude<AuditType, "website">, DiscoveryIn
     { title: "Brand System", tag: "Rules & consistency", icon: "layers" },
     { title: "Brand Kit", tag: "Usable direction", icon: "file" },
     { title: "Improvement Insights", tag: "What to fix next", icon: "target" },
-  ],
-  seo: [
-    { title: "Technical SEO", tag: "Crawl & index", icon: "activity" },
-    { title: "On-page SEO", tag: "Metadata & structure", icon: "file" },
-    { title: "Content & Intent", tag: "Topics & landing pages", icon: "msg" },
-    { title: "Internal Links", tag: "Discovery paths", icon: "link" },
-    { title: "GA4 Performance", tag: "Behavior & conversion", icon: "chart" },
-    { title: "Action Plan", tag: "Prioritized fixes", icon: "checklist" },
   ],
 };
 

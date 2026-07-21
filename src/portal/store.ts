@@ -11,6 +11,8 @@ import {
   type PortalApprovalRecord,
   type PortalClientNoteRecord,
   type PortalClientWorkspace,
+  type PortalBrandSystemRecord,
+  type PortalBrandAuditRecord,
   type PortalCollaboratorRecord,
   type PortalProposalRecord,
   type PortalWorkspaceFile,
@@ -140,11 +142,15 @@ function normalizeRequestedView(requestedView: string | null, role: Role): View 
     ? "activity"
     : requestedView === "escalations"
       ? "inbox"
-    : requestedView === "audits"
+    : requestedView === "audits" || requestedView === "audit"
       ? (role === "client" ? "audit" : "audits_new")
       : requestedView;
 
   return aliasedView && BASE_ROLE_VIEWS[role].has(aliasedView as View) ? aliasedView as View : null;
+}
+
+function canonicalPortalViewParam(view: View) {
+  return view === "audits_new" || view === "audit" ? "audits" : view;
 }
 
 function initialRequestedView(role: Role): View | null {
@@ -156,7 +162,7 @@ function syncPortalViewUrl(view: View) {
   if (typeof window === "undefined") return;
 
   const nextParams = new URLSearchParams(window.location.search);
-  nextParams.set("view", view === "audits_new" ? "audits" : view);
+  nextParams.set("view", canonicalPortalViewParam(view));
   if (view !== "audits_new" && view !== "audit") nextParams.delete("auditType");
   if (view !== "funnels") nextParams.delete("builderType");
 
@@ -279,6 +285,15 @@ export interface PortalActions {
   inviteCollaborator: (clientName: string, collaborator: { name: string; email: string; access: string }) => void;
   addClientNote: (clientName: string, text: string) => void;
   deleteClientNote: (clientName: string, noteId: string) => void;
+  updateClientBrandSystem: (clientName: string, update: {
+    colors?: [string, string][];
+    fonts?: [string, string, string][];
+    toneTraits?: string[];
+    toneAvoid?: string;
+    logoUrl?: string;
+    sourceUrl?: string;
+  }) => void;
+  saveClientBrandAudit: (clientName: string, audit: PortalBrandAuditRecord | null) => void;
   uploadPortalFiles: (payload: { clientName: string; folder: string; files: FileList | File[]; threadId?: string }) => Promise<void>;
   openThreadClientDetail: (threadId: string) => void;
   escalateDecision: (payload: { clientName: string; title: string; reason: string; by: string }) => void;
@@ -317,7 +332,8 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
   useEffect(() => {
     if (!hasHydrated) return;
     const requestedView = new URLSearchParams(window.location.search).get("view");
-    if (requestedView && normalizeRequestedView(requestedView, state.role) == null) {
+    const normalizedView = normalizeRequestedView(requestedView, state.role);
+    if (requestedView && (normalizedView == null || requestedView !== canonicalPortalViewParam(normalizedView))) {
       syncPortalViewUrl(state.view);
     }
   }, [hasHydrated, state.role, state.view]);
@@ -550,6 +566,35 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
           })),
         }));
         showToast("Note removed");
+      },
+      updateClientBrandSystem: (clientName, update) => {
+        const clientId = portalClientId(clientName);
+        setState(s => ({
+          ...s,
+          clientWorkspaces: withClientWorkspace(s, clientId, workspace => {
+            const current = workspace.brandSystem;
+            const brandSystem: PortalBrandSystemRecord = {
+              colors: update.colors?.length ? update.colors : current?.colors || [],
+              fonts: update.fonts?.length ? update.fonts : current?.fonts || [],
+              tone: {
+                traits: update.toneTraits?.length ? update.toneTraits : current?.tone.traits || [],
+                scales: current?.tone.scales || [],
+                avoid: update.toneAvoid?.trim() || current?.tone.avoid,
+              },
+              logoUrl: update.logoUrl || current?.logoUrl,
+              sourceUrl: update.sourceUrl || current?.sourceUrl,
+              updatedAt: new Date().toISOString(),
+            };
+            return { ...workspace, brandSystem };
+          }),
+        }));
+      },
+      saveClientBrandAudit: (clientName, audit) => {
+        const clientId = portalClientId(clientName);
+        setState(s => ({
+          ...s,
+          clientWorkspaces: withClientWorkspace(s, clientId, workspace => ({ ...workspace, brandAudit: audit })),
+        }));
       },
       blockerOf: id => blockerOf(id, state.tasks),
       advanceTask: id => {

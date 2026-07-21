@@ -8,6 +8,8 @@ import { Icon } from "../icons";
 import type { PortalActions, PortalState } from "../store";
 import { clientsVisibleToRole, STUDIO_CLIENTS, type StudioClient } from "../clients";
 import { GuidedIntakeSelector } from "../components/GuidedIntakeSelector";
+import { EngineIndexControls } from "../components/EngineIndexControls";
+import { clientsForEngineWork, latestEngineWork, startClientForEngine } from "../engineLifecycle";
 import { AuditTypeWorkspace } from "./AuditTypeWorkspace";
 import { AuditReportView } from "../views/AuditReportView";
 import { DiscoveryBuilder } from "../discovery/DiscoveryBuilder";
@@ -18,173 +20,37 @@ import { AUDIT_WIZARD, AUDIT_STAGES, AUDIT_INTRO_STEPS, AUDIT_DEMO } from "../di
 import { AUDIT_PIPELINE, auditScoreToDocs } from "../discovery/auditPipeline";
 import type { CatBar } from "../components/AuditCharts";
 import { AuditCardScoreSkeleton } from "../components/AuditCardScoreSkeleton";
+import { StartOverDialog } from "../components/StartOverDialog";
 import { AUDIT_CHECKLIST, isAuditScoreResult } from "@/lib/auditChecklist";
 import type { GeneratedStageResult } from "@/lib/aiStageGeneration";
-import { WEBSITE_AUDIT_DISCOVERY_QUESTIONS, WEBSITE_AUDIT_DISCOVERY_SECTIONS, type WebsiteAuditDiscoveryQuestion, type WebsiteAuditQuestionKind } from "./websiteAuditData";
-
-type QKind = WebsiteAuditQuestionKind;
 type Ans = Record<string, string | string[]>;
-
-type AuditQuestion = WebsiteAuditDiscoveryQuestion;
-
-interface AuditDeliverable {
-  id: string;
-  title: string;
-  from: string;
-  intro: string;
-  terminal?: boolean;
-}
 
 type AuditRun = PersistedAuditRun;
 
 interface AuditState {
   clientId: string | null;
   buildId: string | null;
-  idx: number;
-  answers: Ans;
-  unsure: Record<string, boolean>;
-  confirmed: Record<number, boolean>;
-  signed: Record<string, boolean>;
-  notes: Record<string, string>;
-  requesting: boolean;
-  draftNote: string;
-  error: string;
-  genActive: boolean;
-  genLabel: string;
-  genDone: Record<string, boolean>;
 }
 
 type Act =
   | { t: "select"; clientId: string; buildId: string }
   | { t: "load"; state: AuditState }
-  | { t: "toPicker" }
-  | { t: "go"; i: number }
-  | { t: "err"; m: string }
-  | { t: "text"; id: string; v: string }
-  | { t: "choice"; id: string; v: string }
-  | { t: "check"; id: string; v: string }
-  | { t: "unsure"; id: string }
-  | { t: "confirmGate"; s: number }
-  | { t: "sign"; id: string }
-  | { t: "reqChanges"; note: string }
-  | { t: "cancelReq" }
-  | { t: "draft"; v: string }
-  | { t: "sendNote"; id: string }
-  | { t: "restart" }
-  | { t: "autofill"; s: number }
-  | { t: "demoAll"; finalIdx: number }
-  | { t: "gen"; active: boolean; label?: string }
-  | { t: "genDone"; id: string };
+  | { t: "toPicker" };
 
-const SECTIONS = WEBSITE_AUDIT_DISCOVERY_SECTIONS;
-
-const QUESTIONS: AuditQuestion[] = WEBSITE_AUDIT_DISCOVERY_QUESTIONS;
-
-const DELIVS: AuditDeliverable[] = [
-  { id: "brief", title: "Discovery Brief", from: "your intake", intro: "A clean summary of the business, audience, and current context we are auditing against." },
-  { id: "offerread", title: "Offer & Audience Read", from: "the discovery brief", intro: "A sharper read on who the site should speak to, what they care about, and what the offer must communicate." },
-  { id: "journey", title: "Conversion Journey Read", from: "the offer & audience read", intro: "The key path a visitor takes today, where it breaks down, and what the site should guide them toward instead." },
-  { id: "findings", title: "Priority Findings", from: "the conversion journey read", intro: "The biggest experience, messaging, and trust issues surfaced first, with the why behind each one." },
-  { id: "plan", title: "Recommended Action Plan", from: "the priority findings", intro: "A practical implementation sequence for what to fix first across the internal audit and Lighthouse results." },
-  { id: "finalplan", title: "Final Audit Action Plan", from: "everything approved", intro: "Every discovery checkpoint consolidated into the action plan the team can move forward with.", terminal: true },
-];
-
-const DEMO: Record<string, string | string[]> = {};
-
-const freshBuild = (): Omit<AuditState, "clientId"> => ({
-  buildId: null,
-  idx: 0,
-  answers: {},
-  unsure: {},
-  confirmed: {},
-  signed: {},
-  notes: {},
-  requesting: false,
-  draftNote: "",
-  error: "",
-  genActive: false,
-  genLabel: "",
-  genDone: {},
-});
-
-const init: AuditState = { clientId: null, ...freshBuild() };
+const init: AuditState = { clientId: null, buildId: null };
 
 function reducer(s: AuditState, a: Act): AuditState {
   switch (a.t) {
-    case "select": return { ...init, clientId: a.clientId, buildId: a.buildId };
-    case "load": return { ...a.state };
-    case "toPicker": return { ...s, clientId: null, ...freshBuild() };
-    case "go": return { ...s, idx: a.i, error: "", requesting: false };
-    case "err": return { ...s, error: a.m };
-    case "text": return { ...s, answers: { ...s.answers, [a.id]: a.v }, error: "" };
-    case "choice": return { ...s, answers: { ...s.answers, [a.id]: a.v }, error: "" };
-    case "check": {
-      const arr = Array.isArray(s.answers[a.id]) ? (s.answers[a.id] as string[]).slice() : [];
-      const i = arr.indexOf(a.v);
-      if (i === -1) arr.push(a.v); else arr.splice(i, 1);
-      return { ...s, answers: { ...s.answers, [a.id]: arr }, error: "" };
-    }
-    case "unsure": return { ...s, unsure: { ...s.unsure, [a.id]: !s.unsure[a.id] }, error: "" };
-    case "confirmGate": return { ...s, confirmed: { ...s.confirmed, [a.s]: true }, error: "", idx: s.idx + 1 };
-    case "sign": return { ...s, signed: { ...s.signed, [a.id]: true }, requesting: false, idx: s.idx + 1 };
-    case "reqChanges": return { ...s, requesting: true, draftNote: a.note };
-    case "cancelReq": return { ...s, requesting: false, draftNote: "" };
-    case "draft": return { ...s, draftNote: a.v };
-    case "sendNote": return { ...s, requesting: false, notes: { ...s.notes, [a.id]: s.draftNote.trim() } };
-    case "restart": return { ...s, ...freshBuild() };
-    case "autofill": {
-      const answers = { ...s.answers };
-      QUESTIONS.filter(q => q.s === a.s).forEach(q => { if (DEMO[q.id] !== undefined) answers[q.id] = DEMO[q.id]; });
-      return { ...s, answers, error: "" };
-    }
-    case "demoAll": {
-      const confirmed: Record<number, boolean> = {};
-      SECTIONS.forEach((_, i) => (confirmed[i] = true));
-      const signed: Record<string, boolean> = {};
-      DELIVS.forEach(d => { if (!d.terminal) signed[d.id] = true; });
-      const genDone: Record<string, boolean> = {};
-      DELIVS.forEach(d => (genDone[d.id] = true));
-      return { ...s, answers: { ...DEMO }, confirmed, signed, genDone, genActive: false, idx: a.finalIdx, requesting: false, error: "" };
-    }
-    case "gen": return { ...s, genActive: a.active, genLabel: a.label ?? s.genLabel };
-    case "genDone": return { ...s, genActive: false, genDone: { ...s.genDone, [a.id]: true } };
+    case "select": return { clientId: a.clientId, buildId: a.buildId };
+    case "load": return a.state;
+    case "toPicker": return init;
   }
 }
-
-const FLOW_LENGTH = 1 + (SECTIONS.length * 2) + DELIVS.length;
 
 function hydrateAuditState(state: PersistedAuditState): AuditState {
   return {
     clientId: state.clientId,
     buildId: state.buildId,
-    idx: state.idx,
-    answers: state.answers,
-    unsure: state.unsure,
-    confirmed: state.confirmed,
-    signed: state.signed,
-    notes: state.notes,
-    requesting: false,
-    draftNote: "",
-    error: "",
-    genActive: false,
-    genLabel: "",
-    genDone: state.genDone,
-  };
-}
-
-function toPersistedAuditState(state: AuditState): PersistedAuditState | null {
-  if (!state.clientId || !state.buildId) return null;
-
-  return {
-    clientId: state.clientId,
-    buildId: state.buildId,
-    idx: state.idx,
-    answers: state.answers,
-    unsure: state.unsure,
-    confirmed: state.confirmed,
-    signed: state.signed,
-    notes: state.notes,
-    genDone: state.genDone,
   };
 }
 
@@ -223,23 +89,6 @@ function auditRunDateLabel(run: AuditRun) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function auditRunDateTimeLabel(run: AuditRun) {
-  const value = auditRunDate(run);
-  if (!value || value === "—" || value === "Today") return value || "—";
-
-  if (!value.includes("T")) return value;
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return date.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 function auditRunRank(run: AuditRun) {
   if (run.progress >= 100) return 3;
   if (run.progress > 0) return 2;
@@ -252,87 +101,10 @@ function auditRunLabel(run: AuditRun) {
   return "Baseline audit";
 }
 
-function auditRunMeta(run: AuditRun) {
-  const bits = [auditRunLabel(run), run.stage];
-  if (typeof run.score === "number") {
-    const delta = typeof run.previousScore === "number" ? run.score - run.previousScore : null;
-    bits.push(delta === null ? run.score + "/100" : run.score + "/100 " + (delta >= 0 ? "+" : "") + delta);
-  }
-  return bits.filter(Boolean).join(" · ");
-}
-
 function latestCompletedRun(runs: AuditRun[]) {
   return runs
     .filter(run => run.progress >= 100)
     .sort((left, right) => auditRunDate(right).localeCompare(auditRunDate(left)))[0] || null;
-}
-
-function auditRunScoreLabel(run: AuditRun | null) {
-  if (!run || typeof run.score !== "number") return "No report";
-  return run.score + "/100";
-}
-
-function auditRunChangeLabel(run: AuditRun | null) {
-  if (!run || typeof run.score !== "number") return "—";
-  if (typeof run.previousScore === "number") {
-    const delta = run.score - run.previousScore;
-    return (delta >= 0 ? "+" : "") + delta;
-  }
-  if (typeof run.targetScore === "number") return "+" + (run.targetScore - run.score) + " target";
-  return "Baseline";
-}
-
-function auditRunLastCheckLabel(completedRun: AuditRun | null, activeRun: AuditRun | null) {
-  if (activeRun?.runType === "rerun") return "Retesting now";
-  if (!completedRun) return "Not tested";
-
-  return auditRunDateTimeLabel(completedRun);
-}
-
-function computeRunProgress(state: PersistedAuditState) {
-  const signoffTotal = SECTIONS.length + DELIVS.filter(d => !d.terminal).length;
-  const signoffDone = Object.values(state.confirmed).filter(Boolean).length
-    + DELIVS.filter(d => !d.terminal && state.signed[d.id]).length;
-  const signoffPct = signoffTotal ? Math.round((signoffDone / signoffTotal) * 100) : 0;
-  const flowPct = FLOW_LENGTH > 1 ? Math.round((Math.max(state.idx, 0) / (FLOW_LENGTH - 1)) * 100) : 0;
-
-  return {
-    signoffDone,
-    signoffTotal,
-    progress: Math.max(signoffPct, flowPct),
-  };
-}
-
-function buildPersistedRun(base: { id: string; clientId: string; clientName: string; owner: string }, state: PersistedAuditState, existingRun?: AuditRun | null): AuditRun {
-  const { signoffDone, signoffTotal, progress } = computeRunProgress(state);
-  const reportReady = signoffDone >= signoffTotal;
-  const hasDeliverableReview = Object.keys(state.signed).length > 0 || Object.keys(state.genDone).length > 0;
-  const hasDiscoveryWork = Object.keys(state.answers).length > 0 || Object.keys(state.confirmed).length > 0;
-  const now = new Date().toISOString();
-  const runType = existingRun?.runType || (base.id.includes("-rerun-") ? "rerun" : "baseline");
-
-  return {
-    id: base.id,
-    clientId: base.clientId,
-    clientName: base.clientName,
-    owner: base.owner,
-    subtitle: "Cocoon Consult",
-    runLabel: existingRun?.runLabel || (runType === "rerun" ? "Rerun after fixes" : "Audit draft"),
-    runType,
-    sequence: existingRun?.sequence || 1,
-    baselineRunId: existingRun?.baselineRunId,
-    statusLabel: reportReady ? "Report ready" : hasDeliverableReview ? "In review" : hasDiscoveryWork ? "Auditing" : "Draft",
-    statusTone: reportReady ? "success" : hasDeliverableReview ? "warn" : hasDiscoveryWork ? "warn" : "muted",
-    stage: reportReady ? "Audit · Delivered" : hasDeliverableReview ? "Audit · Plan review" : "Discovery · Intake",
-    progress,
-    score: undefined,
-    previousScore: runType === "rerun" ? existingRun?.previousScore : undefined,
-    targetScore: undefined,
-    due: reportReady ? "Report ready" : "Today",
-    createdAt: existingRun?.createdAt || now,
-    updatedAt: now,
-    completedAt: reportReady ? now : undefined,
-  };
 }
 
 function seedAuditRuns(): AuditRun[] {
@@ -359,34 +131,35 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
   const [drafts, setDrafts] = useState<PersistedAuditDraft[]>([]);
   const draftsRef = useRef<PersistedAuditDraft[]>([]);
   const [draftsLoaded, setDraftsLoaded] = useState(false);
-  const [launchOpen, setLaunchOpen] = useState(false);
   const [exitingToPicker, setExitingToPicker] = useState(false);
   const [reportClientId, setReportClientId] = useState<string | null>(null);
   const [reportRunId, setReportRunId] = useState<string | null>(null);
   const [reportProposalOpen, setReportProposalOpen] = useState(false);
   const [proposalIffOn, setProposalIffOn] = useState(false);
+  const [resetAuditClientId, setResetAuditClientId] = useState<string | null>(null);
+  const [resettingAudit, setResettingAudit] = useState(false);
+  const [resetAuditError, setResetAuditError] = useState<string | null>(null);
   const [quickKnow, setQuickKnow] = useState<Know>({ data: {}, sources: {} });
   useEffect(() => { setQuickKnow(s.clientId ? loadPersistedKnowledge(s.clientId) : { data: {}, sources: {} }); }, [s.clientId]);
   const allClients = useMemo(() => clientsVisibleToRole(state.role, state.clientName), [state.clientName, state.role]);
-  const knownClientIds = useMemo(() => new Set(allClients.map(item => item.id)), [allClients]);
+  const workingClients = useMemo(() => clientsForEngineWork(state.role, allClients), [allClients, state.role]);
+  const assignedClientIds = useMemo(() => new Set(allClients.map(item => item.id)), [allClients]);
+  const knownClientIds = useMemo(() => new Set(workingClients.map(item => item.id)), [workingClients]);
   const currentDrafts = useMemo(() => drafts.filter(draft => knownClientIds.has(draft.run.clientId)), [drafts, knownClientIds]);
   draftsRef.current = drafts;
   const runs = useMemo(() => mergeAuditRuns(seedAuditRuns(), currentDrafts).filter(item => knownClientIds.has(item.clientId)), [currentDrafts, knownClientIds]);
   const draftsByRunId = useMemo(() => new Map(currentDrafts.map(draft => [draft.run.id, draft])), [currentDrafts]);
-  const client = allClients.find(c => c.id === s.clientId) || null;
-  const reportClient = allClients.find(c => c.id === reportClientId) || null;
+  const initiatedRuns = useMemo(() => runs.filter(item => item.progress > 0 || draftsByRunId.has(item.id)), [draftsByRunId, runs]);
+  const client = workingClients.find(c => c.id === s.clientId) || null;
+  const reportClient = workingClients.find(c => c.id === reportClientId) || null;
   const reportRun = reportRunId ? runs.find(item => item.id === reportRunId) || null : null;
   const reportDraft = reportRunId ? draftsByRunId.get(reportRunId) || null : null;
   const run = runs.find(item => item.id === s.buildId) || null;
-  const allClientsRef = useRef(allClients);
-  const runRef = useRef(run);
-  allClientsRef.current = allClients;
-  runRef.current = run;
-  const completedCount = useMemo(() => new Set(runs.filter(item => item.progress >= 100).map(item => item.clientId)).size, [runs]);
-  const inProgressCount = useMemo(() => new Set(runs.filter(item => item.progress > 0 && item.progress < 100).map(item => item.clientId)).size, [runs]);
+  const completedCount = useMemo(() => new Set(initiatedRuns.filter(item => assignedClientIds.has(item.clientId) && item.progress >= 100).map(item => item.clientId)).size, [assignedClientIds, initiatedRuns]);
+  const inProgressCount = useMemo(() => new Set(initiatedRuns.filter(item => assignedClientIds.has(item.clientId) && item.progress < 100).map(item => item.clientId)).size, [assignedClientIds, initiatedRuns]);
   const auditGroups = useMemo(
     () => allClients.map(client => {
-      const clientRuns = runs
+      const clientRuns = initiatedRuns
         .filter(item => item.clientId === client.id)
         .sort((left, right) => {
           const rankDelta = auditRunRank(right) - auditRunRank(left);
@@ -395,24 +168,18 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
         });
       return { client, runs: clientRuns };
     }).filter(group => group.runs.length > 0),
-    [allClients, runs],
+    [allClients, initiatedRuns],
   );
   const runsByClient = useMemo(
-    () => runs.reduce<Record<string, number>>((acc, item) => {
+    () => initiatedRuns.reduce<Record<string, number>>((acc, item) => {
       acc[item.clientId] = (acc[item.clientId] || 0) + 1;
       return acc;
     }, {}),
-    [runs],
+    [initiatedRuns],
   );
   const mobile = state.isMobile;
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const restoredFromUrl = useRef(false);
-
-  useEffect(() => {
-    if (state.quickActionIntent !== "new_audit") return;
-    setLaunchOpen(true);
-    actions.patch({ quickActionIntent: null });
-  }, [actions, state.quickActionIntent]);
 
   useEffect(() => {
     if (!state.hydrated) return;
@@ -459,12 +226,12 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
     const auditReportClientId = params.get("auditReport");
     const auditReportRunId = params.get("auditReportRun");
 
-    if (auditReportClientId && allClients.some(item => item.id === auditReportClientId)) {
+    if (auditReportClientId && workingClients.some(item => item.id === auditReportClientId)) {
       setReportClientId(auditReportClientId);
       const requestedRun = runs.find(item => item.id === auditReportRunId && item.clientId === auditReportClientId && item.progress >= 100);
       const latestRun = latestCompletedRun(runs.filter(item => item.clientId === auditReportClientId));
       setReportRunId(requestedRun?.id || latestRun?.id || null);
-      const source = allClients.find(item => item.id === auditReportClientId);
+      const source = workingClients.find(item => item.id === auditReportClientId);
       if (source) setProposalIffOn(actions.workspaceForClient(source.name).proposal?.iffOn ?? false);
       setReportProposalOpen(params.get("proposal") === "1");
       return;
@@ -475,7 +242,7 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
       if (requestedRun) {
         setReportClientId(requestedRun.clientId);
         setReportRunId(requestedRun.id);
-        const source = allClients.find(item => item.id === requestedRun.clientId);
+        const source = workingClients.find(item => item.id === requestedRun.clientId);
         if (source) setProposalIffOn(actions.workspaceForClient(source.name).proposal?.iffOn ?? false);
         updateAuditUrl({ auditReportClientId: requestedRun.clientId, auditReportRunId: requestedRun.id, proposal: params.get("proposal") === "1" });
         setReportProposalOpen(params.get("proposal") === "1");
@@ -483,7 +250,20 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
       }
     }
 
-    if (!auditRunId) return;
+    if (!auditRunId) {
+      if (state.role === "client") {
+        const ownClient = allClients[0];
+        const ownRun = ownClient
+          ? runs.filter(item => item.clientId === ownClient.id).sort((left, right) => auditRunDate(right).localeCompare(auditRunDate(left)))[0]
+          : null;
+        if (ownRun) {
+          const ownDraft = draftsByRunId.get(ownRun.id);
+          if (ownDraft) dispatch({ t: "load", state: hydrateAuditState(ownDraft.state) });
+          else dispatch({ t: "select", clientId: ownRun.clientId, buildId: ownRun.id });
+        }
+      }
+      return;
+    }
 
     const savedDraft = draftsByRunId.get(auditRunId);
     const savedRun = savedDraft?.run ?? runs.find(item => item.id === auditRunId) ?? null;
@@ -505,7 +285,21 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
     }
 
     dispatch({ t: "select", clientId: savedRun.clientId, buildId: savedRun.id });
-  }, [allClients, draftsByRunId, draftsLoaded, runs]);
+  }, [allClients, draftsByRunId, draftsLoaded, runs, state.role, workingClients]);
+
+  useEffect(() => {
+    if (state.role !== "client" || !draftsLoaded || s.clientId || reportClientId) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("auditRun") || params.has("auditReport") || params.has("auditReportRun")) return;
+    const ownClient = allClients[0];
+    const ownRun = ownClient
+      ? runs.filter(item => item.clientId === ownClient.id).sort((left, right) => auditRunDate(right).localeCompare(auditRunDate(left)))[0]
+      : null;
+    if (!ownRun) return;
+    const ownDraft = draftsByRunId.get(ownRun.id);
+    if (ownDraft) dispatch({ t: "load", state: hydrateAuditState(ownDraft.state) });
+    else dispatch({ t: "select", clientId: ownRun.clientId, buildId: ownRun.id });
+  }, [allClients, draftsByRunId, draftsLoaded, reportClientId, runs, s.clientId, state.role]);
 
   useEffect(() => {
     // Secondary sidebar abandoned — the DiscoveryBuilder carries its own rail.
@@ -526,54 +320,6 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
     if (exitTimer.current) clearTimeout(exitTimer.current);
     if (saveTimer.current) clearTimeout(saveTimer.current);
   }, []);
-
-  useEffect(() => {
-    const persistedState = toPersistedAuditState(s);
-    if (!draftsLoaded || !persistedState) return;
-
-    const source = allClientsRef.current.find(item => item.id === persistedState.clientId);
-    if (!source) return;
-
-    const existingDraft = draftsRef.current.find(draft => draft.run.id === persistedState.buildId);
-    const nextState: PersistedAuditState = {
-      ...persistedState,
-      report: existingDraft?.state.report,
-      guidedSession: existingDraft?.state.guidedSession,
-    };
-    const nextDraft: PersistedAuditDraft = {
-      run: buildPersistedRun({
-        id: persistedState.buildId,
-        clientId: source.id,
-        clientName: source.name,
-        owner: source.owner,
-      }, nextState, runRef.current),
-      state: nextState,
-      updatedAt: new Date().toISOString(),
-    };
-
-    setDrafts(prev => {
-      const next = prev.filter(draft => draft.run.id !== nextDraft.run.id);
-      return [nextDraft, ...next];
-    });
-
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      try {
-        const response = await fetch("/api/portal-audit-runs", {
-          method: "PUT",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ draft: nextDraft }),
-        });
-
-        if (!response.ok) {
-          const payload = await response.json().catch(() => null);
-          throw new Error(typeof payload?.error === "string" ? payload.error : "Unable to save the audit draft.");
-        }
-      } catch (error) {
-        console.error("Unable to persist audit draft.", error);
-      }
-    }, 450);
-  }, [draftsLoaded, s]);
 
   function updateAuditUrl(params: { auditRunId?: string | null; auditReportClientId?: string | null; auditReportRunId?: string | null; proposal?: boolean }) {
     const nextParams = new URLSearchParams(window.location.search);
@@ -602,7 +348,6 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
   }
 
   const startAudit = (clientId: string, buildId: string) => {
-    setLaunchOpen(false);
     setReportClientId(null);
     setReportRunId(null);
     setReportProposalOpen(false);
@@ -619,8 +364,7 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
     const completedRun = runId
       ? runs.find(item => item.id === runId && item.clientId === clientId && item.progress >= 100) || null
       : latestCompletedRun(runs.filter(item => item.clientId === clientId));
-    const source = allClients.find(item => item.id === clientId);
-    setLaunchOpen(false);
+    const source = workingClients.find(item => item.id === clientId);
     setReportProposalOpen(false);
     setReportClientId(clientId);
     if (source) setProposalIffOn(actions.workspaceForClient(source.name).proposal?.iffOn ?? false);
@@ -628,7 +372,7 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
     updateAuditUrl({ auditReportClientId: clientId, auditReportRunId: completedRun?.id || null, proposal: false });
   };
   const createAudit = (clientId: string) => {
-    const source = allClients.find(item => item.id === clientId);
+    const source = workingClients.find(item => item.id === clientId);
     if (!source) return;
     const id = "audit-" + clientId + "-" + Math.random().toString(36).slice(2, 8);
     const nextRun: AuditRun = {
@@ -669,61 +413,61 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
     startAudit(source.id, id);
     actions.showToast("New audit draft ready for " + source.name);
   };
-  const openClientOnboarding = () => {
-    setLaunchOpen(false);
-    actions.setView("onboarding");
+  const startOrResumeAudit = () => {
+    const target = startClientForEngine(state.role, allClients);
+    if (!target) return;
+    const existing = latestEngineWork(initiatedRuns.filter(item => item.clientId === target.id));
+    if (existing) startAudit(target.id, existing.id);
+    else createAudit(target.id);
   };
-  const rerunAudit = (clientId: string) => {
-    const source = allClients.find(item => item.id === clientId);
-    if (!source) return;
-    const previousRuns = runs.filter(item => item.clientId === clientId);
-    const previousComplete = previousRuns.find(item => item.progress >= 100);
-    const id = "audit-" + clientId + "-rerun-" + Math.random().toString(36).slice(2, 8);
-    const now = new Date().toISOString();
-    const nextRun: AuditRun = {
-      id,
-      clientId: source.id,
-      clientName: source.name,
-      owner: source.owner,
-      subtitle: "Cocoon Consult",
-      runLabel: "Rerun after fixes",
-      runType: "rerun",
-      sequence: previousRuns.length + 1,
-      baselineRunId: previousComplete?.id,
-      previousScore: previousComplete?.score,
-      statusLabel: "Draft",
-      statusTone: "muted",
-      stage: "Discovery · Intake",
-      progress: 0,
-      due: "Today",
-      createdAt: now,
-      updatedAt: now,
-    };
-    setDrafts(prev => [
-      {
-        run: nextRun,
-        state: {
-          clientId: source.id,
-          buildId: id,
-          idx: 0,
-          answers: {},
-          unsure: {},
-          confirmed: {},
-          signed: {},
-          notes: {},
-          genDone: {},
-        },
-        updatedAt: now,
-      },
-      ...prev.filter(draft => draft.run.id !== id),
-    ]);
-    startAudit(source.id, id);
-    actions.showToast("Rerun audit draft ready for " + source.name);
+  const requestStartOver = (clientId: string) => {
+    setResetAuditError(null);
+    setResetAuditClientId(clientId);
   };
+  const confirmStartOver = async () => {
+    if (!resetAuditClientId || resettingAudit) return;
+    const auditRuns = currentDrafts.filter(draft => draft.run.clientId === resetAuditClientId);
+    const runIds = auditRuns.map(draft => draft.run.id);
+    setResettingAudit(true);
+    setResetAuditError(null);
+    try {
+      if (runIds.length) {
+        const response = await fetch("/api/portal-audit-runs", {
+          method: "DELETE",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ runIds }),
+        });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(typeof payload?.error === "string" ? payload.error : "Unable to delete the saved audit.");
+      }
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      runIds.forEach(runId => window.localStorage.removeItem(`guided-audit:${runId}`));
+      window.localStorage.removeItem(`baltazar:builder-handoff:website:${resetAuditClientId}`);
+      setDrafts(current => current.filter(draft => draft.run.clientId !== resetAuditClientId));
+      if (s.clientId === resetAuditClientId) dispatch({ t: "toPicker" });
+      if (reportClientId === resetAuditClientId) {
+        setReportClientId(null);
+        setReportRunId(null);
+        setReportProposalOpen(false);
+      }
+      updateAuditUrl({ auditRunId: null, auditReportClientId: null });
+      const deletedClient = workingClients.find(item => item.id === resetAuditClientId);
+      setResetAuditClientId(null);
+      actions.showToast(`${deletedClient?.name || "Website"} audit deleted`);
+    } catch (error) {
+      setResetAuditError(error instanceof Error ? error.message : "Unable to delete the saved audit.");
+    } finally {
+      setResettingAudit(false);
+    }
+  };
+  useEffect(() => {
+    if (state.quickActionIntent !== "new_audit") return;
+    startOrResumeAudit();
+    actions.patch({ quickActionIntent: null });
+  }, [actions, state.quickActionIntent]);
   const buildProposal = (clientId: string) => {
     const completedRun = latestCompletedRun(runs.filter(item => item.clientId === clientId));
-    const source = allClients.find(item => item.id === clientId);
-    setLaunchOpen(false);
+    const source = workingClients.find(item => item.id === clientId);
     setReportClientId(clientId);
     if (source) setProposalIffOn(actions.workspaceForClient(source.name).proposal?.iffOn ?? false);
     setReportRunId(completedRun?.id || null);
@@ -738,7 +482,6 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
   }
   const exitToPicker = () => {
     if (exitingToPicker) return;
-    setLaunchOpen(false);
     setExitingToPicker(true);
     if (exitTimer.current) clearTimeout(exitTimer.current);
     exitTimer.current = setTimeout(() => {
@@ -884,54 +627,16 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
         <GuidedIntakeSelector
           eyebrow="Cocoon Consult"
           eyebrowColor="var(--cocoon)"
-          title="Generate or reopen an audit"
-          description="Start a new audit intake for any client, or reopen a completed Cocoon Consult report when you need to turn it into the next step."
-          controls={
-            <>
-              <span style={css("display:inline-flex;align-items:center;gap:0.35rem;padding:0.45rem 0.75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:0.73rem;color:var(--fg-muted)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--success)")} />{completedCount} completed</span>
-              <span style={css("display:inline-flex;align-items:center;gap:0.35rem;padding:0.45rem 0.75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:0.73rem;color:var(--fg-muted)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--warn)")} />{inProgressCount} still in intake</span>
-              <div style={{ position: "relative" }}>
-                <button type="button" onClick={() => setLaunchOpen(v => !v)} style={css("display:inline-flex;align-items:center;gap:0.42rem;min-height:2.3rem;padding:0 0.95rem;border:none;border-radius:999px;background:var(--cocoon);color:#fff;font-size:0.78rem;font-weight:500;cursor:pointer")}><Icon name="plus" size={15} />Generate audit</button>
-                {launchOpen && (
-                  <>
-                    <div onClick={() => setLaunchOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 34 }} />
-                    <div style={{ ...css(mobile
-                      ? "position:fixed;left:0.75rem;right:0.75rem;top:5.75rem;bottom:calc(5.4rem + env(safe-area-inset-bottom));width:auto;padding:0.5rem;border:1px solid var(--border);border-radius:1rem;background:color-mix(in srgb,var(--surface) 97%,white 3%);box-shadow:0 1rem 3rem rgba(35,25,18,.2);overflow-y:auto;overscroll-behavior:contain;z-index:35"
-                      : "position:absolute;top:2.7rem;right:0;width:min(24rem,calc(100vw - 2rem));padding:0.45rem;border:1px solid var(--border);border-radius:1rem;background:color-mix(in srgb,var(--surface) 94%,white 6%);z-index:35"), animation: "pt-ddin .16s ease" }}>
-                      <div style={css("padding:0.5rem 0.65rem 0.45rem")}>
-                        <div style={css("font-size:0.8rem;font-weight:500;color:var(--fg)")}>Choose a client</div>
-                        <div style={css("font-size:0.69rem;color:var(--fg-faint);margin-top:0.18rem")}>Every audit starts with discovery before it turns into a scored report.</div>
-                      </div>
-                      <div style={css("display:flex;flex-direction:column;gap:0.2rem")}>
-                        <button
-                          type="button"
-                          onClick={openClientOnboarding}
-                          style={css("width:100%;min-height:2.55rem;border:none;border-top:1px dashed var(--border);border-bottom:1px dashed var(--border);border-radius:0;background:transparent;color:var(--fg);font-size:0.76rem;font-weight:500;text-align:center;cursor:pointer")}
-                        >
-                          Add a new client
-                        </button>
-                        {allClients.map(item => (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => createAudit(item.id)}
-                            style={css("display:flex;align-items:center;gap:0.65rem;width:100%;padding:0.62rem 0.7rem;border:none;border-radius:0.85rem;background:transparent;color:var(--fg);text-align:left;cursor:pointer")}
-                          >
-                            <span style={css("width:1.8rem;height:1.8rem;border-radius:0.55rem;background:var(--cocoon-soft, color-mix(in srgb,var(--cocoon) 16%,white 84%));color:var(--cocoon);display:grid;place-items:center;font-size:var(--text-xs);font-weight:500;flex-shrink:0")}>{item.name[0]}</span>
-                            <span style={{ flex: 1, minWidth: 0 }}>
-                              <span style={css("display:block;font-size:0.8rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{item.name}</span>
-                              <span style={css("display:block;font-size:0.7rem;color:var(--fg-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{runsByClient[item.id] || 0} audit draft{(runsByClient[item.id] || 0) === 1 ? "" : "s"} · {item.audited ? "report ready" : "intake needed"}</span>
-                            </span>
-                            <span style={css("display:inline-flex;align-items:center;font-size:0.63rem;font-weight:500;padding:0.16rem 0.5rem;border-radius:999px;background:color-mix(in srgb,var(--cocoon) 16%,white 84%);color:var(--cocoon)")}>New</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </>
-          }
+          title="Start or continue a website audit"
+          description="Review the site. See what works, what does not, and what to fix first."
+          controls={<EngineIndexControls
+            metrics={[
+              { label: `${completedCount} completed`, tone: "success" },
+              { label: `${inProgressCount} still in intake`, tone: "warn" },
+            ]}
+            action={{ label: "Generate audit", onClick: startOrResumeAudit, color: "var(--cocoon)" }}
+          />}
+          controlsBelow
           countLabel="client"
           cards={auditGroups.map(group => {
             const completedRun = latestCompletedRun(group.runs);
@@ -982,14 +687,16 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
               showMeta: false,
               hero: <AuditCardScoreSkeleton summary={heroSummary} scored={hasScore} cats={heroCats} />,
               headerAction: latestComplete ? {
-                label: "Retest audit for " + group.client.name,
-                icon: "replay",
-                onClick: () => rerunAudit(group.client.id),
+                label: "Build proposal for " + group.client.name,
+                shortLabel: "Proposal",
+                icon: "checklist",
+                onClick: () => buildProposal(group.client.id),
               } : undefined,
               primaryLabel: latestComplete ? "View report" : "Open audit",
               onPrimary: () => (latestComplete && completedRun ? previewAudit(group.client.id, completedRun.id) : startAudit(group.client.id, displayRun.id)),
-              secondaryLabel: latestComplete ? "Build proposal" : "New audit",
-              onSecondary: () => (latestComplete ? buildProposal(group.client.id) : createAudit(group.client.id)),
+              secondaryLabel: "Start over",
+              secondaryIcon: "replay",
+              onSecondary: () => requestStartOver(group.client.id),
             };
           })}
         />
@@ -1021,9 +728,9 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
                       accent: "var(--cocoon)",
                       onAdvance: () => undefined,
                       onDownload: async () => {
-                        actions.showToast("Preparing the pageless PDF…");
+                        actions.showToast("Opening the print dialog…");
                         const ok = await printReportNode(document.querySelector("[data-audit-report-root]"), `${reportClient.name} · ${reportProposalOpen ? "Action plan" : "Audit report"}`);
-                        actions.showToast(ok ? "Pageless PDF ready" : "The PDF could not be generated");
+                        actions.showToast(ok ? "Choose Print or Save as PDF" : "The print dialog could not be opened");
                       },
                       onShare: () => {
                         const approvalResults = reportDraft.state.guidedSession?.aiResults || (reportDraft.state.report ? { report: reportDraft.state.report } : {});
@@ -1054,6 +761,16 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
             </div>
           </div>
         )}
+        <StartOverDialog
+          open={!!resetAuditClientId}
+          auditLabel="Website audit"
+          subject={workingClients.find(item => item.id === resetAuditClientId)?.name || "this website"}
+          detail="intake, reports, scores, and action plans"
+          busy={resettingAudit}
+          error={resetAuditError}
+          onCancel={() => { if (!resettingAudit) setResetAuditClientId(null); }}
+          onConfirm={confirmStartOver}
+        />
       </div>
     );
   }
@@ -1068,7 +785,7 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
         accent="var(--cocoon)"
         title={run?.subtitle || "Cocoon Consult Audit"}
         clientName={client.name}
-        intro={{ eyebrow: "Cocoon Consult Audit · Guided discovery", heading: "See exactly what you’ll get." }}
+        intro={{ eyebrow: "Website Audit", heading: "Review the site, step by step." }}
         wizard={AUDIT_WIZARD}
         stages={AUDIT_STAGES}
         introSteps={AUDIT_INTRO_STEPS}
@@ -1079,18 +796,19 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
         sessionKey={run?.id}
         initialSession={run ? draftsByRunId.get(run.id)?.state.guidedSession : undefined}
         onSessionChange={saveGuidedSession}
+        onStartOverRequest={() => requestStartOver(client.id)}
         onIngest={delta => {
           rememberKnowledge(client.id, delta);
           setQuickKnow(k => mergeKnow(k, delta));
         }}
         startLabel="Start audit intake →"
-        backLabel="← All audits"
-        previewLabel="or preview a finished audit"
+        backLabel={state.role === "client" ? "← Back to dashboard" : "← All audits"}
+        hideHeader={state.role === "client"}
         progressLabel="intake"
         demo={AUDIT_DEMO}
-        completeTitle="Intake complete"
-        completeMsg="That’s everything I need. I’ll score your site across the six areas and draft the report, brand audit, and action plan from your answers."
-        completeCta="Generate the report →"
+        completeTitle="Intake ready"
+        completeMsg="Next, score the site and build the action plan."
+        completeCta="Build the report →"
         stageExtra={stageKey => stageKey === "plan" ? (
           <div style={{ marginTop: "1.2rem", textAlign: "left" }}>
             <AuditBuilderHandoff type="website" clientName={client.name} onContinue={() => { window.localStorage.setItem(`baltazar:builder-handoff:website:${client.id}`, JSON.stringify({ source: "website-audit", savedAt: new Date().toISOString() })); window.localStorage.setItem("baltazar:builder-active:website", client.id); actions.patch({ builderType: "website" }); actions.setView("funnels"); }} />
@@ -1103,8 +821,18 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
           actions.shareFinalOutput({ clientName: client.name, title: "Website Audit · Final report", outputType: "audit", ...output });
         }}
         showToast={actions.showToast}
-        onExit={exitToPicker}
-        onComplete={data => { recordKnowledge(client.id, data, "Audit intake"); exitToPicker(); }}
+        onExit={() => state.role === "client" ? actions.setView("progress") : exitToPicker()}
+        onComplete={data => { recordKnowledge(client.id, data, "Audit intake"); if (state.role === "client") actions.setView("progress"); else exitToPicker(); }}
+      />
+      <StartOverDialog
+        open={!!resetAuditClientId}
+        auditLabel="Website audit"
+        subject={client.name}
+        detail="intake, reports, scores, and action plans"
+        busy={resettingAudit}
+        error={resetAuditError}
+        onCancel={() => { if (!resettingAudit) setResetAuditClientId(null); }}
+        onConfirm={confirmStartOver}
       />
     </div>
   );

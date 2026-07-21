@@ -194,6 +194,189 @@ Proceed one checklist item at a time: implement, verify, update this batch, then
 
 ---
 
+## Active Batch: Evidence-Based Brand Audit
+
+Source: Browser Comment 1 and Brand Audit verification request on `http://localhost:3412/dashboard?view=audits&auditType=brand`, captured July 21, 2026.
+
+Target: the generated Brand Audit report and live website-evidence pipeline in `/Users/trishabltzr/baltazarstudio`.
+
+### Comment Checklist
+
+- [x] **1. Remove seeded brand visuals**
+  - [x] Remove name-hashed colour generation and hard-coded font pairing from Brand Audit reports.
+  - [x] Never display an invented palette, typeface, or logo when evidence is unavailable.
+
+- [x] **2. Extract the live brand system for every supplied website**
+  - [x] Capture computed colours, heading/body fonts, and an observed logo from rendered website evidence.
+  - [x] Store the verified visual evidence with the generated Brand Audit result.
+  - [x] Keep visual extraction deterministic and available without a model call.
+  - [x] Render the report from those exact observed values and show the source URL.
+
+- [x] **3. Shorten the Brand Audit summary**
+  - [x] Keep the report introduction concise and preserve the most important verified conclusion.
+  - [x] Verify existing saved reports no longer show an oversized summary block.
+
+- [x] **4. Use circular colour swatches**
+  - [x] Render every verified colour as a clean circular sample with its role and exact hex value.
+  - [x] Keep light and dark swatches readable across desktop and mobile layouts.
+
+- [x] **5. Improve the print action**
+  - [x] Replace the placeholder symbol with a clear print icon.
+  - [x] Enlarge the action slightly while preserving the compact report toolbar.
+
+- [x] **6. Keep the mobile colour palette compact**
+  - [x] Render verified colour swatches in three columns on mobile.
+  - [x] Preserve circular samples, labels, and hex values without horizontal overflow.
+
+- [x] **7. Lead the report with the observed logo**
+  - [x] Place the verified brand logo above the report title.
+  - [x] Keep the logo proportional and omit it when no verified asset is available.
+
+- [x] **8. Remove source-status pills from the report header**
+  - [x] Remove the website, social-profile, and existing-guideline pills.
+  - [x] Retain source attribution beside the evidence it directly supports.
+
+- [x] **9. Clarify positioning and messaging**
+  - [x] Add a short explanatory subheading.
+  - [x] Present purpose, audience, differentiator, and promise as one vertical list.
+
+- [x] **10. Remove the asset inventory section**
+  - [x] Remove the in-place and kit-deliverables inventory from the report.
+
+- [x] **11. Remove the builder-anchor section**
+  - [x] Remove the “Anchors every build” section and its builder cards.
+
+- [x] **12. Synchronize completed audits with Clients & Projects**
+  - [x] Save the verified colours, typography, and brand voice to the audited client workspace.
+  - [x] Render the saved audit system in the client’s Brand system panel.
+  - [x] Persist the synchronized system with the rest of the client workspace.
+
+- [x] **13. Make Brand Audit loading states meaningful**
+  - [x] Explain what evidence or report stage is currently being prepared.
+  - [x] Use concise Brand Audit language instead of a generic generation message.
+  - [x] Keep the loading treatment consistent with the guided audit experience.
+
+- [x] **14. Connect Brand Audit cards to the client ecosystem**
+  - [x] Replace hard-coded card status and progress with the saved guided-audit state.
+  - [x] Make Open audit resume the client’s saved run.
+  - [x] Make New audit explicitly start a clean run for that client.
+  - [x] Store audit status, progress, and session data in the same persisted client workspace as the Brand system.
+  - [x] Auto-save each guided-session change and resume it through Open audit.
+  - [x] Rename the destructive secondary action to Start over and require confirmation when saved progress exists.
+
+- [x] **15. Remove non-applicable Brand Audit category bars**
+  - [x] Remove the empty Brand Foundation, Positioning, Messaging, Visual Identity, Brand System, and Improvement Priorities rows from Brand Audit cards.
+  - [x] Keep the saved progress percentage, progress bar, and current workflow state.
+
+- [x] **16. Move the print action to the report footer**
+  - [x] Remove the print action from above the Brand Audit report content.
+  - [x] Place the same native print action after the final report section and before stage approval controls.
+
+- [x] **17. Make the Brand Audit action plan visual and concise**
+  - [x] Use the Website Audit’s overview-first hierarchy as the visual reference.
+  - [x] Replace long summary and section prose with a compact visual overview and scannable priority cards.
+  - [x] Keep the action plan evidence-based without introducing a numeric brand score.
+  - [x] Preserve the approved source data while presenting its priority actions in a readable grouped layout.
+
+- [x] **18. Shorten the Brand Audit generation prompt**
+  - [x] Replace the internal report instructions with a short, client-facing explanation.
+  - [x] Keep the generation action and evidence requirements unchanged.
+
+- [x] **19. Sync Voice & Tone to Client information**
+  - [x] Save approved voice traits and avoid-language with the audited client workspace.
+  - [x] Show the synchronized Voice & Tone in the matching client information panel.
+
+- [x] **20. Add summary headings to positioning fields**
+  - [x] Add a concise subheading above each Purpose, Audience, Differentiator, and Promise summary.
+  - [x] Apply the shared field treatment to every Brand Audit rather than a seeded client.
+
+- [x] **21. Replace redundant Brand Audit card progress with a brand-system preview**
+  - [x] Remove the repeated progress percentage, saved-progress label, and duplicate status from the card body.
+  - [x] Show verified colour swatches plus compact typography and voice counts when brand-system evidence exists.
+  - [x] Show a concise current-stage preview for audits in progress and a simple invitation for untouched brands.
+  - [x] Keep the shared Website and SEO audit-card skeleton unchanged.
+
+### Verification Checklist
+
+- [x] CreatorIQ reports Proxima Nova and live CreatorIQ colours instead of GT Sectra and generated green/magenta values.
+- [x] Missing website evidence produces an explicit unverified state rather than seeded visuals.
+- [x] Brand Audit loads without console/runtime errors.
+- [x] `tsc --noEmit`, production build, and `git diff --check` pass.
+- [x] The report header shows the verified logo without source-status pills.
+- [x] Positioning and messaging reads as a vertical, explained list.
+- [x] Asset inventory and builder anchors are absent from the report.
+- [x] The mobile palette renders three columns without overflow.
+- [x] The print action uses a legible icon and enlarged hit area.
+- [x] Completing a Brand Audit updates the matching client Brand system in Clients & Projects.
+- [x] CreatorIQ’s saved action plan renders as four compact priority cards and two assignable next actions.
+- [x] The single Brand Audit print action appears after the action-plan content.
+- [x] The updated Brand Audit view has no horizontal overflow or console/runtime errors.
+- [x] Empty Brand Audit report copy is concise and client-facing.
+- [x] Approved Voice & Tone appears in the matching client information panel.
+- [x] Every positioning field includes a clear summary heading.
+- [x] Brand Audit cards preview the saved brand system without repeating header status information.
+- [x] Brand Audit loading screens name the work in progress and the next expected result.
+- [x] Brand Audit cards reflect intake, report, action-plan, and completed states and reopen the matching saved run.
+- [x] Brand Audit cards contain no empty category-score rows.
+- [ ] Brand Audit print actions appear only at the bottom of the report content.
+- [ ] The action plan is visually scannable and materially shorter than the current prose stack.
+
+### Execution Rules
+
+Proceed one checklist item at a time: implement, verify, update this batch, then move on.
+
+---
+
+## Active Batch: Funnel Sales-Page Hero, Layouts, and Promotions
+
+Source: Browser Comment 1 plus funnel sales-page refinement requested on `http://localhost:3412/dashboard?view=funnels&builderType=funnel`, captured July 21, 2026.
+
+Target: the generated Funnel development-plan wireframe in `/Users/trishabltzr/baltazarstudio`.
+
+### Comment Checklist
+
+- [x] **1. Remove the proof-approval placeholder strip**
+  - [x] Remove “Proof to approve before launch” and its unverified-testimonial placeholder from the wireframe.
+  - [x] Keep the following sales-page sections visually connected after removal.
+  - [x] Verify the placeholder no longer appears in the live Funnel report.
+
+- [x] **2. Keep hero copy concise and sales-focused**
+  - [x] Constrain generated hero headlines and supporting copy to compact, readable lengths.
+  - [x] Preserve the offer, audience, and primary action without truncating words mid-sentence.
+  - [x] Verify the Blue Ribbon hero stays balanced across its available layout recipes.
+
+- [x] **3. Improve independent section-layout suggestions**
+  - [x] Refine section recipes so each shuffled layout has intentional hierarchy, spacing, alignment, and card treatment.
+  - [x] Keep every tracked section independently shuffled rather than changing only the hero.
+  - [x] Verify one shuffle changes the full-page recipe while remaining readable.
+
+- [x] **4. Add promotional banners**
+  - [x] Add sales-page promotional banners with concise offer-led copy and a clear action.
+  - [x] Give banners independent layout variants that participate in page shuffling.
+  - [x] Verify the banners render in the live Funnel report and remain print-safe.
+
+- [x] **5. Remove gradient color treatments**
+  - [x] Replace gradients in the promotional banners, hero, media placeholder, and final CTA with solid brand or tonal surfaces.
+  - [x] Preserve enough contrast between shuffled variants without gradient effects.
+  - [x] Verify the Funnel wireframe contains no gradient backgrounds.
+
+- [x] **6. Canonicalize audit permalinks**
+  - [x] Use `view=audits` as the public audit URL for every role.
+  - [x] Keep legacy `view=audit` links working and rewrite them to the canonical URL.
+  - [x] Preserve the selected `auditType` while canonicalizing the link.
+
+### Verification Checklist
+
+- [x] Funnel report loads without console or runtime errors.
+- [x] Hero, shuffled layouts, and promotional banners remain responsive.
+- [x] `tsc --noEmit`, production build, and `git diff --check` pass.
+
+### Execution Rules
+
+Proceed one checklist item at a time: implement, verify, update this batch, then move on.
+
+---
+
 ## Active Batch: Social Media Builder Visual Refinement
 
 Source: four browser comments and attached layout references on `http://localhost:3412/dashboard?view=funnels&builderType=social`, captured July 16, 2026.
@@ -1171,6 +1354,115 @@ Target: `/dashboard` client/admin milestone and notification surfaces in `/Users
   - [x] Preserve responsive behavior, report rendering, and the sales-page content hierarchy.
   - [x] Verify multiple section layout attributes change after Shuffle, then run typecheck and the production build.
 
+- [x] **32. Equalize Brand Audit card heights**
+  - [x] Give palette, intake, and empty Brand Audit previews one shared fixed-height slot.
+  - [x] Prevent verified typography and voice metadata from wrapping and stretching completed cards.
+  - [x] Verify every Brand Audit card has the same measured height with no clipped preview content.
+
+- [x] **33. Use a domain-only Brand Audit source field**
+  - [x] Rename the Website URL field and related helper copy to Domain.
+  - [x] Normalize domain input into the URL format required by the scanner without asking clients to type a full URL.
+  - [x] Verify a plain domain can be scanned successfully.
+
+- [x] **34. Isolate Brand Audit prefills by the entered domain**
+  - [x] Trace previous-scan, generated-answer, and persisted-progress lookup keys.
+  - [x] Prevent a changed domain from reusing another domain's previous scan or seeded answers.
+  - [x] Verify changing Concertina's domain produces fresh domain-specific evidence and does not surface Concertina content.
+
+- [x] **35. Show only initiated Brand Audits**
+  - [x] Exclude untouched client brands from the Brand Audit card grid.
+  - [x] Keep saved intake, review, approval, and completed audit records visible.
+  - [x] Make the summary counts reflect the visible audit records while keeping standalone audit creation available.
+  - [x] Verify the live grid contains no `Not started` cards.
+
+- [x] **36. Start Brand Audits without automatic client association**
+  - [x] Make the Admin and Dev Generate audit action open an unassigned draft rather than selecting a client automatically.
+  - [x] Persist the standalone draft separately from every client workspace.
+  - [x] Update a Client brand system, approval workspace, and builder handoff only when the audit was explicitly opened from that Client's existing card.
+  - [x] Verify Generate audit opens `Unassigned draft` and does not add a new client card automatically.
+
+- [x] **37. Make every Audit start screen immediately clear**
+  - [x] Shorten Brand, Website, and SEO Audit titles, instructions, loading copy, and primary actions.
+  - [x] Make each screen explain only what to add, what happens next, and the next action.
+  - [x] Verify the simplified language on all three live Audit routes.
+
+- [x] **38. Keep client ordering alphabetical**
+  - [x] Sort the shared client roster A–Z so cards, selectors, and derived client lists inherit the same order.
+  - [x] Keep CreatorIQ as the explicit featured client for the Client-role toggle without promoting it in any roster.
+  - [x] Verify alphabetical ordering and the CreatorIQ Client-role default in the live dashboard.
+
+- [x] **39. Stack the Brand Audit header actions below the introduction**
+  - [x] Move the completed, intake, and Generate audit controls onto a new row below the heading and description.
+  - [x] Preserve compact wrapping on smaller screens.
+  - [x] Verify the live Brand Audit list header.
+
+- [x] **40. Redesign the Brand Audit action-plan summary**
+  - [x] Replace the cramped three-cell metric strip with a cleaner visual summary.
+  - [x] Keep priority count, next-action count, and evidence status immediately readable.
+  - [x] Verify the revised summary in the completed CreatorIQ action plan.
+
+- [x] **41. Use one column for Brand Audit priorities**
+  - [x] Stack every priority roadmap item in one vertical list at all breakpoints.
+  - [x] Preserve numbering, details, and supporting bullets.
+  - [x] Verify all four CreatorIQ priority items render in one column.
+
+- [x] **42. Confirm before starting a Brand Audit over**
+  - [x] Open an `Are you sure?` confirmation modal from every Brand Audit Start over action.
+  - [x] Explain that saved intake, report, and action-plan progress will be cleared.
+  - [x] Keep the audit unchanged when cancelled; delete the saved audit and remove its card only after explicit confirmation.
+  - [x] Verify the modal and cancel path live; verify the confirmed delete wiring in source without removing a saved client audit during QA.
+
+- [x] **43. Show Website and SEO Audit cards only after initiation**
+  - [x] Hide untouched Website Audit placeholder runs while preserving saved drafts and completed audits.
+  - [x] Hide SEO client cards until a crawl or sitemap project has been saved.
+  - [x] Keep Generate/New audit client selectors available so new audits can still be initiated.
+  - [x] Verify both live Audit grids contain no untouched placeholder cards.
+
+- [x] **44. Keep Audit client selections clipped and scrollable**
+  - [x] Bound Website and SEO client-selection popups to the available viewport height.
+  - [x] Clip the rounded popup edges and scroll the client choices independently.
+  - [x] Verify both start menus live.
+
+- [x] **45. Show Audit and Builder cards only after initiation**
+  - [x] Confirm Brand, Website, and SEO Audit indexes are driven only by saved audit activity.
+  - [x] Confirm Funnel Builder groups are driven only by created funnel records.
+  - [x] Hide Website Builder cards until a client build has been opened or saved.
+  - [x] Hide Social Media cards until at least one monthly calendar has been created.
+  - [x] Keep every eligible client available from the Website and Social Media creation menus.
+  - [x] Verify every Audit and Builder index live.
+  - [x] Verify the same visibility rule in the Client account without exposing another brand.
+
+- [x] **46. Start every Audit and Builder without choosing a client**
+  - [x] Match Brand Audit: Admin starts or resumes an unassigned draft directly.
+  - [x] Keep Client-account starts automatically scoped to that client only.
+  - [x] Keep unassigned drafts out of assigned client cards and Client accounts.
+  - [x] Preserve existing assigned Audit and Builder work.
+  - [x] Verify Website/SEO Audits and Funnel/Website/Social Builders live.
+
+- [x] **47. Unify the Audit and Builder lifecycle**
+  - [x] Use one shared index-control component across Brand, Website, and SEO Audits and Funnel, Website, and Social Media Builders.
+  - [x] Use one shared lifecycle utility for standalone Admin starts, client-scoped starts, resume ordering, and saved engine work.
+  - [x] Persist Website Builder, SEO Audit, and Social Media Builder progress in the shared client workspace so assigned work reflects in the Client account.
+  - [x] Restore standalone work without attaching it to a client and keep it out of Client accounts until assigned.
+  - [x] Remove the old Website Audit and Funnel client-picker branches.
+  - [x] Run the reusable Admin and Client smoke suite across all six engines.
+
+- [x] **48. Hide internal delivery identity from the portal UI**
+  - [x] Keep the internal Dev role and assignments intact while exposing only Admin and Client in the role-switch preview control.
+  - [x] Hide the redundant client engine breadcrumb without deleting its navigation behavior.
+  - [x] Present internal delivery ownership as the Studio team instead of a named team member.
+  - [x] Use Studio instead of Dev in client-facing playbooks and funnel plans.
+  - [x] Verify all six Admin and Client engine routes contain no visible Dev, Kier, or client breadcrumb text.
+
+- [x] **49. Make every Audit safely restartable and keep its intake distinct**
+  - [x] Use one shared confirmation dialog for Brand, Website, and SEO Audit Start over actions.
+  - [x] Delete the confirmed audit record, saved intake, generated report, score, action plan, and builder handoff before returning to the index.
+  - [x] Expose Start over from both active Audit workspaces and every initiated Audit card.
+  - [x] Derive Website and Brand scan fields from their live questionnaire definitions instead of duplicate API lists.
+  - [x] Remove the stale documentation-only Website questionnaire and document the live intake once.
+  - [x] Clarify Website-only messaging, visual consistency, and site-positioning prompts; keep Brand focused on the full brand system and SEO evidence-first without a repeated questionnaire.
+  - [x] Verify reset behavior, questionnaire separation, type checks, engine smoke coverage, and the production build.
+
 ### Verification Checklist
 
 - [x] `tsc --noEmit` passes.
@@ -1210,6 +1502,10 @@ Target: `/dashboard` client/admin milestone and notification surfaces in `/Users
 - [x] Blue Ribbon renders as a buyer-facing sales page with one Shop Feed CTA, no fabricated proof or price, and the complete conversion sequence.
 - [x] Shared Funnel and Website implementation task rows expose no priority selector while retaining the imported priority value.
 - [x] One Funnel wireframe Shuffle changes all 12 independent sales-section layout attributes in the live builder.
+- [x] Brand Audit cards share one measured height across palette, intake, and empty states without clipped content.
+- [x] Brand Audit accepts a plain domain and generates evidence from that active domain instead of the selected workspace label.
+- [x] Brand Audit lists initiated records only and opens new Admin or Dev audits as standalone unassigned drafts.
+- [x] All six Audit and Builder routes pass `npm run smoke:engines` for Admin and Client roles.
 
 ### Execution Rules
 

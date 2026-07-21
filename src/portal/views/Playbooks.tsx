@@ -11,7 +11,7 @@ import {
 import type { PortalActions, PortalState } from "../store";
 import type { Service } from "../types";
 
-const NEW_TEMPLATE = "# New function\n\n## Summary\nDescribe what this playbook covers and when it runs.\n\n## Process\n1. **Admin** — First step\n2. **Dev** — Second step\n3. **Client** — Client action\n\n## Outputs\n- What this produces\n\n## Notes\nAnything else worth flagging.";
+const NEW_TEMPLATE = "# New function\n\n## Summary\nDescribe what this playbook covers and when it runs.\n\n## Process\n1. **Admin** — First step\n2. **Studio** — Second step\n3. **Client** — Client action\n\n## Outputs\n- What this produces\n\n## Notes\nAnything else worth flagging.";
 
 const activeClients = (svc: Service) => ALL_PROJECTS.filter(p => p.service === svc).length;
 

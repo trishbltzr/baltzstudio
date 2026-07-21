@@ -5,7 +5,7 @@ import { DEFAULT_CLIENT_NAME, STUDIO_CLIENTS } from "./clients";
 
 export const ROLE_META: Record<string, { label: string; name: string; sub: string; init: string; badge: string }> = {
   admin: { label: "Admin", name: "Trish Baltazar", sub: "Studio Owner", init: "TB", badge: "studio" },
-  dev: { label: "Member", name: "Kier Mangibin", sub: "Studio Member", init: "KM", badge: "dev" },
+  dev: { label: "Member", name: "Studio team", sub: "Studio Workspace", init: "ST", badge: "dev" },
   client: { label: "Client", name: "Client", sub: DEFAULT_CLIENT_NAME, init: "CL", badge: "client" },
 };
 
@@ -78,13 +78,13 @@ export const MILESTONES: { title: string; status: string; mon: string; day: stri
 
 export const WORKSPACE_SWITCHER: Record<string, [string, string, string, string]> = {
   admin: ["Workspace", "BS", "Baltazar Studio", `${STUDIO_CLIENTS.length} Clients`],
-  dev: ["Workspace", "KM", "My Workspace", `${MY_CLIENTS.length} Assigned Clients`],
+  dev: ["Workspace", "ST", "My Workspace", `${MY_CLIENTS.length} Assigned Clients`],
   client: ["Client", "EC", DEFAULT_CLIENT_NAME, "Cocoon Consult · Not started"],
 };
 
 export const WORKSPACE_OPTIONS: Record<string, [string, string, boolean][]> = {
   admin: [["Baltazar Studio", "BS", true], ["Personal", "TB", false]],
-  dev: [["My Workspace", "KM", true]],
+  dev: [["My Workspace", "ST", true]],
   client: [[DEFAULT_CLIENT_NAME, "EC", true]],
 };
 
@@ -96,7 +96,7 @@ const MONO = "'Courier New',ui-monospace,monospace";
 export interface BrandSystem {
   colors: [string, string][];
   fonts: [string, string, string][];
-  tone: { traits: string[]; scales: [string, string, number][] };
+  tone: { traits: string[]; scales: [string, string, number][]; avoid?: string };
 }
 
 export const STUDIO_SYSTEM: BrandSystem = {

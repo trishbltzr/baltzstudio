@@ -9,6 +9,10 @@ export function initials(n: string): string {
   return n.split(" ").map(x => x[0]).slice(0, 2).join("");
 }
 
+export function displayPortalIdentity(name: string): string {
+  return name === "Kier Mangibin" || name === "Kier" ? "Studio team" : name;
+}
+
 export function statusPill(kind: string): string {
   const M: Record<string, [string, string]> = {
     done: ["var(--success-soft)", "var(--success)"],

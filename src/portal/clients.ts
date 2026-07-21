@@ -29,16 +29,35 @@ export interface StudioClient {
   funnels: ClientFacet[];
 }
 
+export const FEATURED_CLIENT_NAME = "CreatorIQ";
+
+export const UNASSIGNED_WORK_CLIENT: StudioClient = {
+  id: "unassigned",
+  name: "Unassigned draft",
+  owner: "Unassigned",
+  audited: false,
+  audit: {
+    id: "audit-unassigned",
+    subtitle: "Draft",
+    statusLabel: "Draft",
+    statusTone: "muted",
+    stage: "Intake",
+    progress: 0,
+    due: "—",
+  },
+  funnels: [],
+};
+
 const NOT_ASSIGNED_TO_KIER = new Set([
-  "Creator IQ",
+  FEATURED_CLIENT_NAME,
   "Porky's Lechon",
   "Therapy Mobz",
 ]);
 
 export const STUDIO_CLIENTS: StudioClient[] = [
+  FEATURED_CLIENT_NAME,
   "Blue Ribbon",
   "Concertina",
-  "Creator IQ",
   "Enterprise Growth System",
   "Feather & Tail",
   "Kaya Services",
@@ -52,7 +71,9 @@ export const STUDIO_CLIENTS: StudioClient[] = [
   "Yona Signo",
   "ZODA",
 ].sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" })).map(name => {
-  const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  // Preserve CreatorIQ's existing persistence key while using the correct
+  // service name.
+  const id = name === FEATURED_CLIENT_NAME ? "creator-iq" : name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   return {
     id,
     name,
@@ -71,7 +92,9 @@ export const STUDIO_CLIENTS: StudioClient[] = [
   };
 });
 
-export const DEFAULT_CLIENT_NAME = STUDIO_CLIENTS[0].name;
+// CreatorIQ is the featured client shown when the Client role is selected.
+// This is intentionally independent from the alphabetical roster order.
+export const DEFAULT_CLIENT_NAME = FEATURED_CLIENT_NAME;
 export const DEV_USER_NAME = "Kier Mangibin";
 
 export function clientsVisibleToRole(role: "admin" | "dev" | "client", clientName = DEFAULT_CLIENT_NAME) {

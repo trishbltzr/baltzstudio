@@ -16,6 +16,7 @@
 /* ─── Design tokens ─────────────────────────────────────────── */
 :root {
   --font-sans: "Mallory", system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
   /* Geometry */
   --radius: 0.55rem;

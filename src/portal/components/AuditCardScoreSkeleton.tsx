@@ -16,6 +16,10 @@ interface AuditCardScoreSkeletonProps {
   cats?: CatBar[];
   emptyLabels?: string[];
   projectionLabel?: string;
+  unscoredProgress?: number;
+  unscoredDetail?: string;
+  unscoredStatus?: string;
+  showCategories?: boolean;
 }
 
 export function AuditCardScoreSkeleton({
@@ -24,6 +28,10 @@ export function AuditCardScoreSkeleton({
   cats,
   emptyLabels,
   projectionLabel = "Projected after Winged in a Week",
+  unscoredProgress = 0,
+  unscoredDetail = "Not scored yet",
+  unscoredStatus = "Pending",
+  showCategories = true,
 }: AuditCardScoreSkeletonProps) {
   const bars: CatBar[] = cats?.length
     ? cats
@@ -41,21 +49,22 @@ export function AuditCardScoreSkeleton({
         <div style={css("min-width:0")}>
           <div style={css("font-size:0.7rem;color:var(--fg-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{projectionLabel}</div>
           <div style={css("display:flex;align-items:baseline;gap:0.4rem;margin-top:0.15rem;flex-wrap:wrap")}>
-            <span style={css("font-size:1.55rem;font-weight:500;color:" + (scored ? "var(--fg)" : "var(--fg-faint)") + ";line-height:0.9;font-variant-numeric:tabular-nums")}>{scored ? summary.overall : "—"}</span>
+            <span style={css("font-size:1.55rem;font-weight:500;color:" + (scored || unscoredProgress ? "var(--fg)" : "var(--fg-faint)") + ";line-height:0.9;font-variant-numeric:tabular-nums")}>{scored ? summary.overall : unscoredProgress ? `${unscoredProgress}%` : "—"}</span>
             <span style={css("font-size:0.82rem;color:var(--fg-muted)")}>
-              {scored ? <>↗ <strong style={css("font-weight:500;color:var(--success)")}>{summary.projected}</strong></> : "Not scored yet"}
+              {scored ? <>↗ <strong style={css("font-weight:500;color:var(--success)")}>{summary.projected}</strong></> : unscoredDetail}
             </span>
           </div>
         </div>
-        <span style={css("font-size:var(--text-lg);font-weight:500;color:" + (scored ? "var(--success)" : "var(--fg-faint)") + ";line-height:1;white-space:nowrap")}>{scored ? `+${summary.uplift}` : "Pending"}</span>
+        <span style={css("font-size:var(--text-lg);font-weight:500;color:" + (scored || unscoredProgress ? "var(--success)" : "var(--fg-faint)") + ";line-height:1;white-space:nowrap")}>{scored ? `+${summary.uplift}` : unscoredStatus}</span>
       </div>
       <div style={css("position:relative;height:0.38rem;border-radius:999px;background:oklch(0.92 0.006 50)")}>
         {scored && <div style={css("height:100%;width:" + Math.max(2, summary.overall) + "%;border-radius:999px;background:var(--success)")} />}
+        {!scored && unscoredProgress > 0 && <div style={css("height:100%;width:" + unscoredProgress + "%;border-radius:999px;background:var(--success)")} />}
         {scored && <span style={css("position:absolute;top:-0.16rem;bottom:-0.16rem;left:" + summary.projected + "%;width:2px;border-radius:999px;background:color-mix(in srgb,var(--fg-muted) 65%,transparent 35%)")} />}
       </div>
-      <div className="pt-audit-card-score-categories" style={css("border-top:1px solid var(--border-soft);padding-top:0.55rem")}>
+      {showCategories && <div className="pt-audit-card-score-categories" style={css("border-top:1px solid var(--border-soft);padding-top:0.55rem")}>
         <CategoryBars compact cats={bars} empty={!scored} layout="grid" />
-      </div>
+      </div>}
     </div>
   );
 }

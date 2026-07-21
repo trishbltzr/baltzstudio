@@ -21,9 +21,6 @@ import { Billing } from "./views/Billing";
 import { Users } from "./views/Users";
 import { Journey } from "./views/Journey";
 import { Approvals } from "./views/Approvals";
-import { Audit } from "./views/Audit";
-import { ClientAudits } from "./views/ClientAudits";
-import { ClientFunnels } from "./views/ClientFunnels";
 import { Assistant } from "./views/Assistant";
 import { Files } from "./views/Files";
 import { ProfileSettings } from "./views/ProfileSettings";
@@ -70,8 +67,6 @@ export function Portal({ seedRole, clientName, canSwitchRoles, onLogout }: { see
     if (view === "invoices" && role === "admin") return <Invoices state={state} actions={actions} />;
     if (view === "milestones") return <Journey state={state} actions={actions} />;
     if (view === "review") return <Approvals state={state} actions={actions} />;
-    if (view === "audit") return role === "client" ? <ClientAudits state={state} actions={actions} /> : <Audit state={state} actions={actions} />;
-    if (view === "funnels" && role === "client") return <ClientFunnels state={state} actions={actions} />;
     if (view === "assistant") return <Assistant state={state} />;
     if (view === "files") return <Files state={state} actions={actions} />;
     if (view === "onboarding") return <Onboarding state={state} actions={actions} />;

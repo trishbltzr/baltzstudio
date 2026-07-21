@@ -15,7 +15,7 @@ import type { ProgressChatMessage, ProgressChatSession, Role } from "../types";
 // ── header band — greeting · ask/search · the real snapshot cards ──────────────
 const HERO: Record<Role, { name: string; sub: string; ph: string }> = {
   client: { name: "Client", sub: "Your workspace is ready for project details.", ph: "Ask the studio or search your workspace…" },
-  dev: { name: "Kier", sub: "Your active projects and what needs your attention today.", ph: "Ask, search, or jump to a client…" },
+  dev: { name: "Studio", sub: "Your active projects and what needs your attention today.", ph: "Ask, search, or jump to a client…" },
   admin: { name: "Trish", sub: "How the studio’s doing, and what needs attention today.", ph: "Ask, search, or jump to a client…" },
 };
 

@@ -6,13 +6,16 @@ import { css } from "../helpers";
 import { Icon } from "../icons";
 import { clientsVisibleToRole, type StudioClient } from "../clients";
 import type { PortalActions, PortalState } from "../store";
-import { ClientPickerGrid } from "../components/ClientPickerGrid";
+import { GuidedIntakeSelector } from "../components/GuidedIntakeSelector";
+import { EngineIndexControls } from "../components/EngineIndexControls";
+import { clientsForEngineWork, engineWorkFromGuidedSession, isUnassignedEngineClient, saveEngineWork, startClientForEngine } from "../engineLifecycle";
 import { DiscoveryBuilder, type DiscoveryIntroStep, type DiscoveryStage, type DiscoveryTopic, type Pipeline, type StageRenderCtx } from "../discovery/DiscoveryBuilder";
 import { FunnelFlowHero } from "../discovery/funnelPipeline";
 import { fromClientMemory, getKnowledge, mergeKnow, type Know } from "../discovery/knowledge";
 import { BuilderTaskPanel } from "./BuilderTaskPanel";
 import type { TaskImportDraft } from "../types";
 import { portalApprovalOutput } from "@/lib/portalApprovalOutput";
+import type { GuidedAuditSession } from "@/lib/portalAuditPersistence";
 import { WEBSITE_BUILDER_WIZARD } from "./websiteBuilderData";
 
 /* Website intake questions live in websiteBuilderData so the live builder and
@@ -98,16 +101,38 @@ const PIPELINE: Pipeline = {
   },
 };
 
+type WebsiteBuilderActivity = "intake" | "complete";
+
+function readWebsiteBuilderActivity(clientId: string): WebsiteBuilderActivity | null {
+  if (typeof window === "undefined") return null;
+  try {
+    if (window.localStorage.getItem(`baltazar:website-builder:${clientId}`)) return "complete";
+    if (window.localStorage.getItem(`guided-audit:website-builder-${clientId}`)) return "intake";
+  } catch { /* unavailable storage means there is no locally restorable build */ }
+  return null;
+}
+
 export function WebsiteBuilder({ state, actions }: { state: PortalState; actions: PortalActions }) {
   const [client, setClient] = useState<StudioClient | null>(null);
-  const [launchOpen, setLaunchOpen] = useState(false);
   const [builderKnow, setBuilderKnow] = useState<Know>({ data: {}, sources: {} });
   const [handoffSource, setHandoffSource] = useState<"brand-audit" | "website-audit" | null>(null);
+  const [activityByClient, setActivityByClient] = useState<Record<string, WebsiteBuilderActivity>>({});
   const availableClients = useMemo(() => clientsVisibleToRole(state.role, state.clientName), [state.clientName, state.role]);
+  const workingClients = useMemo(() => clientsForEngineWork(state.role, availableClients), [availableClients, state.role]);
   useEffect(() => {
-    if (client && !availableClients.some(item => item.id === client.id)) setClient(null);
+    setActivityByClient(Object.fromEntries(availableClients.flatMap(item => {
+      const persisted = state.clientWorkspaces[item.id]?.engineWork.websiteBuilder;
+      const activity = persisted
+        ? persisted.status === "complete" || persisted.status === "ready" ? "complete" : "intake"
+        : readWebsiteBuilderActivity(item.id);
+      return activity ? [[item.id, activity]] : [];
+    })));
+  }, [availableClients, state.clientWorkspaces]);
+  useEffect(() => {
+    if (client && !isUnassignedEngineClient(client) && !availableClients.some(item => item.id === client.id)) setClient(null);
   }, [availableClients, client]);
   const openClient = (item: StudioClient) => {
+    setActivityByClient(current => ({ ...current, [item.id]: current[item.id] || "intake" }));
     let nextKnow: Know = mergeKnow(
       getKnowledge(item.id),
       fromClientMemory(item.id, item.name, actions.workspaceForClient(item.name)),
@@ -129,17 +154,56 @@ export function WebsiteBuilder({ state, actions }: { state: PortalState; actions
   useEffect(() => {
     if (client) return;
     const clientId = window.localStorage.getItem("baltazar:builder-active:website");
-    const item = availableClients.find(candidate => candidate.id === clientId);
+    const ownClient = state.role === "client" ? availableClients[0] : undefined;
+    const item = workingClients.find(candidate => candidate.id === clientId) || (ownClient && readWebsiteBuilderActivity(ownClient.id) ? ownClient : undefined);
     if (item) openClient(item);
     if (clientId) window.localStorage.removeItem("baltazar:builder-active:website");
-  }, [availableClients, client]);
-  const cards = useMemo(() => availableClients.map(item => ({ id: item.id, name: item.name, subtitle: "Website build-ready brief", statusLabel: "Not started", statusTone: "muted" as const, stage: "Website builder", progress: 0, owner: item.owner, due: "—", headerAction: { label: `Create website build for ${item.name}`, icon: "plus", onClick: () => openClient(item) }, showStatus: false, showProgress: false, showStage: false, showMeta: false, showFooter: false, hero: <FunnelFlowHero direction="Website planning" goal="Final sitemap and page briefs" build="Not started" readyCount={0} />, primaryLabel: "Open builder", onPrimary: () => openClient(item), secondaryLabel: "New build", secondaryIcon: "plus", onSecondary: () => openClient(item) })), [availableClients]);
+  }, [availableClients, client, state.role, workingClients]);
+  const cards = useMemo(() => availableClients.filter(item => !!activityByClient[item.id]).map(item => {
+    const complete = activityByClient[item.id] === "complete";
+    return { id: item.id, name: item.name, subtitle: "Website build-ready brief", statusLabel: complete ? "Brief ready" : "In progress", statusTone: complete ? "success" as const : "warn" as const, stage: "Website builder", progress: 0, owner: item.owner, due: "—", headerAction: { label: `Continue website build for ${item.name}`, icon: "plus", onClick: () => openClient(item) }, showStatus: false, showProgress: false, showStage: false, showMeta: false, showFooter: false, hero: <FunnelFlowHero direction="Website planning" goal="Final sitemap and page briefs" build={complete ? "Brief ready" : "Intake started"} readyCount={complete ? 1 : 0} />, primaryLabel: "Open builder", onPrimary: () => openClient(item), secondaryLabel: "Continue build", secondaryIcon: "plus", onSecondary: () => openClient(item) };
+  }), [activityByClient, availableClients]);
+  const startWebsite = () => {
+    const target = startClientForEngine(state.role, availableClients);
+    if (target) openClient(target);
+  };
   if (!client) return <div style={css("width:100%;padding:1.6rem 2rem 2.4rem") }>
-    <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap;padding:1rem 1.1rem;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);margin-bottom:1rem") }>
-      <div style={{ minWidth: 0 }}><span style={css("text-transform:uppercase;font-size:.68rem;font-weight:400;letter-spacing:.04em;line-height:1.2;display:block;color:var(--accent);margin-bottom:.45rem")}>Website build plans</span><h2 style={css("margin:0;font-size:1.22rem;font-weight:500;line-height:1.15")}>Generate or reopen a website build</h2><p style={css("margin:.45rem 0 0;font-size:var(--text-base);color:var(--fg-muted);line-height:1.55;max-width:36rem")}>Use an existing website, uploaded brief, or existing copy to define the final sitemap, page-by-page copy direction, and build-ready implementation scope.</p></div>
-      <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2);flex-wrap:wrap;flex-shrink:0") }><span style={css("display:inline-flex;align-items:center;gap:.35rem;padding:.45rem .75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:.73rem;color:var(--fg-muted)")}><span style={css("width:.42rem;height:.42rem;border-radius:50%;background:var(--accent)")}/>0 created</span><div style={{ position: "relative" }}><button type="button" onClick={() => setLaunchOpen(value => !value)} style={css("display:inline-flex;align-items:center;gap:.42rem;min-height:2.3rem;padding:0 .95rem;border:none;border-radius:999px;background:var(--accent);color:#fff;font-size:.78rem;font-weight:500;cursor:pointer")}><Icon name="plus" size={15}/>Generate website</button>{launchOpen && <><div onClick={() => setLaunchOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 34 }}/><div style={css("position:absolute;top:2.7rem;right:0;width:min(24rem,calc(100vw - 2rem));padding:.45rem;border:1px solid var(--border);border-radius:1rem;background:var(--surface);z-index:35") }><div style={css("padding:.5rem .65rem .45rem") }><div style={css("font-size:.8rem;font-weight:500")}>Choose a client</div><div style={css("font-size:.69rem;color:var(--fg-faint);margin-top:.18rem")}>Start from an existing website, uploaded brief, copy document, or a combination.</div></div><div style={css("display:flex;flex-direction:column;gap:.2rem")}>{availableClients.map(item => <button key={item.id} type="button" onClick={() => { setLaunchOpen(false); openClient(item); }} style={css("display:flex;align-items:center;gap:.65rem;width:100%;padding:.62rem .7rem;border:none;border-radius:.85rem;background:transparent;color:var(--fg);text-align:left;cursor:pointer") }><span style={css("width:1.8rem;height:1.8rem;border-radius:.55rem;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:var(--text-xs);font-weight:500")}>{item.name[0]}</span><span style={css("font-size:.8rem;font-weight:500")}>{item.name}</span></button>)}</div></div></>}</div></div>
-    </div>
-    <ClientPickerGrid countLabel="brand" compact cards={cards}/>
+    <GuidedIntakeSelector
+      eyebrow="Website Builder"
+      eyebrowColor="var(--accent)"
+      title="Start or continue a website build"
+      description="Add the website, brief, or existing copy. Get the final sitemap, page direction, and implementation scope."
+      controlsBelow
+      controls={<EngineIndexControls
+        metrics={[{ label: `${cards.length} created`, tone: "accent" }]}
+        action={{ label: "Generate website", onClick: startWebsite, disabled: state.role === "client" && !availableClients.length }}
+      />}
+      countLabel="build"
+      cards={cards}
+    />
   </div>;
-  return <div style={css("width:100%;padding:" + (state.isMobile ? "1rem .9rem 1.5rem" : "1.4rem 1.5rem"))}>{handoffSource && <div style={css("max-width:60rem;margin:0 auto .75rem;padding:.72rem .82rem;border:1px solid color-mix(in srgb,var(--accent) 25%,var(--border-soft) 75%);border-radius:.8rem;background:var(--accent-soft);display:flex;align-items:center;gap:.6rem;flex-wrap:wrap") }><Icon name="checkmark" size={14}/><div style={{ flex: 1, minWidth: "12rem" }}><strong style={css("display:block;font-size:.72rem;font-weight:500")}>Audit insights carried forward</strong><span style={css("display:block;margin-top:.12rem;font-size:.62rem;color:var(--fg-muted)")}>{handoffSource === "brand-audit" ? "Brand positioning, messaging, and visual priorities" : "Website findings, page priorities, and recommendations"} are available in this build.</span></div><span style={css("padding:.22rem .5rem;border-radius:999px;background:var(--surface);font-size:.58rem;color:var(--accent)")}>No restart needed</span></div>}<DiscoveryBuilder key={client.id} mobile={state.isMobile} accent="var(--accent)" title="Website Builder" clientName={client.name} intro={{ eyebrow: "Website planning · Guided build", heading: "Turn the right sources into a build-ready website brief." }} wizard={WIZARD} stages={STAGES} introSteps={INTRO} prefill={builderKnow.data} prefillSources={builderKnow.sources} prefillNotes={builderKnow.notes} quickStartMode="website_builder" onIngest={delta => setBuilderKnow(current => mergeKnow(current, delta))} generationMode="website_builder" startLabel="Start website intake →" backLabel="← All builders" progressLabel="intake" completeTitle="Intake complete" completeMsg="The approved pages, source material, copy direction, and build requirements are ready to map." completeCta="Create build-ready brief →" pipeline={PIPELINE} showToast={actions.showToast} onExit={() => { setHandoffSource(null); setClient(null); }} onComplete={() => { setHandoffSource(null); setClient(null); }} onImportTasks={actions.bulkImportTasks} onPipelineComplete={(data, aiResults) => { window.localStorage.setItem(`baltazar:website-builder:${client.id}`, JSON.stringify({ data, aiResults, savedAt: new Date().toISOString() })); }} onShareFinal={(_data, aiResults) => { const output = portalApprovalOutput(aiResults, "The final website brief and implementation tasks are ready."); actions.shareFinalOutput({ clientName: client.name, title: "Website Builder · Final build-ready brief", outputType: "builder", ...output }); }}/></div>;
+  const savedWork = state.clientWorkspaces[client.id]?.engineWork.websiteBuilder;
+  const savedPayload = savedWork?.payload as { session?: GuidedAuditSession; data?: unknown; aiResults?: unknown } | undefined;
+  const saveBuilderSession = (session: GuidedAuditSession) => {
+    actions.update(current => ({
+      clientWorkspaces: saveEngineWork(current.clientWorkspaces, client.id, "websiteBuilder", engineWorkFromGuidedSession(session)),
+    }));
+  };
+  const completeBuilder = (data: Record<string, string | string[]>, aiResults: unknown) => {
+    window.localStorage.setItem(`baltazar:website-builder:${client.id}`, JSON.stringify({ data, aiResults, savedAt: new Date().toISOString() }));
+    actions.update(current => {
+      const existing = current.clientWorkspaces[client.id]?.engineWork.websiteBuilder;
+      const payload = existing?.payload as { session?: GuidedAuditSession } | undefined;
+      return {
+        clientWorkspaces: saveEngineWork(current.clientWorkspaces, client.id, "websiteBuilder", {
+          status: "complete",
+          progress: 100,
+          updatedAt: new Date().toISOString(),
+          payload: { session: payload?.session, data, aiResults },
+        }),
+      };
+    });
+    setActivityByClient(current => ({ ...current, [client.id]: "complete" }));
+  };
+  return <div style={css("width:100%;padding:" + (state.isMobile ? "1rem .9rem 1.5rem" : "1.4rem 1.5rem"))}>{handoffSource && <div style={css("max-width:60rem;margin:0 auto .75rem;padding:.72rem .82rem;border:1px solid color-mix(in srgb,var(--accent) 25%,var(--border-soft) 75%);border-radius:.8rem;background:var(--accent-soft);display:flex;align-items:center;gap:.6rem;flex-wrap:wrap") }><Icon name="checkmark" size={14}/><div style={{ flex: 1, minWidth: "12rem" }}><strong style={css("display:block;font-size:.72rem;font-weight:500")}>Audit insights carried forward</strong><span style={css("display:block;margin-top:.12rem;font-size:.62rem;color:var(--fg-muted)")}>{handoffSource === "brand-audit" ? "Brand positioning, messaging, and visual priorities" : "Website findings, page priorities, and recommendations"} are available in this build.</span></div><span className="pt-badge" style={css("padding:.22rem .5rem;border-radius:999px;background:var(--surface);font-size:.58rem;color:var(--accent)")}>No restart needed</span></div>}<DiscoveryBuilder key={client.id} mobile={state.isMobile} accent="var(--accent)" title="Website Builder" clientName={client.name} intro={{ eyebrow: "Website planning · Guided build", heading: "Turn the right sources into a build-ready website brief." }} wizard={WIZARD} stages={STAGES} introSteps={INTRO} prefill={builderKnow.data} prefillSources={builderKnow.sources} prefillNotes={builderKnow.notes} quickStartMode="website_builder" onIngest={delta => setBuilderKnow(current => mergeKnow(current, delta))} generationMode="website_builder" sessionKey={`website-builder-${client.id}`} initialSession={savedPayload?.session} onSessionChange={saveBuilderSession} startLabel="Start website intake →" backLabel={state.role === "client" ? "← Back to dashboard" : "← All builders"} hideHeader={state.role === "client"} progressLabel="intake" completeTitle="Intake complete" completeMsg="The approved pages, source material, copy direction, and build requirements are ready to map." completeCta="Create build-ready brief →" pipeline={PIPELINE} showToast={actions.showToast} onExit={() => { setHandoffSource(null); if (state.role === "client") actions.setView("progress"); else setClient(null); }} onComplete={() => { setHandoffSource(null); if (state.role === "client") actions.setView("progress"); else setClient(null); }} onImportTasks={actions.bulkImportTasks} onPipelineComplete={completeBuilder} onShareFinal={(_data, aiResults) => { const output = portalApprovalOutput(aiResults, "The final website brief and implementation tasks are ready."); actions.shareFinalOutput({ clientName: client.name, title: "Website Builder · Final build-ready brief", outputType: "builder", ...output }); }}/></div>;
 }
