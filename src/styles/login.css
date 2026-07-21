@@ -823,6 +823,75 @@
   font-weight: 400;
 }
 
+.login-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.login-quick-btn {
+  min-width: 0;
+  min-height: 3.25rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface-alt) 72%, white 28%);
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+
+.login-quick-btn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border) 65%);
+  background: color-mix(in srgb, var(--accent-soft) 42%, white 58%);
+  transform: translateY(-1px);
+}
+
+.login-quick-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.login-quick-avatar {
+  width: 1.8rem;
+  height: 1.8rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--fg);
+  color: var(--surface);
+  font-size: 0.66rem;
+  font-weight: 600;
+}
+
+.login-quick-copy {
+  min-width: 0;
+  display: grid;
+  gap: 0.08rem;
+}
+
+.login-quick-copy strong {
+  overflow: hidden;
+  font-size: 0.76rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.login-quick-copy small {
+  overflow: hidden;
+  color: var(--fg-faint);
+  font-size: 0.66rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .login-google-btn {
   display: inline-flex;
   align-items: center;
@@ -933,6 +1002,10 @@
   }
 
   .login-role-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .login-quick-grid {
     grid-template-columns: 1fr;
   }
 
