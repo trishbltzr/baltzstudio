@@ -51,7 +51,8 @@ async function inspectRoute(page, name, query, role) {
   const onPageError = error => errors.push(error.message);
   page.on("pageerror", onPageError);
   const response = await page.goto(`${baseUrl}/dashboard?${query}`, { waitUntil: "domcontentloaded", timeout: 30_000 });
-  await new Promise(resolve => setTimeout(resolve, 350));
+  await page.waitForFunction(() => document.body.innerText.trim().length > 100, { timeout: 5_000 }).catch(() => undefined);
+  await new Promise(resolve => setTimeout(resolve, 150));
   const result = await page.evaluate(roleName => {
     const bodyText = document.body.innerText;
     const grid = document.querySelector(".pt-client-picker-grid");
