@@ -9,7 +9,8 @@
     "start": "next start --port 3412",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
-    "smoke:engines": "node scripts/smoke-portal-engines.mjs"
+    "smoke:engines": "node scripts/smoke-portal-engines.mjs",
+    "smoke:mobile": "node scripts/smoke-portal-mobile.mjs"
   },
   "dependencies": {
     "@sparticuz/chromium": "^138.0.2",

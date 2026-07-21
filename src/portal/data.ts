@@ -4,7 +4,7 @@ import type { ClientProject, Escalation, JourneyGate, Owner, Task, Thread } from
 import { DEFAULT_CLIENT_NAME, STUDIO_CLIENTS } from "./clients";
 
 export const ROLE_META: Record<string, { label: string; name: string; sub: string; init: string; badge: string }> = {
-  admin: { label: "Admin", name: "Trish Baltazar", sub: "Studio Owner", init: "TB", badge: "studio" },
+  admin: { label: "Admin", name: "Trish Baltazar", sub: "Studio Workspace", init: "TB", badge: "studio" },
   dev: { label: "Member", name: "Studio team", sub: "Studio Workspace", init: "ST", badge: "dev" },
   client: { label: "Client", name: "Client", sub: DEFAULT_CLIENT_NAME, init: "CL", badge: "client" },
 };

@@ -59,6 +59,7 @@ export interface ClientCardData {
 // Renders as a plain block so it drops into the padded shell (Audit) or a
 // full-bleed wrapper (funnel builder) alike.
 export function ClientPickerGrid({ cards, countLabel = "client", compact = false }: { cards: ClientCardData[]; countLabel?: string; compact?: boolean }) {
+  const gridColumns = "repeat(3,minmax(0,1fr))";
   return (
     <div style={css("display:flex;flex-direction:column;gap:" + (compact ? "0.75rem" : "1.1rem"))}>
       <div style={css("display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap")}>
@@ -67,7 +68,7 @@ export function ClientPickerGrid({ cards, countLabel = "client", compact = false
         </span>
         <span style={css("margin-left:auto;font-size:0.78rem;color:var(--fg-faint)")}>{cards.length} {countLabel}{cards.length === 1 ? "" : "s"}</span>
       </div>
-      <div style={css("display:grid;grid-template-columns:repeat(auto-fill,minmax(" + (compact ? "18.5rem" : "19rem") + ",1fr));gap:" + (compact ? "0.85rem" : "1rem") + ";align-items:" + (compact ? "stretch" : "start"))}>
+      <div className="pt-client-picker-grid" style={css("display:grid;grid-template-columns:" + gridColumns + ";gap:" + (compact ? "0.85rem" : "1rem") + ";align-items:" + (compact ? "stretch" : "start"))}>
         {cards.map(c => <ClientCard key={c.id} c={c} compact={compact} />)}
       </div>
     </div>

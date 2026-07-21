@@ -4,12 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
 import { css, healthMap, initials } from "../helpers";
 import { ALL_PROJECTS, SVC_META, seedTasks } from "../data";
+import { STUDIO_CLIENTS } from "../clients";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { PortalActions, PortalState } from "../store";
 import type { Health } from "../types";
 
 interface Member { name: string; access: string; load: number; prod: number; invited?: boolean; oversight?: boolean }
+interface DirectoryUser { name: string; email: string; access: string; workspace: string; status: "Active" | "Invited" | "Pending" }
 const TEAM: Member[] = [
-  { name: "Trisha Baltazar", access: "Owner", load: 0, prod: 0, oversight: true },
+  { name: "Trisha Baltazar", access: "Admin", load: 0, prod: 0, oversight: true },
   { name: "Kier Mangibin", access: "Member", load: 0, prod: 0 },
 ];
 
@@ -26,15 +29,44 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteAccess, setInviteAccess] = useState("Member");
   const [inviteSending, setInviteSending] = useState(false);
+  const [resettingEmail, setResettingEmail] = useState<string | null>(null);
   const inviteNameRef = useRef<HTMLInputElement>(null);
   const tasks = seedTasks();
+  const studioMembers = TEAM.filter(member => member.name !== "Kier Mangibin");
   const allMembers: Member[] = [
-    ...TEAM,
+    ...studioMembers,
     ...state.teamInvites.map(invite => ({ name: invite.name, access: invite.access, load: 0, prod: 0, invited: true })),
-  ].filter(member => member.name !== "Kier Mangibin");
+  ];
   const overworked = allMembers.filter(m => m.load >= 80 && !m.invited);
   const atCap = allMembers.filter(m => m.load >= 55 && !m.invited).length;
-  const activeMembers = allMembers.filter(m => !m.invited);
+  const activeMembers = studioMembers;
+
+  const directoryUsers = (() => {
+    const users = new Map<string, DirectoryUser>();
+    const addUser = (user: DirectoryUser) => {
+      const key = user.email.trim().toLowerCase();
+      if (key && !users.has(key)) users.set(key, user);
+    };
+
+    addUser({ name: "Trisha Baltazar", email: "trisha@baltazarstudio.co", access: "Admin", workspace: "Baltazar Studio", status: "Active" });
+    STUDIO_CLIENTS.forEach(client => {
+      addUser({ name: client.name, email: `${client.id}@client.baltazarstudio.co`, access: "Client", workspace: client.name, status: "Active" });
+      actions.workspaceForClient(client.name).collaborators.forEach(collaborator => {
+        addUser({
+          name: collaborator.name,
+          email: collaborator.email,
+          access: collaborator.access,
+          workspace: client.name,
+          status: collaborator.status === "pending" ? "Pending" : "Invited",
+        });
+      });
+    });
+    state.teamInvites.forEach(invite => {
+      addUser({ name: invite.name, email: invite.email, access: invite.access, workspace: "Baltazar Studio", status: "Invited" });
+    });
+
+    return Array.from(users.values()).sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
+  })();
 
   useEffect(() => {
     if (state.quickActionIntent !== "invite_user") return;
@@ -80,6 +112,24 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
     actions.showToast("Portal invite saved for " + email);
   };
 
+  const sendPasswordReset = async (email: string) => {
+    setResettingEmail(email);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const redirectTo = `${window.location.origin}/auth/callback?next=/login/reset-password`;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+      if (error) {
+        actions.showToast(`Could not send a password reset: ${error.message}`);
+        return;
+      }
+      actions.showToast(`Password reset sent to ${email}`);
+    } catch {
+      actions.showToast("Could not send the password reset. Check the authentication connection and try again.");
+    } finally {
+      setResettingEmail(null);
+    }
+  };
+
   const stats = [
     { label: "Studio team", value: String(allMembers.length), sub: "active & invited", valColor: "var(--fg)" },
     { label: "At capacity", value: String(atCap), sub: overworked.length ? overworked.map(m => m.name.split(" ")[0]).join(", ") + " overworked" : "balanced", valColor: atCap ? "var(--warn)" : "var(--success)" },
@@ -95,6 +145,9 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
     return { ...m, init: initials(m.name), clients: m.oversight ? ALL_PROJECTS.length : projs.length, activeTasks: tasks.filter(t => t.assignee === m.name && t.status !== "done").length, wkLabel, wkColor, projs };
   });
   const teamCols = state.isMobile ? "minmax(0,1fr)" : "repeat(2,minmax(0,1fr))";
+  const directoryCols = state.isMobile
+    ? "minmax(0,1fr) auto"
+    : "minmax(14rem,1.4fr) minmax(6rem,0.5fr) minmax(10rem,0.8fr) 5.5rem 7rem";
 
   return (
     <div style={css("display:flex;flex-direction:column;gap:1.1rem")}>
@@ -145,12 +198,67 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
         ))}
       </div>
 
+      <section style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden")}>
+        <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.75rem;padding:0.9rem 1rem;border-bottom:1px solid var(--border-soft)")}>
+          <div>
+            <div style={css("font-size:var(--text-md);font-weight:500;color:var(--fg)")}>All users</div>
+            <div style={css("margin-top:0.12rem;font-size:var(--text-xs);color:var(--fg-muted)")}>Everyone with portal access or a pending invite.</div>
+          </div>
+          <span style={css("font-family:'Courier New',ui-monospace,monospace;font-size:0.68rem;font-weight:500;padding:0.2rem 0.55rem;border-radius:var(--radius-pill);background:var(--surface-alt);color:var(--fg-muted)")}>{directoryUsers.length} users</span>
+        </div>
+        {!state.isMobile && (
+          <div style={{ display: "grid", gridTemplateColumns: directoryCols, alignItems: "center", gap: "0.75rem", padding: "0.55rem 1rem", borderBottom: "1px solid var(--border-soft)", fontSize: "0.62rem", fontWeight: 500, color: "var(--fg-faint)" }}>
+            <span>User</span><span>Access</span><span>Workspace</span><span style={{ textAlign: "right" }}>Status</span><span style={{ textAlign: "right" }}>Action</span>
+          </div>
+        )}
+        <div>
+          {directoryUsers.map(user => {
+            const statusColor = user.status === "Active" ? "var(--success)" : user.status === "Pending" ? "var(--warn)" : "var(--accent)";
+            const resetting = resettingEmail === user.email;
+            return (
+              <div key={user.email} style={{ display: "grid", gridTemplateColumns: directoryCols, alignItems: "center", gap: "0.75rem", minHeight: "3.9rem", padding: "0.65rem 1rem", borderBottom: "1px solid var(--border-soft)" }}>
+                <div style={css("display:flex;align-items:center;gap:0.65rem;min-width:0")}>
+                  <span style={css("width:2rem;height:2rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:0.68rem;font-weight:500;display:grid;place-items:center;flex-shrink:0")}>{initials(user.name)}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={css("font-size:var(--text-base);font-weight:500;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{user.name}</div>
+                    <div style={css("font-size:0.68rem;color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{user.email}</div>
+                    {state.isMobile && <div style={css("margin-top:0.1rem;font-size:0.66rem;color:var(--fg-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{user.access} · {user.workspace}</div>}
+                  </div>
+                </div>
+                {!state.isMobile && <span style={css("font-size:0.75rem;color:var(--fg-muted)")}>{user.access}</span>}
+                {!state.isMobile && <span style={css("font-size:0.75rem;color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{user.workspace}</span>}
+                {state.isMobile ? (
+                  <div style={css("display:flex;flex-direction:column;align-items:flex-end;gap:0.35rem")}>
+                    <span style={css("font-family:'Courier New',ui-monospace,monospace;font-size:0.62rem;font-weight:500;padding:0.18rem 0.5rem;border-radius:var(--radius-pill);background:color-mix(in srgb," + statusColor + " 12%,white 88%);color:" + statusColor)}>{user.status}</span>
+                    {user.status === "Active" && <button type="button" disabled={Boolean(resettingEmail)} onClick={() => void sendPasswordReset(user.email)} className="pt-iconbtn" style={css("height:1.8rem;padding:0 0.6rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:0.65rem;font-weight:500;cursor:pointer;opacity:" + (resetting ? ".6" : "1"))}>{resetting ? "Sending…" : "Send reset"}</button>}
+                  </div>
+                ) : (
+                  <>
+                    <span style={css("justify-self:end;font-family:'Courier New',ui-monospace,monospace;font-size:0.62rem;font-weight:500;padding:0.18rem 0.5rem;border-radius:var(--radius-pill);background:color-mix(in srgb," + statusColor + " 12%,white 88%);color:" + statusColor)}>{user.status}</span>
+                    {user.status === "Active" ? (
+                      <button type="button" disabled={Boolean(resettingEmail)} onClick={() => void sendPasswordReset(user.email)} className="pt-iconbtn" style={css("justify-self:end;height:1.9rem;padding:0 0.65rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:0.66rem;font-weight:500;white-space:nowrap;cursor:pointer;opacity:" + (resetting ? ".6" : "1"))}>{resetting ? "Sending…" : "Send reset"}</button>
+                    ) : <span style={css("justify-self:end;color:var(--fg-faint)")}>—</span>}
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
       {overworked.length > 0 && (
         <div style={css("display:flex;align-items:center;gap:0.6rem;padding:0.7rem 1rem;border-radius:var(--radius);background:var(--warn-soft);border:1px solid color-mix(in srgb,var(--warn) 30%,white 70%)")}>
           <span style={{ color: "var(--warn)", display: "flex" }}><Icon name="alert" size={16} /></span>
           <span style={css("font-size:0.83rem;color:var(--fg);flex:1")}>{overworked.map(m => m.name.split(" ")[0]).join(" & ")} {overworked.length > 1 ? "are" : "is"} over capacity — consider reassigning a client to balance the load.</span>
         </div>
       )}
+
+      <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-top:0.1rem")}>
+        <div>
+          <div style={css("font-size:var(--text-md);font-weight:500;color:var(--fg)")}>Studio workload</div>
+          <div style={css("margin-top:0.12rem;font-size:var(--text-xs);color:var(--fg-muted)")}>Active studio members and their assigned work.</div>
+        </div>
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: teamCols, gap: "0.7rem", alignItems: "stretch" }}>
         {members.map(p => (

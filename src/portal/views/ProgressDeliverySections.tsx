@@ -87,6 +87,7 @@ export function AdminStats({ actions }: { actions: PortalActions }) {
 export function AdminProgressBody({ state, actions, hideStats = false }: { state: PortalState; actions: PortalActions; hideStats?: boolean }) {
   const projects = roleProjects(state);
   const escOpen = state.escalations.filter(e => !e.resolved).slice(0, 3);
+  const visibleWorkload = WORKLOAD.filter(member => member.name !== "Kier Mangibin");
 
   return (
     <div style={css("display:flex;flex-direction:column;gap:0.85rem")}>
@@ -161,8 +162,8 @@ export function AdminProgressBody({ state, actions, hideStats = false }: { state
           <div style={css("flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden")}>
             <div style={css("padding:0.9rem 1.1rem;border-bottom:1px solid var(--border-soft)")}><h3 style={css("margin:0;font-size:var(--text-lg);font-weight:500")}>Team workload</h3></div>
             <div style={css("flex:1;min-height:0;display:flex;flex-direction:column")}>
-              {WORKLOAD.map((w, index) => (
-                <div key={w.name} style={css("flex:1;min-height:3.4rem;display:flex;align-items:center;gap:0.65rem;padding:0.65rem 1.1rem;" + (index < WORKLOAD.length - 1 ? "border-bottom:1px solid var(--border-soft)" : ""))}>
+              {visibleWorkload.map((w, index) => (
+                <div key={w.name} style={css("flex:1;min-height:3.4rem;display:flex;align-items:center;gap:0.65rem;padding:0.65rem 1.1rem;" + (index < visibleWorkload.length - 1 ? "border-bottom:1px solid var(--border-soft)" : ""))}>
                   <span style={css("width:1.75rem;height:1.75rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:0.64rem;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0")}>{w.init}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={css("font-weight:500;font-size:0.8rem")}>{w.name}</div>
