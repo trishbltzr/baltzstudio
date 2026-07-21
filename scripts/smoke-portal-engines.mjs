@@ -39,8 +39,14 @@ async function authenticate(page, user) {
   await page.evaluate(value => sessionStorage.setItem("bs-user", JSON.stringify(value)), user);
 }
 
+async function openDashboardRoute(page, query) {
+  const response = await page.goto(`${baseUrl}/dashboard?${query}`, { waitUntil: "domcontentloaded", timeout: 30_000 });
+  await page.waitForFunction(() => document.body.innerText.trim().length > 100, { timeout: 5_000 }).catch(() => undefined);
+  return response;
+}
+
 async function inspectRoleSwitcher(page) {
-  const response = await page.goto(`${baseUrl}/dashboard?view=progress`, { waitUntil: "networkidle0", timeout: 30_000 });
+  const response = await openDashboardRoute(page, "view=progress");
   const labels = await page.evaluate(() => Array.from(document.querySelectorAll("button"))
     .map(button => (button.textContent || "").trim())
     .filter(label => ["Admin", "Client", "Dev"].includes(label)));
@@ -59,7 +65,11 @@ async function inspectEngine(page, engine, role) {
   page.on("pageerror", onPageError);
   page.on("console", onConsole);
 
-  const response = await page.goto(`${baseUrl}/dashboard?${engine.query}`, { waitUntil: "networkidle0", timeout: 30_000 });
+  const response = await openDashboardRoute(page, engine.query);
+  if (role === "admin") {
+    await page.waitForFunction(action => Array.from(document.querySelectorAll("button"))
+      .some(button => (button.textContent || "").trim() === action), { timeout: 5_000 }, engine.action).catch(() => undefined);
+  }
   await new Promise(resolve => setTimeout(resolve, 500));
   const result = await page.evaluate(({ action, role }) => {
     const bodyText = document.body.innerText;
