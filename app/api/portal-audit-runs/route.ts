@@ -4,12 +4,18 @@ import { coercePersistedAuditDrafts, normalizePersistedAuditDraft } from "@/lib/
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/types";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const requestedClientId = new URL(request.url).searchParams.get("clientId")?.trim() || "";
+  const clientId = /^[a-z0-9-]{1,80}$/.test(requestedClientId) ? requestedClientId : null;
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("portal_audit_runs")
     .select("run_id, run, state, updated_at")
-    .order("updated_at", { ascending: false });
+    .neq("client_id", "__deleted__");
+
+  if (clientId) query = query.eq("client_id", clientId);
+
+  const { data, error } = await query.order("updated_at", { ascending: false });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -69,7 +75,28 @@ export async function DELETE(request: Request) {
   const supabase = await createSupabaseServerClient();
   const { data: auth, error: authError } = await supabase.auth.getUser();
   if (authError || !auth.user) {
-    return NextResponse.json({ error: "Sign in before deleting an audit." }, { status: 401 });
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json({ error: "Sign in before deleting an audit." }, { status: 401 });
+    }
+
+    // Local dashboard credentials intentionally do not create a Supabase
+    // session. Keep the production delete policy strict, but let the local
+    // preview remove a run recoverably through the table's update policy.
+    const { data, error } = await supabase
+      .from("portal_audit_runs")
+      .update({ client_id: "__deleted__", updated_at: new Date().toISOString() })
+      .in("run_id", runIds)
+      .select("run_id");
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      deletedIds: (data ?? []).map(row => row.run_id),
+      recoverable: true,
+    });
   }
   const { data, error } = await supabase
     .from("portal_audit_runs")

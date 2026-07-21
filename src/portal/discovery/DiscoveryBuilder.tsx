@@ -463,6 +463,8 @@ export function DiscoveryBuilder({
     if (!pipeline || !effectiveGenerationMode || isGenerating) return;
     setGeneratingStage(curKey);
     setGenerationError(null);
+    const controller = new AbortController();
+    const generationTimeout = setTimeout(() => controller.abort(), 240_000);
     try {
       const auditReportContext = isAuditScoreResult(aiResults.report) ? {
         overallScore: aiResults.report.overallScore,
@@ -481,6 +483,7 @@ export function DiscoveryBuilder({
       const response = await fetch("/api/ai/generate-stage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({ mode: effectiveGenerationMode, stageKey: curKey, clientName, personName, brandName, data: collected, clientNotes: prefillNotes, priorResult: priorStageContext }),
       });
       const payload = await response.json().catch(() => null);
@@ -500,8 +503,11 @@ export function DiscoveryBuilder({
         toast(`${curStage.label} is ready to review`);
       }
     } catch (error) {
-      setGenerationError(error instanceof Error ? error.message : "Generation failed.");
+      setGenerationError(controller.signal.aborted
+        ? "The audit took too long to finish. Nothing was lost—retry the report to start a fresh bounded run."
+        : error instanceof Error ? error.message : "Generation failed.");
     } finally {
+      clearTimeout(generationTimeout);
       setGeneratingStage(null);
     }
   };

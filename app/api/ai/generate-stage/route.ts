@@ -329,14 +329,21 @@ export async function POST(request: NextRequest) {
     try { scannedPages = await scanWebsite(url); }
     catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "The website could not be scanned." }, { status: 422 }); }
     if (!scannedPages.length) return NextResponse.json({ error: "The scan did not find enough public website content to score." }, { status: 422 });
-    try { websiteEvidence = await collectWebsiteEvidence(scannedPages.map(page => page.url)); }
-    catch (error) { return NextResponse.json({ error: `Rendered website inspection failed: ${error instanceof Error ? error.message : "Unable to open the site in the audit browser."}` }, { status: 422 }); }
+    const [renderedEvidenceResult, lighthouseResult] = await Promise.allSettled([
+      collectWebsiteEvidence(scannedPages.map(page => page.url)),
+      runLighthouse(scannedPages[0].url),
+    ]);
+    if (renderedEvidenceResult.status === "rejected") {
+      const error = renderedEvidenceResult.reason;
+      return NextResponse.json({ error: `Rendered website inspection failed: ${error instanceof Error ? error.message : "Unable to open the site in the audit browser."}` }, { status: 422 });
+    }
+    websiteEvidence = renderedEvidenceResult.value;
     const expectedRenders = scannedPages.length * 2;
     if (websiteEvidence.rendered.length < Math.ceil(expectedRenders * 0.7)) {
       return NextResponse.json({ error: `Rendered inspection covered only ${websiteEvidence.rendered.length} of ${expectedRenders} desktop/mobile page views. The report was not scored because the evidence was incomplete.` }, { status: 422 });
     }
-    try { lighthouse = await runLighthouse(scannedPages[0].url); }
-    catch (error) { console.warn("Google Lighthouse was unavailable.", error instanceof Error ? error.message : error); }
+    if (lighthouseResult.status === "fulfilled") lighthouse = lighthouseResult.value;
+    else console.warn("Google Lighthouse was unavailable.", lighthouseResult.reason instanceof Error ? lighthouseResult.reason.message : lighthouseResult.reason);
   }
   if ((mode === "brand" || mode === "seo") && stageKey === "report") {
     const url = typeof data.url === "string" ? data.url : "";

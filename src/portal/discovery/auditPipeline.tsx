@@ -64,7 +64,7 @@ export function auditScoreToDocs(result: AuditScoreResult, fallbackName = "Websi
 // ── renderers ──────────────────────────────────────────────────────────────────
 function CatCard({ c, accent, big }: { c: AuditCat; accent: string; big?: boolean }) {
   return (
-    <div style={css("border:1px solid var(--border-soft);border-radius:16px;padding:" + (big ? "1.3rem 1.4rem" : "1rem 1.1rem") + ";display:flex;flex-direction:column;gap:0.65rem;background:var(--surface);animation:cocoonFade .34s ease both")}>
+    <div style={css("border:1px solid var(--border-soft);border-radius:16px;padding:" + (big ? "1.3rem 1.4rem" : "1rem 1.1rem") + ";display:flex;flex-direction:column;gap:0.65rem;background:var(--surface);animation:cocoonFade .34s ease both;content-visibility:auto;contain-intrinsic-size:auto 28rem")}>
       <div style={css("display:flex;align-items:center;gap:0.7rem")}>
         <span style={css("width:" + (big ? "2.7rem" : "2.4rem") + ";height:" + (big ? "2.7rem" : "2.4rem") + ";border-radius:0.62rem;display:grid;place-items:center;font-size:" + (big ? "1.05rem" : "0.95rem") + ";font-weight:500;flex-shrink:0;background:color-mix(in srgb," + c.color + " 13%,var(--surface) 87%);color:" + c.color + ";font-variant-numeric:tabular-nums")}>{c.score}</span>
         <div style={css("flex:1;min-width:0")}><div style={css("font-size:" + (big ? "1.05rem" : "0.95rem") + ";font-weight:500;line-height:1.2")}>{c.label}</div><span style={css(badgeStyle(c.score) + ";display:inline-block;margin-top:0.3rem")}>{c.status}</span></div>
@@ -97,7 +97,7 @@ const checkTone = (status: AuditCheckResult["status"]) => status === "pass"
 function PagesAudited({ pages, lighthouse }: { pages: string[]; lighthouse: LighthouseRun[] }) {
   const lighthouseUrls = new Set(lighthouse.map(run => run.testedUrl));
   return (
-    <section style={css("border:1px solid var(--border-soft);border-radius:16px;background:var(--surface);padding:1.05rem 1.15rem")}>
+    <section style={css("border:1px solid var(--border-soft);border-radius:16px;background:var(--surface);padding:1.05rem 1.15rem;content-visibility:auto;contain-intrinsic-size:auto 32rem")}>
       <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem")}><div><div style={css("font-size:1rem;font-weight:500")}>Pages audited</div><div style={css("font-size:0.76rem;color:var(--fg-muted);margin-top:0.2rem")}>Every page used as evidence is listed here. Lighthouse performance was run on the marked page.</div></div><span style={css("font-size:0.72rem;color:var(--fg-muted);white-space:nowrap")}>{pages.length} pages</span></div>
       <div style={css("display:flex;flex-direction:column;gap:0.42rem;margin-top:0.8rem")}>
         {pages.map((page, index) => <div key={page} style={css("display:flex;align-items:center;gap:0.6rem;padding:0.55rem 0.65rem;border-radius:0.7rem;background:var(--surface-alt)")}><span style={css("width:1.35rem;height:1.35rem;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:1px solid var(--border-soft);font-size:0.65rem;color:var(--fg-muted);flex-shrink:0")}>{index + 1}</span><span style={css("min-width:0;flex:1;font-size:0.76rem;color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{page}</span>{lighthouseUrls.has(page) && <span style={css("font-size:0.62rem;font-weight:500;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:0.15rem 0.45rem;white-space:nowrap")}>Lighthouse tested</span>}</div>)}
@@ -112,7 +112,7 @@ function LighthouseReport({ runs }: { runs: LighthouseRun[] }) {
   const metricLabels: Record<string, string> = { "first-contentful-paint": "FCP", "largest-contentful-paint": "LCP", "speed-index": "SI", "total-blocking-time": "TBT", "cumulative-layout-shift": "CLS" };
   const metricIds = Object.keys(metricLabels);
   return (
-    <section style={css("border:1px solid var(--border-soft);border-radius:16px;background:var(--surface);padding:1.1rem 1.15rem")}>
+    <section style={css("border:1px solid var(--border-soft);border-radius:16px;background:var(--surface);padding:1.1rem 1.15rem;content-visibility:auto;contain-intrinsic-size:auto 42rem")}>
       <div><div style={css("font-size:1rem;font-weight:500")}>Google Lighthouse lab report</div><div style={css("font-size:0.76rem;color:var(--fg-muted);margin-top:0.2rem;line-height:1.45")}>Official PageSpeed Insights Lighthouse data. Lab values are estimates and can vary between runs.</div></div>
       <div style={css("display:flex;flex-direction:column;gap:0.8rem;margin-top:0.9rem")}>
         {runs.map(run => <article key={run.strategy} style={css("border:1px solid var(--border-soft);border-radius:13px;padding:0.85rem 0.9rem")}>
@@ -133,7 +133,7 @@ function LighthouseReport({ runs }: { runs: LighthouseRun[] }) {
 function ChecklistScoreCard({ category }: { category: AuditScoreResult["categories"][number] }) {
   const color = catColor(category.score);
   return (
-    <section style={css("border:1px solid var(--border-soft);border-radius:16px;background:var(--surface);overflow:hidden")}>
+    <section style={css("border:1px solid var(--border-soft);border-radius:16px;background:var(--surface);overflow:hidden;content-visibility:auto;contain-intrinsic-size:auto 120rem")}>
       <div style={css("padding:1rem 1.1rem;border-bottom:1px solid var(--border-soft)")}>
         <div style={css("display:flex;align-items:center;gap:0.75rem")}><span style={css("width:2.6rem;height:2.6rem;border-radius:0.62rem;display:grid;place-items:center;font-size:0.95rem;font-weight:500;flex-shrink:0;background:color-mix(in srgb," + color + " 13%,var(--surface) 87%);color:" + color + ";font-variant-numeric:tabular-nums")}>{category.score}</span><div style={css("min-width:0;flex:1")}><div style={css("font-size:1rem;font-weight:500")}>{category.label}</div><div style={css("font-size:0.72rem;color:var(--fg-muted);margin-top:0.2rem")}>{category.scoreFormula}</div></div><div style={css("flex:1;min-width:4rem;max-width:11rem")}><div style={css("position:relative;height:0.4rem;border-radius:999px;background:color-mix(in srgb," + color + " 13%,var(--surface-alt) 87%)")}><div style={css("position:absolute;inset:0 auto 0 0;height:100%;border-radius:999px;width:" + Math.max(2, category.score) + "%;background:" + color + "")} /></div></div></div>
         <div style={css("display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.75rem")}>{[[category.passed,"Passed","var(--success)","var(--success-soft)"],[category.failed,"Failed","var(--danger)","var(--danger-soft)"],[category.unverified,"Unverified","var(--warn)","var(--warn-soft)"],[category.notApplicable,"N/A","var(--fg-muted)","var(--surface-alt)"]].map(([count,label,tone,bg]) => <span key={String(label)} style={css("font-size:0.66rem;font-weight:500;color:" + tone + ";background:" + bg + ";border-radius:999px;padding:0.2rem 0.5rem")}>{count} {label}</span>)}</div>

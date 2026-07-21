@@ -107,6 +107,18 @@ function latestCompletedRun(runs: AuditRun[]) {
     .sort((left, right) => auditRunDate(right).localeCompare(auditRunDate(left)))[0] || null;
 }
 
+async function fetchAuditDrafts(clientId?: string) {
+  const query = clientId ? `?clientId=${encodeURIComponent(clientId)}` : "";
+  const response = await fetch(`/api/portal-audit-runs${query}`, { cache: "no-store" });
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(typeof payload?.error === "string" ? payload.error : "Unable to load audit drafts.");
+  }
+
+  return coercePersistedAuditDrafts(payload?.drafts);
+}
+
 function seedAuditRuns(): AuditRun[] {
   return STUDIO_CLIENTS.map(client => {
     const complete = client.audit.progress >= 100;
@@ -130,6 +142,8 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
   const [s, dispatch] = useReducer(reducer, init);
   const [drafts, setDrafts] = useState<PersistedAuditDraft[]>([]);
   const draftsRef = useRef<PersistedAuditDraft[]>([]);
+  const allDraftsCacheRef = useRef<PersistedAuditDraft[] | null>(null);
+  const draftsScopeRef = useRef<"all" | string>("all");
   const [draftsLoaded, setDraftsLoaded] = useState(false);
   const [exitingToPicker, setExitingToPicker] = useState(false);
   const [reportClientId, setReportClientId] = useState<string | null>(null);
@@ -193,15 +207,22 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
 
     async function loadDrafts() {
       try {
-        const response = await fetch("/api/portal-audit-runs", { cache: "no-store" });
-        const payload = await response.json().catch(() => null);
-
-        if (!response.ok) {
-          throw new Error(typeof payload?.error === "string" ? payload.error : "Unable to load audit drafts.");
-        }
+        const params = new URLSearchParams(window.location.search);
+        const requestedClientId = params.get("auditReport") || undefined;
+        const nextDrafts = await fetchAuditDrafts(requestedClientId);
 
         if (!cancelled) {
-          setDrafts(coercePersistedAuditDrafts(payload?.drafts));
+          draftsScopeRef.current = requestedClientId || "all";
+          setDrafts(nextDrafts);
+          if (!requestedClientId) allDraftsCacheRef.current = nextDrafts;
+        }
+
+        if (requestedClientId) {
+          void fetchAuditDrafts().then(allDrafts => {
+            allDraftsCacheRef.current = allDrafts;
+          }).catch(error => {
+            console.error("Unable to warm the audit index.", error);
+          });
         }
       } catch (error) {
         console.error("Unable to load persisted audit drafts.", error);
@@ -475,6 +496,19 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
     updateAuditUrl({ auditReportClientId: clientId, auditReportRunId: completedRun?.id || null, proposal: true });
   };
   function closeReportModal() {
+    if (allDraftsCacheRef.current) {
+      draftsScopeRef.current = "all";
+      setDrafts(allDraftsCacheRef.current);
+    } else if (draftsScopeRef.current !== "all") {
+      setDraftsLoaded(false);
+      void fetchAuditDrafts().then(allDrafts => {
+        draftsScopeRef.current = "all";
+        allDraftsCacheRef.current = allDrafts;
+        setDrafts(allDrafts);
+      }).catch(error => {
+        console.error("Unable to load the audit index.", error);
+      }).finally(() => setDraftsLoaded(true));
+    }
     setReportClientId(null);
     setReportRunId(null);
     setReportProposalOpen(false);
@@ -621,6 +655,74 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
     return <AuditTypeWorkspace type={state.auditType} state={state} actions={actions} />;
   }
 
+  const reportRequested = state.hydrated && typeof window !== "undefined" && new URLSearchParams(window.location.search).has("auditReport");
+
+  if (!client && !draftsLoaded) {
+    return (
+      <div role="status" aria-label={reportRequested ? "Loading audit report" : "Loading audits"} style={css("min-height:60vh;display:grid;place-items:center;padding:2rem;color:var(--fg-muted);font-size:var(--text-sm)")}>
+        {reportRequested ? "Loading audit report…" : "Loading audits…"}
+      </div>
+    );
+  }
+
+  if (!client && reportClient) {
+    return (
+      <div style={css("width:100%;padding:" + (mobile ? "1rem 0.75rem calc(6rem + env(safe-area-inset-bottom))" : "1.35rem 2rem 2.4rem"))}>
+        <div style={css("width:min(68rem,100%);margin:0 auto") }>
+          <div style={css("display:flex;align-items:center;gap:var(--space-3);margin-bottom:0.85rem") }>
+            <button type="button" onClick={closeReportModal} className="pt-op" style={css("display:inline-flex;align-items:center;gap:0.4rem;height:2.1rem;padding:0 0.8rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:0.76rem;font-weight:500;cursor:pointer") }><Icon name="chevleft" size={14} />All audits</button>
+            <div style={css("min-width:0;font-size:0.92rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{reportProposalOpen ? "Build proposal" : "Audit report"} · {reportClient.name}</div>
+          </div>
+          <article style={css("border:1px solid var(--border-soft);border-radius:1.1rem;background:var(--surface);overflow:clip") }>
+            {reportDraft?.state.report ? (
+              <div data-audit-report-root style={css("padding:" + (mobile ? "1rem" : "1.4rem"))}>
+                {AUDIT_PIPELINE.renderStage({
+                  stageKey: reportProposalOpen ? "plan" : "report",
+                  docs: auditScoreToDocs(reportDraft.state.report, reportClient.name),
+                  aiResult: reportProposalOpen ? reportDraft.state.guidedSession?.aiResults.plan || null : reportDraft.state.report,
+                  aiResults: reportDraft.state.guidedSession?.aiResults || { report: reportDraft.state.report },
+                  reveal: Number.POSITIVE_INFINITY,
+                  building: false,
+                  approved: true,
+                  mobile,
+                  accent: "var(--cocoon)",
+                  onAdvance: () => undefined,
+                  onDownload: async () => {
+                    actions.showToast("Opening the print dialog…");
+                    const ok = await printReportNode(document.querySelector("[data-audit-report-root]"), `${reportClient.name} · ${reportProposalOpen ? "Action plan" : "Audit report"}`);
+                    actions.showToast(ok ? "Choose Print or Save as PDF" : "The print dialog could not be opened");
+                  },
+                  onShare: () => {
+                    const approvalResults = reportDraft.state.guidedSession?.aiResults || (reportDraft.state.report ? { report: reportDraft.state.report } : {});
+                    const output = portalApprovalOutput(approvalResults, "The final website audit and action plan are ready.");
+                    actions.shareFinalOutput({ clientName: reportClient.name, title: "Website Audit · Final report", outputType: "audit", ...output });
+                  },
+                  onCopy: () => actions.showToast("Copied to clipboard"),
+                })}
+                <div style={{ marginTop: "1.2rem" }}><AuditBuilderHandoff type="website" clientName={reportClient.name} onContinue={() => { window.localStorage.setItem(`baltazar:builder-handoff:website:${reportClient.id}`, JSON.stringify({ source: "website-audit", report: reportDraft.state.report, answers: reportDraft.state.answers, savedAt: new Date().toISOString() })); window.localStorage.setItem("baltazar:builder-active:website", reportClient.id); actions.patch({ builderType: "website" }); actions.setView("funnels"); }} /></div>
+              </div>
+            ) : <AuditReportView
+              key={reportClient.id + "-" + (reportRunId || "latest") + (reportProposalOpen ? "-proposal" : "-report")}
+              state={state}
+              actions={actions}
+              clientId={reportClient.id}
+              clientName={reportClient.name}
+              reportRunLabel={reportRun ? auditRunLabel(reportRun) : undefined}
+              reportRunDate={reportRun ? auditRunDateLabel(reportRun) : undefined}
+              initialLayout={reportProposalOpen ? "priority" : "report"}
+              showInlineProposal={reportProposalOpen}
+              proposalIffOn={proposalIffOn}
+              proposalSent={actions.workspaceForClient(reportClient.name).proposal?.sent === true}
+              onToggleProposalIff={() => setProposalIffOn(v => !v)}
+              onSendProposal={() => actions.sendProposal(reportClient.name, { iffOn: proposalIffOn })}
+              onBack={closeReportModal}
+            />}
+          </article>
+        </div>
+      </div>
+    );
+  }
+
   if (!client) {
     return (
       <div style={css("width:100%;padding:" + (mobile ? "1rem 0.75rem calc(6rem + env(safe-area-inset-bottom))" : "1.6rem 2rem 2.4rem"))}>
@@ -700,67 +802,6 @@ export function Audits({ state, actions }: { state: PortalState; actions: Portal
             };
           })}
         />
-        {reportClient && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={reportClient.name + (reportProposalOpen ? " build proposal" : " audit report")}
-            onClick={closeReportModal}
-            style={{ ...css("position:fixed;inset:0;z-index:90;background:rgba(35,25,18,.32);padding:" + (mobile ? "0.75rem" : "1.25rem 1.5rem") + ";display:flex;align-items:flex-start;justify-content:center;overflow:auto"), animation: "pt-fadein .14s ease" }}
-          >
-            <div onClick={event => event.stopPropagation()} style={css("width:min(68rem,100%);margin:" + (mobile ? "0 auto" : "1.1rem auto 2rem"))}>
-              <div style={css("display:flex;align-items:center;gap:var(--space-3);margin-bottom:0.8rem")}>
-                <div style={css("font-size:0.92rem;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.2);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{reportProposalOpen ? "Build proposal" : "Audit report"} · {reportClient.name}</div>
-                <button type="button" onClick={closeReportModal} className="pt-iconbtn" style={css("margin-left:auto;width:2.1rem;height:2.1rem;border-radius:50%;border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.86);color:var(--fg-muted);display:grid;place-items:center;cursor:pointer")}><Icon name="x" size={15} /></button>
-              </div>
-              <article style={css("border:1px solid var(--border-soft);border-radius:1.1rem;background:var(--surface);overflow:visible")}>
-                {reportDraft?.state.report ? (
-                  <div data-audit-report-root style={css("padding:" + (mobile ? "1rem" : "1.4rem"))}>
-                    {AUDIT_PIPELINE.renderStage({
-                      stageKey: reportProposalOpen ? "plan" : "report",
-                      docs: auditScoreToDocs(reportDraft.state.report, reportClient.name),
-                      aiResult: reportProposalOpen ? reportDraft.state.guidedSession?.aiResults.plan || null : reportDraft.state.report,
-                      aiResults: reportDraft.state.guidedSession?.aiResults || { report: reportDraft.state.report },
-                      reveal: Number.POSITIVE_INFINITY,
-                      building: false,
-                      approved: true,
-                      mobile,
-                      accent: "var(--cocoon)",
-                      onAdvance: () => undefined,
-                      onDownload: async () => {
-                        actions.showToast("Opening the print dialog…");
-                        const ok = await printReportNode(document.querySelector("[data-audit-report-root]"), `${reportClient.name} · ${reportProposalOpen ? "Action plan" : "Audit report"}`);
-                        actions.showToast(ok ? "Choose Print or Save as PDF" : "The print dialog could not be opened");
-                      },
-                      onShare: () => {
-                        const approvalResults = reportDraft.state.guidedSession?.aiResults || (reportDraft.state.report ? { report: reportDraft.state.report } : {});
-                        const output = portalApprovalOutput(approvalResults, "The final website audit and action plan are ready.");
-                        actions.shareFinalOutput({ clientName: reportClient.name, title: "Website Audit · Final report", outputType: "audit", ...output });
-                      },
-                      onCopy: () => actions.showToast("Copied to clipboard"),
-                    })}
-                    <div style={{ marginTop: "1.2rem" }}><AuditBuilderHandoff type="website" clientName={reportClient.name} onContinue={() => { window.localStorage.setItem(`baltazar:builder-handoff:website:${reportClient.id}`, JSON.stringify({ source: "website-audit", report: reportDraft.state.report, answers: reportDraft.state.answers, savedAt: new Date().toISOString() })); window.localStorage.setItem("baltazar:builder-active:website", reportClient.id); actions.patch({ builderType: "website" }); actions.setView("funnels"); }} /></div>
-                  </div>
-                ) : <AuditReportView
-                  key={reportClient.id + "-" + (reportRunId || "latest") + (reportProposalOpen ? "-proposal" : "-report")}
-                  state={state}
-                  actions={actions}
-                  clientId={reportClient.id}
-                  clientName={reportClient.name}
-                  reportRunLabel={reportRun ? auditRunLabel(reportRun) : undefined}
-                  reportRunDate={reportRun ? auditRunDateLabel(reportRun) : undefined}
-                  initialLayout={reportProposalOpen ? "priority" : "report"}
-                  showInlineProposal={reportProposalOpen}
-                  proposalIffOn={proposalIffOn}
-                  proposalSent={actions.workspaceForClient(reportClient.name).proposal?.sent === true}
-                  onToggleProposalIff={() => setProposalIffOn(v => !v)}
-                  onSendProposal={() => actions.sendProposal(reportClient.name, { iffOn: proposalIffOn })}
-                  onBack={closeReportModal}
-                />}
-              </article>
-            </div>
-          </div>
-        )}
         <StartOverDialog
           open={!!resetAuditClientId}
           auditLabel="Website audit"

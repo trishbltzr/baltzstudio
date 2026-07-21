@@ -8,6 +8,24 @@ const METRICS = [
   ["cumulative-layout-shift", "Cumulative Layout Shift"],
 ] as const;
 
+const LOCAL_LIGHTHOUSE_TIMEOUT_MS = 50_000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise.then(
+      value => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      error => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 const categoryScore = (category: unknown) => {
   const score = (category as { score?: unknown } | undefined)?.score;
   return typeof score === "number" ? Math.round(score * 100) : 0;
@@ -96,7 +114,13 @@ async function runLocalLighthouse(url: string) {
     };
     const successful: LighthouseRun[] = [];
     for (const strategy of ["mobile", "desktop"] as const) {
-      try { successful.push(await run(strategy)); }
+      try {
+        successful.push(await withTimeout(
+          run(strategy),
+          LOCAL_LIGHTHOUSE_TIMEOUT_MS,
+          `Local Google Lighthouse ${strategy} test timed out.`,
+        ));
+      }
       catch (error) { console.warn(`Local Lighthouse ${strategy} run failed.`, error instanceof Error ? error.message : error); }
     }
     if (!successful.length) throw new Error("Local Google Lighthouse could not complete either strategy.");
