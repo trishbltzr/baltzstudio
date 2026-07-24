@@ -38,12 +38,12 @@ Created: 2026-07-24
   - [ ] Verify every retained marketing site on desktop and mobile.
 
 - [ ] **2. Use Hostinger as the DNS control plane**
-  - [ ] Keep the domain registered at Hostinger.
-  - [ ] Export or record the complete current DNS zone before editing it.
-  - [ ] Preserve MX, SPF, DKIM, DMARC, verification, and existing marketing-service records.
-  - [ ] Add the exact Vercel verification and routing records for `app.baltz.studio`.
-  - [ ] Point only the application subdomain to Vercel; do not move the root marketing site.
-  - [ ] Lower the relevant DNS TTL before cutover, then restore a normal TTL after verification.
+  - [x] Keep the domain registered at Hostinger.
+  - [x] Export or record the complete current DNS zone before editing it. (Hostinger DNS Export was triggered before the cutover; pre-cutover `app` resolved to Hostinger A values `147.79.120.253` and `77.37.76.229`.)
+  - [x] Preserve MX, SPF, DKIM, DMARC, verification, and existing marketing-service records. (Only an `app` record was added.)
+  - [x] Add the exact Vercel verification and routing records for `app.baltz.studio`. (`CNAME app 076111bc744a1a85.vercel-dns-017.com`.)
+  - [x] Point only the application subdomain to Vercel; do not move the root marketing site.
+  - [~] Lower the relevant DNS TTL before cutover, then restore a normal TTL after verification. (`app` CNAME created at 300 seconds; restoration follows propagation/acceptance.)
   - [ ] Verify root, `www`, `app`, and mail routing after propagation.
 
 - [ ] **3. Maximize branded email**
@@ -95,10 +95,10 @@ Created: 2026-07-24
   - [ ] Enable spend alerts and a deliberate usage budget.
 
 - [ ] **9. Move the portal domain**
-  - [ ] Add `app.baltz.studio` to the Vercel project before changing DNS.
-  - [ ] Complete domain verification.
+  - [x] Add `app.baltz.studio` to the Vercel project before changing DNS.
+  - [x] Complete domain ownership verification. (Vercel reports ownership in the current team; routing/SSL propagation remains under observation.)
   - [~] Deploy and verify using the generated Vercel production URL first. (Seoul preview `dpl_CaFdQPNdDLgL8YepSHb2bBNvTUEj` is READY; login/auth/service-run/production-dev-login guards pass, with authenticated flows still pending.)
-  - [ ] Update Hostinger DNS only after the generated deployment passes.
+  - [x] Update Hostinger DNS only after the generated deployment passes.
   - [ ] Verify SSL, redirects, login, callbacks, API routes, streaming, uploads, and authenticated navigation on `app.baltz.studio`.
 
 - [ ] **10. Separate real-time requests from durable work**
@@ -161,10 +161,10 @@ Created: 2026-07-24
   - [ ] Confirm logs and persisted state for every flow.
 
 - [ ] **17. Cut over `app.baltz.studio`**
-  - [ ] Record the previous DNS state and Hostinger deployment identifier.
-  - [ ] Change only the required DNS records.
+  - [~] Record the previous DNS state and Hostinger deployment identifier. (Previous Hostinger A targets recorded; exact Hostinger deployment identifier remains to be inventoried.)
+  - [x] Change only the required DNS records.
   - [ ] Monitor HTTP status, latency, authentication callbacks, API errors, workflow failures, and Supabase errors.
-  - [ ] Keep the Hostinger deployment intact during the rollback window.
+  - [x] Keep the Hostinger deployment intact during the rollback window. (No Hostinger website, Node app, database, or deployment artifact was deleted.)
 
 - [ ] **18. Rollback rule**
   - [ ] Roll back if authentication, tenant isolation, uploads, chat, workflow persistence, or dashboard availability fails.
