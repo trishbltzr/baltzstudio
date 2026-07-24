@@ -88,16 +88,16 @@ Created: 2026-07-24
 - [ ] **8. Configure the Vercel project**
   - [x] Reuse the existing `baltazar-studio-dashboard` Vercel project unless inspection proves a clean replacement is safer. (Verified project `prj_yfj1pooR3CXrBmQG7tan2q1XP8CR` and healthy deployment history.)
   - [x] Confirm Node.js 24 and the Next.js build command. (Vercel project reports Node `24.x`; `package.json` uses `next build --webpack`.)
-  - [ ] Separate Production, Preview, and Development environment variables.
-  - [ ] Add Supabase public settings only as public variables.
-  - [ ] Keep Supabase secret keys, OpenAI credentials, SMTP credentials, OAuth secrets, and integration secrets server-only.
-  - [ ] Configure the Vercel function region near the Supabase project.
+  - [x] Separate Production, Preview, and Development environment variables. (Required non-empty Supabase/OpenAI settings are configured per environment; the expiring local OIDC token was not copied.)
+  - [x] Add Supabase public settings only as public variables. (`NEXT_PUBLIC_SUPABASE_URL` and the publishable key are the only browser-exposed Supabase values.)
+  - [x] Keep Supabase secret keys, OpenAI credentials, SMTP credentials, OAuth secrets, and integration secrets server-only.
+  - [~] Configure the Vercel function region near the Supabase project. (`vercel.json` now targets Seoul `icn1`, matching Supabase `ap-northeast-2`; preview verification pending.)
   - [ ] Enable spend alerts and a deliberate usage budget.
 
 - [ ] **9. Move the portal domain**
   - [ ] Add `app.baltz.studio` to the Vercel project before changing DNS.
   - [ ] Complete domain verification.
-  - [ ] Deploy and verify using the generated Vercel production URL first.
+  - [~] Deploy and verify using the generated Vercel production URL first. (Preview `dpl_7g8dTcJXykFfG6Q7w1GZK63BrvGv` is READY; login/auth/service-run/production-dev-login guards pass, with authenticated flows still pending.)
   - [ ] Update Hostinger DNS only after the generated deployment passes.
   - [ ] Verify SSL, redirects, login, callbacks, API routes, streaming, uploads, and authenticated navigation on `app.baltz.studio`.
 
@@ -155,7 +155,7 @@ Created: 2026-07-24
 ## Cutover and Rollback
 
 - [ ] **16. Stage the release**
-  - [ ] Deploy an approved preview build.
+  - [x] Deploy an approved preview build. (`dpl_7g8dTcJXykFfG6Q7w1GZK63BrvGv`, generated URL verified 2026-07-24.)
   - [ ] Run anonymous, Admin, Manager, and Client acceptance checks.
   - [ ] Run one bounded audit, one chatbot conversation, one tool-backed chat action, one PDF export, and one file upload.
   - [ ] Confirm logs and persisted state for every flow.
