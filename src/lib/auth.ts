@@ -20,10 +20,41 @@ export function resolveDashboardUser(
   };
 }
 
+export async function fetchAuthenticatedDashboardUser(): Promise<LoginUser | null> {
+  const response = await fetch("/api/auth/me", {
+    method: "GET",
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) return null;
+
+  const payload = await response.json().catch(() => null) as { user?: Partial<LoginUser> } | null;
+  const user = payload?.user;
+  if (
+    !user
+    || typeof user.email !== "string"
+    || typeof user.name !== "string"
+    || !isDashboardRole(user.role)
+  ) {
+    return null;
+  }
+
+  return {
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    ...(typeof user.clientName === "string" ? { clientName: user.clientName } : {}),
+  };
+}
+
 function inferRole(email: string): DashboardUserRole {
   if (email === "manager@baltazarstudio.co") return "manager";
   if (email.endsWith("@baltazarstudio.co")) return "admin";
   return "client";
+}
+
+function isDashboardRole(role: unknown): role is DashboardUserRole {
+  return role === "admin" || role === "manager" || role === "client";
 }
 
 function normalizeEmail(email: string | null | undefined) {

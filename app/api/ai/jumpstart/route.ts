@@ -7,6 +7,8 @@ import { BRAND_AUDIT_WIZARD } from "@/portal/audits/auditTypeData";
 import { WEBSITE_BUILDER_WIZARD } from "@/portal/builders/websiteBuilderData";
 import type { DiscoveryTopic } from "@/portal/discovery/DiscoveryBuilder";
 import { AUDIT_WIZARD, FUNNEL_WIZARD } from "@/portal/discovery/discoveryData";
+import { resolvePortalRequestAccess } from "@/lib/portalRequestAccess";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
@@ -219,6 +221,8 @@ function sanitizeAnswers(mode: AiGenerationMode, raw: any[], brandName: unknown,
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Cross-origin requests are not allowed." }, { status: 403 });
   if (!withinRateLimit(request)) return NextResponse.json({ error: "Too many scans. Please wait a minute and try again." }, { status: 429 });
+  const access = await resolvePortalRequestAccess(request, await createSupabaseServerClient());
+  if (!access) return NextResponse.json({ error: "Sign in to review website sources." }, { status: 401 });
   const body = await request.json().catch(() => null);
   const mode = body?.mode as AiGenerationMode;
   if (!['audit', 'brand', 'seo', 'website_builder', 'funnel'].includes(mode)) return NextResponse.json({ error: "Unsupported Jumpstart mode." }, { status: 400 });

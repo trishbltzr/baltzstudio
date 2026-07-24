@@ -70,6 +70,7 @@ const P: Record<string, Prim[]> = {
   trash: [["path", { d: "M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" }]],
   hash: [["path", { d: "M9 4L7 20M17 4l-2 16M5 9h15M4 15h15" }]],
   funnel: [["path", { d: "M3 5h18l-7 8.2V20l-4-2.2v-4.6z" }]],
+  flask: [["path", { d: "M9 3h6M10 3v5l-5.4 9.1A2.6 2.6 0 0 0 6.8 21h10.4a2.6 2.6 0 0 0 2.2-3.9L14 8V3" }], ["path", { d: "M7.2 15h9.6" }]],
 };
 
 export type IconName = keyof typeof P;

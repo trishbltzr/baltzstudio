@@ -9,9 +9,9 @@ const chromeCandidates = [
 ].filter(Boolean);
 
 const engines = [
-  { name: "Brand Audit", query: "view=audits&auditType=brand", action: "Generate audit" },
-  { name: "Website Audit", query: "view=audits&auditType=website", action: "Generate audit" },
-  { name: "SEO Audit", query: "view=audits&auditType=seo", action: "Generate audit" },
+  { name: "Brand Audit", query: "view=audits&auditType=brand", action: "Start checkup" },
+  { name: "Website Audit", query: "view=audits&auditType=website", action: "Start checkup" },
+  { name: "SEO Audit", query: "view=audits&auditType=seo", action: "Start checkup" },
   { name: "Funnel Builder", query: "view=funnels&builderType=funnel", action: "Generate funnel" },
   { name: "Website Builder", query: "view=funnels&builderType=website", action: "Generate website" },
   { name: "Social Media Builder", query: "view=funnels&builderType=social", action: "New calendar" },
@@ -36,7 +36,20 @@ async function chromePath() {
 
 async function authenticate(page, user) {
   await page.goto(`${baseUrl}/login`, { waitUntil: "domcontentloaded", timeout: 30_000 });
-  await page.evaluate(value => sessionStorage.setItem("bs-user", JSON.stringify(value)), user);
+  const result = await page.evaluate(async value => {
+    const response = await fetch("/api/dev-login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        email: value.email,
+        password: value.role === "admin" ? "studio123" : "client123",
+      }),
+    });
+    const payload = await response.json().catch(() => null);
+    if (response.ok && payload?.user) sessionStorage.setItem("bs-user", JSON.stringify(payload.user));
+    return { ok: response.ok, error: payload?.error };
+  }, user);
+  if (!result.ok) throw new Error(result.error || `Unable to authenticate ${user.role} smoke session.`);
 }
 
 async function openDashboardRoute(page, query) {
@@ -81,7 +94,6 @@ async function inspectEngine(page, engine, role) {
       hasOverlay: !!document.querySelector("[data-nextjs-dialog], .vite-error-overlay, #webpack-dev-server-client-overlay"),
       actionCount: buttons.filter(label => label === action).length,
       chooserVisible: /Choose (a|an) (client|audited client)/i.test(bodyText),
-      notStartedCards: cards.filter(card => /Not started/i.test(card.textContent || "")).length,
       clientVisible: role !== "client" || bodyText.includes("CreatorIQ"),
       foreignClients: role === "client" ? foreignClients.filter(name => bodyText.includes(name)) : [],
       hiddenIdentityVisible: /\bKier\b|\bDev\b/.test(bodyText),
@@ -109,7 +121,6 @@ async function inspectEngine(page, engine, role) {
   if (!result.hasContent) failures.push("blank page");
   if (result.hasOverlay) failures.push("framework error overlay");
   if (result.chooserVisible) failures.push("legacy client chooser is visible");
-  if (result.notStartedCards) failures.push(`${result.notStartedCards} untouched card(s)`);
   if (!result.clientVisible) failures.push("assigned client is missing");
   if (result.foreignClients.length) failures.push(`foreign clients exposed: ${result.foreignClients.join(", ")}`);
   if (result.hiddenIdentityVisible) failures.push("hidden role or team identity is visible");

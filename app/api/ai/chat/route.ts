@@ -4,6 +4,8 @@ import { clientsVisibleToRole } from "@/portal/clients";
 import { coercePersistedAuditDrafts } from "@/lib/portalAuditPersistence";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { openAIError, responseText } from "@/lib/openaiServer";
+import { resolvePortalRequestAccess } from "@/lib/portalRequestAccess";
+import { createSupabasePrivilegedServerClient } from "@/lib/supabase/privileged";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -56,19 +58,26 @@ function auditTrendSummary(drafts: ReturnType<typeof coercePersistedAuditDrafts>
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Cross-origin requests are not allowed." }, { status: 403 });
   if (!withinRateLimit(request)) return NextResponse.json({ error: "Too many chat requests. Please wait a moment." }, { status: 429 });
-  const apiKey = process.env.OPENAI_CHAT_API_KEY;
+  const authClient = await createSupabaseServerClient();
+  const access = await resolvePortalRequestAccess(request, authClient);
+  if (!access) return NextResponse.json({ error: "Sign in to use Snapshot chat." }, { status: 401 });
+  const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_CHAT_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "Snapshot chat is not configured." }, { status: 503 });
   const body = await request.json().catch(() => null);
-  const role = body?.role === "admin" || body?.role === "dev" || body?.role === "client" ? body.role : null;
-  const clientName = typeof body?.clientName === "string" ? body.clientName.trim() : undefined;
+  const role = access.role === "manager" ? "dev" : access.role;
+  const clientName = access.role === "client"
+    ? access.clientName
+    : typeof body?.clientName === "string" ? body.clientName.trim() : undefined;
   const messages = cleanMessages(body?.messages);
-  if (!role || !messages.length) return NextResponse.json({ error: "Add a message to continue." }, { status: 400 });
+  if (!messages.length) return NextResponse.json({ error: "Add a message to continue." }, { status: 400 });
   const allowedClientIds = new Set(clientsVisibleToRole(role, clientName).map(client => client.id));
   const allowedClients = clientsVisibleToRole(role, clientName);
   let audits: ReturnType<typeof coercePersistedAuditDrafts> = [];
   try {
-    const supabase = await createSupabaseServerClient();
-    const result = await supabase.from("portal_audit_runs").select("run, state, updated_at").order("updated_at", { ascending: true });
+    const supabase = await createSupabasePrivilegedServerClient();
+    let query = supabase.from("portal_audit_runs").select("run, state, updated_at").order("updated_at", { ascending: true });
+    if (access.role === "client") query = query.eq("client_id", access.clientId);
+    const result = await query;
     if (!result.error) audits = coercePersistedAuditDrafts((result.data || []).map(row => ({ run: row.run, state: row.state, updatedAt: row.updated_at }))).filter(draft => allowedClientIds.has(draft.run.clientId));
   } catch (error) {
     console.warn("Snapshot chat could not load audit history.", error instanceof Error ? error.message : error);

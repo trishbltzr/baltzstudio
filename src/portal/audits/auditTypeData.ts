@@ -1,10 +1,7 @@
 import type { DiscoveryIntroStep, DiscoveryStage, DiscoveryTopic } from "../discovery/DiscoveryBuilder";
+import { processPipelineStages } from "../processDefinitions";
 
-export const SHARED_AUDIT_STAGES: DiscoveryStage[] = [
-  { key: "discovery", label: "Audit intake", icon: "inbox" },
-  { key: "report", label: "Audit report", icon: "chart" },
-  { key: "plan", label: "Action plan", icon: "checklist" },
-];
+export const SHARED_AUDIT_STAGES: DiscoveryStage[] = processPipelineStages("brand-audit");
 
 export const BRAND_AUDIT_WIZARD: DiscoveryTopic[] = [
   { id: "identity", num: "01", title: "Brand foundation", icon: "grid", qs: [

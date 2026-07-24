@@ -292,7 +292,7 @@ export function AuditFlow({ clientName, mobile, onExit, onComplete, showPipeline
         <div style={css("height:4px;background:var(--bg);border-radius:999px;overflow:hidden")}><div style={css("height:100%;width:" + pct + "%;background:linear-gradient(90deg,oklch(0.66 0.12 155),oklch(0.54 0.11 165));transition:width .3s ease")} /></div>
         <div style={css("display:grid;grid-template-columns:0.72fr 1fr;gap:0.45rem;margin-top:0.8rem")}>
           <button type="button" onClick={() => dispatch({ t: "restart" })} style={css("min-height:2.05rem;display:inline-flex;align-items:center;justify-content:center;padding:0 0.6rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;cursor:pointer")}>Restart</button>
-          <button type="button" onClick={() => { const st = flow[s.idx]; if (st.kind === "question" || st.kind === "gate") dispatch({ t: "autofill", s: (st as { sIdx: number }).sIdx }); }} style={css("min-height:2.05rem;display:inline-flex;align-items:center;justify-content:center;gap:0.3rem;padding:0 0.5rem;border:1px dashed var(--border);border-radius:var(--radius);background:transparent;color:var(--fg-muted);font-size:0.68rem;font-weight:500;cursor:pointer")}><Icon name="replay" size={12} />Auto-fill step</button>
+          <button type="button" onClick={() => { const st = flow[s.idx]; if (st.kind === "question" || st.kind === "gate") dispatch({ t: "autofill", s: (st as { sIdx: number }).sIdx }); }} style={css("min-height:2.05rem;display:inline-flex;align-items:center;justify-content:center;gap:0.3rem;padding:0 0.5rem;border:1px dashed var(--border);border-radius:var(--radius);background:transparent;color:var(--fg-muted);font-size:var(--text-2xs);font-weight:500;cursor:pointer")}><Icon name="replay" size={12} />Auto-fill step</button>
         </div>
       </>
     );
@@ -330,8 +330,8 @@ export function AuditFlow({ clientName, mobile, onExit, onComplete, showPipeline
       {cur.kind === "question" && (
         <>
           <div style={css("margin-top:1.1rem;display:flex;align-items:center;gap:0.65rem")}>
-            <button type="button" onClick={() => dispatch({ t: "go", i: s.idx - 1 })} style={css("min-height:2.5rem;padding:0 1.2rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-size:0.9rem;font-weight:500;color:var(--fg-muted);font-family:inherit;cursor:pointer")}>Previous</button>
-            <button type="button" onClick={next} style={css("display:inline-flex;align-items:center;gap:0.4rem;min-height:2.5rem;padding:0 1.5rem;border:none;border-radius:var(--radius);background:" + GRAD + ";color:#fff;font-size:0.9rem;font-weight:500;font-family:inherit;cursor:pointer")}>{cur.lastInSection ? "Review section" : "Continue"} →</button>
+            <button type="button" onClick={() => dispatch({ t: "go", i: s.idx - 1 })} style={css("min-height:2.5rem;padding:0 1.2rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-size:var(--text-md);font-weight:500;color:var(--fg-muted);font-family:inherit;cursor:pointer")}>Previous</button>
+            <button type="button" onClick={next} style={css("display:inline-flex;align-items:center;gap:0.4rem;min-height:2.5rem;padding:0 1.5rem;border:none;border-radius:var(--radius);background:" + GRAD + ";color:#fff;font-size:var(--text-md);font-weight:500;font-family:inherit;cursor:pointer")}>{cur.lastInSection ? "Review section" : "Continue"} →</button>
           </div>
           <GuidedUnsureToggle checked={!!s.unsure[cur.q.id]} onClick={() => dispatch({ t: "unsure", id: cur.q.id })} accentColor="var(--cocoon)" />
         </>
@@ -344,8 +344,8 @@ function Welcome({ clientName, onStart, onDemo }: { clientName: string; onStart:
   const chips = ["Discovery brief", "Audience read", "Journey gaps", "Priority findings", "Next-move plan", "Audit handoff"];
   return (
     <div style={{ animation: "cocoonFade .28s ease" }}>
-      <span style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;display:block;color:var(--cocoon);margin-bottom:0.5rem")}>Discovery Audit · Guided intake</span>
-      <h1 style={css("font-size:1.9rem;font-weight:500;line-height:1.18;margin:0 0 0.7rem")}>Let&apos;s map {clientName} before we diagnose it.</h1>
+      <span style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;display:block;color:var(--cocoon);margin-bottom:0.5rem")}>Discovery Audit · Guided intake</span>
+      <h1 style={css("font-size:var(--text-4xl);font-weight:500;line-height:1.18;margin:0 0 0.7rem")}>Let&apos;s map {clientName} before we diagnose it.</h1>
       <p style={css("color:var(--fg-muted);font-size:var(--text-lg);line-height:1.6;max-width:40rem;margin:0 0 1.2rem")}>We&apos;ll use the same full signoff flow as the funnel builder, but the questions are tuned for discovery: business context, audience, conversion friction, site gaps, and what should happen next.</p>
       <div style={css("display:flex;flex-wrap:wrap;gap:0.4rem;margin:0 0 1.5rem")}>
         {chips.map(c => <span key={c} style={css("padding:0.32rem 0.72rem;border-radius:999px;background:var(--surface);border:1px solid var(--border-soft);font-size:var(--text-sm);color:var(--fg-muted)")}>{c}</span>)}
@@ -422,10 +422,10 @@ function GateCard({ sIdx, s, fmtQ, clientName }: { sIdx: number; s: AState; fmtQ
       <div style={css("background:var(--surface);border-radius:16px;border:1px solid var(--border-soft);overflow:hidden")}>
         <div style={css("padding:1.6rem 1.8rem 0.3rem")}>
           <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin-bottom:1rem;flex-wrap:wrap")}>
-            <span style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--cocoon)")}>Sign-off · {SECTIONS[sIdx]}</span>
+            <span style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--cocoon)")}>Sign-off · {SECTIONS[sIdx]}</span>
             <span style={css("display:inline-flex;align-items:center;gap:0.35rem;font-size:var(--text-2xs);font-weight:500;padding:0.2rem 0.55rem;border-radius:999px;" + (signed ? "background:var(--success-soft);color:var(--success)" : "background:var(--warn-soft);color:var(--warn)"))}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:" + (signed ? "var(--success)" : "oklch(0.7 0.12 68)"))} />{signed ? "Signed off" : "Needs sign-off"}</span>
           </div>
-          <h3 style={css("font-size:1.55rem;font-weight:500;line-height:1.16;margin:0 0 0.42rem")}>Here&apos;s the discovery readback</h3>
+          <h3 style={css("font-size:var(--text-3xl);font-weight:500;line-height:1.16;margin:0 0 0.42rem")}>Here&apos;s the discovery readback</h3>
           <p style={css("color:var(--fg-muted);font-size:var(--text-base);margin:0;line-height:1.55")}>Lock in this part of the brief before we turn it into findings and recommendations.</p>
         </div>
         <div style={css("padding:0.75rem 1.8rem 1rem")}>
@@ -434,7 +434,7 @@ function GateCard({ sIdx, s, fmtQ, clientName }: { sIdx: number; s: AState; fmtQ
               <span style={css("font-size:var(--text-xs);font-weight:600;color:var(--cocoon);flex-shrink:0;width:1.4rem;padding-top:0.15rem")}>{String(i + 1).padStart(2, "0")}</span>
               <div style={css("min-width:0;flex:1")}>
                 <div style={css("font-size:var(--text-sm);color:var(--fg-muted);margin-bottom:0.22rem;line-height:1.4")}>{it.label}</div>
-                <div style={css("font-size:0.85rem;color:var(--fg);line-height:1.4")}>{it.value}</div>
+                <div style={css("font-size:var(--text-base);color:var(--fg);line-height:1.4")}>{it.value}</div>
               </div>
             </div>
           ))}
@@ -462,7 +462,7 @@ function DelivCard({ dId, s, dispatch, get, clientName }: { dId: string; s: ASta
           <div style={css("display:flex;gap:0.85rem;align-items:center;min-width:0")}>
             <div style={css("width:2.5rem;height:2.5rem;border-radius:0.8rem;background:" + (signed ? "var(--success-soft)" : "color-mix(in srgb,var(--cocoon) 14%,white 86%)") + ";color:" + (signed ? "var(--success)" : "var(--cocoon)") + ";display:grid;place-items:center;font-size:var(--text-xl);font-weight:600;flex-shrink:0")}>{signed ? "✓" : num}</div>
             <div style={css("min-width:0")}>
-              <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--cocoon);margin-bottom:0.25rem")}>Generated from {d.from}</div>
+              <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--cocoon);margin-bottom:0.25rem")}>Generated from {d.from}</div>
               <h3 style={css("font-size:var(--text-3xl);font-weight:500;line-height:1.2;margin:0")}>{d.title}</h3>
             </div>
           </div>
@@ -482,7 +482,7 @@ function DelivCard({ dId, s, dispatch, get, clientName }: { dId: string; s: ASta
         ) : (
           <>
             <DelivBody dId={dId} get={get} clientName={clientName} />
-            {s.notes[dId] && <div style={css("margin-top:1rem;padding:0.8rem 1rem;border-radius:10px;background:var(--warn-soft);font-size:0.78rem;color:var(--fg);line-height:1.5")}><span style={css("font-weight:500")}>Change requested:</span> {s.notes[dId]}</div>}
+            {s.notes[dId] && <div style={css("margin-top:1rem;padding:0.8rem 1rem;border-radius:10px;background:var(--warn-soft);font-size:var(--text-xs);color:var(--fg);line-height:1.5")}><span style={css("font-weight:500")}>Change requested:</span> {s.notes[dId]}</div>}
           </>
         )}
       </div>
@@ -497,8 +497,8 @@ function DelivBody({ dId, get, clientName }: { dId: string; get: (id: string, fb
   const trafficList = (get("trafficSources", "Instagram, Referrals") || "").split(",").map(item => item.trim()).filter(Boolean);
   const bulletCard = (label: string, value: string) => (
     <div style={css("padding:0.8rem 0.9rem;border:1px solid var(--border-soft);border-radius:0.9rem;background:var(--surface-alt)")}>
-      <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint);margin-bottom:0.28rem")}>{label}</div>
-      <div style={css("font-size:0.86rem;color:var(--fg);line-height:1.5")}>{value}</div>
+      <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint);margin-bottom:0.28rem")}>{label}</div>
+      <div style={css("font-size:var(--text-base);color:var(--fg);line-height:1.5")}>{value}</div>
     </div>
   );
 
@@ -573,8 +573,8 @@ function DelivBody({ dId, get, clientName }: { dId: string; get: (id: string, fb
 
 function ActionBar({ cur, s, dispatch, onComplete }: { cur: FlowStep; s: AState; dispatch: (a: Act) => void; onComplete: () => void }) {
   const wrap = "flex-shrink:0;border-top:1px solid var(--border-soft);background:var(--surface);padding:0.8rem 1.3rem;display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);min-height:4rem";
-  const ghost = "min-height:2.4rem;padding:0 1.1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-size:0.85rem;font-weight:500;color:var(--fg-muted);font-family:inherit;cursor:pointer";
-  const primary = "display:inline-flex;align-items:center;gap:0.4rem;min-height:2.4rem;padding:0 1.4rem;border:none;border-radius:var(--radius);background:" + GRAD + ";color:#fff;font-size:0.9rem;font-weight:500;cursor:pointer";
+  const ghost = "min-height:2.4rem;padding:0 1.1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-size:var(--text-base);font-weight:500;color:var(--fg-muted);font-family:inherit;cursor:pointer";
+  const primary = "display:inline-flex;align-items:center;gap:0.4rem;min-height:2.4rem;padding:0 1.4rem;border:none;border-radius:var(--radius);background:" + GRAD + ";color:#fff;font-size:var(--text-md);font-weight:500;cursor:pointer";
 
   if (cur.kind === "welcome" || cur.kind === "question") return null;
 
@@ -582,7 +582,7 @@ function ActionBar({ cur, s, dispatch, onComplete }: { cur: FlowStep; s: AState;
     const signed = s.confirmed[cur.sIdx];
     return (
       <div style={css(wrap)}>
-        <span style={css("font-size:0.8rem;color:var(--fg-muted);font-weight:500;min-width:0")}>{signed ? "Locked in — moving on." : "Review what we heard, then sign off."}</span>
+        <span style={css("font-size:var(--text-sm);color:var(--fg-muted);font-weight:500;min-width:0")}>{signed ? "Locked in — moving on." : "Review what we heard, then sign off."}</span>
         <div style={css("display:flex;gap:0.6rem;flex-shrink:0")}>
           <button type="button" onClick={() => dispatch({ t: "go", i: s.idx - 1 })} style={css(ghost)}>Edit answers</button>
           <button type="button" onClick={() => dispatch({ t: "confirmGate", s: cur.sIdx })} style={css(primary)}>{signed ? "Continue" : "Sign off & continue"}</button>
@@ -592,7 +592,7 @@ function ActionBar({ cur, s, dispatch, onComplete }: { cur: FlowStep; s: AState;
   }
 
   const d = DELIVS.find(x => x.id === cur.dId)!;
-  if (s.genActive && !s.genDone[cur.dId]) return <div style={css(wrap)}><span style={css("font-size:0.8rem;color:var(--fg-muted)")}>Generating…</span></div>;
+  if (s.genActive && !s.genDone[cur.dId]) return <div style={css(wrap)}><span style={css("font-size:var(--text-sm);color:var(--fg-muted)")}>Generating…</span></div>;
   if (d.terminal) {
     return (
       <div style={css(wrap)}>
@@ -607,10 +607,10 @@ function ActionBar({ cur, s, dispatch, onComplete }: { cur: FlowStep; s: AState;
   if (s.requesting) {
     return (
       <div style={css(wrap)}>
-        <input value={s.draftNote} onChange={e => dispatch({ t: "draft", v: e.target.value })} placeholder="What would you like changed?" style={css("flex:1;padding:0.55rem 0.8rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.85rem;font-family:inherit;color:var(--fg);background:var(--bg);outline:none")} />
+        <input value={s.draftNote} onChange={e => dispatch({ t: "draft", v: e.target.value })} placeholder="What would you like changed?" style={css("flex:1;padding:0.55rem 0.8rem;border:1px solid var(--border);border-radius:var(--radius);font-size:var(--text-base);font-family:inherit;color:var(--fg);background:var(--bg);outline:none")} />
         <div style={css("display:flex;gap:var(--space-2);flex-shrink:0")}>
           <button type="button" onClick={() => dispatch({ t: "cancelReq" })} style={css(ghost)}>Cancel</button>
-          <button type="button" onClick={() => dispatch({ t: "sendNote", id: cur.dId })} style={css("min-height:2.4rem;padding:0 1.1rem;background:color-mix(in srgb,var(--cocoon) 12%,white 88%);border:1px solid var(--cocoon);border-radius:var(--radius);font-size:0.85rem;font-weight:500;color:var(--cocoon);font-family:inherit;cursor:pointer")}>Send</button>
+          <button type="button" onClick={() => dispatch({ t: "sendNote", id: cur.dId })} style={css("min-height:2.4rem;padding:0 1.1rem;background:color-mix(in srgb,var(--cocoon) 12%,white 88%);border:1px solid var(--cocoon);border-radius:var(--radius);font-size:var(--text-base);font-weight:500;color:var(--cocoon);font-family:inherit;cursor:pointer")}>Send</button>
         </div>
       </div>
     );
@@ -618,7 +618,7 @@ function ActionBar({ cur, s, dispatch, onComplete }: { cur: FlowStep; s: AState;
   const signed = s.signed[cur.dId];
   return (
     <div style={css(wrap)}>
-      <span style={css("font-size:0.8rem;color:" + (signed ? "var(--success)" : "var(--fg-muted)") + ";font-weight:500;min-width:0")}>{signed ? "✓ Signed off" : "Review, then sign off to unlock the next piece."}</span>
+      <span style={css("font-size:var(--text-sm);color:" + (signed ? "var(--success)" : "var(--fg-muted)") + ";font-weight:500;min-width:0")}>{signed ? "✓ Signed off" : "Review, then sign off to unlock the next piece."}</span>
       <div style={css("display:flex;gap:0.6rem;flex-shrink:0")}>
         <button type="button" onClick={() => dispatch({ t: "reqChanges", note: s.notes[cur.dId] || "" })} style={css(ghost)}>Request changes</button>
         <button type="button" onClick={() => dispatch({ t: "sign", id: cur.dId })} style={css(primary)}>{signed ? "Continue" : "Sign off & continue"}</button>

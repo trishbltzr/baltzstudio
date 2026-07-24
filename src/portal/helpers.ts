@@ -24,7 +24,7 @@ export function statusPill(kind: string): string {
     uploaded: ["var(--surface-alt)", "var(--fg-muted)"],
   };
   const m = M[kind] || M.waiting;
-  return `display:inline-flex;align-items:center;font-size:0.66rem;font-weight:500;padding:0.16rem 0.5rem;border-radius:999px;white-space:nowrap;background:${m[0]};color:${m[1]}`;
+  return `display:inline-flex;align-items:center;font-size:var(--text-2xs);font-weight:500;padding:0.16rem 0.5rem;border-radius:999px;white-space:nowrap;background:${m[0]};color:${m[1]}`;
 }
 
 export function healthMap(h: Health): [string, string] {
@@ -37,12 +37,12 @@ export function prioColor(p: Priority): string {
 
 export function prioTag(p: Priority): string {
   const c = { high: ["var(--danger-soft)", "var(--danger)"], med: ["var(--warn-soft)", "var(--warn)"], low: ["oklch(0.94 0.004 50)", "var(--fg-muted)"] }[p];
-  return `display:inline-flex;align-items:center;font-size:0.6rem;letter-spacing:0.02em;font-weight:500;padding:0.1rem 0.42rem;border-radius:5px;background:${c[0]};color:${c[1]}`;
+  return `display:inline-flex;align-items:center;justify-self:start;font-size:var(--text-2xs);letter-spacing:0.02em;font-weight:500;padding:0.1rem 0.42rem;border-radius:5px;background:${c[0]};color:${c[1]}`;
 }
 
 export function svcBadge(s: string): string {
   const m = SVC_META[s];
-  return `display:inline-flex;align-items:center;gap:0.3rem;font-size:0.64rem;font-weight:500;letter-spacing:0.01em;padding:0.16rem 0.55rem;border-radius:999px;white-space:nowrap;background:${m.soft};color:color-mix(in srgb,${m.color} 62%,black 38%)`;
+  return `display:inline-flex;align-items:center;justify-self:start;gap:0.3rem;font-size:var(--text-2xs);font-weight:500;letter-spacing:0.01em;padding:0.16rem 0.55rem;border-radius:999px;white-space:nowrap;background:${m.soft};color:color-mix(in srgb,${m.color} 62%,black 38%)`;
 }
 
 export function laneMeta(l: Owner): { c: string; s: string; label: string } {
@@ -54,6 +54,13 @@ export function laneMeta(l: Owner): { c: string; s: string; label: string } {
   }[l];
 }
 
+export function taskOwnerLabel(owner: Owner, role: Role): string {
+  if (role !== "client") return laneMeta(owner).label;
+  if (owner === "client") return "Your task";
+  if (owner === "gate") return "Shared review";
+  return "Studio task";
+}
+
 export function roleBadgeStyle(kind: string): string {
   const M: Record<string, string> = {
     studio: "background:color-mix(in srgb,var(--fg) 8%,white 92%);color:var(--fg-muted)",
@@ -61,16 +68,16 @@ export function roleBadgeStyle(kind: string): string {
     client: "background:var(--surface-alt);color:var(--fg-muted)",
     ai: "background:var(--lane-ai-soft);color:color-mix(in srgb,var(--lane-ai) 62%,black 38%)",
   };
-  return `display:inline-flex;align-items:center;padding:0.16rem 0.5rem;border-radius:999px;font-size:0.64rem;font-weight:500;white-space:nowrap;flex-shrink:0;${M[kind] || M.client}`;
+  return `display:inline-flex;align-items:center;justify-self:start;padding:0.16rem 0.5rem;border-radius:999px;font-size:var(--text-2xs);font-weight:500;white-space:nowrap;flex-shrink:0;${M[kind] || M.client}`;
 }
 
 // Canonical eyebrow — matches the sidebar section labels. Only colour varies.
 export function eyebrowStyle(color = "var(--fg-muted)"): string {
-  return `text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.01em;line-height:1.2;color:${color}`;
+  return `text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.01em;line-height:1.2;color:${color}`;
 }
 
 export function sidebarEyebrowStyle(color = "var(--fg-muted)"): string {
-  return `font-size:0.8rem;font-weight:400;letter-spacing:0;color:${color};line-height:1.2`;
+  return `font-size:var(--text-sm);font-weight:400;letter-spacing:0;color:${color};line-height:1.2`;
 }
 
 export function roleMeta(r: Role, clientName?: string) {
@@ -171,10 +178,10 @@ const HEAD: Record<string, Partial<Record<Role, [string, string]>>> = {
   settings: { admin: ["Studio", "Settings"], dev: ["Delivery", "Settings"] },
   review: { dev: ["Delivery", "Approvals"], client: ["Your Project", "Approvals"] },
   milestones: { client: ["Your Project", "Journey"] },
-  audit: { client: ["Your Project", "Audit"], admin: ["Studio", "Client Audit"], dev: ["Delivery", "Client Audit"] },
+  audit: { client: ["Your Project", "Checkup"], admin: ["Studio", "Client Checkup"], dev: ["Delivery", "Client Checkup"] },
   assistant: { client: ["Your Project", "In Full Flight"] },
-  audits_new: { admin: ["Automation", "Audits"], dev: ["Automation", "Audits"] },
-  funnels: { admin: ["Automation", "Builders"], dev: ["Automation", "Builders"], client: ["Your Project", "Builders"] },
+  audits_new: { admin: ["Automation", "Checkups"], dev: ["Automation", "Checkups"] },
+  funnels: { admin: ["Automation", "Labs"], dev: ["Automation", "Labs"], client: ["Your Project", "Labs"] },
   activity: { admin: ["Studio", "Activity Log"], client: ["Your Project", "Activity Log"] },
   profile: { admin: ["Account", "Profile & Settings"], dev: ["Account", "Profile & Settings"], client: ["Account", "Profile & Settings"] },
   onboarding: { admin: ["Studio", "New Client"], dev: ["Delivery", "New Client"] },
@@ -189,10 +196,15 @@ export const STATUS_LABEL: Record<TaskStatus, string> = { todo: "To-Do", in_prog
 export const STATUS_ORDER: TaskStatus[] = ["todo", "in_progress", "review", "done"];
 
 const MIN_LEGIBLE_FONT_REM = 0.75;
+const CSS_CACHE_LIMIT = 2_000;
+const cssCache = new Map<string, CSSProperties>();
 
 // Parse a CSS declaration string ("a:b;c:d") into a React style object so ported
 // prototype style strings drop straight into JSX.
 export function css(decl: string): CSSProperties {
+  const cached = cssCache.get(decl);
+  if (cached) return cached;
+
   const out: Record<string, string> = {};
   decl.split(";").forEach(part => {
     const i = part.indexOf(":");
@@ -209,5 +221,8 @@ export function css(decl: string): CSSProperties {
     }
     out[key] = val;
   });
-  return out as CSSProperties;
+  const parsed = out as CSSProperties;
+  if (cssCache.size >= CSS_CACHE_LIMIT) cssCache.clear();
+  cssCache.set(decl, parsed);
+  return parsed;
 }

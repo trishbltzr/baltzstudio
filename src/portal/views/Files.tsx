@@ -30,7 +30,7 @@ export function Files({ state, actions }: { state: PortalState; actions: PortalA
   return (
     <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden;display:grid;grid-template-columns:" + (state.isMobile ? "1fr" : "15rem 1fr") + ";min-height:22rem")}>
       <aside style={css("border-right:1px solid var(--border-soft);background:var(--surface-alt);padding:1.1rem 0.9rem;display:flex;flex-direction:column;gap:0.15rem")}>
-        <div style={css("font-size:0.62rem;letter-spacing:0.02em;color:var(--fg-faint);font-weight:500;padding:0 0.3rem 0.5rem")}>Folders</div>
+        <div style={css("font-size:var(--text-2xs);letter-spacing:0.02em;color:var(--fg-faint);font-weight:500;padding:0 0.3rem 0.5rem")}>Folders</div>
         {FOLDERS.map(([k, label, count]) => (
           <button type="button" key={k} onClick={() => setFolder(k)} className="pt-menuitem" style={css("width:100%;border:0;text-align:left;display:flex;align-items:center;gap:0.55rem;padding:0.5rem 0.55rem;border-radius:var(--radius);cursor:pointer;font:inherit;font-size:var(--text-base);font-weight:500;color:var(--fg);" + (folder === k ? "background:var(--surface)" : "background:transparent"))}>
             <span style={{ display: "grid", placeItems: "center", flexShrink: 0, color: "var(--fg-muted)" }}><Icon name="folder" size={16} /></span>
@@ -42,19 +42,19 @@ export function Files({ state, actions }: { state: PortalState; actions: PortalA
       <div style={css("display:flex;flex-direction:column;min-width:0")}>
         <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);padding:1rem 1.4rem;border-bottom:1px solid var(--border-soft)")}>
           <span style={css("font-weight:500;font-size:var(--text-lg)")}>{active?.[1]}</span>
-          <div style={css("display:flex;gap:1.2rem;font-size:0.74rem;color:var(--fg-muted)")}><span><strong style={css("color:var(--fg);font-weight:500")}>{ready}</strong> ready</span></div>
+          <div style={css("display:flex;gap:1.2rem;font-size:var(--text-2xs);color:var(--fg-muted)")}><span><strong style={css("color:var(--fg);font-weight:500")}>{ready}</strong> ready</span></div>
         </div>
         <div>
-          <div style={css("display:grid;grid-template-columns:2.6fr 0.7fr 0.9fr;gap:0.7rem;padding:0.55rem 1.4rem;border-bottom:1px solid var(--border-soft);font-size:0.62rem;letter-spacing:0.02em;color:var(--fg-faint);font-weight:500")}>
+          <div style={css("display:grid;grid-template-columns:2.6fr 0.7fr 0.9fr;gap:0.7rem;padding:0.55rem 1.4rem;border-bottom:1px solid var(--border-soft);font-size:var(--text-2xs);letter-spacing:0.02em;color:var(--fg-faint);font-weight:500")}>
             <span>Name</span><span>Updated</span><span style={{ textAlign: "right" }}>Status</span>
           </div>
           {files.map((f, index) => (
             <div key={f.name + "#" + index} className="pt-row" style={css("display:grid;grid-template-columns:2.6fr 0.7fr 0.9fr;gap:0.7rem;padding:0.75rem 1.4rem;border-bottom:1px solid var(--border-soft);align-items:center")}>
               <div style={css("display:flex;align-items:center;gap:0.65rem;min-width:0")}>
-                <span style={css("width:2rem;height:2rem;border-radius:var(--radius-sm);background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex-shrink:0;font-size:0.56rem;font-weight:500")}>{f.ext}</span>
-                <div style={{ minWidth: 0 }}><div style={css("font-weight:500;font-size:var(--text-base);overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{f.name}</div><div style={css("font-size:0.7rem;color:var(--fg-faint);white-space:nowrap")}>{f.size} · {f.by}</div></div>
+                <span style={css("width:2rem;height:2rem;border-radius:var(--radius-sm);background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex-shrink:0;font-size:var(--text-2xs);font-weight:500")}>{f.ext}</span>
+                <div style={{ minWidth: 0 }}><div style={css("font-weight:500;font-size:var(--text-base);overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{f.name}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-faint);white-space:nowrap")}>{f.size} · {f.by}</div></div>
               </div>
-              <span style={css("font-size:0.8rem;color:var(--fg-muted)")}>{f.updated}</span>
+              <span style={css("font-size:var(--text-sm);color:var(--fg-muted)")}>{f.updated}</span>
               <span style={{ justifySelf: "end", ...css(f.status === "Ready" ? "display:inline-flex;align-items:center;font-size:var(--text-2xs);font-weight:500;padding:0.16rem 0.5rem;border-radius:999px;background:var(--success-soft);color:var(--success)" : "display:inline-flex;align-items:center;font-size:var(--text-2xs);font-weight:500;padding:0.16rem 0.5rem;border-radius:999px;background:var(--surface-alt);color:var(--fg-muted)") }}>{f.status}</span>
             </div>
           ))}
@@ -62,12 +62,12 @@ export function Files({ state, actions }: { state: PortalState; actions: PortalA
             <div style={css("display:flex;flex-direction:column;align-items:center;text-align:center;gap:0.3rem;padding:2.4rem 1.4rem;color:var(--fg-muted)")}>
               <span style={css("width:2.6rem;height:2.6rem;border-radius:50%;background:var(--surface-alt);color:var(--fg-faint);display:grid;place-items:center;margin-bottom:0.15rem")}><Icon name="folder" size={18} /></span>
               <div style={css("font-size:var(--text-md);font-weight:500;color:var(--fg)")}>Nothing here yet</div>
-              <div style={css("font-size:0.78rem;color:var(--fg-faint);max-width:20rem;line-height:1.4")}>Files shared in this folder will show up here — upload one below to get started.</div>
+              <div style={css("font-size:var(--text-xs);color:var(--fg-faint);max-width:20rem;line-height:1.4")}>Files shared in this folder will show up here — upload one below to get started.</div>
             </div>
           )}
           <button type="button" onClick={() => inputRef.current?.click()} className="pt-softbtn" style={css("width:100%;border:0;text-align:left;background:transparent;color:inherit;font:inherit;display:flex;align-items:center;gap:var(--space-4);margin-top:auto;padding:1rem 1.4rem;border-top:1px solid var(--border-soft);cursor:pointer")}>
             <span style={css("width:2.4rem;height:2.4rem;border-radius:50%;background:oklch(0.94 0.004 50);color:var(--fg-muted);display:grid;place-items:center;flex-shrink:0")}><Icon name="file" size={15} /></span>
-            <span style={css("display:block;min-width:0")}><span style={css("display:block;font-weight:500;font-size:0.85rem")}>Upload files or drag here</span><span style={css("display:block;font-size:var(--text-xs);color:var(--fg-faint);margin-top:0.1rem;line-height:1.4;overflow-wrap:anywhere")}>Saved to {active?.[1]} · SVG, PDF, ZIP, images, documents</span></span>
+            <span style={css("display:block;min-width:0")}><span style={css("display:block;font-weight:500;font-size:var(--text-base)")}>Upload files or drag here</span><span style={css("display:block;font-size:var(--text-xs);color:var(--fg-faint);margin-top:0.1rem;line-height:1.4;overflow-wrap:anywhere")}>Saved to {active?.[1]} · SVG, PDF, ZIP, images, documents</span></span>
           </button>
           <input
             ref={inputRef}

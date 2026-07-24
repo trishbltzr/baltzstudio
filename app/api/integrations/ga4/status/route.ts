@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { decryptConnection, encryptConnection, GA4_CONNECTION_COOKIE, ga4Config, ga4CookieOptions, refreshGa4Connection } from "@/lib/ga4OAuth";
+import { resolvePortalRequestAccess } from "@/lib/portalRequestAccess";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   try {
+    const access = await resolvePortalRequestAccess(request, await createSupabaseServerClient());
+    if (!access) return NextResponse.json({ error: "Sign in to check GA4." }, { status: 401 });
     const requestedClient = request.nextUrl.searchParams.get("clientId") || "";
+    if (access.role === "client" && access.clientId !== requestedClient) {
+      return NextResponse.json({ error: "Client accounts can inspect only their own GA4 connection." }, { status: 403 });
+    }
     const config = ga4Config(request.nextUrl.origin);
     const stored = decryptConnection(request.cookies.get(GA4_CONNECTION_COOKIE)?.value, config.stateSecret);
     if (!stored || stored.clientId !== requestedClient) return NextResponse.json({ connected: false, properties: [] });

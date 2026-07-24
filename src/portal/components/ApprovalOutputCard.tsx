@@ -3,9 +3,11 @@
 import type { PortalApprovalRecord } from "@/lib/portalWorkspacePersistence";
 import { css } from "../helpers";
 import { Icon } from "../icons";
+import { aiReviewMeta, deriveAiReviewState } from "@/lib/aiReviewState";
 
 export function ApprovalOutputCard({ approval }: { approval: PortalApprovalRecord }) {
   const sections = approval.sections || [];
+  const reviewMeta = aiReviewMeta(deriveAiReviewState({ explicit: approval.reviewState, generated: true, shared: approval.sent }));
   return (
     <article style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden") }>
       <div style={css("display:flex;align-items:flex-start;gap:0.8rem;padding:1rem 1.05rem") }>
@@ -15,7 +17,7 @@ export function ApprovalOutputCard({ approval }: { approval: PortalApprovalRecor
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.7rem;flex-wrap:wrap") }>
             <h3 style={css("margin:0;font-size:var(--text-lg);font-weight:500;color:var(--fg)")}>{approval.title}</h3>
-            <span style={css("font-size:var(--text-xs);color:var(--success);background:var(--success-soft);padding:0.18rem 0.5rem;border-radius:999px")}>Ready for review</span>
+            <span style={css("font-size:var(--text-xs);color:var(--success);background:var(--success-soft);padding:0.18rem 0.5rem;border-radius:999px")}>{reviewMeta.label}</span>
           </div>
           <p style={css("margin:0.35rem 0 0;font-size:var(--text-base);line-height:1.5;color:var(--fg-muted)")}>{approval.summary || "The final approved output is ready."}</p>
           {approval.sentAt && <div style={css("margin-top:0.35rem;font-size:var(--text-xs);color:var(--fg-faint)")}>Shared {approval.sentAt}</div>}

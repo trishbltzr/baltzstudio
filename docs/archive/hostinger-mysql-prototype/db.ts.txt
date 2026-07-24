@@ -1,0 +1,72 @@
+// ARCHIVED PROTOTYPE: not imported by the production application.
+import "server-only";
+
+import mysql, {
+  type Pool,
+  type PoolConnection,
+  type RowDataPacket,
+} from "mysql2/promise";
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __baltzHostingerPool: Pool | undefined;
+}
+
+function required(name: string) {
+  const value = process.env[name]?.trim();
+  if (!value) throw new Error(`${name} is required when PORTAL_DATA_BACKEND=mysql.`);
+  return value;
+}
+
+function createPool() {
+  return mysql.createPool({
+    host: required("MYSQL_HOST"),
+    port: Number(process.env.MYSQL_PORT || 3306),
+    database: required("MYSQL_DATABASE"),
+    user: required("MYSQL_USER"),
+    password: required("MYSQL_PASSWORD"),
+    connectionLimit: Number(process.env.MYSQL_CONNECTION_LIMIT || 8),
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0,
+    timezone: "Z",
+    decimalNumbers: true,
+    charset: "utf8mb4",
+  });
+}
+
+export function hostingerDatabaseEnabled() {
+  return process.env.PORTAL_DATA_BACKEND === "mysql";
+}
+
+export function getHostingerPool() {
+  if (!hostingerDatabaseEnabled()) {
+    throw new Error("Hostinger MySQL is not enabled.");
+  }
+  globalThis.__baltzHostingerPool ??= createPool();
+  return globalThis.__baltzHostingerPool;
+}
+
+export async function mysqlRows<T extends RowDataPacket[]>(
+  sql: string,
+  values: any[] = [],
+) {
+  const [rows] = await getHostingerPool().execute<T>(sql, values);
+  return rows;
+}
+
+export async function withMysqlTransaction<T>(
+  work: (connection: PoolConnection) => Promise<T>,
+) {
+  const connection = await getHostingerPool().getConnection();
+  try {
+    await connection.beginTransaction();
+    const result = await work(connection);
+    await connection.commit();
+    return result;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}

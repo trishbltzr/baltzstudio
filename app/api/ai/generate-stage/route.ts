@@ -3,10 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { AI_STAGES, isAiStageResult, isGeneratedStageResult, type AiGenerationMode } from "@/lib/aiStageGeneration";
 import { ALL_AUDIT_CHECKS, AUDIT_CHECKLIST, auditPrioritiesFromEvidence, isAuditScoreResult, scoreChecks, specificAuditCourseOfAction, type AuditCheckResult, type AuditIssue, type AuditScoreResult, type LighthouseRun } from "@/lib/auditChecklist";
 import { apiKeyForMode, createOpenAIResponseForMode, openAIError, responseText } from "@/lib/openaiServer";
-import { runLighthouse } from "@/lib/pageSpeedServer";
-import { discoverSitemapUrls, scanWebsite } from "@/lib/websiteScanner";
-import { automatedAuditChecks, collectWebsiteEvidence, type WebsiteEvidenceBundle } from "@/lib/renderedWebsiteEvidence";
+import { automatedAuditChecks, type WebsiteEvidenceBundle } from "@/lib/renderedWebsiteEvidence";
 import { brandVisualsFromEvidence } from "@/lib/brandVisualEvidence";
+import { loadDurableGenerationEvidence } from "@/lib/durableGenerationEvidence";
+import { resolvePortalRequestAccess } from "@/lib/portalRequestAccess";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -295,6 +296,11 @@ function requestedWebsiteScope(data: Record<string, string | string[]>) {
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Cross-origin requests are not allowed." }, { status: 403 });
   if (!withinRateLimit(request)) return NextResponse.json({ error: "Too many generation requests. Please wait a minute and try again." }, { status: 429 });
+  const access = await resolvePortalRequestAccess(request, await createSupabaseServerClient());
+  if (!access) return NextResponse.json({ error: "Sign in to generate studio work." }, { status: 401 });
+  if (access.role === "client") {
+    return NextResponse.json({ error: "Client-facing AI output must be generated and reviewed by the studio." }, { status: 403 });
+  }
 
   const body = await request.json().catch(() => null);
   const mode = body?.mode as AiGenerationMode;
@@ -320,56 +326,46 @@ export async function POST(request: NextRequest) {
     ? JSON.stringify(body.priorResult).slice(0, 40_000)
     : "Not supplied";
   const isAuditReport = mode === "audit" && stageKey === "report";
-  let scannedPages: Awaited<ReturnType<typeof scanWebsite>> = [];
+  let pagesReviewed: string[] = [];
   let lighthouse: LighthouseRun[] = [];
   let websiteEvidence: WebsiteEvidenceBundle = { rendered: [], technical: { https: false, httpRedirectsToHttps: null, hostRedirectConsistent: null, sitemapAvailable: false, robotsAvailable: false, notFoundHelpful: null, brokenLinksChecked: 0, brokenLinks: [] } };
-  if (isAuditReport) {
-    const url = typeof data.url === "string" ? data.url : "";
-    if (!url) return NextResponse.json({ error: "Add a website URL before scoring the site." }, { status: 400 });
-    try { scannedPages = await scanWebsite(url); }
-    catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "The website could not be scanned." }, { status: 422 }); }
-    if (!scannedPages.length) return NextResponse.json({ error: "The scan did not find enough public website content to score." }, { status: 422 });
-    const [renderedEvidenceResult, lighthouseResult] = await Promise.allSettled([
-      collectWebsiteEvidence(scannedPages.map(page => page.url)),
-      runLighthouse(scannedPages[0].url),
-    ]);
-    if (renderedEvidenceResult.status === "rejected") {
-      const error = renderedEvidenceResult.reason;
-      return NextResponse.json({ error: `Rendered website inspection failed: ${error instanceof Error ? error.message : "Unable to open the site in the audit browser."}` }, { status: 422 });
+  let durableEvidence: Awaited<ReturnType<typeof loadDurableGenerationEvidence>> | null = null;
+  const evidenceServiceRunId = typeof body?.serviceRunId === "string" ? body.serviceRunId : "";
+  if (isAuditReport || (mode === "brand" || mode === "seo") && stageKey === "report") {
+    if (!evidenceServiceRunId) {
+      return NextResponse.json({
+        error: "Finish the durable Checkup first. Report generation now uses its saved evidence instead of re-crawling the site.",
+      }, { status: 409 });
     }
-    websiteEvidence = renderedEvidenceResult.value;
-    const expectedRenders = scannedPages.length * 2;
-    if (websiteEvidence.rendered.length < Math.ceil(expectedRenders * 0.7)) {
-      return NextResponse.json({ error: `Rendered inspection covered only ${websiteEvidence.rendered.length} of ${expectedRenders} desktop/mobile page views. The report was not scored because the evidence was incomplete.` }, { status: 422 });
+    try {
+      durableEvidence = await loadDurableGenerationEvidence(evidenceServiceRunId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Durable Checkup evidence could not be loaded.";
+      const status = /Sign in/.test(message) ? 401 : /still|no durable|valid/.test(message) ? 409 : 404;
+      return NextResponse.json({ error: message }, { status });
     }
-    if (lighthouseResult.status === "fulfilled") lighthouse = lighthouseResult.value;
-    else console.warn("Google Lighthouse was unavailable.", lighthouseResult.reason instanceof Error ? lighthouseResult.reason.message : lighthouseResult.reason);
-  }
-  if ((mode === "brand" || mode === "seo") && stageKey === "report") {
-    const url = typeof data.url === "string" ? data.url : "";
-    if (url) {
-      try { scannedPages = await scanWebsite(url); }
-      catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "The website could not be scanned." }, { status: 422 }); }
+    if (durableEvidence.snapshot.coverage < 0.7) {
+      return NextResponse.json({
+        error: `Evidence coverage is ${Math.round(durableEvidence.snapshot.coverage * 100)}%. Resolve the named blocker or review the partial Checkup before generating a report.`,
+      }, { status: 422 });
     }
-    if (mode === "seo" && scannedPages.length) {
-      try { websiteEvidence = await collectWebsiteEvidence(scannedPages.map(page => page.url)); }
-      catch (error) { console.warn("Rendered SEO inspection was unavailable.", error instanceof Error ? error.message : error); }
-      try { lighthouse = await runLighthouse(scannedPages[0].url); }
-      catch (error) { console.warn("Google Lighthouse was unavailable for SEO.", error instanceof Error ? error.message : error); }
-    }
-    if (mode === "brand" && scannedPages.length) {
-      try { websiteEvidence = await collectWebsiteEvidence(scannedPages.slice(0, 3).map(page => page.url)); }
-      catch (error) { console.warn("Rendered brand inspection was unavailable.", error instanceof Error ? error.message : error); }
-    }
+    pagesReviewed = durableEvidence.pagesReviewed;
+    websiteEvidence = durableEvidence.websiteEvidence;
+    lighthouse = durableEvidence.lighthouse;
   }
   let sitemapUrls: string[] = [];
   if (mode === "website_builder" && stageKey === "direction") {
-    const url = typeof data.url === "string" ? data.url : "";
-    if (url) {
-      try { scannedPages = await scanWebsite(url); sitemapUrls = await discoverSitemapUrls(url); }
-      catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "The website could not be scanned." }, { status: 422 }); }
+    if (evidenceServiceRunId) {
+      try {
+        durableEvidence = await loadDurableGenerationEvidence(evidenceServiceRunId);
+        sitemapUrls = durableEvidence.pagesReviewed;
+      } catch (error) {
+        return NextResponse.json({
+          error: error instanceof Error ? error.message : "The approved Checkup evidence could not be loaded.",
+        }, { status: 409 });
+      }
     }
-    if (!requestedWebsiteScope(data).length && !sitemapUrls.length && !scannedPages.length) return NextResponse.json({ error: "Confirm at least one page to design before generating the build-ready brief." }, { status: 400 });
+    if (!requestedWebsiteScope(data).length && !sitemapUrls.length) return NextResponse.json({ error: "Confirm at least one page to design or attach an approved Checkup handoff before generating the build-ready brief." }, { status: 400 });
   }
   const instructions = [
     "You are the strategy engine inside Baltazar Studio's client portal.",
@@ -422,7 +418,15 @@ export async function POST(request: NextRequest) {
       reasoning: { effort: "low" },
       max_output_tokens: isAuditReport ? 18_000 : 2_400,
       instructions,
-      input: `Person name: ${personName || "Not supplied"}\nBrand name: ${brandName}\nClient record: ${clientName}\nWorkflow: ${mode}\nStage: ${stageKey}\n\nClient workspace notes (read before discovery context):\n${Object.keys(clientNotes).length ? JSON.stringify(clientNotes, null, 2) : "No saved client notes."}\n\nDiscovery context:\n${JSON.stringify(data, null, 2)}\nPrior audit result:\n${priorResult}${sitemapUrls.length ? `\n\nComplete sitemap URL inventory:\n${sitemapUrls.join("\n")}` : ""}${scannedPages.length ? `\n\nGoogle Lighthouse results:\n${JSON.stringify(lighthouse, null, 2)}\n\nRendered browser and technical evidence:\n${JSON.stringify(websiteEvidence, null, 2)}\n\nScanned website pages:\n${scannedPages.map((page, index) => `--- PAGE ${index + 1}: ${page.url} ---\n${page.text}`).join("\n\n")}` : ""}`,
+      input: `Person name: ${personName || "Not supplied"}\nBrand name: ${brandName}\nClient record: ${clientName}\nWorkflow: ${mode}\nStage: ${stageKey}\n\nClient workspace notes (read before discovery context):\n${Object.keys(clientNotes).length ? JSON.stringify(clientNotes, null, 2) : "No saved client notes."}\n\nDiscovery context:\n${JSON.stringify(data, null, 2)}\nPrior audit result:\n${priorResult}${sitemapUrls.length ? `\n\nApproved page inventory:\n${sitemapUrls.join("\n")}` : ""}${durableEvidence ? `\n\nDurable Checkup evidence (saved once; do not imply a new crawl):\n${JSON.stringify({
+        run: durableEvidence.run,
+        snapshot: durableEvidence.snapshot,
+        pages: durableEvidence.pages,
+        lighthouse,
+        rendered: websiteEvidence.rendered,
+        technical: websiteEvidence.technical,
+        reviewedChecks: durableEvidence.reviewedChecks,
+      }, null, 2).slice(0, 100_000)}` : ""}`,
       text: {
         verbosity: "medium",
         format: { type: "json_schema", name: isAuditReport ? "audit_score_result" : "ai_stage_result", strict: true, schema: isAuditReport ? AUDIT_SCORE_SCHEMA : RESULT_SCHEMA },
@@ -436,7 +440,7 @@ export async function POST(request: NextRequest) {
 
     const parsed = JSON.parse(responseText(payload));
     if (mode === "website_builder" && stageKey === "direction" && Array.isArray(parsed?.sections)) {
-      const pageInventory = [...new Set([...sitemapUrls, ...scannedPages.map(page => page.url)])];
+      const pageInventory = [...new Set(sitemapUrls)];
       const confirmedScope = requestedWebsiteScope(data);
       const pageSection = parsed.sections.find((section: any) => String(section?.heading || "").toLowerCase() === "final sitemap and page briefs");
       if (pageSection && confirmedScope.length) {
@@ -450,7 +454,7 @@ export async function POST(request: NextRequest) {
       }
       else if (pageSection && pageInventory.length) pageSection.bullets = websiteBuildScopeItems(pageInventory);
     }
-    const result = isAuditReport ? normalizeAuditAnalysis(parsed as RawAuditAnalysis, scannedPages.map(page => page.url), lighthouse, websiteEvidence) : parsed;
+    const result = isAuditReport ? normalizeAuditAnalysis(parsed as RawAuditAnalysis, pagesReviewed, lighthouse, websiteEvidence) : parsed;
     if (mode === "brand" && stageKey === "report" && isAiStageResult(result)) {
       result.summary = conciseBrandSummary(result.summary);
       result.brandVisuals = brandVisualsFromEvidence(websiteEvidence);

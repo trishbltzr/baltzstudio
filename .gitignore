@@ -55,3 +55,4 @@ The Baltazar Studio/
 
 # Local Claude Code overrides (machine-specific; keep out of git)
 .claude/settings.local.json
+/.swc

@@ -1,4 +1,5 @@
 import type { DiscoveryStage, DiscoveryTopic, DiscoveryIntroStep } from "./DiscoveryBuilder";
+import { processPipelineStages } from "../processDefinitions";
 
 // ── Funnel discovery (ported from the Funnel Builder handoff) ──────────────────
 export const FUNNEL_WIZARD: DiscoveryTopic[] = [
@@ -43,13 +44,7 @@ export const FUNNEL_WIZARD: DiscoveryTopic[] = [
   ] },
 ];
 
-export const FUNNEL_STAGES: DiscoveryStage[] = [
-  { key: "discovery", label: "Discovery", icon: "inbox" },
-  { key: "flow", label: "Funnel flow", icon: "funnel" },
-  { key: "copy", label: "Copy", icon: "sparkle" },
-  { key: "wireframe", label: "Wireframe", icon: "grid" },
-  { key: "brief", label: "Development plan", icon: "checklist" },
-];
+export const FUNNEL_STAGES: DiscoveryStage[] = processPipelineStages("funnel-build");
 
 export const FUNNEL_INTRO_STEPS: DiscoveryIntroStep[] = [
   { title: "Discovery" },
@@ -92,11 +87,7 @@ export const AUDIT_WIZARD: DiscoveryTopic[] = [
   ] },
 ];
 
-export const AUDIT_STAGES: DiscoveryStage[] = [
-  { key: "discovery", label: "Audit intake", icon: "inbox" },
-  { key: "report", label: "Audit report", icon: "chart" },
-  { key: "plan", label: "Action plan", icon: "checklist" },
-];
+export const AUDIT_STAGES: DiscoveryStage[] = processPipelineStages("website-audit");
 
 export const AUDIT_INTRO_STEPS: DiscoveryIntroStep[] = [
   { title: "Conversion Path", tag: "CTAs & forms", icon: "activity" },

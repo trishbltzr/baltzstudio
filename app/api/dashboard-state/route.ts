@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { DASHBOARD_USER_EMAIL_HEADER, coercePersistedProjects, normalizeDashboardUserEmail } from "@/lib/dashboardPersistence";
+import { resolvePortalRequestAccess } from "@/lib/portalRequestAccess";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabasePrivilegedServerClient } from "@/lib/supabase/privileged";
 import type { Json } from "@/lib/supabase/types";
 import type { Project } from "@/types";
 
@@ -21,7 +23,13 @@ function projectRowChanged(
 }
 
 export async function GET(request: Request) {
-  const supabase = await createSupabaseServerClient();
+  const authClient = await createSupabaseServerClient();
+  const access = await resolvePortalRequestAccess(request, authClient);
+  if (!access) return NextResponse.json({ error: "Sign in to load dashboard state." }, { status: 401 });
+  if (access.role === "client") {
+    return NextResponse.json({ error: "Use the client-scoped portal workspace endpoint." }, { status: 403 });
+  }
+  const supabase = await createSupabasePrivilegedServerClient();
   const userEmail = normalizeDashboardUserEmail(request.headers.get(DASHBOARD_USER_EMAIL_HEADER));
   const projectStatePromise = supabase
     .from("dashboard_project_state")
@@ -62,6 +70,13 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const authClient = await createSupabaseServerClient();
+  const access = await resolvePortalRequestAccess(request, authClient);
+  if (!access) return NextResponse.json({ error: "Sign in to save dashboard state." }, { status: 401 });
+  if (access.role === "client") {
+    return NextResponse.json({ error: "Client accounts cannot replace shared dashboard state." }, { status: 403 });
+  }
+  const supabase = await createSupabasePrivilegedServerClient();
   const body = await request.json().catch(() => null);
   const projects = coercePersistedProjects(body?.projects);
   if (!body || projects.length === 0) {
@@ -85,7 +100,6 @@ export async function PUT(request: Request) {
     client_email: normalizeDashboardUserEmail(project.clientEmail),
     updated_at: updatedAt,
   }));
-  const supabase = await createSupabaseServerClient();
   const { data: existingProjectRows, error: existingProjectRowsError } = await supabase
     .from("dashboard_project_state")
     .select("project_id, project, client_email")

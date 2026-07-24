@@ -1,10 +1,13 @@
 import { isGeneratedStageResult, type GeneratedStageResult } from "./aiStageGeneration";
 import { isAuditScoreResult, type AuditScoreResult } from "./auditChecklist";
+import { normalizePortalProcessRun, type PortalProcessRun } from "./portalProcessRuns";
+import { normalizeAiReviewStates, type AiReviewState } from "./aiReviewState";
 
 export type PersistedAuditAnswer = string | string[];
 export type PersistedAuditAnswers = Record<string, PersistedAuditAnswer>;
 
 export interface GuidedAuditSession {
+  processRun?: PortalProcessRun;
   entered: boolean;
   introReveal: number;
   data: PersistedAuditAnswers;
@@ -16,6 +19,7 @@ export interface GuidedAuditSession {
   proposal: boolean;
   memoryResolved: boolean;
   aiResults: Record<string, GeneratedStageResult>;
+  reviewStates?: Record<string, AiReviewState>;
 }
 
 export interface PersistedAuditState {
@@ -62,6 +66,54 @@ export interface PersistedAuditDraft {
   run: PersistedAuditRun;
   state: PersistedAuditState;
   updatedAt: string | null;
+}
+
+/**
+ * Keeps resumable client-entered intake data while removing studio scoring,
+ * internal notes, process traces, generated findings, and review metadata.
+ */
+export function projectPersistedAuditDraftForClient(draft: PersistedAuditDraft): PersistedAuditDraft {
+  const guidedSession = draft.state.guidedSession;
+  return {
+    run: {
+      ...draft.run,
+      owner: "Studio",
+      score: undefined,
+      internalScore: undefined,
+      lighthouseMobileScore: undefined,
+      lighthouseDesktopScore: undefined,
+      previousScore: undefined,
+      targetScore: undefined,
+    },
+    state: {
+      clientId: draft.state.clientId,
+      buildId: draft.state.buildId,
+      idx: draft.state.idx,
+      answers: draft.state.answers,
+      unsure: draft.state.unsure,
+      confirmed: draft.state.confirmed,
+      signed: draft.state.signed,
+      notes: {},
+      genDone: {},
+      guidedSession: guidedSession
+        ? {
+          entered: guidedSession.entered,
+          introReveal: guidedSession.introReveal,
+          data: guidedSession.data,
+          qIdx: guidedSession.qIdx,
+          questionTotal: guidedSession.questionTotal,
+          draft: guidedSession.draft,
+          stage: guidedSession.stage,
+          approved: {},
+          proposal: false,
+          memoryResolved: false,
+          aiResults: {},
+          reviewStates: {},
+        }
+        : undefined,
+    },
+    updatedAt: draft.updatedAt,
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -113,6 +165,7 @@ function normalizeGuidedSession(value: unknown): GuidedAuditSession | undefined 
     ? Object.fromEntries(Object.entries(value.aiResults).filter(([, result]) => isGeneratedStageResult(result))) as Record<string, GeneratedStageResult>
     : {};
   return {
+    processRun: normalizePortalProcessRun(value.processRun),
     entered: value.entered === true,
     introReveal: typeof value.introReveal === "number" ? Math.max(0, Math.min(2, Math.floor(value.introReveal))) : 0,
     data: coerceAnswers(value.data),
@@ -124,6 +177,7 @@ function normalizeGuidedSession(value: unknown): GuidedAuditSession | undefined 
     proposal: value.proposal === true,
     memoryResolved: value.memoryResolved === true,
     aiResults,
+    reviewStates: normalizeAiReviewStates(value.reviewStates, Object.keys(aiResults), coerceBooleanRecord(value.approved)),
   };
 }
 

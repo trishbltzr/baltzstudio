@@ -8,10 +8,10 @@ import type { PortalActions, PortalState } from "../store";
 
 // ── design primitives (match the rest of the portal) ─────────────────────────
 const CARD = "border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);padding:1.05rem 1.1rem";
-const INPUT = "width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.62rem;font-size:0.82rem;font-family:inherit;background:var(--surface-alt);color:var(--fg);outline:none";
-const BTN_PRIMARY = "display:inline-flex;align-items:center;gap:0.4rem;height:2.1rem;padding:0 0.9rem;border:none;border-radius:var(--radius-pill);background:var(--accent);color:#fff;font-size:0.78rem;font-weight:500;cursor:pointer;white-space:nowrap";
-const BTN_GHOST = "display:inline-flex;align-items:center;gap:0.4rem;height:2.1rem;padding:0 0.8rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:0.78rem;font-weight:500;cursor:pointer;white-space:nowrap";
-const CHIP = "display:inline-flex;align-items:center;gap:0.32rem;padding:0.3rem 0.6rem;border-radius:var(--radius-pill);font-size:0.72rem;font-weight:500;cursor:pointer;white-space:nowrap";
+const INPUT = "width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.62rem;font-size:var(--text-sm);font-family:inherit;background:var(--surface-alt);color:var(--fg);outline:none";
+const BTN_PRIMARY = "display:inline-flex;align-items:center;gap:0.4rem;height:2.1rem;padding:0 0.9rem;border:none;border-radius:var(--radius-pill);background:var(--accent);color:#fff;font-size:var(--text-xs);font-weight:500;cursor:pointer;white-space:nowrap";
+const BTN_GHOST = "display:inline-flex;align-items:center;gap:0.4rem;height:2.1rem;padding:0 0.8rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;cursor:pointer;white-space:nowrap";
+const CHIP = "display:inline-flex;align-items:center;gap:0.32rem;padding:0.3rem 0.6rem;border-radius:var(--radius-pill);font-size:var(--text-2xs);font-weight:500;cursor:pointer;white-space:nowrap";
 
 // ── seed data ────────────────────────────────────────────────────────────────
 const CURRENCIES: Record<string, { symbol: string; locale: string }> = {
@@ -188,10 +188,10 @@ function reducer(s: Inv, a: Action): Inv {
 function Section({ title, hint, children, right, last = false }: { icon: string; title: string; hint?: string; children: ReactNode; right?: ReactNode; defaultOpen?: boolean; flat?: boolean; last?: boolean }) {
   return (
     <div style={css("padding:1rem 0" + (last ? "" : ";border-bottom:1px solid var(--border-soft)"))}>
-      <div style={css("display:flex;align-items:flex-start;gap:0.75rem") }>
+      <div style={css("display:flex;align-items:flex-start;gap:var(--space-3)") }>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={css("font-size:0.95rem;font-weight:500;color:var(--fg);line-height:1.2")}>{title}</div>
-          {hint && <div style={css("font-size:0.72rem;color:var(--fg-faint);margin-top:0.1rem")}>{hint}</div>}
+          <div style={css("font-size:var(--text-lg);font-weight:500;color:var(--fg);line-height:1.2")}>{title}</div>
+          {hint && <div style={css("font-size:var(--text-2xs);color:var(--fg-faint);margin-top:0.1rem")}>{hint}</div>}
         </div>
         {right && <span style={{ display: "inline-flex", flexShrink: 0 }}>{right}</span>}
       </div>
@@ -202,7 +202,7 @@ function Section({ title, hint, children, right, last = false }: { icon: string;
 
 function Field({ label, children, span }: { label: string; children: ReactNode; span?: boolean }) {
   return (
-    <label style={css("display:flex;flex-direction:column;gap:0.28rem;font-size:0.72rem;font-weight:500;color:var(--fg-muted);min-width:0" + (span ? ";grid-column:1/-1" : ""))}>
+    <label style={css("display:flex;flex-direction:column;gap:0.28rem;font-size:var(--text-2xs);font-weight:500;color:var(--fg-muted);min-width:0" + (span ? ";grid-column:1/-1" : ""))}>
       {label}
       {children}
     </label>
@@ -302,15 +302,15 @@ export function Invoices({ state, actions }: { state: PortalState; actions: Port
   const showRecurring = ["Monthly retainer", "Recurring maintenance"].includes(inv.billingType);
 
   return (
-    <div style={css("display:flex;flex-direction:column;gap:1rem")}>
+    <div style={css("display:flex;flex-direction:column;gap:var(--space-4)")}>
       {/* header */}
-      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap")}>
+      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap")}>
         <div style={{ minWidth: 0 }}>
-          <button type="button" onClick={() => { actions.patch({ invoiceClientName: null }); actions.setView("billing"); }} style={css("display:inline-flex;align-items:center;gap:0.3rem;padding:0;border:0;background:transparent;color:var(--accent);font-size:0.72rem;font-weight:500;cursor:pointer")}><Icon name="chevleft" size={13} />Billing</button>
-          <h2 style={css("margin:0.35rem 0 0;font-size:1.35rem;font-weight:500;line-height:1.15")}>New Invoice</h2>
-          <p style={css("margin:0.3rem 0 0;font-size:0.82rem;color:var(--fg-muted);line-height:1.5;max-width:38rem")}>Create the invoice before sending a payment reminder.</p>
+          <button type="button" onClick={() => { actions.patch({ invoiceClientName: null }); actions.setView("billing"); }} style={css("display:inline-flex;align-items:center;gap:0.3rem;padding:0;border:0;background:transparent;color:var(--accent);font-size:var(--text-2xs);font-weight:500;cursor:pointer")}><Icon name="chevleft" size={13} />Billing</button>
+          <h2 style={css("margin:0.35rem 0 0;font-size:var(--text-2xl);font-weight:500;line-height:1.15")}>New Invoice</h2>
+          <p style={css("margin:0.3rem 0 0;font-size:var(--text-sm);color:var(--fg-muted);line-height:1.5;max-width:38rem")}>Create the invoice before sending a payment reminder.</p>
         </div>
-        <div style={css("display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;flex-shrink:0")}>
+        <div style={css("display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;flex-shrink:0")}>
           {!mobile && <button type="button" onClick={() => setShowPreview(v => !v)} style={css(BTN_GHOST)}><Icon name="eye" size={14} />{showPreview ? "Hide Preview" : "Show Preview"}</button>}
           <button type="button" onClick={() => doSave("Invoice saved as draft")} style={css(BTN_GHOST)}><Icon name="file" size={14} />Save as Draft</button>
           <button type="button" onClick={send} style={css(BTN_PRIMARY)}><Icon name="send" size={14} />Send Invoice</button>
@@ -320,13 +320,13 @@ export function Invoices({ state, actions }: { state: PortalState; actions: Port
       {/* validation banner */}
       {showErrors && errors.length > 0 && (
         <div style={css("border:1px solid var(--danger-border);border-radius:var(--radius-panel);background:var(--danger-soft);padding:0.75rem 0.9rem")}>
-          <div style={css("display:flex;align-items:center;gap:0.45rem;font-size:0.8rem;font-weight:500;color:var(--danger)")}><Icon name="alert" size={15} />Resolve before sending</div>
-          <ul style={css("margin:0.4rem 0 0;padding-left:1.1rem;color:var(--fg-muted);font-size:0.76rem;line-height:1.6")}>{errors.map(e => <li key={e}>{e}</li>)}</ul>
+          <div style={css("display:flex;align-items:center;gap:0.45rem;font-size:var(--text-sm);font-weight:500;color:var(--danger)")}><Icon name="alert" size={15} />Resolve before sending</div>
+          <ul style={css("margin:0.4rem 0 0;padding-left:1.1rem;color:var(--fg-muted);font-size:var(--text-xs);line-height:1.6")}>{errors.map(e => <li key={e}>{e}</li>)}</ul>
         </div>
       )}
 
       {/* split: editable form + sticky live preview */}
-      <div style={css("display:grid;grid-template-columns:" + (mobile || !showPreview ? "minmax(0,1fr)" : "minmax(0,1.1fr) minmax(0,0.9fr)") + ";gap:1rem;align-items:start")}>
+      <div style={css("display:grid;grid-template-columns:" + (mobile || !showPreview ? "minmax(0,1fr)" : "minmax(0,1.1fr) minmax(0,0.9fr)") + ";gap:var(--space-4);align-items:start")}>
         <div style={css("display:flex;flex-direction:column;gap:0.9rem;min-width:0")}>
           <FormBody inv={inv} set={set} dispatch={dispatch} setDirty={setDirty} biz={biz} client={client} project={project}
             applyClient={applyClient} applyProject={applyProject} applyBiz={applyBiz} calc={calc} money={(n: number) => money(n, cur)}
@@ -346,7 +346,7 @@ export function Invoices({ state, actions }: { state: PortalState; actions: Port
       {modal === "preview" && (
         <Shell label="Invoice preview" onClose={() => setModal(null)} wide>
           <ModalHead title="Invoice preview" onClose={() => setModal(null)} />
-          <div style={css("padding:1rem;background:var(--bg)")}>
+          <div style={css("padding:var(--space-4);background:var(--bg)")}>
             <Preview inv={inv} biz={biz} client={client} project={project} calc={calc} money={(n: number) => money(n, cur)} lineAmount={lineAmount} expenseAmount={expenseAmount} onTemplate={t => set({ template: t })} />
           </div>
         </Shell>
@@ -374,10 +374,10 @@ function FormBody(p: {
   return (
     <>
       <div style={css(CARD + ";padding:0 1.1rem")}>
-        <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:1.15rem 0 1rem")}>
+        <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);padding:1.15rem 0 1rem")}>
           <div>
-            <div style={css("font-size:1rem;font-weight:500;color:var(--fg)")}>Invoice details</div>
-            <div style={css("font-size:0.72rem;color:var(--fg-faint);margin-top:0.15rem")}>Enter invoice and client information.</div>
+            <div style={css("font-size:var(--text-lg);font-weight:500;color:var(--fg)")}>Invoice details</div>
+            <div style={css("font-size:var(--text-2xs);color:var(--fg-faint);margin-top:0.15rem")}>Enter invoice and client information.</div>
           </div>
           <div style={css("display:flex;gap:0.4rem;width:" + (mobile ? "100%" : "14rem") + ";max-width:100%")}>
             <select className="pt-input" aria-label="Client" value={inv.clientId} onChange={e => applyClient(e.target.value)} style={css(INPUT + ";cursor:pointer;background:var(--surface)")}>
@@ -404,7 +404,7 @@ function FormBody(p: {
           <Field label="Payment terms">{sel(inv.paymentTerms, ["Due on receipt", "Net 7", "Net 14", "Net 30", "Net 45"], v => set({ paymentTerms: v }))}</Field>
         </div>
         <div style={css("margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border-soft)")}>
-          <div style={css("font-size:0.82rem;font-weight:500;color:var(--fg);margin-bottom:0.65rem")}>Additional details</div>
+          <div style={css("font-size:var(--text-sm);font-weight:500;color:var(--fg);margin-bottom:0.65rem")}>Additional details</div>
           <div style={css(grid3)}>
             <Field label="Status"><select className="pt-input" value={inv.status} onChange={e => set({ status: e.target.value })} style={css(INPUT + ";cursor:pointer")}>{STATUSES.map(([s]) => <option key={s} value={s}>{s}</option>)}</select></Field>
             <Field label="PO number">{txt(inv.poNumber, v => set({ poNumber: v }), { ph: "Optional" })}</Field>
@@ -431,9 +431,9 @@ function FormBody(p: {
                 return (
                   <button key={m.id} type="button" onClick={() => dispatch({ t: "milestone", id: m.id })} style={css("display:flex;align-items:center;gap:0.6rem;padding:0.55rem 0.7rem;border:1px solid " + (m.selected ? "var(--accent)" : "var(--border-soft)") + ";border-radius:var(--radius);background:" + (m.selected ? "var(--accent-soft)" : "var(--surface)") + ";cursor:pointer;text-align:left")}>
                     <span style={css("width:1.1rem;height:1.1rem;border-radius:0.3rem;flex-shrink:0;display:grid;place-items:center;border:1.5px solid " + (m.selected ? "var(--accent)" : "var(--border)") + ";background:" + (m.selected ? "var(--accent)" : "transparent") + ";color:#fff")}>{m.selected && <Icon name="checkmark" size={11} />}</span>
-                    <span style={css("flex:1;font-size:0.8rem;font-weight:500;color:var(--fg)")}>{m.label}</span>
-                    <span style={css("font-size:0.74rem;color:var(--fg-muted)")}>{m.pct}%</span>
-                    <span style={css("font-size:0.8rem;font-weight:500;color:var(--fg);width:5rem;text-align:right")}>{money(amt)}</span>
+                    <span style={css("flex:1;font-size:var(--text-sm);font-weight:500;color:var(--fg)")}>{m.label}</span>
+                    <span style={css("font-size:var(--text-2xs);color:var(--fg-muted)")}>{m.pct}%</span>
+                    <span style={css("font-size:var(--text-sm);font-weight:500;color:var(--fg);width:5rem;text-align:right")}>{money(amt)}</span>
                   </button>
                 );
               })}
@@ -453,11 +453,11 @@ function FormBody(p: {
             {inv.items.map(i => (
               <div key={i.id} style={css("padding:0.45rem 0.1rem;border-top:1px solid var(--border-soft)")}>
                 <div data-line-item-grid="row" style={css("display:grid;grid-template-columns:" + lineItemGrid + ";gap:0.45rem;align-items:center")}>
-                  <input className="pt-input" value={i.service} placeholder="Item" onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { service: e.target.value } })} style={css(INPUT + ";padding:0.4rem 0.5rem;font-size:0.78rem")} />
-                  <input className="pt-input" aria-label="Quantity" type="number" value={i.qty} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { qty: +e.target.value } })} style={css(INPUT + ";padding:0.4rem;font-size:0.78rem;text-align:center")} />
-                  <select className="pt-input" aria-label="Unit" value={i.unit} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { unit: e.target.value } })} style={css(INPUT + ";padding:0.4rem 0.2rem;font-size:0.72rem;cursor:pointer;text-align:center")}>{UNITS.map(u => <option key={u}>{u}</option>)}</select>
-                  <input className="pt-input" aria-label="Cost" type="number" value={i.rate} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { rate: +e.target.value } })} style={css(INPUT + ";padding:0.4rem;font-size:0.78rem;text-align:right")} />
-                  <span style={css("font-size:0.8rem;font-weight:500;text-align:right;white-space:nowrap")}>{money(lineAmount(i))}</span>
+                  <input className="pt-input" value={i.service} placeholder="Item" onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { service: e.target.value } })} style={css(INPUT + ";padding:0.4rem 0.5rem;font-size:var(--text-xs)")} />
+                  <input className="pt-input" aria-label="Quantity" type="number" value={i.qty} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { qty: +e.target.value } })} style={css(INPUT + ";padding:0.4rem;font-size:var(--text-xs);text-align:center")} />
+                  <select className="pt-input" aria-label="Unit" value={i.unit} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { unit: e.target.value } })} style={css(INPUT + ";padding:0.4rem 0.2rem;font-size:var(--text-2xs);cursor:pointer;text-align:center")}>{UNITS.map(u => <option key={u}>{u}</option>)}</select>
+                  <input className="pt-input" aria-label="Cost" type="number" value={i.rate} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { rate: +e.target.value } })} style={css(INPUT + ";padding:0.4rem;font-size:var(--text-xs);text-align:right")} />
+                  <span style={css("font-size:var(--text-sm);font-weight:500;text-align:right;white-space:nowrap")}>{money(lineAmount(i))}</span>
                   <div style={css("display:flex;justify-content:flex-end;gap:0.15rem;flex-shrink:0")}>
                     <button type="button" aria-label="Line item options" title="Description, discount & tax" onClick={() => setLineOptionsId(lineOptionsId === i.id ? null : i.id)} className="pt-iconbtn" style={css("width:1.6rem;height:1.6rem;border:1px solid var(--border-soft);border-radius:0.4rem;background:" + (lineOptionsId === i.id ? "var(--accent-soft)" : "transparent") + ";color:" + (lineOptionsId === i.id ? "var(--accent)" : "var(--fg-muted)") + ";display:grid;place-items:center;cursor:pointer")}><Icon name="sliders" size={12} /></button>
                     <button type="button" title="Duplicate" onClick={() => dispatch({ t: "item", op: "dup", id: i.id })} className="pt-iconbtn" style={css("width:1.6rem;height:1.6rem;border:1px solid var(--border-soft);border-radius:0.4rem;background:transparent;color:var(--fg-muted);display:grid;place-items:center;cursor:pointer")}><Icon name="layers" size={12} /></button>
@@ -466,9 +466,9 @@ function FormBody(p: {
                 </div>
                 {lineOptionsId === i.id && (
                   <div style={css("display:grid;grid-template-columns:2fr 0.75fr 0.75fr auto;gap:0.45rem;align-items:end;margin-top:0.45rem;padding:0.55rem;border-radius:var(--radius);background:var(--surface-alt)")}>
-                    <Field label="Description"><input className="pt-input" value={i.description} placeholder="Description" onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { description: e.target.value } })} style={css(INPUT + ";padding:0.4rem 0.5rem;font-size:0.78rem;background:var(--surface)")} /></Field>
-                    <Field label="Discount %"><input className="pt-input" type="number" value={i.discount} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { discount: +e.target.value } })} style={css(INPUT + ";padding:0.4rem;font-size:0.78rem;background:var(--surface)")} /></Field>
-                    <Field label="Tax %"><input className="pt-input" type="number" value={i.taxable ? i.taxRate : 0} disabled={!i.taxable} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { taxRate: +e.target.value } })} style={css(INPUT + ";padding:0.4rem;font-size:0.78rem;background:var(--surface);opacity:" + (i.taxable ? "1" : "0.5"))} /></Field>
+                    <Field label="Description"><input className="pt-input" value={i.description} placeholder="Description" onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { description: e.target.value } })} style={css(INPUT + ";padding:0.4rem 0.5rem;font-size:var(--text-xs);background:var(--surface)")} /></Field>
+                    <Field label="Discount %"><input className="pt-input" type="number" value={i.discount} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { discount: +e.target.value } })} style={css(INPUT + ";padding:0.4rem;font-size:var(--text-xs);background:var(--surface)")} /></Field>
+                    <Field label="Tax %"><input className="pt-input" type="number" value={i.taxable ? i.taxRate : 0} disabled={!i.taxable} onChange={e => dispatch({ t: "item", op: "update", id: i.id, v: { taxRate: +e.target.value } })} style={css(INPUT + ";padding:0.4rem;font-size:var(--text-xs);background:var(--surface);opacity:" + (i.taxable ? "1" : "0.5"))} /></Field>
                     <button type="button" onClick={() => dispatch({ t: "item", op: "update", id: i.id, v: { taxable: !i.taxable } })} style={css(CHIP + ";height:2rem;border:1px solid " + (i.taxable ? "var(--accent)" : "var(--border)") + ";background:" + (i.taxable ? "var(--accent-soft)" : "var(--surface)") + ";color:" + (i.taxable ? "var(--accent)" : "var(--fg-muted)"))}>{i.taxable ? "Taxable" : "Non-taxable"}</button>
                   </div>
                 )}
@@ -484,7 +484,7 @@ function FormBody(p: {
         <Section icon="clock" title="Time entries" hint="Import approved, billable time — each entry invoices once"
           right={<button type="button" onClick={() => dispatch({ t: "time", op: "import" })} style={css(CHIP + ";border:1px solid var(--border);color:var(--accent)")}><Icon name="history" size={12} />Import approved</button>}>
           {inv.time.length === 0 ? (
-            <div style={css("font-size:0.78rem;color:var(--fg-faint);padding:0.5rem 0")}>No time imported yet. Import approved entries or add manually.</div>
+            <div style={css("font-size:var(--text-xs);color:var(--fg-faint);padding:0.5rem 0")}>No time imported yet. Import approved entries or add manually.</div>
           ) : (
             <>
               <div style={css("display:grid;grid-template-columns:1.8fr 1.2fr 0.7fr 0.7fr 0.8fr auto;gap:0.4rem;padding-bottom:0.4rem;" + eyebrowStyle("var(--fg-faint)"))}>
@@ -492,11 +492,11 @@ function FormBody(p: {
               </div>
               {inv.time.map(t => (
                 <div key={t.id} style={css("display:grid;grid-template-columns:1.8fr 1.2fr 0.7fr 0.7fr 0.8fr auto;gap:0.4rem;align-items:center;padding:0.3rem 0;border-top:1px solid var(--border-soft);opacity:" + (t.billable ? "1" : "0.55"))}>
-                  <input className="pt-input" value={t.task} onChange={e => dispatch({ t: "time", op: "update", id: t.id, v: { task: e.target.value } })} style={css(INPUT + ";padding:0.35rem 0.45rem;font-size:0.78rem")} />
-                  <input className="pt-input" value={t.member} onChange={e => dispatch({ t: "time", op: "update", id: t.id, v: { member: e.target.value } })} style={css(INPUT + ";padding:0.35rem 0.45rem;font-size:0.78rem")} />
-                  <input className="pt-input" type="number" value={t.hours} onChange={e => dispatch({ t: "time", op: "update", id: t.id, v: { hours: +e.target.value } })} style={css(INPUT + ";padding:0.35rem 0.4rem;font-size:0.78rem")} />
-                  <input className="pt-input" type="number" value={t.rate} onChange={e => dispatch({ t: "time", op: "update", id: t.id, v: { rate: +e.target.value } })} style={css(INPUT + ";padding:0.35rem 0.4rem;font-size:0.78rem")} />
-                  <span style={css("font-size:0.8rem;font-weight:500;text-align:right;white-space:nowrap")}>{money(t.billable ? t.hours * t.rate : 0)}</span>
+                  <input className="pt-input" value={t.task} onChange={e => dispatch({ t: "time", op: "update", id: t.id, v: { task: e.target.value } })} style={css(INPUT + ";padding:0.35rem 0.45rem;font-size:var(--text-xs)")} />
+                  <input className="pt-input" value={t.member} onChange={e => dispatch({ t: "time", op: "update", id: t.id, v: { member: e.target.value } })} style={css(INPUT + ";padding:0.35rem 0.45rem;font-size:var(--text-xs)")} />
+                  <input className="pt-input" type="number" value={t.hours} onChange={e => dispatch({ t: "time", op: "update", id: t.id, v: { hours: +e.target.value } })} style={css(INPUT + ";padding:0.35rem 0.4rem;font-size:var(--text-xs)")} />
+                  <input className="pt-input" type="number" value={t.rate} onChange={e => dispatch({ t: "time", op: "update", id: t.id, v: { rate: +e.target.value } })} style={css(INPUT + ";padding:0.35rem 0.4rem;font-size:var(--text-xs)")} />
+                  <span style={css("font-size:var(--text-sm);font-weight:500;text-align:right;white-space:nowrap")}>{money(t.billable ? t.hours * t.rate : 0)}</span>
                   <div style={css("display:flex;gap:0.15rem")}>
                     <button type="button" title={t.billable ? "Billable" : "Non-billable"} onClick={() => dispatch({ t: "time", op: "update", id: t.id, v: { billable: !t.billable } })} className="pt-iconbtn" style={css("width:1.5rem;height:1.5rem;border:1px solid var(--border-soft);border-radius:0.4rem;background:transparent;color:" + (t.billable ? "var(--success)" : "var(--fg-faint)") + ";display:grid;place-items:center;cursor:pointer")}><Icon name="check" size={12} /></button>
                     <button type="button" onClick={() => dispatch({ t: "time", op: "remove", id: t.id })} className="pt-iconbtn" style={css("width:1.5rem;height:1.5rem;border:1px solid var(--border-soft);border-radius:0.4rem;background:transparent;color:var(--danger);display:grid;place-items:center;cursor:pointer")}><Icon name="x" size={12} /></button>
@@ -519,12 +519,12 @@ function FormBody(p: {
             <Field label="Hours used">{txt(inv.retainer.hoursUsed, v => set({ retainer: { ...inv.retainer, hoursUsed: +v } }), { type: "number" })}</Field>
             <Field label="Overage rate">{txt(inv.retainer.overageRate, v => set({ retainer: { ...inv.retainer, overageRate: +v } }), { type: "number" })}</Field>
           </div>
-          <div style={css("display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.65rem")}>
+          <div style={css("display:flex;gap:var(--space-2);flex-wrap:wrap;margin-top:0.65rem")}>
             {(() => {
               const rem = Math.max(0, inv.retainer.includedHours - inv.retainer.hoursUsed);
               const over = Math.max(0, inv.retainer.hoursUsed - inv.retainer.includedHours);
               return [["Remaining", rem + " h"], ["Overage", over + " h"], ["Rollover", inv.retainer.rollover ? (rem + " h") : "Off"]].map(([l, v]) => (
-                <span key={l} style={css("display:inline-flex;gap:0.35rem;align-items:center;padding:0.35rem 0.6rem;border-radius:var(--radius-pill);background:var(--surface-alt);border:1px solid var(--border-soft);font-size:0.74rem;color:var(--fg-muted)")}><b style={css("color:var(--fg);font-weight:500")}>{v}</b>{l}</span>
+                <span key={l} style={css("display:inline-flex;gap:0.35rem;align-items:center;padding:0.35rem 0.6rem;border-radius:var(--radius-pill);background:var(--surface-alt);border:1px solid var(--border-soft);font-size:var(--text-2xs);color:var(--fg-muted)")}><b style={css("color:var(--fg);font-weight:500")}>{v}</b>{l}</span>
               ));
             })()}
             <button type="button" onClick={() => set({ retainer: { ...inv.retainer, rollover: !inv.retainer.rollover } })} style={css(CHIP + ";border:1px solid " + (inv.retainer.rollover ? "var(--accent)" : "var(--border)") + ";color:" + (inv.retainer.rollover ? "var(--accent)" : "var(--fg-muted)"))}>Rollover unused hours: {inv.retainer.rollover ? "On" : "Off"}</button>
@@ -544,11 +544,11 @@ function FormBody(p: {
             </div>
             {inv.expenses.map(e => (
               <div key={e.id} style={css("display:grid;grid-template-columns:1.6fr 1fr 0.9fr 0.7fr 0.7fr auto;gap:0.4rem;align-items:center;padding:0.3rem 0;border-top:1px solid var(--border-soft)")}>
-                <input className="pt-input" value={e.description} placeholder="Description" onChange={ev => dispatch({ t: "expense", op: "update", id: e.id, v: { description: ev.target.value } })} style={css(INPUT + ";padding:0.35rem 0.45rem;font-size:0.78rem")} />
-                <input className="pt-input" value={e.vendor} placeholder="Vendor" onChange={ev => dispatch({ t: "expense", op: "update", id: e.id, v: { vendor: ev.target.value } })} style={css(INPUT + ";padding:0.35rem 0.45rem;font-size:0.78rem")} />
-                <input className="pt-input" type="number" value={e.cost} onChange={ev => dispatch({ t: "expense", op: "update", id: e.id, v: { cost: +ev.target.value } })} style={css(INPUT + ";padding:0.35rem 0.4rem;font-size:0.78rem")} />
-                <input className="pt-input" type="number" value={e.markup} onChange={ev => dispatch({ t: "expense", op: "update", id: e.id, v: { markup: +ev.target.value } })} style={css(INPUT + ";padding:0.35rem 0.4rem;font-size:0.78rem")} />
-                <span style={css("font-size:0.8rem;font-weight:500;text-align:right;white-space:nowrap")}>{money(p.expenseAmount(e))}</span>
+                <input className="pt-input" value={e.description} placeholder="Description" onChange={ev => dispatch({ t: "expense", op: "update", id: e.id, v: { description: ev.target.value } })} style={css(INPUT + ";padding:0.35rem 0.45rem;font-size:var(--text-xs)")} />
+                <input className="pt-input" value={e.vendor} placeholder="Vendor" onChange={ev => dispatch({ t: "expense", op: "update", id: e.id, v: { vendor: ev.target.value } })} style={css(INPUT + ";padding:0.35rem 0.45rem;font-size:var(--text-xs)")} />
+                <input className="pt-input" type="number" value={e.cost} onChange={ev => dispatch({ t: "expense", op: "update", id: e.id, v: { cost: +ev.target.value } })} style={css(INPUT + ";padding:0.35rem 0.4rem;font-size:var(--text-xs)")} />
+                <input className="pt-input" type="number" value={e.markup} onChange={ev => dispatch({ t: "expense", op: "update", id: e.id, v: { markup: +ev.target.value } })} style={css(INPUT + ";padding:0.35rem 0.4rem;font-size:var(--text-xs)")} />
+                <span style={css("font-size:var(--text-sm);font-weight:500;text-align:right;white-space:nowrap")}>{money(p.expenseAmount(e))}</span>
                 <div style={css("display:flex;gap:0.15rem")}>
                   <button type="button" title="Attach receipt" onClick={() => actions.showToast("Receipt attached")} className="pt-iconbtn" style={css("width:1.5rem;height:1.5rem;border:1px solid var(--border-soft);border-radius:0.4rem;background:transparent;color:var(--fg-muted);display:grid;place-items:center;cursor:pointer")}><Icon name="clip" size={12} /></button>
                   <button type="button" onClick={() => dispatch({ t: "expense", op: "remove", id: e.id })} className="pt-iconbtn" style={css("width:1.5rem;height:1.5rem;border:1px solid var(--border-soft);border-radius:0.4rem;background:transparent;color:var(--danger);display:grid;place-items:center;cursor:pointer")}><Icon name="x" size={12} /></button>
@@ -568,9 +568,9 @@ function FormBody(p: {
             <Field label="Deposit already paid">{txt(inv.deposit.depositPaid, v => set({ deposit: { ...inv.deposit, depositPaid: +v } }), { type: "number" })}</Field>
             <Field label="Previous milestone payments">{txt(inv.deposit.prevMilestones, v => set({ deposit: { ...inv.deposit, prevMilestones: +v } }), { type: "number" })}</Field>
           </div>
-          <button type="button" onClick={() => set({ deposit: { ...inv.deposit, isFinal: !inv.deposit.isFinal } })} style={css("display:flex;align-items:center;gap:0.5rem;margin-top:0.6rem;padding:0.5rem 0.65rem;border:1px solid " + (inv.deposit.isFinal ? "var(--accent)" : "var(--border-soft)") + ";border-radius:var(--radius);background:" + (inv.deposit.isFinal ? "var(--accent-soft)" : "var(--surface)") + ";cursor:pointer;text-align:left;width:100%")}>
+          <button type="button" onClick={() => set({ deposit: { ...inv.deposit, isFinal: !inv.deposit.isFinal } })} style={css("display:flex;align-items:center;gap:var(--space-2);margin-top:0.6rem;padding:0.5rem 0.65rem;border:1px solid " + (inv.deposit.isFinal ? "var(--accent)" : "var(--border-soft)") + ";border-radius:var(--radius);background:" + (inv.deposit.isFinal ? "var(--accent-soft)" : "var(--surface)") + ";cursor:pointer;text-align:left;width:100%")}>
             <span style={css("width:1.1rem;height:1.1rem;border-radius:0.3rem;flex-shrink:0;display:grid;place-items:center;border:1.5px solid " + (inv.deposit.isFinal ? "var(--accent)" : "var(--border)") + ";background:" + (inv.deposit.isFinal ? "var(--accent)" : "transparent") + ";color:#fff")}>{inv.deposit.isFinal && <Icon name="checkmark" size={11} />}</span>
-            <span style={css("font-size:0.78rem;color:var(--fg)")}>Final invoice — bill the remaining project balance</span>
+            <span style={css("font-size:var(--text-xs);color:var(--fg)")}>Final invoice — bill the remaining project balance</span>
           </button>
         </Section>
       )}
@@ -578,8 +578,8 @@ function FormBody(p: {
       {/* Recurring */}
       {flags.showRecurring && (
         <Section icon="replay" title="Recurring invoice" hint="Automate future invoices for this service">
-          <button type="button" onClick={() => set({ recurring: { ...inv.recurring, enabled: !inv.recurring.enabled } })} style={css("display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:0.6rem 0.7rem;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface);cursor:pointer;width:100%;text-align:left;margin-bottom:0.6rem")}>
-            <span style={css("font-size:0.8rem;font-weight:500;color:var(--fg)")}>Enable recurring billing</span>
+          <button type="button" onClick={() => set({ recurring: { ...inv.recurring, enabled: !inv.recurring.enabled } })} style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);padding:0.6rem 0.7rem;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface);cursor:pointer;width:100%;text-align:left;margin-bottom:0.6rem")}>
+            <span style={css("font-size:var(--text-sm);font-weight:500;color:var(--fg)")}>Enable recurring billing</span>
             <span style={css("width:2.4rem;height:1.4rem;border-radius:999px;display:flex;align-items:center;padding:0.14rem;background:" + (inv.recurring.enabled ? "var(--accent)" : "var(--border)") + ";justify-content:" + (inv.recurring.enabled ? "flex-end" : "flex-start"))}><span style={css("width:1.1rem;height:1.1rem;border-radius:50%;background:#fff")} /></span>
           </button>
           {inv.recurring.enabled && (
@@ -603,9 +603,9 @@ function FormBody(p: {
       <Section icon="card" title="Payment — Wise only" defaultOpen={false}>
         <div style={css("display:grid;grid-template-columns:" + (mobile ? "minmax(0,1fr)" : "minmax(0,1fr) 7.5rem") + ";gap:0.85rem;align-items:center;padding:0.8rem;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface-alt)")}>
           <div style={{ minWidth: 0 }}>
-            <span style={css("display:inline-flex;align-items:center;gap:0.3rem;padding:0.28rem 0.5rem;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:0.7rem;font-weight:500")}><Icon name="check" size={11} />Wise only</span>
-            <div style={css("margin-top:0.55rem;font-size:0.78rem;color:var(--fg-muted);line-height:1.45")}>{WISE_INSTRUCTIONS}</div>
-            <a href={WISE_PAYMENT_URL} target="_blank" rel="noreferrer" style={css("display:inline-flex;align-items:center;gap:0.35rem;margin-top:0.45rem;max-width:100%;font-size:0.75rem;color:var(--accent);text-decoration:none;overflow-wrap:anywhere")}><Icon name="send" size={12} />{WISE_PAYMENT_URL}</a>
+            <span style={css("display:inline-flex;align-items:center;gap:0.3rem;padding:0.28rem 0.5rem;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:var(--text-2xs);font-weight:500")}><Icon name="check" size={11} />Wise only</span>
+            <div style={css("margin-top:0.55rem;font-size:var(--text-xs);color:var(--fg-muted);line-height:1.45")}>{WISE_INSTRUCTIONS}</div>
+            <a href={WISE_PAYMENT_URL} target="_blank" rel="noreferrer" style={css("display:inline-flex;align-items:center;gap:0.35rem;margin-top:0.45rem;max-width:100%;font-size:var(--text-2xs);color:var(--accent);text-decoration:none;overflow-wrap:anywhere")}><Icon name="send" size={12} />{WISE_PAYMENT_URL}</a>
           </div>
           <img src="/wise-payment-qr.jpeg" alt="Wise payment QR code" style={css("display:block;width:100%;aspect-ratio:1;border-radius:0.7rem;border:1px solid var(--border-soft);object-fit:cover;background:#fff")} />
         </div>
@@ -640,9 +640,9 @@ function SavedServicePicker({ onPick }: { onPick: (s: SavedService) => void }) {
           <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
           <div style={{ ...css("position:absolute;top:2rem;right:0;width:16rem;max-height:18rem;overflow-y:auto;padding:0.35rem;border:1px solid var(--border);border-radius:0.9rem;background:var(--surface);z-index:41;box-shadow:0 12px 30px -14px rgba(0,0,0,.25)"), animation: "pt-ddin .16s ease" }}>
             {SAVED_SERVICES.map(s => (
-              <button key={s.name} type="button" onClick={() => { onPick(s); setOpen(false); }} className="pt-menuitem" style={css("display:flex;align-items:center;justify-content:space-between;gap:0.5rem;width:100%;padding:0.45rem 0.55rem;border:0;border-radius:0.5rem;background:transparent;cursor:pointer;text-align:left")}>
-                <span style={css("font-size:0.78rem;font-weight:500;color:var(--fg)")}>{s.name}</span>
-                <span style={css("font-size:0.72rem;color:var(--fg-faint)")}>£{s.rate}/{s.unit.toLowerCase()}</span>
+              <button key={s.name} type="button" onClick={() => { onPick(s); setOpen(false); }} className="pt-menuitem" style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);width:100%;padding:0.45rem 0.55rem;border:0;border-radius:0.5rem;background:transparent;cursor:pointer;text-align:left")}>
+                <span style={css("font-size:var(--text-xs);font-weight:500;color:var(--fg)")}>{s.name}</span>
+                <span style={css("font-size:var(--text-2xs);color:var(--fg-faint)")}>£{s.rate}/{s.unit.toLowerCase()}</span>
               </button>
             ))}
           </div>
@@ -665,8 +665,8 @@ function Preview({ inv, biz, client, project, calc, money, lineAmount, expenseAm
   const metaRows = ([["Issue date", inv.issueDate], ["Due date", inv.dueDate], ["Terms", inv.paymentTerms], inv.showProject && project ? ["Project", project.name] : ["Billing", inv.billingType], inv.poNumber ? ["PO", inv.poNumber] : null].filter(Boolean)) as [string, string][];
 
   const clientBlock = client
-    ? <div style={css("font-size:0.76rem;line-height:1.5")}><b style={css("font-weight:500")}>{client.company}</b><br />{client.name}<br />{client.address}<br />{client.email}</div>
-    : <div style={css("font-size:0.76rem;color:var(--fg-faint)")}>Select a client…</div>;
+    ? <div style={css("font-size:var(--text-xs);line-height:1.5")}><b style={css("font-weight:500")}>{client.company}</b><br />{client.name}<br />{client.address}<br />{client.email}</div>
+    : <div style={css("font-size:var(--text-xs);color:var(--fg-faint)")}>Select a client…</div>;
 
   const metaPanel = (
     <div data-invoice-meta-layout style={css("display:grid;grid-template-columns:1fr 1fr;gap:0.6rem") }>
@@ -676,7 +676,7 @@ function Preview({ inv, biz, client, project, calc, money, lineAmount, expenseAm
       </div>
       <div style={css("padding:0.7rem 0.8rem;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface)")}>
         <div style={css(eyebrowStyle("var(--fg-faint)") + ";margin-bottom:0.3rem")}>Details</div>
-        {metaRows.map(([l, v]) => <div key={l} style={css("display:flex;justify-content:space-between;gap:0.5rem;font-size:0.72rem;margin-bottom:0.12rem")}><span style={css("color:var(--fg-faint)")}>{l}</span><span style={css("font-weight:500;text-align:right")}>{v}</span></div>)}
+        {metaRows.map(([l, v]) => <div key={l} style={css("display:flex;justify-content:space-between;gap:var(--space-2);font-size:var(--text-2xs);margin-bottom:0.12rem")}><span style={css("color:var(--fg-faint)")}>{l}</span><span style={css("font-weight:500;text-align:right")}>{v}</span></div>)}
       </div>
     </div>
   );
@@ -685,16 +685,16 @@ function Preview({ inv, biz, client, project, calc, money, lineAmount, expenseAm
     <>
       {items.map(i => (
         <div key={i.id} style={css("display:grid;grid-template-columns:2.2fr 0.5fr 1fr;gap:0.4rem;padding:0.45rem 0;border-bottom:1px solid var(--border-soft)")}>
-          <div style={{ minWidth: 0 }}><div style={css("font-size:0.78rem;font-weight:500")}>{i.service || "Service"}</div>{i.description && <div style={css("font-size:0.7rem;color:var(--fg-muted);margin-top:0.1rem")}>{i.description}</div>}</div>
-          <span style={css("font-size:0.76rem;text-align:center;color:var(--fg-muted)")}>{i.qty} {i.unit.toLowerCase()}</span>
-          <span style={css("font-size:0.78rem;font-weight:500;text-align:right")}>{money(lineAmount(i))}</span>
+          <div style={{ minWidth: 0 }}><div style={css("font-size:var(--text-xs);font-weight:500")}>{i.service || "Service"}</div>{i.description && <div style={css("font-size:var(--text-2xs);color:var(--fg-muted);margin-top:0.1rem")}>{i.description}</div>}</div>
+          <span style={css("font-size:var(--text-xs);text-align:center;color:var(--fg-muted)")}>{i.qty} {i.unit.toLowerCase()}</span>
+          <span style={css("font-size:var(--text-xs);font-weight:500;text-align:right")}>{money(lineAmount(i))}</span>
         </div>
       ))}
       {inv.expenses.map(e => (
         <div key={e.id} style={css("display:grid;grid-template-columns:2.2fr 0.5fr 1fr;gap:0.4rem;padding:0.45rem 0;border-bottom:1px solid var(--border-soft)")}>
-          <div style={css("font-size:0.78rem")}>{e.description || "Expense"}{e.vendor && <span style={css("color:var(--fg-faint)")}> · {e.vendor}</span>}</div>
-          <span style={css("text-align:center;color:var(--fg-faint);font-size:0.72rem")}>exp</span>
-          <span style={css("font-size:0.78rem;font-weight:500;text-align:right")}>{money(expenseAmount(e))}</span>
+          <div style={css("font-size:var(--text-xs)")}>{e.description || "Expense"}{e.vendor && <span style={css("color:var(--fg-faint)")}> · {e.vendor}</span>}</div>
+          <span style={css("text-align:center;color:var(--fg-faint);font-size:var(--text-2xs)")}>exp</span>
+          <span style={css("font-size:var(--text-xs);font-weight:500;text-align:right")}>{money(expenseAmount(e))}</span>
         </div>
       ))}
     </>
@@ -711,43 +711,43 @@ function Preview({ inv, biz, client, project, calc, money, lineAmount, expenseAm
       {inv.showTax && <PRow l="Tax" v={money(calc.tax)} />}
       {calc.processing > 0 && <PRow l="Processing" v={money(calc.processing)} />}
       <div style={css("display:flex;justify-content:space-between;margin-top:0.3rem;padding-top:0.4rem;border-top:2px solid " + A)}>
-        <span style={css("font-size:0.85rem;font-weight:500")}>Balance due</span>
-        <span style={css("font-size:0.98rem;font-weight:500;color:" + A)}>{money(calc.balance)}</span>
+        <span style={css("font-size:var(--text-base);font-weight:500")}>Balance due</span>
+        <span style={css("font-size:var(--text-lg);font-weight:500;color:" + A)}>{money(calc.balance)}</span>
       </div>
     </div>
   );
   const foot = (
     <>
       {inv.showProject && inv.deposit.projectValue > 0 && (
-        <div style={css("margin-top:0.7rem;padding:0.6rem 0.7rem;border-radius:var(--radius);background:var(--surface-alt);font-size:0.72rem;color:var(--fg-muted)")}>
+        <div style={css("margin-top:0.7rem;padding:0.6rem 0.7rem;border-radius:var(--radius);background:var(--surface-alt);font-size:var(--text-2xs);color:var(--fg-muted)")}>
           <div style={css("display:flex;justify-content:space-between")}><span>Total project value</span><b style={css("color:var(--fg);font-weight:500")}>{money(inv.deposit.projectValue)}</b></div>
           <div style={css("display:flex;justify-content:space-between;margin-top:0.15rem")}><span>Remaining project balance</span><b style={css("color:var(--fg);font-weight:500")}>{money(calc.remainingProject)}</b></div>
         </div>
       )}
-      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;margin-top:0.8rem")}>
+      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-3);margin-top:0.8rem")}>
         <div style={{ minWidth: 0 }}>
           <div style={css(eyebrowStyle("var(--fg-faint)") + ";margin-bottom:0.25rem")}>Payment · Wise only</div>
-          <div style={css("font-size:0.72rem;color:var(--fg-muted);line-height:1.5")}>{WISE_INSTRUCTIONS}</div>
-          <a href={WISE_PAYMENT_URL} target="_blank" rel="noreferrer" style={css("display:inline-block;margin-top:0.25rem;font-size:0.72rem;color:" + A + ";text-decoration:none")}>Pay with Wise</a>
+          <div style={css("font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.5")}>{WISE_INSTRUCTIONS}</div>
+          <a href={WISE_PAYMENT_URL} target="_blank" rel="noreferrer" style={css("display:inline-block;margin-top:0.25rem;font-size:var(--text-2xs);color:" + A + ";text-decoration:none")}>Pay with Wise</a>
         </div>
         <img src="/wise-payment-qr.jpeg" alt="Wise payment QR code" style={css("width:4.5rem;height:4.5rem;flex-shrink:0;border-radius:0.55rem;border:1px solid var(--border-soft);object-fit:cover;background:#fff")} />
       </div>
-      {inv.notes && <div style={css("margin-top:0.7rem;font-size:0.72rem;color:var(--fg-muted);line-height:1.5")}>{inv.notes}</div>}
-      <div style={css("margin-top:0.7rem;font-size:0.66rem;color:var(--fg-faint);line-height:1.5")}>{inv.terms}</div>
-      {inv.thankYou && <div style={css("margin-top:0.8rem;text-align:center;font-size:0.78rem;font-weight:500;color:" + A)}>{inv.thankYou}</div>}
-      <div style={css("margin-top:0.7rem;padding-top:0.6rem;border-top:1px solid var(--border-soft);text-align:center;font-size:0.66rem;color:var(--fg-faint)")}>{inv.footer}</div>
+      {inv.notes && <div style={css("margin-top:0.7rem;font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.5")}>{inv.notes}</div>}
+      <div style={css("margin-top:0.7rem;font-size:var(--text-2xs);color:var(--fg-faint);line-height:1.5")}>{inv.terms}</div>
+      {inv.thankYou && <div style={css("margin-top:0.8rem;text-align:center;font-size:var(--text-xs);font-weight:500;color:" + A)}>{inv.thankYou}</div>}
+      <div style={css("margin-top:0.7rem;padding-top:0.6rem;border-top:1px solid var(--border-soft);text-align:center;font-size:var(--text-2xs);color:var(--fg-faint)")}>{inv.footer}</div>
     </>
   );
 
   // ── Classic — centered masthead, ruled sections ──
   const classic = (
-    <div style={css("padding:1.2rem 1.25rem;font-size:0.8rem;color:var(--fg)")}>
-      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding-bottom:1rem;border-bottom:2px solid " + A)}>
+    <div style={css("padding:1.2rem 1.25rem;font-size:var(--text-sm);color:var(--fg)")}>
+      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);padding-bottom:1rem;border-bottom:2px solid " + A)}>
         <div style={css("display:flex;align-items:center;gap:0.6rem;min-width:0")}>
-          {inv.showLogo && <span style={css("width:2.4rem;height:2.4rem;border-radius:0.5rem;flex-shrink:0;background:" + A + ";color:#fff;display:grid;place-items:center;font-size:0.8rem;font-weight:500")}>{biz.logo}</span>}
-          <div style={{ minWidth: 0 }}><div style={css("font-size:0.95rem;font-weight:500;line-height:1.2")}>{biz.name}</div><div style={css("font-size:0.68rem;color:var(--fg-muted);line-height:1.4;margin-top:0.15rem")}>{biz.address}<br />{biz.email} · {biz.website}</div></div>
+          {inv.showLogo && <span style={css("width:2.4rem;height:2.4rem;border-radius:0.5rem;flex-shrink:0;background:" + A + ";color:#fff;display:grid;place-items:center;font-size:var(--text-sm);font-weight:500")}>{biz.logo}</span>}
+          <div style={{ minWidth: 0 }}><div style={css("font-size:var(--text-lg);font-weight:500;line-height:1.2")}>{biz.name}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.4;margin-top:0.15rem")}>{biz.address}<br />{biz.email} · {biz.website}</div></div>
         </div>
-        <div style={css("text-align:right;flex-shrink:0")}><div style={css("font-size:1.05rem;font-weight:500;letter-spacing:0.02em;color:" + A)}>INVOICE</div><div style={css("font-size:0.72rem;color:var(--fg-muted);margin-top:0.2rem")}>{inv.number}</div></div>
+        <div style={css("text-align:right;flex-shrink:0")}><div style={css("font-size:var(--text-xl);font-weight:500;letter-spacing:0.02em;color:" + A)}>INVOICE</div><div style={css("font-size:var(--text-2xs);color:var(--fg-muted);margin-top:0.2rem")}>{inv.number}</div></div>
       </div>
       <div style={css("margin:0.9rem 0")}>{metaPanel}</div>
       <div style={css("padding:0.6rem 0")}>{itemHead}{itemRows}</div>
@@ -758,13 +758,13 @@ function Preview({ inv, biz, client, project, calc, money, lineAmount, expenseAm
 
   // ── Modern — full-bleed accent header, carded meta & totals ──
   const modern = (
-    <div style={css("font-size:0.8rem;color:var(--fg)")}>
-      <div style={css("display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.1rem 1.25rem;background:" + A + ";color:#fff")}>
+    <div style={css("font-size:var(--text-sm);color:var(--fg)")}>
+      <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);padding:1.1rem 1.25rem;background:" + A + ";color:#fff")}>
         <div style={css("display:flex;align-items:center;gap:0.65rem;min-width:0")}>
-          {inv.showLogo && <span style={css("width:2.5rem;height:2.5rem;border-radius:0.55rem;flex-shrink:0;background:rgba(255,255,255,.18);color:#fff;display:grid;place-items:center;font-size:0.82rem;font-weight:500")}>{biz.logo}</span>}
-          <div style={{ minWidth: 0 }}><div style={css("font-size:1rem;font-weight:500;line-height:1.2")}>{biz.name}</div><div style={css("font-size:0.68rem;color:rgba(255,255,255,.82);margin-top:0.1rem")}>{biz.website} · {biz.email}</div></div>
+          {inv.showLogo && <span style={css("width:2.5rem;height:2.5rem;border-radius:0.55rem;flex-shrink:0;background:rgba(255,255,255,.18);color:#fff;display:grid;place-items:center;font-size:var(--text-sm);font-weight:500")}>{biz.logo}</span>}
+          <div style={{ minWidth: 0 }}><div style={css("font-size:var(--text-lg);font-weight:500;line-height:1.2")}>{biz.name}</div><div style={css("font-size:var(--text-2xs);color:rgba(255,255,255,.82);margin-top:0.1rem")}>{biz.website} · {biz.email}</div></div>
         </div>
-        <div style={css("text-align:right;flex-shrink:0")}><div style={css("font-size:1.3rem;font-weight:500;letter-spacing:0.04em")}>INVOICE</div><div style={css("font-size:0.72rem;color:rgba(255,255,255,.85);margin-top:0.15rem")}>{inv.number}</div></div>
+        <div style={css("text-align:right;flex-shrink:0")}><div style={css("font-size:var(--text-2xl);font-weight:500;letter-spacing:0.04em")}>INVOICE</div><div style={css("font-size:var(--text-2xs);color:rgba(255,255,255,.85);margin-top:0.15rem")}>{inv.number}</div></div>
       </div>
       <div style={css("padding:1.1rem 1.2rem")}>
         <div style={css("margin-bottom:0.9rem")}>{metaPanel}</div>
@@ -780,13 +780,13 @@ function Preview({ inv, biz, client, project, calc, money, lineAmount, expenseAm
 
   // ── Minimal — hairlines, generous whitespace, understated ──
   const minimal = (
-    <div style={css("padding:1.5rem 1.5rem;font-size:0.8rem;color:var(--fg)")}>
-      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem")}>
+    <div style={css("padding:1.5rem 1.5rem;font-size:var(--text-sm);color:var(--fg)")}>
+      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4)")}>
         <div style={css("display:flex;align-items:center;gap:0.55rem;min-width:0")}>
-          {inv.showLogo && <span style={css("width:2rem;height:2rem;border-radius:0.45rem;flex-shrink:0;background:var(--surface-alt);color:var(--fg);display:grid;place-items:center;font-size:0.72rem;font-weight:500")}>{biz.logo}</span>}
-          <div style={{ minWidth: 0 }}><div style={css("font-size:0.9rem;font-weight:500")}>{biz.name}</div><div style={css("font-size:0.66rem;color:var(--fg-faint);margin-top:0.1rem")}>{biz.email}</div></div>
+          {inv.showLogo && <span style={css("width:2rem;height:2rem;border-radius:0.45rem;flex-shrink:0;background:var(--surface-alt);color:var(--fg);display:grid;place-items:center;font-size:var(--text-2xs);font-weight:500")}>{biz.logo}</span>}
+          <div style={{ minWidth: 0 }}><div style={css("font-size:var(--text-md);font-weight:500")}>{biz.name}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-faint);margin-top:0.1rem")}>{biz.email}</div></div>
         </div>
-        <div style={css("text-align:right;flex-shrink:0")}><div style={css(eyebrowStyle("var(--fg-faint)"))}>Invoice</div><div style={css("font-size:0.82rem;font-weight:500;margin-top:0.15rem")}>{inv.number}</div></div>
+        <div style={css("text-align:right;flex-shrink:0")}><div style={css(eyebrowStyle("var(--fg-faint)"))}>Invoice</div><div style={css("font-size:var(--text-sm);font-weight:500;margin-top:0.15rem")}>{inv.number}</div></div>
       </div>
       <div style={css("height:1px;background:var(--border-soft);margin:1rem 0")} />
       {metaPanel}
@@ -799,13 +799,13 @@ function Preview({ inv, biz, client, project, calc, money, lineAmount, expenseAm
 
   return (
     <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden")}>
-      <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.5rem;padding:0.5rem 0.7rem;border-bottom:1px solid var(--border-soft);background:var(--surface-alt);flex-wrap:wrap")}>
+      <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);padding:0.5rem 0.7rem;border-bottom:1px solid var(--border-soft);background:var(--surface-alt);flex-wrap:wrap")}>
         <span style={css(eyebrowStyle("var(--fg-faint)"))}>Live preview</span>
-        <div style={css("display:flex;align-items:center;gap:0.5rem")}>
+        <div style={css("display:flex;align-items:center;gap:var(--space-2)")}>
           {onTemplate && (
             <div style={css("display:inline-flex;padding:0.15rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);gap:0.1rem")}>
               {["Classic", "Modern", "Minimal"].map(t => (
-                <button key={t} type="button" onClick={() => onTemplate(t)} aria-pressed={inv.template === t} style={css("padding:0.24rem 0.6rem;border:0;border-radius:var(--radius-pill);font-size:0.68rem;font-weight:500;cursor:pointer;background:" + (inv.template === t ? "var(--accent)" : "transparent") + ";color:" + (inv.template === t ? "#fff" : "var(--fg-muted)"))}>{t}</button>
+                <button key={t} type="button" onClick={() => onTemplate(t)} aria-pressed={inv.template === t} style={css("padding:0.24rem 0.6rem;border:0;border-radius:var(--radius-pill);font-size:var(--text-2xs);font-weight:500;cursor:pointer;background:" + (inv.template === t ? "var(--accent)" : "transparent") + ";color:" + (inv.template === t ? "#fff" : "var(--fg-muted)"))}>{t}</button>
               ))}
             </div>
           )}
@@ -817,13 +817,13 @@ function Preview({ inv, biz, client, project, calc, money, lineAmount, expenseAm
   );
 }
 function PRow({ l, v }: { l: string; v: string }) {
-  return <div style={css("display:flex;justify-content:space-between")}><span style={css("font-size:0.74rem;color:var(--fg-muted)")}>{l}</span><span style={css("font-size:0.76rem;font-weight:500")}>{v}</span></div>;
+  return <div style={css("display:flex;justify-content:space-between")}><span style={css("font-size:var(--text-2xs);color:var(--fg-muted)")}>{l}</span><span style={css("font-size:var(--text-xs);font-weight:500")}>{v}</span></div>;
 }
 
 // ── MODALS ────────────────────────────────────────────────────────────────────
 function Shell({ children, label, onClose, wide }: { children: ReactNode; label: string; onClose: () => void; wide?: boolean }) {
   return (
-    <div role="dialog" aria-modal="true" aria-label={label} onClick={onClose} style={{ ...css("position:fixed;inset:0;z-index:90;background:rgba(35,25,18,.34);padding:1rem;display:flex;align-items:flex-start;justify-content:center;overflow:auto"), animation: "pt-fadein .14s ease" }}>
+    <div role="dialog" aria-modal="true" aria-label={label} onClick={onClose} style={{ ...css("position:fixed;inset:0;z-index:90;background:rgba(35,25,18,.34);padding:var(--space-4);display:flex;align-items:flex-start;justify-content:center;overflow:auto"), animation: "pt-fadein .14s ease" }}>
       <div onClick={e => e.stopPropagation()} style={{ ...css("width:min(" + (wide ? "34rem" : "26rem") + ",100%);margin:3rem auto;border:1px solid var(--border-soft);border-radius:1rem;background:var(--surface);overflow:hidden"), animation: "pt-sheetup .18s ease" }}>
         {children}
       </div>
@@ -833,7 +833,7 @@ function Shell({ children, label, onClose, wide }: { children: ReactNode; label:
 function ModalHead({ title, onClose }: { title: string; onClose: () => void }) {
   return (
     <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.9rem 1.1rem;border-bottom:1px solid var(--border-soft)")}>
-      <div style={css("font-size:0.95rem;font-weight:500")}>{title}</div>
+      <div style={css("font-size:var(--text-lg);font-weight:500")}>{title}</div>
       <button type="button" onClick={onClose} className="pt-iconbtn" style={css("width:2rem;height:2rem;border-radius:50%;border:1px solid var(--border-soft);background:var(--surface);color:var(--fg-muted);display:grid;place-items:center;cursor:pointer")}><Icon name="x" size={14} /></button>
     </div>
   );
@@ -847,10 +847,10 @@ function SendModal({ inv, client, project, calc, money, onClose, onSend }: { inv
       <ModalHead title="Send invoice" onClose={onClose} />
       <div style={css("padding:1rem 1.1rem;display:flex;flex-direction:column;gap:0.6rem")}>
         {preview ? (
-          <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface-alt);padding:0.85rem;font-size:0.8rem;white-space:pre-wrap;line-height:1.55;color:var(--fg)")}>{"Subject: Invoice " + inv.number + " · " + money(calc.balance) + " due\n\n" + body}</div>
+          <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface-alt);padding:0.85rem;font-size:var(--text-sm);white-space:pre-wrap;line-height:1.55;color:var(--fg)")}>{"Subject: Invoice " + inv.number + " · " + money(calc.balance) + " due\n\n" + body}</div>
         ) : (
           <>
-            <div style={css("display:grid;grid-template-columns:1fr 1fr;gap:0.5rem")}>
+            <div style={css("display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)")}>
               <Field label="To">{txt(client?.email || "", () => {})}</Field>
               <Field label="Subject">{txt("Invoice " + inv.number + " · " + money(calc.balance) + " due", () => {})}</Field>
               <Field label="CC">{txt("", () => {}, { ph: "cc@…" })}</Field>
@@ -864,7 +864,7 @@ function SendModal({ inv, client, project, calc, money, onClose, onSend }: { inv
           </>
         )}
       </div>
-      <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.5rem;padding:0.85rem 1.1rem;border-top:1px solid var(--border-soft)")}>
+      <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);padding:0.85rem 1.1rem;border-top:1px solid var(--border-soft)")}>
         <button type="button" onClick={() => setPreview(p => !p)} style={css(BTN_GHOST)}><Icon name="eye" size={14} />{preview ? "Edit email" : "Preview email"}</button>
         <button type="button" onClick={onSend} style={css(BTN_PRIMARY)}><Icon name="send" size={14} />Send invoice</button>
       </div>
@@ -878,8 +878,8 @@ function PaymentModal({ inv, calc, money, onClose, onRecord }: { inv: Inv; calc:
     <Shell label="Record payment" onClose={onClose}>
       <ModalHead title="Record payment" onClose={onClose} />
       <div style={css("padding:1rem 1.1rem;display:flex;flex-direction:column;gap:0.6rem")}>
-        <div style={css("display:flex;justify-content:space-between;padding:0.5rem 0.7rem;border-radius:var(--radius);background:var(--surface-alt);font-size:0.8rem")}><span style={css("color:var(--fg-muted)")}>Balance due</span><b style={css("font-weight:500")}>{money(calc.balance)}</b></div>
-        <div style={css("display:grid;grid-template-columns:1fr 1fr;gap:0.5rem")}>
+        <div style={css("display:flex;justify-content:space-between;padding:0.5rem 0.7rem;border-radius:var(--radius);background:var(--surface-alt);font-size:var(--text-sm)")}><span style={css("color:var(--fg-muted)")}>Balance due</span><b style={css("font-weight:500")}>{money(calc.balance)}</b></div>
+        <div style={css("display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)")}>
           <Field label="Payment amount"><input className="pt-input" type="number" value={amount} onChange={e => setAmount(e.target.value)} style={css(INPUT)} /></Field>
           <Field label="Payment date">{txt(inv.issueDate, () => {}, { type: "date" })}</Field>
           <Field label="Method">{sel("Wise", ["Wise"], () => {})}</Field>
@@ -892,7 +892,7 @@ function PaymentModal({ inv, calc, money, onClose, onRecord }: { inv: Inv; calc:
           <span style={css(CHIP + ";border:1px solid var(--border);color:var(--fg-muted)")}><Icon name="clip" size={11} />Attach proof of payment</span>
         </div>
       </div>
-      <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:0.5rem;padding:0.85rem 1.1rem;border-top:1px solid var(--border-soft)")}>
+      <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2);padding:0.85rem 1.1rem;border-top:1px solid var(--border-soft)")}>
         <button type="button" onClick={onClose} style={css(BTN_GHOST)}>Cancel</button>
         <button type="button" onClick={() => onRecord(Math.max(0, +amount || 0))} style={css(BTN_PRIMARY)}><Icon name="wallet" size={14} />Record payment</button>
       </div>
@@ -905,9 +905,9 @@ function ConfirmModal({ kind, number, onClose, onConfirm }: { kind: "cancel" | "
     <Shell label="Confirm" onClose={onClose}>
       <div style={css("padding:1.3rem 1.2rem;text-align:center")}>
         <span style={css("width:2.8rem;height:2.8rem;border-radius:50%;background:var(--danger-soft);color:var(--danger);display:grid;place-items:center;margin:0 auto 0.7rem")}><Icon name="alert" size={20} /></span>
-        <div style={css("font-size:1rem;font-weight:500")}>{kind === "cancel" ? "Cancel this invoice?" : "Delete this invoice?"}</div>
-        <p style={css("margin:0.4rem 0 0;font-size:0.8rem;color:var(--fg-muted);line-height:1.5")}>Invoice {number} will be {kind === "cancel" ? "marked as cancelled" : "permanently removed"}. This can’t be undone.</p>
-        <div style={css("display:flex;gap:0.5rem;justify-content:center;margin-top:1rem")}>
+        <div style={css("font-size:var(--text-lg);font-weight:500")}>{kind === "cancel" ? "Cancel this invoice?" : "Delete this invoice?"}</div>
+        <p style={css("margin:0.4rem 0 0;font-size:var(--text-sm);color:var(--fg-muted);line-height:1.5")}>Invoice {number} will be {kind === "cancel" ? "marked as cancelled" : "permanently removed"}. This can’t be undone.</p>
+        <div style={css("display:flex;gap:var(--space-2);justify-content:center;margin-top:1rem")}>
           <button type="button" onClick={onClose} style={css(BTN_GHOST)}>Keep invoice</button>
           <button type="button" onClick={onConfirm} style={css(BTN_PRIMARY + ";background:var(--danger)")}>{kind === "cancel" ? "Cancel invoice" : "Delete invoice"}</button>
         </div>
@@ -920,7 +920,7 @@ function ProfileModal({ biz, onClose, onSave }: { biz: BizProfile; onClose: () =
   return (
     <Shell label="Business profile" onClose={onClose} wide>
       <ModalHead title="Edit business profile" onClose={onClose} />
-      <div style={css("padding:1rem 1.1rem;display:grid;grid-template-columns:1fr 1fr;gap:0.5rem")}>
+      <div style={css("padding:1rem 1.1rem;display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2)")}>
         <Field label="Business name">{txt(biz.name, () => {})}</Field>
         <Field label="Logo initials">{txt(biz.logo, () => {})}</Field>
         <Field label="Email">{txt(biz.email, () => {})}</Field>
@@ -931,7 +931,7 @@ function ProfileModal({ biz, onClose, onSave }: { biz: BizProfile; onClose: () =
         <Field label="Default payment instructions" span><textarea className="pt-input" defaultValue={biz.instructions} rows={2} style={css(INPUT + ";resize:vertical")} /></Field>
         <Field label="Bank / payment account" span>{txt(biz.account, () => {})}</Field>
       </div>
-      <div style={css("display:flex;justify-content:flex-end;gap:0.5rem;padding:0.85rem 1.1rem;border-top:1px solid var(--border-soft)")}>
+      <div style={css("display:flex;justify-content:flex-end;gap:var(--space-2);padding:0.85rem 1.1rem;border-top:1px solid var(--border-soft)")}>
         <button type="button" onClick={onClose} style={css(BTN_GHOST)}>Cancel</button>
         <button type="button" onClick={onSave} style={css(BTN_PRIMARY)}><Icon name="check" size={14} />Save profile</button>
       </div>

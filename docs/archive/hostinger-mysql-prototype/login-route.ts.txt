@@ -1,0 +1,52 @@
+// ARCHIVED PROTOTYPE: intentionally outside app/ so it is not a live route.
+import { NextResponse } from "next/server";
+import {
+  authenticateHostingerUser,
+  createHostingerSession,
+} from "@/lib/hostinger/auth";
+import { hostingerDatabaseEnabled } from "@/lib/hostinger/db";
+
+export const dynamic = "force-dynamic";
+
+export async function POST(request: Request) {
+  if (!hostingerDatabaseEnabled()) {
+    return NextResponse.json(
+      { error: "Hostinger authentication is not enabled yet." },
+      { status: 503 },
+    );
+  }
+
+  const body = await request.json().catch(() => null) as {
+    email?: unknown;
+    password?: unknown;
+  } | null;
+  const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+  const password = typeof body?.password === "string" ? body.password : "";
+  if (!email || !password) {
+    return NextResponse.json(
+      { error: "Email and password are required." },
+      { status: 400 },
+    );
+  }
+
+  const actor = await authenticateHostingerUser(email, password);
+  if (!actor) {
+    return NextResponse.json(
+      { error: "Invalid email or password." },
+      { status: 401, headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
+
+  await createHostingerSession(actor);
+  return NextResponse.json(
+    {
+      user: {
+        email: actor.email,
+        name: actor.name,
+        role: actor.role,
+        ...(actor.clientName ? { clientName: actor.clientName } : {}),
+      },
+    },
+    { headers: { "Cache-Control": "private, no-store" } },
+  );
+}

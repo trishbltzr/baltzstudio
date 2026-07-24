@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LoginPage } from "@/components/LoginPage";
 import { PagePreloader } from "@/components/PagePreloader";
-import { resolveDashboardUser, safeNextPath } from "@/lib/auth";
+import { fetchAuthenticatedDashboardUser, safeNextPath } from "@/lib/auth";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   REMEMBERED_LOGIN_STORAGE_KEY,
@@ -62,10 +62,9 @@ function LoginRoute() {
           return;
         }
 
-        const user = resolveDashboardUser(
-          data.session?.user.email,
-          pickSupabaseName(data.session?.user.user_metadata),
-        );
+        const user = data.session
+          ? await fetchAuthenticatedDashboardUser()
+          : null;
 
         if (user) {
           sessionStorage.setItem("bs-user", JSON.stringify(user));
@@ -179,14 +178,4 @@ function messageFromSearchParam(authError: string | null) {
   }
 
   return null;
-}
-
-function pickSupabaseName(metadata: unknown) {
-  if (!metadata || typeof metadata !== "object") return null;
-  const record = metadata as Record<string, unknown>;
-  return typeof record.full_name === "string"
-    ? record.full_name
-    : typeof record.name === "string"
-      ? record.name
-      : null;
 }

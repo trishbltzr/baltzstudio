@@ -1,5 +1,7 @@
 "use client";
 
+import { normalizePortalAuditExportProfile, type PortalAuditExportProfile } from "../lib/portalWorkspacePersistence";
+
 // Turns an on-screen report node into a standalone printable document.
 
 function escapeHtml(value: string): string {
@@ -28,16 +30,18 @@ function printableReportNode(node: Element): HTMLElement {
     control.replaceWith(text);
   });
 
-  clone.querySelectorAll("[data-report-exclude],button").forEach(element => element.remove());
+  clone.querySelectorAll("[data-report-exclude],[data-report-internal],[data-client-visible='false'],button").forEach(element => element.remove());
   return clone;
 }
 
-export function reportDocumentHtml(node: Element | null | undefined, title: string): string | null {
+export function reportDocumentHtml(node: Element | null | undefined, title: string, exportProfile?: PortalAuditExportProfile | null): string | null {
   if (typeof window === "undefined" || !node) return null;
   const printable = printableReportNode(node);
   const source = node as HTMLElement;
   const titleParts = title.split(" · ").map(part => part.trim()).filter(Boolean);
   const clientName = source.dataset.reportClient || titleParts[0] || "Client";
+  const profile = normalizePortalAuditExportProfile(clientName, exportProfile);
+  const brandMark = profile.brandName.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase() || "").join("") || "BS";
   const projectName = source.dataset.reportProject || title;
   const status = source.dataset.reportStatus || "Ready for review";
   const documentType = titleParts.at(-1) || "Report";
@@ -50,15 +54,15 @@ export function reportDocumentHtml(node: Element | null | undefined, title: stri
     .map(style => `<style>${style.innerHTML}</style>`)
     .join("");
   return `<!doctype html><html><head><meta charset="utf-8"><base href="${window.location.origin}/"><title>${escapeHtml(title)}</title>${links}${styles}<style>
-    :root{--pdf-ink:#382620;--pdf-muted:#756862;--pdf-soft:#f6f1ee;--pdf-line:#e6ddd8;--pdf-accent:#d86e76;--pdf-accent-soft:#fae8e9;--pdf-dark:#412824;--accent:#d86e76;--accent-soft:#fae8e9;--surface:#fff;--surface-alt:#f7f3f1;--fg:#382620;--fg-muted:#756862;--fg-faint:#998b85;--border:#dfd5d0;--border-soft:#ebe4e0}
+    :root{--pdf-ink:#382620;--pdf-muted:#756862;--pdf-soft:#f6f1ee;--pdf-line:#e6ddd8;--pdf-accent:${profile.accent};--pdf-accent-soft:color-mix(in srgb,${profile.accent} 14%,white 86%);--pdf-dark:#412824;--accent:${profile.accent};--accent-soft:color-mix(in srgb,${profile.accent} 14%,white 86%);--surface:#fff;--surface-alt:#f7f3f1;--fg:#382620;--fg-muted:#756862;--fg-faint:#998b85;--border:#dfd5d0;--border-soft:#ebe4e0}
     *{box-sizing:border-box}
     html,body{width:210mm;margin:0;background:#fff}
     body{padding:0;color:var(--pdf-ink);font-family:Mallory,Inter,Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     .print-doc{width:210mm;margin:0 auto;padding:0 12mm 14mm;overflow:hidden}
     .pdf-cover{min-height:145mm;margin:0 -12mm 12mm;padding:15mm 25mm 12mm;display:flex;flex-direction:column;background:linear-gradient(145deg,#fff 0%,#fff 58%,#f8efed 100%);position:relative;overflow:hidden}
-    .pdf-cover:after{content:"";position:absolute;width:112mm;height:112mm;border:1px solid rgba(216,110,118,.2);border-radius:50%;right:-52mm;bottom:-42mm;box-shadow:0 0 0 18mm rgba(216,110,118,.045),0 0 0 36mm rgba(216,110,118,.025)}
+    .pdf-cover:after{content:"";position:absolute;width:112mm;height:112mm;border:1px solid color-mix(in srgb,var(--pdf-accent) 24%,transparent);border-radius:50%;right:-52mm;bottom:-42mm;box-shadow:0 0 0 18mm color-mix(in srgb,var(--pdf-accent) 6%,transparent),0 0 0 36mm color-mix(in srgb,var(--pdf-accent) 3%,transparent)}
     .pdf-brand{display:flex;align-items:center;gap:10px;font-size:9pt;font-weight:600;letter-spacing:.02em;position:relative;z-index:1}
-    .pdf-brand-mark{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--pdf-dark);color:#fff;font-size:9pt}
+    .pdf-brand-mark{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--pdf-accent);color:#fff;font-size:9pt}
     .pdf-cover-copy{margin:auto 0;max-width:150mm;position:relative;z-index:1}
     .pdf-kicker{font-size:8.5pt;line-height:1.2;text-transform:uppercase;letter-spacing:.12em;color:var(--pdf-accent);font-weight:600}
     .pdf-cover h1{margin:7mm 0 0;font-size:29pt;line-height:1.05;letter-spacing:-.035em;font-weight:500;color:var(--pdf-dark)}
@@ -104,15 +108,15 @@ export function reportDocumentHtml(node: Element | null | undefined, title: stri
     @page{margin:0}
   </style></head><body><div class="print-doc">
     <section class="pdf-cover">
-      <div class="pdf-brand"><span class="pdf-brand-mark">BS</span><span>Baltazar Studio</span></div>
+      <div class="pdf-brand"><span class="pdf-brand-mark">${escapeHtml(brandMark)}</span><span>${escapeHtml(profile.brandName)}</span></div>
       <div class="pdf-cover-copy">
         <div class="pdf-kicker">${isFunnelPlan ? "Build-ready funnel brief" : "Client-ready report"}</div>
         <h1>${escapeHtml(projectName)}</h1>
         <p class="pdf-cover-client">Prepared for ${escapeHtml(clientName)}</p>
         <div class="pdf-cover-meta">
           <div><div class="pdf-meta-label">Document</div><div class="pdf-meta-value">${escapeHtml(isFunnelPlan ? "Development plan" : documentType)}</div></div>
-          <div><div class="pdf-meta-label">Status</div><div class="pdf-meta-value">${escapeHtml(status)}</div></div>
-          <div><div class="pdf-meta-label">Prepared</div><div class="pdf-meta-value">${escapeHtml(preparedOn)}</div></div>
+          <div><div class="pdf-meta-label">Status</div><div class="pdf-meta-value">${escapeHtml(profile.status === "ready" ? "Ready to share" : profile.status === "sent" ? "Sent" : profile.status === "reviewed" ? "Reviewed" : status)}</div></div>
+          <div><div class="pdf-meta-label">Version</div><div class="pdf-meta-value">v${profile.version} · ${escapeHtml(preparedOn)}</div></div>
         </div>
       </div>
       ${isFunnelPlan ? `<div class="pdf-contents">
@@ -120,7 +124,7 @@ export function reportDocumentHtml(node: Element | null | undefined, title: stri
       </div>` : ""}
     </section>
     ${printable.outerHTML}
-    <div class="pdf-page-footer"><span>Baltazar Studio - ${escapeHtml(isFunnelPlan ? "Development plan" : documentType)}</span><span>${escapeHtml(clientName)} - Confidential</span></div>
+    <div class="pdf-page-footer"><span>${escapeHtml(profile.brandName)} - ${escapeHtml(isFunnelPlan ? "Development plan" : documentType)} - v${profile.version}</span><span>${escapeHtml(clientName)} - Confidential</span></div>
   </div></body></html>`;
 }
 
@@ -160,9 +164,9 @@ export function printReportHtml(html: string, title: string): boolean {
   }
 }
 
-export async function printReportNode(node: Element | null | undefined, title: string): Promise<boolean> {
+export async function printReportNode(node: Element | null | undefined, title: string, exportProfile?: PortalAuditExportProfile | null): Promise<boolean> {
   if (typeof window === "undefined" || !node) return false;
-  const html = reportDocumentHtml(node, title);
+  const html = reportDocumentHtml(node, title, exportProfile);
   if (!html) return false;
   return printReportHtml(html, title);
 }

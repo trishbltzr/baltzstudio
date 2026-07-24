@@ -38,18 +38,18 @@ export function CommandPalette({ state, actions }: { state: PortalState; actions
         <div style={css("display:flex;align-items:center;gap:0.7rem;padding:0.9rem 1.1rem;border-bottom:1px solid var(--border-soft)")}>
           <span style={{ color: "var(--fg-faint)", display: "flex" }}><Icon name="search" size={17} /></span>
           <input ref={inputRef} value={state.paletteQuery} onChange={e => actions.patch({ paletteQuery: e.target.value })} placeholder="Search Clients, To-do's, Actions…" style={css("flex:1;border:none;background:transparent;font-size:var(--text-lg);color:var(--fg)")} />
-          <span style={css("display:inline-flex;align-items:center;padding:0.1rem 0.4rem;border-radius:0.3rem;background:var(--surface-alt);border:1px solid var(--border-soft);font-size:0.7rem;color:var(--fg-faint)")}>Esc</span>
+          <span style={css("display:inline-flex;align-items:center;padding:0.1rem 0.4rem;border-radius:0.3rem;background:var(--surface-alt);border:1px solid var(--border-soft);font-size:var(--text-2xs);color:var(--fg-faint)")}>Esc</span>
         </div>
         <div style={css("max-height:22rem;overflow-y:auto;padding:0.4rem")}>
-          {cats.length === 0 && <div style={css("padding:2.5rem 1rem;text-align:center;color:var(--fg-faint);font-size:0.85rem")}>No matches.</div>}
+          {cats.length === 0 && <div style={css("padding:2.5rem 1rem;text-align:center;color:var(--fg-faint);font-size:var(--text-base)")}>No matches.</div>}
           {cats.map(cat => (
             <div key={cat}>
-              <div style={css("padding:0.55rem 0.7rem 0.3rem;font-size:0.62rem;font-weight:500;letter-spacing:0.02em;color:var(--fg-faint)")}>{cat}</div>
+              <div style={css("padding:0.55rem 0.7rem 0.3rem;font-size:var(--text-2xs);font-weight:500;letter-spacing:0.02em;color:var(--fg-faint)")}>{cat}</div>
               {items.filter(i => i.cat === cat).map(it => (
                 <button key={`${it.cat}-${it.label}-${it.sub}`} onClick={it.run} className="pt-dditem" style={css("display:flex;align-items:center;gap:0.7rem;width:100%;padding:0.5rem 0.7rem;border:0;background:transparent;border-radius:var(--radius);cursor:pointer;text-align:left")}>
                   <span style={css("width:1.9rem;height:1.9rem;border-radius:var(--radius-sm);display:grid;place-items:center;flex-shrink:0;background:" + it.tint + ";color:" + it.color)}><Icon name={it.icon} size={16} /></span>
                   <span style={{ minWidth: 0, flex: 1 }}>
-                    <span style={css("display:block;font-size:0.85rem;font-weight:500")}>{it.label}</span>
+                    <span style={css("display:block;font-size:var(--text-base);font-weight:500")}>{it.label}</span>
                     <span style={css("display:block;font-size:var(--text-xs);color:var(--fg-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{it.sub}</span>
                   </span>
                 </button>

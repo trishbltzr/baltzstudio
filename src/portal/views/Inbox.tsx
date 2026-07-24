@@ -17,6 +17,23 @@ const TEAM_POOL = ["Trisha Baltazar", "Kier Mangibin"];
 const CANNED: string[] = [];
 const FILTERS: [string, string][] = [["all", "All"], ["unread", "Unread"], ["tickets", "Tickets"], ["mine", "Mine"]];
 
+function InlineMessageText({ text }: { text: string }) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return <>{parts.map((part, index) => part.startsWith("**") && part.endsWith("**")
+    ? <strong key={index} style={css("font-weight:500")}>{part.slice(2, -2)}</strong>
+    : <span key={index}>{part}</span>)}</>;
+}
+
+function InboxMessageContent({ text }: { text: string }) {
+  const transcript = Array.from(text.matchAll(/(?:^|\n)(User|Baltz AI):\s*([\s\S]*?)(?=\n(?:User|Baltz AI):|$)/g));
+  if (!transcript.length) return <span style={css("white-space:pre-wrap")}><InlineMessageText text={text} /></span>;
+  return <div style={css("display:flex;flex-direction:column;gap:0.85rem")}>
+    {transcript.map((entry, index) => <section key={`${entry[1]}-${index}`} aria-label={entry[1]} style={css("min-width:0;white-space:pre-wrap;line-height:1.48;" + (index === 0 ? "font-weight:500" : ""))}>
+      <InlineMessageText text={entry[2].trim()} />
+    </section>)}
+  </div>;
+}
+
 function clockFor(off: number) {
   const now = new Date();
   const utc = now.getTime() + now.getTimezoneOffset() * 60000;
@@ -31,7 +48,7 @@ function DetailField({ icon, label, children }: { icon: string; label: string; c
     <div style={css("display:flex;align-items:center;gap:0.6rem;min-width:0")}>
       <span style={css("color:var(--fg-faint);display:flex;flex-shrink:0")}><Icon name={icon} size={15} /></span>
       <span style={css("font-size:var(--text-xs);color:var(--fg-muted);width:4rem;flex-shrink:0")}>{label}</span>
-      <span style={css("margin-left:auto;min-width:0;display:flex;align-items:center;justify-content:flex-end;gap:0.4rem;font-size:0.76rem;font-weight:500;color:var(--fg);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{children}</span>
+      <span style={css("margin-left:auto;min-width:0;display:flex;align-items:center;justify-content:flex-end;gap:0.4rem;font-size:var(--text-xs);font-weight:500;color:var(--fg);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{children}</span>
     </div>
   );
 }
@@ -61,7 +78,7 @@ function InboxDetailsRail({
           <button type="button" onClick={onBack} className="pt-softbtn" style={css("display:inline-flex;align-items:center;gap:0.32rem;height:1.9rem;padding:0 0.65rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;cursor:pointer")}>
             <Icon name="chevleft" size={14} /> Back
           </button>
-          <span style={css("font-size:0.7rem;font-weight:500;letter-spacing:0.02em;color:var(--fg-faint)")}>
+          <span style={css("font-size:var(--text-2xs);font-weight:500;letter-spacing:0.02em;color:var(--fg-faint)")}>
             {thread.isTicket ? "Ticket Info" : "Client Profile"}
           </span>
         </div>
@@ -69,8 +86,8 @@ function InboxDetailsRail({
       <div style={css("padding:1.1rem 1.05rem;border-bottom:1px solid var(--border-soft);display:flex;flex-direction:column;align-items:center;gap:0.55rem;text-align:center")}>
         <span style={css("width:3rem;height:3rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:var(--text-base);font-weight:500;display:grid;place-items:center;flex-shrink:0")}>{initials(thread.name)}</span>
         <div style={{ minWidth: 0 }}>
-          <div style={css("font-size:0.9rem;font-weight:500;color:var(--fg);line-height:1.2")}>{thread.name}</div>
-          <div style={css("font-size:0.68rem;color:var(--fg-muted);margin-top:0.1rem")}>{thread.clientName}</div>
+          <div style={css("font-size:var(--text-md);font-weight:500;color:var(--fg);line-height:1.2")}>{thread.name}</div>
+          <div style={css("font-size:var(--text-2xs);color:var(--fg-muted);margin-top:0.1rem")}>{thread.clientName}</div>
         </div>
         <div style={css("display:flex;align-items:center;gap:0.35rem;font-size:var(--text-2xs);color:var(--fg-muted);background:var(--surface-alt);border:1px solid var(--border-soft);padding:0.22rem 0.55rem;border-radius:var(--radius-pill)")}>
           <span style={css("width:0.45rem;height:0.45rem;border-radius:50%;background:" + (clk.away ? "var(--fg-faint)" : "var(--success)"))} />
@@ -185,14 +202,14 @@ export function Inbox({ state, actions }: { state: PortalState; actions: PortalA
         <div style={css("padding:0.7rem 0.8rem;border-bottom:1px solid var(--border-soft);display:flex;flex-direction:column;gap:0.6rem")}>
           <div style={css("display:flex;align-items:center;gap:0.45rem;position:relative")}>
             <span style={css("position:absolute;left:0.7rem;color:var(--fg-faint);pointer-events:none;display:flex")}><Icon name="search" size={15} /></span>
-            <input value={state.inboxSearch} onChange={e => actions.patch({ inboxSearch: e.target.value })} placeholder="Search conversations…" className="pt-input" style={css("flex:1;border:1px solid var(--border);border-radius:var(--radius-pill);padding:0.5rem 0.9rem 0.5rem 2.15rem;font-size:0.78rem;background:var(--surface-alt);width:100%")} />
+            <input value={state.inboxSearch} onChange={e => actions.patch({ inboxSearch: e.target.value })} placeholder="Search conversations…" className="pt-input" style={css("flex:1;border:1px solid var(--border);border-radius:var(--radius-pill);padding:0.5rem 0.9rem 0.5rem 2.15rem;font-size:var(--text-xs);background:var(--surface-alt);width:100%")} />
             {isStudio && (
               <div style={{ position: "relative", flexShrink: 0 }}>
                 <button
                   type="button"
                   onClick={() => actions.togglePop("inbox-filters")}
                   className="pt-softbtn"
-                  style={css("display:inline-flex;align-items:center;gap:0.42rem;height:2.15rem;padding:0 0.72rem;border:1px solid " + (filt !== "all" ? "var(--accent)" : "var(--border)") + ";border-radius:var(--radius-pill);background:" + (filt !== "all" ? "var(--accent-soft)" : "var(--surface)") + ";color:" + (filt !== "all" ? "var(--accent)" : "var(--fg-muted)") + ";font-size:0.74rem;font-weight:500;cursor:pointer")}
+                  style={css("display:inline-flex;align-items:center;gap:0.42rem;height:2.15rem;padding:0 0.72rem;border:1px solid " + (filt !== "all" ? "var(--accent)" : "var(--border)") + ";border-radius:var(--radius-pill);background:" + (filt !== "all" ? "var(--accent-soft)" : "var(--surface)") + ";color:" + (filt !== "all" ? "var(--accent)" : "var(--fg-muted)") + ";font-size:var(--text-2xs);font-weight:500;cursor:pointer")}
                   title="Filter conversations"
                 >
                   <Icon name="sliders" size={15} />
@@ -213,10 +230,10 @@ export function Inbox({ state, actions }: { state: PortalState; actions: PortalA
                               actions.closePop();
                             }}
                             className="pt-dditem"
-                            style={css("display:flex;align-items:center;justify-content:space-between;gap:0.8rem;width:100%;padding:0.5rem 0.62rem;border:0;border-radius:0.72rem;background:" + (on ? "var(--accent-soft)" : "transparent") + ";color:" + (on ? "var(--accent)" : "var(--fg)") + ";font-size:0.76rem;font-weight:500;cursor:pointer;text-align:left")}
+                            style={css("display:flex;align-items:center;justify-content:space-between;gap:0.8rem;width:100%;padding:0.5rem 0.62rem;border:0;border-radius:0.72rem;background:" + (on ? "var(--accent-soft)" : "transparent") + ";color:" + (on ? "var(--accent)" : "var(--fg)") + ";font-size:var(--text-xs);font-weight:500;cursor:pointer;text-align:left")}
                           >
                             <span>{l}</span>
-                            <span style={css("min-width:1.1rem;height:1.1rem;padding:0 0.28rem;border-radius:999px;font-size:0.62rem;font-weight:500;display:inline-flex;align-items:center;justify-content:center;background:" + (on ? "var(--surface)" : "var(--surface-alt)") + ";color:" + (on ? "var(--accent)" : "var(--fg-faint)"))}>{fCount(k)}</span>
+                            <span style={css("min-width:1.1rem;height:1.1rem;padding:0 0.28rem;border-radius:999px;font-size:var(--text-2xs);font-weight:500;display:inline-flex;align-items:center;justify-content:center;background:" + (on ? "var(--surface)" : "var(--surface-alt)") + ";color:" + (on ? "var(--accent)" : "var(--fg-faint)"))}>{fCount(k)}</span>
                           </button>
                         );
                       })}
@@ -240,18 +257,18 @@ export function Inbox({ state, actions }: { state: PortalState; actions: PortalA
             const on = t.id === activeId;
             return (
               <div key={t.id} onClick={() => { actions.selectThread(t.id); if (mobile) setMobileThreadOpen(true); }} style={css("position:relative;display:flex;align-items:flex-start;gap:0.7rem;padding:" + (on && !mobile ? "0.76rem 3rem 0.76rem 0.88rem" : "0.76rem 0.88rem") + ";border:1px solid " + (on && !mobile ? "color-mix(in srgb,var(--accent) 20%,var(--border-soft) 80%)" : "color-mix(in srgb,var(--border-soft) 88%,white 12%)") + ";border-radius:0.95rem;cursor:pointer;transition:background .12s,border-color .12s;" + (on && !mobile ? "background:color-mix(in srgb,var(--accent-soft) 56%,var(--surface) 44%);box-shadow:inset 3px 0 0 var(--accent)" : "background:color-mix(in srgb,var(--surface) 82%,var(--surface-alt) 18%)"))}>
-                <span style={css("width:2.15rem;height:2.15rem;border-radius:50%;background:" + (on && !mobile ? "var(--surface)" : "var(--accent-soft)") + ";border:" + (on && !mobile ? "1px solid var(--accent-dim)" : "1px solid transparent") + ";color:var(--accent);font-size:0.68rem;font-weight:500;display:grid;place-items:center;flex-shrink:0")}>{initials(t.name)}</span>
+                <span style={css("width:2.15rem;height:2.15rem;border-radius:50%;background:" + (on && !mobile ? "var(--surface)" : "var(--accent-soft)") + ";border:" + (on && !mobile ? "1px solid var(--accent-dim)" : "1px solid transparent") + ";color:var(--accent);font-size:var(--text-2xs);font-weight:500;display:grid;place-items:center;flex-shrink:0")}>{initials(t.name)}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={css("display:flex;align-items:center;gap:0.4rem;padding-right:" + (on && !mobile ? "1rem" : "0"))}>
                     <span style={css("width:0.5rem;height:0.5rem;border-radius:50%;flex-shrink:0;background:" + (STATUS_META[t.status] || STATUS_META.open)[1])} />
                     <span style={css("font-weight:500;font-size:var(--text-base);overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{t.name}</span>
                     {t.escalated && <span style={{ color: "var(--danger)", display: "flex", flexShrink: 0 }}><Icon name="alert" size={14} /></span>}
-                    {t.isTicket && <span style={css("font-size:0.54rem;font-weight:500;letter-spacing:0.02em;padding:0.08rem 0.35rem;border-radius:5px;background:var(--lane-gate-soft);color:var(--lane-gate);flex-shrink:0")}>Ticket</span>}
+                    {t.isTicket && <span style={css("font-size:var(--text-2xs);font-weight:500;letter-spacing:0.02em;padding:0.08rem 0.35rem;border-radius:5px;background:var(--lane-gate-soft);color:var(--lane-gate);flex-shrink:0")}>Ticket</span>}
                     {!(on && !mobile) && <span style={css("margin-left:auto;font-size:var(--text-2xs);color:var(--fg-faint);flex-shrink:0")}>{t.messages.at(-1)?.time || ""}</span>}
                   </div>
                   <div style={css("display:flex;align-items:center;gap:var(--space-2);margin-top:0.15rem")}>
-                    <span style={css("flex:1;min-width:0;font-size:0.74rem;color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{(t.isTicket ? "Ticket #" + t.ticketId + " · " : "") + (t.messages.at(-1)?.text || "")}</span>
-                    {t.unread > 0 && <span style={css("min-width:1.15rem;height:1.15rem;padding:0 0.32rem;border-radius:999px;background:var(--accent);color:#fff;font-size:0.62rem;font-weight:500;display:grid;place-items:center;flex-shrink:0")}>{t.unread}</span>}
+                    <span style={css("flex:1;min-width:0;font-size:var(--text-2xs);color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{(t.isTicket ? "Ticket #" + t.ticketId + " · " : "") + (t.messages.at(-1)?.text || "")}</span>
+                    {t.unread > 0 && <span style={css("min-width:1.15rem;height:1.15rem;padding:0 0.32rem;border-radius:999px;background:var(--accent);color:#fff;font-size:var(--text-2xs);font-weight:500;display:grid;place-items:center;flex-shrink:0")}>{t.unread}</span>}
                   </div>
                 </div>
                 {!mobile && on && (
@@ -268,7 +285,7 @@ export function Inbox({ state, actions }: { state: PortalState; actions: PortalA
               </div>
             );
           })}
-          {list.length === 0 && <div style={css("padding:2.5rem 1rem;text-align:center;color:var(--fg-faint);font-size:0.8rem")}>No conversations match.</div>}
+          {list.length === 0 && <div style={css("padding:2.5rem 1rem;text-align:center;color:var(--fg-faint);font-size:var(--text-sm)")}>No conversations match.</div>}
         </div>
       </div>
       )}
@@ -293,12 +310,12 @@ export function Inbox({ state, actions }: { state: PortalState; actions: PortalA
       <div style={css("display:flex;flex-direction:column;min-width:0;flex:1;min-height:0")}>
         <div style={css("padding:" + (mobile ? "0.72rem 0.85rem" : "0.85rem 1.15rem") + ";border-bottom:1px solid var(--border-soft);display:flex;align-items:" + (mobile ? "flex-start" : "center") + ";gap:" + (mobile ? "0.55rem" : "0.7rem") + ";flex-wrap:" + (mobile ? "wrap" : "nowrap"))}>
           {mobile && <button onClick={() => setMobileThreadOpen(false)} className="pt-iconbtn" style={css("width:2rem;height:2rem;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);display:grid;place-items:center;cursor:pointer;flex-shrink:0;margin-top:0.05rem")}><Icon name="chevleft" size={16} /></button>}
-          <span style={css("width:" + (mobile ? "2.1rem" : "2.3rem") + ";height:" + (mobile ? "2.1rem" : "2.3rem") + ";border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:0.7rem;font-weight:500;display:grid;place-items:center;flex-shrink:0")}>{initials(active.name)}</span>
+          <span style={css("width:" + (mobile ? "2.1rem" : "2.3rem") + ";height:" + (mobile ? "2.1rem" : "2.3rem") + ";border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:var(--text-2xs);font-weight:500;display:grid;place-items:center;flex-shrink:0")}>{initials(active.name)}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={css("font-weight:500;font-size:" + (mobile ? "0.96rem" : "0.92rem") + ";line-height:1.15")}>{active.name}</div>
             <div style={css("font-size:var(--text-xs);color:var(--fg-muted)")}>{active.clientName}</div>
           </div>
-          <span style={css("display:inline-flex;align-items:center;gap:0.35rem;font-size:0.68rem;color:var(--fg-muted);background:var(--surface-alt);border:1px solid var(--border-soft);padding:0.22rem 0.55rem;border-radius:var(--radius-pill);flex-shrink:0;" + (mobile ? "margin-left:2.55rem;max-width:calc(100% - 2.55rem);overflow:hidden;white-space:nowrap" : ""))}>
+          <span style={css("display:inline-flex;align-items:center;gap:0.35rem;font-size:var(--text-2xs);color:var(--fg-muted);background:var(--surface-alt);border:1px solid var(--border-soft);padding:0.22rem 0.55rem;border-radius:var(--radius-pill);flex-shrink:0;" + (mobile ? "margin-left:2.55rem;max-width:calc(100% - 2.55rem);overflow:hidden;white-space:nowrap" : ""))}>
             <span style={css("width:0.45rem;height:0.45rem;border-radius:50%;background:" + (clk.away ? "var(--fg-faint)" : "var(--success)"))} />{clk.time} · {active.tzLabel}
           </span>
         </div>
@@ -307,14 +324,14 @@ export function Inbox({ state, actions }: { state: PortalState; actions: PortalA
           <div style={css("padding:" + (mobile ? "0.5rem 0.85rem" : "0.55rem 1.15rem") + ";border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:" + (mobile ? "0.36rem" : "0.5rem") + ";flex-wrap:wrap;background:oklch(0.99 0.004 60)")}>
             {/* status dropdown */}
             <div style={{ position: "relative" }}>
-              <span onClick={() => actions.patch({ statusMenuOpen: !state.statusMenuOpen, assignMenuOpen: false })} style={css("display:inline-flex;align-items:center;gap:0.36rem;font-size:0.68rem;font-weight:500;padding:0.26rem 0.56rem;border-radius:var(--radius-pill);cursor:pointer;background:" + atStatus[2] + ";color:" + atStatus[1])}><span style={css("width:0.5rem;height:0.5rem;border-radius:50%;background:" + atStatus[1])} />{atStatus[0]}<Icon name="chev" size={12} /></span>
+              <span onClick={() => actions.patch({ statusMenuOpen: !state.statusMenuOpen, assignMenuOpen: false })} style={css("display:inline-flex;align-items:center;gap:0.36rem;font-size:var(--text-2xs);font-weight:500;padding:0.26rem 0.56rem;border-radius:var(--radius-pill);cursor:pointer;background:" + atStatus[2] + ";color:" + atStatus[1])}><span style={css("width:0.5rem;height:0.5rem;border-radius:50%;background:" + atStatus[1])} />{atStatus[0]}<Icon name="chev" size={12} /></span>
               {state.statusMenuOpen && (
                 <>
                   <div onClick={() => actions.patch({ statusMenuOpen: false })} style={{ position: "fixed", inset: 0, zIndex: 19 }} />
                   <div style={css("position:absolute;top:calc(100% + 0.3rem);left:0;z-index:20;min-width:9rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;padding:0.2rem 0")}>
                     {(["open", "progress", "resolved"]).map(k => {
                       const mm = STATUS_META[k];
-                      return <button key={k} onClick={() => setStatus(k)} className="pt-dditem" style={css("display:flex;align-items:center;gap:var(--space-2);width:100%;padding:0.5rem 0.75rem;border:0;background:" + (active.status === k ? "var(--surface-alt)" : "transparent") + ";font-size:0.78rem;color:var(--fg);cursor:pointer;text-align:left")}><span style={css("width:0.5rem;height:0.5rem;border-radius:50%;background:" + mm[1])} />{mm[0]}</button>;
+                      return <button key={k} onClick={() => setStatus(k)} className="pt-dditem" style={css("display:flex;align-items:center;gap:var(--space-2);width:100%;padding:0.5rem 0.75rem;border:0;background:" + (active.status === k ? "var(--surface-alt)" : "transparent") + ";font-size:var(--text-xs);color:var(--fg);cursor:pointer;text-align:left")}><span style={css("width:0.5rem;height:0.5rem;border-radius:50%;background:" + mm[1])} />{mm[0]}</button>;
                     })}
                   </div>
                 </>
@@ -322,26 +339,26 @@ export function Inbox({ state, actions }: { state: PortalState; actions: PortalA
             </div>
             {/* assignee dropdown */}
             <div style={{ position: "relative" }}>
-              <span onClick={() => actions.patch({ assignMenuOpen: !state.assignMenuOpen, statusMenuOpen: false })} style={css("display:inline-flex;align-items:center;gap:0.34rem;font-size:0.7rem;font-weight:500;padding:0.22rem 0.42rem 0.22rem 0.32rem;border-radius:var(--radius-pill);cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);max-width:" + (mobile ? "9.2rem" : "none") + ";overflow:hidden;white-space:nowrap")}><span style={css("width:1.3rem;height:1.3rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:0.54rem;font-weight:500;display:grid;place-items:center;flex-shrink:0")}>{initials(displayPortalIdentity(active.assignee))}</span><span style={css("overflow:hidden;text-overflow:ellipsis")}>{displayPortalIdentity(active.assignee)}</span><Icon name="chev" size={12} /></span>
+              <span onClick={() => actions.patch({ assignMenuOpen: !state.assignMenuOpen, statusMenuOpen: false })} style={css("display:inline-flex;align-items:center;gap:0.34rem;font-size:var(--text-2xs);font-weight:500;padding:0.22rem 0.42rem 0.22rem 0.32rem;border-radius:var(--radius-pill);cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);max-width:" + (mobile ? "9.2rem" : "none") + ";overflow:hidden;white-space:nowrap")}><span style={css("width:1.3rem;height:1.3rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:var(--text-2xs);font-weight:500;display:grid;place-items:center;flex-shrink:0")}>{initials(displayPortalIdentity(active.assignee))}</span><span style={css("overflow:hidden;text-overflow:ellipsis")}>{displayPortalIdentity(active.assignee)}</span><Icon name="chev" size={12} /></span>
               {state.assignMenuOpen && (
                 <>
                   <div onClick={() => actions.patch({ assignMenuOpen: false })} style={{ position: "fixed", inset: 0, zIndex: 19 }} />
                   <div style={css("position:absolute;top:calc(100% + 0.3rem);left:0;z-index:20;min-width:11rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;padding:0.2rem 0")}>
-                    {TEAM_POOL.map(n => <button key={n} onClick={() => setAssignee(n)} className="pt-dditem" style={css("display:flex;align-items:center;gap:var(--space-2);width:100%;padding:0.5rem 0.75rem;border:0;background:" + (active.assignee === n ? "var(--surface-alt)" : "transparent") + ";font-size:0.78rem;color:var(--fg);cursor:pointer;text-align:left")}><span style={css("width:1.3rem;height:1.3rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:0.54rem;font-weight:500;display:grid;place-items:center;flex-shrink:0")}>{initials(displayPortalIdentity(n))}</span>{displayPortalIdentity(n)}</button>)}
+                    {TEAM_POOL.map(n => <button key={n} onClick={() => setAssignee(n)} className="pt-dditem" style={css("display:flex;align-items:center;gap:var(--space-2);width:100%;padding:0.5rem 0.75rem;border:0;background:" + (active.assignee === n ? "var(--surface-alt)" : "transparent") + ";font-size:var(--text-xs);color:var(--fg);cursor:pointer;text-align:left")}><span style={css("width:1.3rem;height:1.3rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:var(--text-2xs);font-weight:500;display:grid;place-items:center;flex-shrink:0")}>{initials(displayPortalIdentity(n))}</span>{displayPortalIdentity(n)}</button>)}
                   </div>
                 </>
               )}
             </div>
             {!mobile && <span style={{ flex: 1 }} />}
-            {active.isTicket && <span style={css("font-size:0.62rem;font-weight:500;padding:0.24rem 0.55rem;border-radius:999px;background:var(--lane-gate-soft);color:var(--lane-gate)")}>#{active.ticketId} · {active.category}</span>}
+            {active.isTicket && <span style={css("font-size:var(--text-2xs);font-weight:500;padding:0.24rem 0.55rem;border-radius:999px;background:var(--lane-gate-soft);color:var(--lane-gate)")}>#{active.ticketId} · {active.category}</span>}
           </div>
         )}
 
         <div style={css("flex:1;padding:" + (mobile ? "0.95rem 0.85rem" : "1.25rem") + ";overflow-y:auto;display:flex;flex-direction:column;gap:0.65rem;min-height:0;" + (mobile ? "max-height:38dvh;" : "") + "background:var(--surface-alt)")}>
           {messages.map((m, i) => (
             <div key={i} style={css("display:flex;flex-direction:column;align-items:" + (m.mine ? "flex-end" : "flex-start"))}>
-              <div style={css("max-width:" + (mobile ? "92%" : "80%") + ";padding:0.55rem 0.8rem;font-size:" + (mobile ? "0.85rem" : "0.82rem") + ";line-height:1.4;" + (m.mine ? "background:var(--accent);color:#fff;border-radius:0.8rem 0.8rem 4px 0.8rem" : "background:var(--surface);border:1px solid var(--border-soft);color:var(--fg);border-radius:0.8rem 0.8rem 0.8rem 4px"))}>{m.text}</div>
-              <div style={css("font-size:0.62rem;color:var(--fg-faint);margin-top:0.25rem")}>{(m.by ? m.by + " · " : "") + m.time}</div>
+              <div style={css("max-width:" + (mobile ? "92%" : "80%") + ";padding:0.65rem 0.8rem;font-size:" + (mobile ? "0.85rem" : "0.82rem") + ";line-height:1.4;" + (m.mine ? "background:var(--accent);color:#fff;border-radius:0.8rem 0.8rem 4px 0.8rem" : "background:var(--surface);border:1px solid var(--border-soft);color:var(--fg);border-radius:0.8rem 0.8rem 0.8rem 4px"))}><InboxMessageContent text={m.text} /></div>
+              <div style={css("font-size:var(--text-2xs);color:var(--fg-faint);margin-top:0.25rem")}>{(m.by ? m.by + " · " : "") + m.time}</div>
             </div>
           ))}
         </div>
@@ -355,8 +372,8 @@ export function Inbox({ state, actions }: { state: PortalState; actions: PortalA
         <div style={css("padding:" + (mobile ? "0.62rem 0.75rem 0.75rem" : "0.75rem 0.9rem 0.9rem") + ";background:var(--surface)")}>
           <div className="pt-composer" style={css("display:flex;align-items:center;gap:0.35rem;border:1px solid var(--border);border-radius:var(--radius-pill);padding:0.25rem 0.35rem 0.25rem 0.5rem;background:var(--surface)")}>
             <button onClick={() => actions.showToast("Attach a file")} title="Attach a file" className="pt-softbtn" style={css("width:2rem;height:2rem;border-radius:50%;border:none;background:transparent;color:var(--fg-faint);display:grid;place-items:center;cursor:pointer;flex-shrink:0")}><Icon name="clip" size={16} /></button>
-            <input ref={composerRef} value={state.draft} onChange={e => actions.patch({ draft: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); actions.sendMsg(); } }} placeholder={mobile ? "Write a message..." : "Write a message…  ⏎ to send"} style={css("flex:1;border:none;background:transparent;padding:0.35rem 0.15rem;font-size:0.85rem;color:var(--fg);min-width:0")} />
-            <button onClick={actions.sendMsg} title="Send" className="pt-op" style={css("display:inline-flex;align-items:center;gap:0.35rem;height:2rem;padding:0 " + (mobile ? "0.72rem" : "0.9rem") + ";border-radius:var(--radius-pill);border:none;background:var(--accent);color:#fff;font-size:0.78rem;font-weight:500;cursor:pointer;flex-shrink:0")}><Icon name="arrowup" size={16} />Send</button>
+            <input ref={composerRef} value={state.draft} onChange={e => actions.patch({ draft: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); actions.sendMsg(); } }} placeholder={mobile ? "Write a message..." : "Write a message…  ⏎ to send"} style={css("flex:1;border:none;background:transparent;padding:0.35rem 0.15rem;font-size:var(--text-base);color:var(--fg);min-width:0")} />
+            <button onClick={actions.sendMsg} title="Send" className="pt-op" style={css("display:inline-flex;align-items:center;gap:0.35rem;height:2rem;padding:0 " + (mobile ? "0.72rem" : "0.9rem") + ";border-radius:var(--radius-pill);border:none;background:var(--accent);color:#fff;font-size:var(--text-xs);font-weight:500;cursor:pointer;flex-shrink:0")}><Icon name="arrowup" size={16} />Send</button>
           </div>
           <div style={css("display:flex;justify-content:space-between;align-items:flex-start;gap:0.7rem;flex-wrap:wrap;margin-top:0.45rem;padding:0 0.15rem;font-size:var(--text-2xs);color:var(--fg-faint)")}>
             <span>Sending as {me}</span>
@@ -371,7 +388,7 @@ export function Inbox({ state, actions }: { state: PortalState; actions: PortalA
           <div>
             <span style={css("width:2.6rem;height:2.6rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;margin:0 auto 0.75rem")}><Icon name="ticket" size={17} /></span>
             <div style={css("font-size:var(--text-lg);font-weight:500;color:var(--fg)")}>No tickets yet</div>
-            <p style={css("margin:0.35rem auto 0;max-width:20rem;font-size:0.78rem;line-height:1.45;color:var(--fg-muted)")}>Tickets you send to the studio will appear here with their full conversation history.</p>
+            <p style={css("margin:0.35rem auto 0;max-width:20rem;font-size:var(--text-xs);line-height:1.45;color:var(--fg-muted)")}>Tickets you send to the studio will appear here with their full conversation history.</p>
           </div>
         </div>
       )}

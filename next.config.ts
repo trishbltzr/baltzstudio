@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
+import { withWorkflow } from "workflow/next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["lighthouse", "chrome-launcher", "puppeteer-core", "@sparticuz/chromium"],
 };
 
-export default nextConfig;
+export default withWorkflow(nextConfig);

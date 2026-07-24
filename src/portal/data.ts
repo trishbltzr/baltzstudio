@@ -5,7 +5,7 @@ import { DEFAULT_CLIENT_NAME, STUDIO_CLIENTS } from "./clients";
 
 export const ROLE_META: Record<string, { label: string; name: string; sub: string; init: string; badge: string }> = {
   admin: { label: "Admin", name: "Trish Baltazar", sub: "Studio Workspace", init: "TB", badge: "studio" },
-  dev: { label: "Member", name: "Studio team", sub: "Studio Workspace", init: "ST", badge: "dev" },
+  dev: { label: "Manager", name: "Studio team", sub: "Studio Workspace", init: "ST", badge: "dev" },
   client: { label: "Client", name: "Client", sub: DEFAULT_CLIENT_NAME, init: "CL", badge: "client" },
 };
 
@@ -62,8 +62,8 @@ export function seedEscalations(): Escalation[] {
 export const ADMIN_STATS = [
   { label: "Clients", value: String(STUDIO_CLIENTS.length), icon: "briefcase", tint: "oklch(0.95 0.004 50)", color: "var(--fg-muted)" },
   { label: "To-do's", value: "0", icon: "checklist", tint: "var(--lane-gate-soft)", color: "var(--lane-gate)" },
-  { label: "Audits", value: "0", icon: "audit", tint: "var(--success-soft)", color: "var(--success)" },
-  { label: "Funnels", value: "0", icon: "funnel", tint: "var(--warn-soft)", color: "var(--warn)" },
+  { label: "Checkups", value: "0", icon: "audit", tint: "var(--success-soft)", color: "var(--success)" },
+  { label: "Labs", value: "0", icon: "flask", tint: "var(--warn-soft)", color: "var(--warn)" },
   { label: "Inbox", value: "0", icon: "inbox", tint: "var(--danger-soft)", color: "var(--danger)" },
   { label: "Billing", value: "£0", icon: "wallet", tint: "var(--lane-ai-soft)", color: "var(--lane-ai)" },
 ];

@@ -59,15 +59,15 @@ export function GuidedPipelinePanel({
               <Icon name="chevleft" size={16} />
             </span>
             <div>
-              <div style={css("display:block;font-size:0.7rem;font-weight:500;color:var(--fg-muted);margin:0 0 0.3rem")}>All clients</div>
-              <div style={css("font-size:0.9rem;font-weight:500;line-height:1.2;color:var(--fg)")}>{title}</div>
+              <div style={css("display:block;font-size:var(--text-2xs);font-weight:500;color:var(--fg-muted);margin:0 0 0.3rem")}>All clients</div>
+              <div style={css("font-size:var(--text-md);font-weight:500;line-height:1.2;color:var(--fg)")}>{title}</div>
             </div>
           </button>
         </div>
         <div style={css("flex:1;overflow-y:auto;padding:0.6rem 0.55rem 0.85rem")}>
           {sections.map(section => (
             <div key={section.label} style={css("margin-bottom:0.45rem")}>
-              <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;padding:0.6rem 0.85rem 0.38rem;color:var(--fg-faint)")}>{section.label}</div>
+              <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;padding:0.6rem 0.85rem 0.38rem;color:var(--fg-faint)")}>{section.label}</div>
               {section.items.map(item => {
                 const dot = item.done
                   ? "background:var(--success);border:1px solid var(--success);color:#fff"
@@ -76,8 +76,8 @@ export function GuidedPipelinePanel({
                 return (
                   <button key={item.key} type="button" onClick={item.onClick} disabled={!item.reachable && !item.done && !item.active} style={css("width:100%;display:flex;align-items:center;gap:0.6rem;padding:0.58rem 0.85rem;border:1px solid " + (item.active ? "color-mix(in srgb," + accentColor + " 26%,white 74%)" : "transparent") + ";border-radius:999px;background:" + (item.active ? activeBackground : "transparent") + ";cursor:" + (item.reachable || item.done || item.active ? "pointer" : "default") + ";text-align:left")}>
                     <span style={css("width:0.92rem;height:0.92rem;border-radius:50%;display:grid;place-items:center;flex-shrink:0;" + dot)}>{item.done && <Icon name="checkmark" size={8} />}</span>
-                    <span style={css("flex:1;min-width:0;font-size:0.78rem;font-weight:" + (item.active ? "500" : "400") + ";color:" + (item.reachable || item.done || item.active ? "var(--fg)" : "var(--fg-faint)") + ";white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{item.title}</span>
-                    {item.final && <span style={css("flex-shrink:0;padding:0.05rem 0.4rem;border-radius:999px;background:" + finalBackground + ";color:" + finalColor + ";font-size:0.58rem;font-weight:500")}>Final</span>}
+                    <span style={css("flex:1;min-width:0;font-size:var(--text-xs);font-weight:" + (item.active ? "500" : "400") + ";color:" + (item.reachable || item.done || item.active ? "var(--fg)" : "var(--fg-faint)") + ";white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{item.title}</span>
+                    {item.final && <span style={css("flex-shrink:0;padding:0.05rem 0.4rem;border-radius:999px;background:" + finalBackground + ";color:" + finalColor + ";font-size:var(--text-2xs);font-weight:500")}>Final</span>}
                   </button>
                 );
               })}
@@ -151,9 +151,9 @@ export function GuidedIntakeShell({
               {!hideInlineBand && <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);flex-wrap:wrap;margin:" + bandMargin + ";padding:" + bandPadding + ";border-radius:" + bandRadius + ";background:color-mix(in srgb,var(--surface) 88%,white 12%);" + bandBorder)}>
                 <div style={css("display:flex;align-items:center;gap:0.55rem;min-width:0")}>
                   <span style={css("width:1.1rem;height:1.1rem;border-radius:50%;background:" + bandDotBackground + ";flex-shrink:0")} />
-                  <span style={css("font-size:0.78rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{bandPrimary}</span>
+                  <span style={css("font-size:var(--text-xs);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{bandPrimary}</span>
                   <span style={css("width:1px;height:0.78rem;background:var(--border)")} />
-                  <span style={css("font-size:0.7rem;color:var(--fg-muted);white-space:nowrap")}>{bandSecondary}</span>
+                  <span style={css("font-size:var(--text-2xs);color:var(--fg-muted);white-space:nowrap")}>{bandSecondary}</span>
                 </div>
                 <span style={css("display:inline-flex;align-items:center;gap:0.35rem;font-size:var(--text-2xs);color:var(--success);font-weight:500;flex-shrink:0")}><span style={css("width:0.38rem;height:0.38rem;border-radius:50%;background:var(--success)")} />Saved</span>
               </div>}
@@ -173,7 +173,7 @@ export function GuidedUnsureToggle({ checked, onClick, accentColor = "var(--acce
   return (
     <label onClick={onClick} style={css("margin-top:0.55rem;display:inline-flex;align-items:center;gap:0.45rem;cursor:pointer;user-select:none")}>
       <span style={css("width:1rem;height:1rem;border-radius:0.28rem;display:grid;place-items:center;flex-shrink:0;" + (checked ? "background:" + accentColor + ";border:1.5px solid " + accentColor + ";color:#fff" : "border:1.5px solid var(--border)"))}>{checked && <Icon name="checkmark" size={8} />}</span>
-      <span style={css("font-size:0.8rem;color:var(--fg-muted)")}>I&apos;m not sure about this yet</span>
+      <span style={css("font-size:var(--text-sm);color:var(--fg-muted)")}>I&apos;m not sure about this yet</span>
     </label>
   );
 }
@@ -182,7 +182,7 @@ export function GuidedOptionPill({ label, selected, onClick, accentColor, accent
   return (
     <div onClick={onClick} className="pt-gopt" style={css("display:flex;align-items:center;gap:0.45rem;min-height:2.3rem;padding:0.54rem 0.8rem;border-radius:999px;cursor:pointer;border:1px solid " + (selected ? accentColor : "var(--border)") + ";background:" + (selected ? accentBackground : "var(--surface)"))}>
       <span style={css("width:0.95rem;height:0.95rem;border-radius:50%;display:grid;place-items:center;flex-shrink:0;" + (selected ? "background:" + accentColor + ";color:#fff" : "border:1.5px solid var(--border)"))}>{selected && <Icon name="checkmark" size={8} />}</span>
-      <span style={css("font-size:0.78rem;color:var(--fg);line-height:1.35")}>{label}</span>
+      <span style={css("font-size:var(--text-xs);color:var(--fg);line-height:1.35")}>{label}</span>
     </div>
   );
 }

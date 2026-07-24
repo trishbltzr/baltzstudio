@@ -1,6 +1,8 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { NextResponse } from "next/server";
+import { resolvePortalRequestAccess } from "@/lib/portalRequestAccess";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
@@ -149,6 +151,8 @@ async function crawlPage(href: string, checkedHosts: Set<string>) {
 
 export async function POST(request: Request) {
   try {
+    const access = await resolvePortalRequestAccess(request, await createSupabaseServerClient());
+    if (!access) return NextResponse.json({ error: "Sign in to crawl a sitemap." }, { status: 401 });
     const body = await request.json() as { url?: string };
     const raw = String(body.url || "").trim();
     if (!raw) throw new SitemapError("Enter the website URL to locate its sitemap.xml.");

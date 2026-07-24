@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Icon } from "../icons";
 import { css, eyebrowStyle, roleBadgeStyle, roleMeta, sidebarEyebrowStyle } from "../helpers";
 import { mobilePrimaryViewsForState, navItemMeta, navSectionsForState } from "../navigation";
-import { inboxUnread } from "../selectors";
-import type { PortalActions, PortalState } from "../store";
+import { inboxUnread, pendingApprovalsForRole } from "../selectors";
+import type { PortalActions } from "../store";
 import type { Role, View } from "../types";
+import type { SidebarShellState } from "./types";
 
 // ── One shared geometry for the whole sidebar ────────────────────────────────
 // Every icon (workspace mark, nav glyphs, account avatar) is centred on the same
@@ -24,7 +25,7 @@ const GAP = "0.6rem";         // icon → label gap
 // (and border) so both header rows — and their dividers — line up exactly.
 const HEADER_H = "calc(3.96rem + 1px)"; // 0.48 + 3 + 0.48 + the 1px border
 
-export function Sidebar({ state, actions, rail, onLogout }: { state: PortalState; actions: PortalActions; rail: boolean; onLogout: () => void }) {
+function SidebarComponent({ state, actions, rail, onLogout }: { state: SidebarShellState; actions: PortalActions; rail: boolean; onLogout: () => void }) {
   const { role, view, isMobile, navOpen } = state;
   const textOpen = isMobile || !rail;
   const meta = roleMeta(role, state.clientName);
@@ -54,9 +55,10 @@ export function Sidebar({ state, actions, rail, onLogout }: { state: PortalState
 
   const unread = inboxUnread(state);
   const openEsc = state.escalations.filter(e => !e.resolved).length;
+  const pendingApprovals = pendingApprovalsForRole(state, actions.workspaceForClient).length;
   const badgeFor = (id: string): number | null => {
     if ((role === "admin" || role === "dev") && id === "inbox") return (unread + (role === "admin" ? openEsc : 0)) || null;
-    if (role === "dev" && id === "review") return 2;
+    if ((role === "admin" || role === "dev") && id === "review") return pendingApprovals || null;
     return null;
   };
 
@@ -78,7 +80,7 @@ export function Sidebar({ state, actions, rail, onLogout }: { state: PortalState
     : "display:flex;align-items:center;gap:" + GAP + ";width:100%;padding:0 " + ROWPAD + ";border:0;background:transparent;cursor:pointer;text-align:left;";
 
   const badgePip = (badge: number, active: boolean) =>
-    "position:absolute;top:-0.22rem;right:-0.28rem;min-width:1.05rem;height:1.05rem;padding:0 0.28rem;border-radius:999px;font-size:0.6rem;font-weight:500;display:inline-flex;align-items:center;justify-content:center;border:2px solid var(--surface);" + (active ? "background:oklch(1 0 0 / 0.96);color:var(--accent)" : "background:var(--accent);color:#fff");
+    "position:absolute;top:-0.22rem;right:-0.28rem;min-width:1.05rem;height:1.05rem;padding:0 0.28rem;border-radius:999px;font-size:var(--text-2xs);font-weight:500;display:inline-flex;align-items:center;justify-content:center;border:2px solid var(--surface);" + (active ? "background:oklch(1 0 0 / 0.96);color:var(--accent)" : "background:var(--accent);color:#fff");
 
   const sidebarContent = (
     <>
@@ -89,9 +91,9 @@ export function Sidebar({ state, actions, rail, onLogout }: { state: PortalState
             the mark lines up with the page title and the borders form one line.
             Negative margin lets the divider span the sidebar's full width. */}
         <div style={css("flex-shrink:0;display:flex;align-items:center;gap:" + (rail ? "0" : GAP) + ";height:" + headerH + ";margin:0 -" + SPAD + ";padding:0 " + (rail ? "0" : ROW_INSET) + ";border-bottom:" + headerBorder + (rail ? ";justify-content:center" : ""))}>
-          <span style={css(iconCell + "border-radius:50%;background:var(--fg);color:var(--surface);font-size:0.8rem;font-weight:500")}>BS</span>
+          <span style={css(iconCell + "border-radius:50%;background:var(--fg);color:var(--surface);font-size:var(--text-sm);font-weight:500")}>BS</span>
           <span style={css("flex:1;min-width:0;" + slideInline("11rem"))}>
-            <strong style={css("display:block;font-size:0.9rem;font-weight:500;line-height:1.2;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>Baltazar Studio</strong>
+            <strong style={css("display:block;font-size:var(--text-md);font-weight:500;line-height:1.2;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>Baltazar Studio</strong>
             <small style={css("display:block;margin-top:0.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" + sidebarEyebrowStyle("var(--fg-muted)"))}>{brandContext[role]}</small>
           </span>
         </div>
@@ -123,7 +125,7 @@ export function Sidebar({ state, actions, rail, onLogout }: { state: PortalState
                         {badge != null && <span style={css(badgePip(badge, active))}>{badge}</span>}
                       </span>
                       {!rail && (
-                        <span style={css("flex:1;min-width:0;display:flex;align-items:center;gap:0.45rem;font-size:0.9rem;font-weight:500;" + slideInline("9rem"))}>
+                        <span style={css("flex:1;min-width:0;display:flex;align-items:center;gap:0.45rem;font-size:var(--text-md);font-weight:500;" + slideInline("9rem"))}>
                           <span>{item.label}</span>
                           {item.badge && <span className="pt-beta-badge">{item.badge}</span>}
                         </span>
@@ -135,7 +137,7 @@ export function Sidebar({ state, actions, rail, onLogout }: { state: PortalState
                         {(["brand", "website", "seo"] as const).map(auditType => {
                           const selected = state.auditType === auditType;
                           const label = auditType === "seo" ? "SEO" : auditType.charAt(0).toUpperCase() + auditType.slice(1);
-                          return <button key={auditType} type="button" onClick={() => { actions.patch({ auditType }); actions.setView(id); }} style={css("position:relative;display:flex;align-items:center;gap:0.45rem;width:100%;height:2.4rem;padding:0 0.5rem 0 3rem;border:none;border-radius:999px;background:transparent;color:" + (selected ? "var(--accent)" : "var(--fg-muted)") + ";font-size:0.9rem;font-weight:500;cursor:pointer;text-align:left")}>{selected && <span aria-hidden="true" style={css("position:absolute;left:1.45rem;top:0;bottom:0;width:1.5px;border-radius:1px;background:var(--accent)")} />}<span>{label}</span></button>;
+                          return <button key={auditType} type="button" onClick={() => { actions.patch({ auditType }); actions.setView(id); }} style={css("position:relative;display:flex;align-items:center;gap:0.45rem;width:100%;height:2.4rem;padding:0 0.5rem 0 3rem;border:none;border-radius:999px;background:transparent;color:" + (selected ? "var(--accent)" : "var(--fg-muted)") + ";font-size:var(--text-md);font-weight:500;cursor:pointer;text-align:left")}>{selected && <span aria-hidden="true" style={css("position:absolute;left:1.45rem;top:0;bottom:0;width:1.5px;border-radius:1px;background:var(--accent)")} />}<span>{label}</span></button>;
                         })}
                       </div>
                     )}
@@ -145,7 +147,7 @@ export function Sidebar({ state, actions, rail, onLogout }: { state: PortalState
                         {(["funnel", "website", "social"] as const).map(builderType => {
                           const selected = state.builderType === builderType;
                           const label = builderType === "funnel" ? "Funnel" : builderType === "website" ? "Website" : "Social Media";
-                          return <button key={builderType} type="button" onClick={() => { actions.patch({ builderType }); actions.setView(id); }} style={css("position:relative;display:flex;align-items:center;gap:0.45rem;width:100%;height:2.4rem;padding:0 0.5rem 0 3rem;border:none;border-radius:999px;background:transparent;color:" + (selected ? "var(--accent)" : "var(--fg-muted)") + ";font-size:0.9rem;font-weight:500;cursor:pointer;text-align:left")}>{selected && <span aria-hidden="true" style={css("position:absolute;left:1.45rem;top:0;bottom:0;width:1.5px;border-radius:1px;background:var(--accent)")} />}<span>{label}</span></button>;
+                          return <button key={builderType} type="button" onClick={() => { actions.patch({ builderType }); actions.setView(id); }} style={css("position:relative;display:flex;align-items:center;gap:0.45rem;width:100%;height:2.4rem;padding:0 0.5rem 0 3rem;border:none;border-radius:999px;background:transparent;color:" + (selected ? "var(--accent)" : "var(--fg-muted)") + ";font-size:var(--text-md);font-weight:500;cursor:pointer;text-align:left")}>{selected && <span aria-hidden="true" style={css("position:absolute;left:1.45rem;top:0;bottom:0;width:1.5px;border-radius:1px;background:var(--accent)")} />}<span>{label}</span></button>;
                         })}
                       </div>
                     )}
@@ -161,9 +163,9 @@ export function Sidebar({ state, actions, rail, onLogout }: { state: PortalState
           <div style={css("flex-shrink:0;margin-top:0.7rem;position:relative;overflow:hidden;border-radius:var(--radius);background:oklch(0.985 0.012 22);padding:0.8rem;border:1px solid oklch(0.88 0.04 20 / 0.32)")}>
             <button onClick={() => setFooterDismissed(true)} title="Dismiss" className="pt-menuitem" style={css("position:absolute;top:0.4rem;right:0.4rem;width:1.35rem;height:1.35rem;display:grid;place-items:center;border:none;background:transparent;color:var(--fg-faint);cursor:pointer;border-radius:50%")}><Icon name="x" size={13} /></button>
             <div style={css(eyebrowStyle("var(--accent)"))}>Need Access?</div>
-            <div style={css("font-size:0.86rem;font-weight:500;color:var(--fg);line-height:1.25;margin-top:0.15rem;padding-right:1rem")}>Escalate</div>
-            <p style={css("font-size:0.74rem;color:var(--fg-muted);line-height:1.42;margin-top:0.3rem")}>For billing, roles or out-of-scope calls.</p>
-            <button onClick={() => actions.showToast("Decision escalated to Trish (Admin)")} className="pt-op" style={css("margin-top:0.6rem;width:100%;height:2rem;border-radius:var(--radius-pill);background:var(--accent);color:#fff;border:none;font-size:0.8rem;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center")}>Escalate</button>
+            <div style={css("font-size:var(--text-base);font-weight:500;color:var(--fg);line-height:1.25;margin-top:0.15rem;padding-right:1rem")}>Escalate</div>
+            <p style={css("font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.42;margin-top:0.3rem")}>For billing, roles or out-of-scope calls.</p>
+            <button onClick={() => actions.showToast("Decision escalated to Trish (Admin)")} className="pt-op" style={css("margin-top:0.6rem;width:100%;height:2rem;border-radius:var(--radius-pill);background:var(--accent);color:#fff;border:none;font-size:var(--text-sm);font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center")}>Escalate</button>
           </div>
         )}
 
@@ -188,7 +190,7 @@ export function Sidebar({ state, actions, rail, onLogout }: { state: PortalState
                 {accountMenu.map(a => (
                   <button key={a.label} onClick={a.onClick} className="pt-menuitem" style={css("display:flex;align-items:center;gap:0.6rem;width:100%;padding:0.5rem 0.55rem;border:0;border-radius:0.5rem;background:transparent;cursor:pointer")}>
                     <span style={{ flexShrink: 0, display: "flex", color: "var(--fg-muted)" }}><Icon name={a.icon} size={16} /></span>
-                    <span style={css("flex:1;text-align:left;font-size:0.8rem;font-weight:500;color:var(--fg)")}>{a.label}</span>
+                    <span style={css("flex:1;text-align:left;font-size:var(--text-sm);font-weight:500;color:var(--fg)")}>{a.label}</span>
                   </button>
                 ))}
               </div>
@@ -203,3 +205,5 @@ export function Sidebar({ state, actions, rail, onLogout }: { state: PortalState
 
   return <div style={css("width:" + width + ";flex-shrink:0;position:relative;transition:width .28s " + ease)}>{sidebarContent}</div>;
 }
+
+export const Sidebar = memo(SidebarComponent);

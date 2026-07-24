@@ -1,6 +1,7 @@
 import { launch } from "chrome-launcher";
 import puppeteer, { type Browser, type Page } from "puppeteer-core";
 import type { AuditCheckResult, LighthouseRun } from "./auditChecklist";
+import { withExclusiveServerResource } from "./serverResourceGuard";
 
 export interface ObservedWebsiteColor {
   hex: string;
@@ -257,34 +258,50 @@ async function collectTechnicalEvidence(input: string, rendered: RenderedPageEvi
   };
 }
 
-export async function collectWebsiteEvidence(urls: string[]): Promise<WebsiteEvidenceBundle> {
-  if (!urls.length) return { rendered: [], technical: { https: false, httpRedirectsToHttps: null, hostRedirectConsistent: null, sitemapAvailable: false, robotsAvailable: false, notFoundHelpful: null, brokenLinksChecked: 0, brokenLinks: [] } };
-  let browser: Browser;
-  let closeBrowser: () => Promise<void>;
-  const chromePath = process.env.CHROME_PATH || (process.platform === "darwin" ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" : undefined);
-  if (chromePath) {
-    const chrome = await launch({ chromePath, chromeFlags: ["--headless=new", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"] });
-    browser = await puppeteer.connect({ browserURL: `http://127.0.0.1:${chrome.port}` });
-    closeBrowser = async () => { await browser.disconnect(); await chrome.kill(); };
-  } else {
-    const { default: chromium } = await import("@sparticuz/chromium");
-    browser = await puppeteer.launch({ executablePath: await chromium.executablePath(), args: chromium.args, headless: true });
-    closeBrowser = async () => { await browser.close(); };
+export async function collectWebsiteEvidence(
+  urls: string[],
+  strategies: Array<"mobile" | "desktop"> = ["desktop", "mobile"],
+  includeTechnical = true,
+): Promise<WebsiteEvidenceBundle> {
+  const emptyTechnical: SiteTechnicalEvidence = { https: false, httpRedirectsToHttps: null, hostRedirectConsistent: null, sitemapAvailable: false, robotsAvailable: false, notFoundHelpful: null, brokenLinksChecked: 0, brokenLinks: [] };
+  if (!urls.length) return { rendered: [], technical: emptyTechnical };
+  if (!strategies.length) {
+    return {
+      rendered: [],
+      technical: includeTechnical ? await collectTechnicalEvidence(urls[0], []) : emptyTechnical,
+    };
   }
-  const rendered: RenderedPageEvidence[] = [];
-  try {
-    for (const strategy of ["desktop", "mobile"] as const) {
-      for (const url of urls) {
-        const page = await browser.newPage();
-        try { rendered.push(await inspectPage(page, url, strategy)); }
-        catch (error) { console.warn("Rendered audit page inspection failed.", { url, strategy, message: error instanceof Error ? error.message : String(error) }); }
-        finally { await page.close(); }
-      }
+  return withExclusiveServerResource("Chromium", async () => {
+    let browser: Browser;
+    let closeBrowser: () => Promise<void>;
+    const chromePath = process.env.CHROME_PATH || (process.platform === "darwin" ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" : undefined);
+    if (chromePath) {
+      const chrome = await launch({ chromePath, chromeFlags: ["--headless=new", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"] });
+      browser = await puppeteer.connect({ browserURL: `http://127.0.0.1:${chrome.port}` });
+      closeBrowser = async () => { await browser.disconnect(); await chrome.kill(); };
+    } else {
+      const { default: chromium } = await import("@sparticuz/chromium");
+      browser = await puppeteer.launch({ executablePath: await chromium.executablePath(), args: chromium.args, headless: true });
+      closeBrowser = async () => { await browser.close(); };
     }
-  } finally {
-    await closeBrowser();
-  }
-  return { rendered, technical: await collectTechnicalEvidence(urls[0], rendered) };
+    const rendered: RenderedPageEvidence[] = [];
+    try {
+      for (const strategy of strategies) {
+        for (const url of urls) {
+          const page = await browser.newPage();
+          try { rendered.push(await inspectPage(page, url, strategy)); }
+          catch (error) { console.warn("Rendered audit page inspection failed.", { url, strategy, message: error instanceof Error ? error.message : String(error) }); }
+          finally { await page.close(); }
+        }
+      }
+    } finally {
+      await closeBrowser();
+    }
+    return {
+      rendered,
+      technical: includeTechnical ? await collectTechnicalEvidence(urls[0], rendered) : emptyTechnical,
+    };
+  }, { waitMs: 20_000, maxQueue: 1 });
 }
 
 export function automatedAuditChecks(bundle: WebsiteEvidenceBundle, lighthouse: LighthouseRun[]) {

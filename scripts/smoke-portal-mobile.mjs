@@ -43,7 +43,20 @@ async function chromePath() {
 
 async function authenticate(page, user) {
   await page.goto(`${baseUrl}/login`, { waitUntil: "domcontentloaded", timeout: 30_000 });
-  await page.evaluate(value => sessionStorage.setItem("bs-user", JSON.stringify(value)), user);
+  const result = await page.evaluate(async value => {
+    const response = await fetch("/api/dev-login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        email: value.email,
+        password: value.role === "admin" ? "studio123" : "client123",
+      }),
+    });
+    const payload = await response.json().catch(() => null);
+    if (response.ok && payload?.user) sessionStorage.setItem("bs-user", JSON.stringify(payload.user));
+    return { ok: response.ok, error: payload?.error };
+  }, user);
+  if (!result.ok) throw new Error(result.error || `Unable to authenticate ${user.role} smoke session.`);
 }
 
 async function inspectRoute(page, name, query, role) {

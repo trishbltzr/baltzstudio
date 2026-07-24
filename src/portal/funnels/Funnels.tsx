@@ -13,6 +13,7 @@ import { DelivBody, GRAD } from "./deliverables";
 import { clientsVisibleToRole, type ClientFacet } from "../clients";
 import { GuidedIntakeSelector } from "../components/GuidedIntakeSelector";
 import { EngineIndexControls } from "../components/EngineIndexControls";
+import { EngineIndexOverview } from "../components/EngineIndexOverview";
 import { assignedEngineWork, clientsForEngineWork, isUnassignedEngineClient, latestEngineWork, startClientForEngine } from "../engineLifecycle";
 import { GuidedIntakeShell, GuidedOptionPill, GuidedPipelinePanel, GuidedUnsureToggle } from "../components/GuidedIntakeShell";
 import { DiscoveryBuilder } from "../discovery/DiscoveryBuilder";
@@ -25,6 +26,9 @@ import type { TaskImportDraft } from "../types";
 import { mergePortalClientWorkspace, type PortalFunnelPlanRecord } from "@/lib/portalWorkspacePersistence";
 import { coercePersistedAuditDrafts, type GuidedAuditSession } from "@/lib/portalAuditPersistence";
 import { ShareLinkDialog } from "../components/ShareLinkDialog";
+import { CREATOR_IQ_FUNNEL_DEMO_DATA } from "@/lib/creatorIqDemoWorkspace";
+import { aiReviewMeta, deriveAiReviewState } from "@/lib/aiReviewState";
+import { DASHBOARD_USER_EMAIL_HEADER } from "@/lib/dashboardPersistence";
 
 // ── state ────────────────────────────────────────────────────────────────────
 type Ans = Record<string, string | string[]>;
@@ -229,11 +233,14 @@ function funnelSessionMeta(session: GuidedAuditSession) {
   const complete = !!session.proposal || !!session.approved.brief;
   const intakeProgress = session.questionTotal > 0 ? Math.round((Math.min(session.qIdx, session.questionTotal) / session.questionTotal) * 20) : 0;
   const stageBase = Math.min(session.stage, FUNNEL_STAGES.length - 1) * 20;
-  const readyForApproval = session.stage > 0 && !!session.aiResults[stageKey] && !session.approved[stageKey];
+  const generated = !!session.aiResults[stageKey];
+  const readyForApproval = session.stage > 0 && generated && !session.approved[stageKey];
   const progress = complete ? 100 : session.stage === 0 ? intakeProgress : Math.min(95, stageBase + (readyForApproval ? 15 : 0));
-  const statusLabel = complete ? "Complete" : readyForApproval ? "Ready for approval" : progress > 0 ? "In progress" : "Draft";
-  const statusTone: FunnelBuild["statusTone"] = complete ? "success" : readyForApproval ? "accent" : progress > 0 ? "warn" : "muted";
-  const stage = complete ? "Development plan · Complete" : `${stageDefinition?.label || "Discovery"} · ${readyForApproval ? "Ready for approval" : "In progress"}`;
+  const reviewState = deriveAiReviewState({ explicit: session.reviewStates?.[stageKey], generated, approved: complete || session.approved[stageKey], drafting: progress > 0 && !generated });
+  const reviewMeta = aiReviewMeta(reviewState);
+  const statusLabel = reviewMeta.label;
+  const statusTone: FunnelBuild["statusTone"] = reviewMeta.tone;
+  const stage = `${complete ? "Development plan" : stageDefinition?.label || "Discovery"} · ${reviewMeta.label}`;
   return { progress, statusLabel, statusTone, stage, updatedAt: new Date().toISOString() };
 }
 
@@ -252,7 +259,7 @@ function fmt(q: FQuestion, s: FState): string {
   return typeof v === "string" && v.trim() ? v : "";
 }
 
-export function Funnels({ state, actions }: { state: PortalState; actions: PortalActions }) {
+export function Funnels({ state, actions, userEmail }: { state: PortalState; actions: PortalActions; userEmail: string }) {
   const flow = useMemo(() => buildFlow(), []);
   const visibleClients = useMemo(() => clientsVisibleToRole(state.role, state.clientName), [state.clientName, state.role]);
   const workingClients = useMemo(() => clientsForEngineWork(state.role, visibleClients), [state.role, visibleClients]);
@@ -304,7 +311,10 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/portal-audit-runs", { cache: "no-store" })
+    fetch("/api/portal-audit-runs", {
+      cache: "no-store",
+      headers: { [DASHBOARD_USER_EMAIL_HEADER]: userEmail },
+    })
       .then(async response => {
         const payload = await response.json().catch(() => null);
         if (!response.ok) throw new Error(typeof payload?.error === "string" ? payload.error : "Unable to load completed audits.");
@@ -318,7 +328,7 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
       })
       .catch(error => console.error("Unable to load funnel eligibility.", error));
     return () => { cancelled = true; };
-  }, [visibleClientIds, visibleClients]);
+  }, [userEmail, visibleClientIds, visibleClients]);
 
   useEffect(() => {
     const rawPersistedBuilds = Object.values(state.clientWorkspaces).flatMap(workspace => workspace.funnelPlans.flatMap(record => {
@@ -438,6 +448,11 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
     const record = workspace.funnelPlans.find(plan => plan.buildId === item.id || plan.id === item.id);
     if (!record) return null;
     const post = coercePlanPost(record);
+    const seededPrimaryAction = post.content?.brief?.find(item => item.label === "Primary action")?.value;
+    if (item.id === "funnel-creator-iq-demo" && (!seededPrimaryAction || seededPrimaryAction === "Take the next step")) {
+      const refreshed = buildPlanPost(item, CREATOR_IQ_FUNNEL_DEMO_DATA);
+      return { ...refreshed, generatedAt: post.generatedAt || refreshed.generatedAt };
+    }
     // Heal plans persisted by an older schema (e.g. before funnel recommendations
     // existed) so the preview renders fully instead of crashing on missing fields.
     if (!Array.isArray(post.content?.recommendations)) {
@@ -446,11 +461,12 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
     return post;
   };
   const buildPlanPost = (item: FunnelBuild, data: Ans = FUNNEL_DEMO): FunnelPlanPost => {
-    const title = funnelTitleFromData(data, item.subtitle);
-    const selectedType = typeof data.ftype === "string" && data.ftype.trim() ? data.ftype : title;
+    const planData = item.id === "funnel-creator-iq-demo" ? { ...FUNNEL_DEMO, ...data, ...CREATOR_IQ_FUNNEL_DEMO_DATA } : data;
+    const title = funnelTitleFromData(planData, item.subtitle);
+    const selectedType = typeof planData.ftype === "string" && planData.ftype.trim() ? planData.ftype : title;
     const content = FUNNEL_PIPELINE.buildDocs({
       ...FUNNEL_DEMO,
-      ...data,
+      ...planData,
       name: item.clientName + " · " + title,
       ftype: selectedType,
     }) as FunnelDocs;
@@ -497,7 +513,7 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
     funnelPersistTimer.current = setTimeout(() => {
       const existing = storedPlanForBuild(buildSnapshot);
       const next = buildPlanPost(buildSnapshot, session.data);
-      persistPlanPost({ ...next, generatedAt: existing?.generatedAt || next.generatedAt });
+      persistPlanPost({ ...next, generatedAt: existing?.generatedAt || next.generatedAt, processRun: session.processRun });
       funnelPersistTimer.current = null;
     }, 350);
   };
@@ -596,8 +612,11 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
             description={canCreate ? "Use your approved audit to create the strategy, sales-page wireframe, copy, and launch plan." : "Complete your website audit first so this build can use the approved findings and brand context."}
             controlsBelow
             controls={<EngineIndexControls
-              metrics={[{ label: canCreate ? "Audit ready" : "Website audit required", tone: canCreate ? "success" : "warn" }]}
+              metrics={[]}
               action={{ label: "Generate funnel", onClick: () => createFunnel(ownClient.id), disabled: !canCreate }}
+            />}
+            overview={<EngineIndexOverview
+              metrics={[{ label: canCreate ? "Audit ready" : "Website audit required", tone: canCreate ? "success" : "warn" }]}
             />}
             countLabel="build"
             cards={[]}
@@ -614,8 +633,11 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
           description="Add the offer, audience, and sales goal. Get the strategy, sales-page wireframe, copy, and launch plan."
           controlsBelow
           controls={<EngineIndexControls
-            metrics={[{ label: `${assignedEngineWork(builds, visibleClients).length} created`, tone: "accent" }]}
+            metrics={[]}
             action={{ label: "Generate funnel", onClick: startOrResumeFunnel }}
+          />}
+          overview={<EngineIndexOverview
+            metrics={[{ label: `${assignedEngineWork(builds, visibleClients).length} created`, tone: "accent" }]}
           />}
           countLabel="build"
           cards={funnelGroups.map(group => {
@@ -727,7 +749,7 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
         <div style={css("height:4px;background:var(--bg);border-radius:999px;overflow:hidden")}><div style={css("height:100%;width:" + pct + "%;background:linear-gradient(90deg,oklch(0.66 0.12 155),oklch(0.54 0.11 165));transition:width .3s ease")} /></div>
         <div style={css("display:grid;grid-template-columns:0.72fr 1fr;gap:0.45rem;margin-top:0.8rem")}>
           <button type="button" onClick={() => dispatch({ t: "restart" })} style={css("min-height:2.05rem;display:inline-flex;align-items:center;justify-content:center;padding:0 0.6rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;cursor:pointer")}>Restart</button>
-          <button type="button" onClick={() => { const st = flow[s.idx]; if (st.kind === "section" || st.kind === "gate") dispatch({ t: "autofill", s: (st as { sIdx: number }).sIdx }); }} style={css("min-height:2.05rem;display:inline-flex;align-items:center;justify-content:center;gap:0.3rem;padding:0 0.5rem;border:1px dashed var(--border);border-radius:var(--radius-pill);background:transparent;color:var(--fg-muted);font-size:0.68rem;font-weight:500;cursor:pointer")}><Icon name="replay" size={12} />Auto-fill step</button>
+          <button type="button" onClick={() => { const st = flow[s.idx]; if (st.kind === "section" || st.kind === "gate") dispatch({ t: "autofill", s: (st as { sIdx: number }).sIdx }); }} style={css("min-height:2.05rem;display:inline-flex;align-items:center;justify-content:center;gap:0.3rem;padding:0 0.5rem;border:1px dashed var(--border);border-radius:var(--radius-pill);background:transparent;color:var(--fg-muted);font-size:var(--text-2xs);font-weight:500;cursor:pointer")}><Icon name="replay" size={12} />Auto-fill step</button>
         </div>
       </>
     );
@@ -741,10 +763,10 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
     <div style={css("width:100%;padding:" + (mobile ? "1rem 0.9rem 1.5rem" : "1.4rem 1.5rem") + ";display:flex;flex-direction:column;gap:0.9rem")}>
       {build && <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:.45rem")}>
         {deleteBuildConfirm ? <>
-          <span style={css("margin-right:.2rem;font-size:.72rem;color:var(--danger)")}>Delete this funnel?</span>
-          <button type="button" onClick={() => setDeleteBuildConfirm(false)} style={css("height:2rem;padding:0 .75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--fg-muted);font-size:.72rem;font-weight:500;cursor:pointer")}>Cancel</button>
-          <button type="button" onClick={() => { setDeleteBuildConfirm(false); deleteFunnel(build); }} style={css("height:2rem;padding:0 .75rem;border:none;border-radius:999px;background:var(--danger);color:#fff;font-size:.72rem;font-weight:500;cursor:pointer")}>Delete funnel</button>
-        </> : <button type="button" onClick={() => setDeleteBuildConfirm(true)} style={css("height:2rem;padding:0 .75rem;border:1px solid color-mix(in srgb,var(--danger) 35%,var(--border) 65%);border-radius:999px;background:var(--surface);color:var(--danger);font-size:.72rem;font-weight:500;cursor:pointer")}>Delete funnel</button>}
+          <span style={css("margin-right:.2rem;font-size:var(--text-2xs);color:var(--danger)")}>Delete this funnel?</span>
+          <button type="button" onClick={() => setDeleteBuildConfirm(false)} style={css("height:2rem;padding:0 .75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--fg-muted);font-size:var(--text-2xs);font-weight:500;cursor:pointer")}>Cancel</button>
+          <button type="button" onClick={() => { setDeleteBuildConfirm(false); deleteFunnel(build); }} style={css("height:2rem;padding:0 .75rem;border:none;border-radius:999px;background:var(--danger);color:#fff;font-size:var(--text-2xs);font-weight:500;cursor:pointer")}>Delete funnel</button>
+        </> : <button type="button" onClick={() => setDeleteBuildConfirm(true)} style={css("height:2rem;padding:0 .75rem;border:1px solid color-mix(in srgb,var(--danger) 35%,var(--border) 65%);border-radius:999px;background:var(--surface);color:var(--danger);font-size:var(--text-2xs);font-weight:500;cursor:pointer")}>Delete funnel</button>}
       </div>}
       <DiscoveryBuilder
         key={build?.id || client.id}
@@ -763,6 +785,12 @@ export function Funnels({ state, actions }: { state: PortalState; actions: Porta
         onImportTasks={actions.bulkImportTasks}
         onPipelineComplete={data => { if (build) persistPlanPost(buildPlanPost(build, data)); }}
         sessionKey={build?.id}
+        processId="funnel-build"
+        accessState={state}
+        onOpenApprovals={() => actions.setView("review")}
+        processClientId={client.id}
+        processRunId={build?.id}
+        processDueAt={build?.due}
         onSessionChange={saveFunnelSession}
         showToast={actions.showToast}
         prefill={funnelKnow.data}
@@ -845,9 +873,9 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImp
     >
       <div onClick={event => event.stopPropagation()} style={css("width:min(51rem,100%);margin:" + (mobile ? "0 auto" : "1.1rem auto 2rem"))}>
         <div style={css("display:flex;align-items:center;gap:var(--space-3);margin-bottom:0.8rem")}>
-          <div style={css("font-size:0.92rem;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.2);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1")}>{post.title} · {post.clientName}</div>
+          <div style={css("font-size:var(--text-lg);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.2);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1")}>{post.title} · {post.clientName}</div>
           <div style={css("margin-left:auto;display:flex;align-items:center;gap:0.6rem;flex-shrink:0")}>
-            {showAiHandover && <button type="button" onClick={() => { setHandoverOpen(open => !open); void copyAiHandover(); }} className="pt-iconbtn" style={css("display:inline-flex;align-items:center;gap:0.4rem;min-height:2.1rem;padding:0 0.85rem;border-radius:999px;border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.9);color:var(--fg);font-size:0.74rem;font-weight:500;cursor:pointer;white-space:nowrap")}><Icon name="send" size={13} />Build handover</button>}
+            {showAiHandover && <button type="button" onClick={() => { setHandoverOpen(open => !open); void copyAiHandover(); }} className="pt-iconbtn" style={css("display:inline-flex;align-items:center;gap:0.4rem;min-height:2.1rem;padding:0 0.85rem;border-radius:999px;border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.9);color:var(--fg);font-size:var(--text-2xs);font-weight:500;cursor:pointer;white-space:nowrap")}><Icon name="send" size={13} />Build handover</button>}
             <button type="button" onClick={onClose} className="pt-iconbtn" style={css("width:2.1rem;height:2.1rem;border-radius:50%;border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.86);color:var(--fg-muted);display:grid;place-items:center;cursor:pointer;flex-shrink:0")}><Icon name="x" size={15} /></button>
           </div>
         </div>
@@ -857,7 +885,7 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImp
             <span style={css("width:3rem;height:3rem;border-radius:0.68rem;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex-shrink:0")}><Icon name="checklist" size={22} /></span>
             <div style={{ minWidth: 0, flex: "1 1 auto" }}>
               <h2 style={css("margin:0;font-size:" + (mobile ? "1.2rem" : "1.45rem") + ";font-weight:500;letter-spacing:-0.015em;line-height:1.1")}>Development plan</h2>
-              {showAiHandover && <p style={css("margin:0.3rem 0 0;font-size:0.76rem;color:var(--fg-muted);line-height:1.4")}>Includes a build-ready handover generated from this plan.</p>}
+              {showAiHandover && <p style={css("margin:0.3rem 0 0;font-size:var(--text-xs);color:var(--fg-muted);line-height:1.4")}>Includes a build-ready handover generated from this plan.</p>}
             </div>
             <span style={css("margin-left:auto;display:inline-flex;align-items:center;min-height:2.15rem;padding:0 0.95rem;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:var(--text-base);font-weight:500;white-space:nowrap")}>Ready for review</span>
           </header>
@@ -867,7 +895,7 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImp
               <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);flex-wrap:wrap;margin-bottom:0.65rem")}>
                 <div>
                   <div style={css("font-size:var(--text-base);font-weight:500;color:var(--fg)")}>Build handover</div>
-                  <div style={css("font-size:0.7rem;color:var(--fg-muted);margin-top:0.15rem")}>Use this with your builder or development team as the source of truth.</div>
+                  <div style={css("font-size:var(--text-2xs);color:var(--fg-muted);margin-top:0.15rem")}>Use this with your builder or development team as the source of truth.</div>
                 </div>
                 <button type="button" onClick={copyAiHandover} className="pt-iconbtn" style={css("display:inline-flex;align-items:center;gap:0.35rem;min-height:2rem;padding:0 0.8rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;cursor:pointer")}><Icon name="file" size={13} />Copy handover</button>
               </div>
@@ -938,11 +966,11 @@ function FunnelPlanDoc() {
           <span style={css("width:30px;height:30px;border-radius:7px;flex-shrink:0;background:color-mix(in srgb,var(--accent) 12%,white 88%);color:var(--accent);display:grid;place-items:center;font-size:14px;font-weight:500")}>B</span>
           <div><div style={css("font-size:15px;font-weight:500;line-height:1.15")}>Client</div><div style={css("font-size:11px;color:var(--fg-faint)")}>Funnel Build Plan</div></div>
         </div>
-        <div style={css("text-align:right;flex-shrink:0")}><div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;font-size:9.5px;color:var(--fg-faint)")}>Plan</div><div style={css("font-size:11px;color:var(--fg-muted);margin-top:2px")}>Jul 2026</div></div>
+        <div style={css("text-align:right;flex-shrink:0")}><div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;font-size:9.5px;color:var(--fg-faint)")}>Plan</div><div style={css("font-size:11px;color:var(--fg-muted);margin-top:2px")}>Jul 2026</div></div>
       </div>
 
       <div style={css("padding:18px 24px 0")}>
-        <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;font-size:9.5px;color:var(--fg-faint);margin-bottom:11px")}>The funnel</div>
+        <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;font-size:9.5px;color:var(--fg-faint);margin-bottom:11px")}>The funnel</div>
         <div style={css("padding-bottom:18px;border-bottom:1px solid var(--border-soft)")}>
           <div style={css("font-size:14px;font-weight:500;line-height:1.32")}>Book more strategy calls without rebuilding the whole site.</div>
           <div style={css("display:flex;flex-wrap:wrap;gap:6px;margin-top:10px")}>
@@ -951,7 +979,7 @@ function FunnelPlanDoc() {
             ))}
           </div>
         </div>
-        <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;font-size:9.5px;color:var(--fg-faint);margin:16px 0 4px")}>Plan sections</div>
+        <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;font-size:9.5px;color:var(--fg-faint);margin:16px 0 4px")}>Plan sections</div>
       </div>
 
       <div style={css("padding:0 24px 6px")}>
@@ -973,11 +1001,11 @@ function FunnelPlanDoc() {
 function Welcome({ mobile, onStart }: { mobile: boolean; onStart: () => void }) {
   const leftPanel = (
     <div style={css("position:relative;z-index:2;flex-shrink:0;width:" + (mobile ? "100%" : "452px") + ";height:" + (mobile ? "auto" : "100%") + ";padding:" + (mobile ? "26px 22px 4px" : "44px 0 44px 44px") + ";display:flex;flex-direction:column")}>
-      <div style={css("display:flex;align-items:center;gap:8px;margin-bottom:22px")}><span style={css("width:6px;height:6px;border-radius:50%;background:var(--accent)")} /><span style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;font-size:11px;color:var(--accent)")}>Lead-Gen Funnel · Guided Build</span></div>
+      <div style={css("display:flex;align-items:center;gap:8px;margin-bottom:22px")}><span style={css("width:6px;height:6px;border-radius:50%;background:var(--accent)")} /><span style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;font-size:11px;color:var(--accent)")}>Lead-Gen Funnel · Guided Build</span></div>
       <h1 style={css("margin:0;font-size:" + (mobile ? "26px" : "31px") + ";line-height:1.08;letter-spacing:-0.02em;font-weight:500;color:var(--fg)")}>See exactly what you&apos;ll get.</h1>
       <p style={css("margin:12px 0 0;font-size:14px;line-height:1.5;color:var(--fg-muted);max-width:44ch")}>Every funnel turns your approved inputs into a build-ready plan with the structure, messaging, and next steps your team can actually execute.</p>
 
-      <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;font-size:11px;color:var(--fg-faint);margin-top:22px")}>The six things we build</div>
+      <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;font-size:11px;color:var(--fg-faint);margin-top:22px")}>The six things we build</div>
       <div style={css("margin-top:11px;background:var(--surface);border:1px solid var(--border-soft);border-radius:12px;overflow:hidden")}>
         {FUNNEL_SIX.map(([n, title, tag], i) => (
           <div key={n} style={css("display:flex;align-items:center;gap:12px;padding:10px 16px" + (i < FUNNEL_SIX.length - 1 ? ";border-bottom:1px solid var(--border-soft)" : ""))}>
@@ -1031,23 +1059,23 @@ function SectionCard({ step, s, dispatch, mobile }: { step: Extract<FlowStep, { 
     <div style={{ animation: "cocoonFade .28s ease", marginTop: mobile ? "0.45rem" : "0.7rem" }}>
       <div style={css("background:var(--surface);border:1px solid var(--border-soft);border-radius:0.875rem;overflow:hidden")}>
         <div style={css("padding:0.98rem 1.18rem 0.78rem;border-bottom:1px solid var(--border-soft)")}>
-          <div style={css("font-size:0.62rem;color:var(--fg-muted);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.36rem;flex-wrap:wrap")}>
+          <div style={css("font-size:var(--text-2xs);color:var(--fg-muted);margin-bottom:0.4rem;display:flex;align-items:center;gap:0.36rem;flex-wrap:wrap")}>
             <span>{meta}</span>
             <span>·</span>
             <span style={css("color:var(--accent);font-weight:500")}>Complete this section</span>
           </div>
-          <h3 style={css("font-size:1.04rem;font-weight:500;line-height:1.22;margin:0")}>{SECTIONS[step.sIdx]}</h3>
+          <h3 style={css("font-size:var(--text-xl);font-weight:500;line-height:1.22;margin:0")}>{SECTIONS[step.sIdx]}</h3>
         </div>
         <div style={css("padding:0.82rem 1.18rem;display:flex;flex-direction:column;gap:0.68rem")}>
           {step.questions.map((q, index) => {
             const val = s.answers[q.id];
             return (
               <div key={q.id} style={css("padding:" + (mobile ? "0.74rem" : "0.74rem 0.8rem 0.78rem") + ";border:1px solid var(--border-soft);border-radius:0.8rem;background:color-mix(in srgb,var(--surface) 82%,var(--surface-alt) 18%)")}>
-                <div style={css("font-size:0.62rem;color:var(--fg-muted);margin-bottom:0.36rem;display:flex;align-items:center;gap:0.36rem;flex-wrap:wrap")}>
+                <div style={css("font-size:var(--text-2xs);color:var(--fg-muted);margin-bottom:0.36rem;display:flex;align-items:center;gap:0.36rem;flex-wrap:wrap")}>
                   <span>{String(index + 1).padStart(2, "0")} · {TYPE_LABEL[q.kind]}</span>
                   {q.required ? <><span>·</span><span style={css("color:var(--accent);font-weight:500")}>Required</span></> : <><span>·</span><span style={css("color:var(--fg-faint)")}>Optional</span></>}
                 </div>
-                <h4 style={css("font-size:0.86rem;font-weight:500;line-height:1.28;margin:0 0 0.54rem")}>{q.prompt}</h4>
+                <h4 style={css("font-size:var(--text-base);font-weight:500;line-height:1.28;margin:0 0 0.54rem")}>{q.prompt}</h4>
                 {q.kind === "choice" && (
                   <div style={css("display:grid;grid-template-columns:" + optionsGrid + ";gap:0.32rem")}>
                     {q.options!.map(opt => {
@@ -1075,7 +1103,7 @@ function SectionCard({ step, s, dispatch, mobile }: { step: Extract<FlowStep, { 
               </div>
             );
           })}
-          {s.error && <div style={css("font-size:0.68rem;color:oklch(0.55 0.2 20);font-weight:500")}>{s.error}</div>}
+          {s.error && <div style={css("font-size:var(--text-2xs);color:oklch(0.55 0.2 20);font-weight:500")}>{s.error}</div>}
         </div>
       </div>
     </div>
@@ -1091,10 +1119,10 @@ function GateCard({ sIdx, s, client, fmtQ }: { sIdx: number; s: FState; client: 
       <div style={css("background:var(--surface);border-radius:16px;border:1px solid var(--border-soft);overflow:hidden")}>
         <div style={css("padding:1.6rem 1.8rem 0.3rem")}>
           <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin-bottom:1rem;flex-wrap:wrap")}>
-            <span style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--accent)")}>Sign-off · {SECTIONS[sIdx]}</span>
+            <span style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--accent)")}>Sign-off · {SECTIONS[sIdx]}</span>
             <span style={css("display:inline-flex;align-items:center;gap:0.35rem;font-size:var(--text-2xs);font-weight:500;padding:0.2rem 0.55rem;border-radius:999px;" + (signed ? "background:var(--success-soft);color:var(--success)" : "background:var(--warn-soft);color:var(--warn)"))}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:" + (signed ? "var(--success)" : "oklch(0.7 0.12 68)"))} />{signed ? "Signed off" : "Needs sign-off"}</span>
           </div>
-          <h3 style={css("font-size:1.55rem;font-weight:500;line-height:1.16;margin:0 0 0.42rem")}>Here&apos;s what we heard</h3>
+          <h3 style={css("font-size:var(--text-3xl);font-weight:500;line-height:1.16;margin:0 0 0.42rem")}>Here&apos;s what we heard</h3>
           <p style={css("color:var(--fg-muted);font-size:var(--text-base);margin:0;line-height:1.55")}>Read it back — this is the brief we build on. Sign off to lock it in, or edit anything that&apos;s off.</p>
         </div>
         <div style={css("padding:0.75rem 1.8rem 1rem")}>
@@ -1103,7 +1131,7 @@ function GateCard({ sIdx, s, client, fmtQ }: { sIdx: number; s: FState; client: 
               <span style={css("font-size:var(--text-xs);font-weight:600;color:var(--accent);flex-shrink:0;width:1.4rem;padding-top:0.15rem")}>{String(i + 1).padStart(2, "0")}</span>
               <div style={css("min-width:0;flex:1")}>
                 <div style={css("font-size:var(--text-sm);color:var(--fg-muted);margin-bottom:0.22rem;line-height:1.4")}>{it.label}</div>
-                <div style={css("font-size:0.85rem;color:var(--fg);line-height:1.4")}>{it.value}</div>
+                <div style={css("font-size:var(--text-base);color:var(--fg);line-height:1.4")}>{it.value}</div>
               </div>
             </div>
           ))}
@@ -1132,7 +1160,7 @@ function DelivCard({ dId, s, dispatch, get }: { dId: string; s: FState; dispatch
           <div style={css("display:flex;gap:0.85rem;align-items:center;min-width:0")}>
             <div style={css("width:2.5rem;height:2.5rem;border-radius:0.8rem;background:" + (signed ? "var(--success-soft)" : "var(--accent-soft)") + ";color:" + (signed ? "var(--success)" : "var(--accent)") + ";display:grid;place-items:center;font-size:var(--text-xl);font-weight:600;flex-shrink:0")}>{signed ? "✓" : num}</div>
             <div style={css("min-width:0")}>
-              <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--accent);margin-bottom:0.25rem")}>Generated from {d.from}</div>
+              <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--accent);margin-bottom:0.25rem")}>Generated from {d.from}</div>
               <h3 style={css("font-size:var(--text-3xl);font-weight:500;line-height:1.2;margin:0")}>{d.title}</h3>
             </div>
           </div>
@@ -1152,7 +1180,7 @@ function DelivCard({ dId, s, dispatch, get }: { dId: string; s: FState; dispatch
         ) : (
           <>
             <DelivBody id={dId} get={get} />
-            {s.notes[dId] && <div style={css("margin-top:1rem;padding:0.8rem 1rem;border-radius:10px;background:var(--warn-soft);font-size:0.78rem;color:var(--fg);line-height:1.5")}><span style={css("font-weight:500")}>Change requested:</span> {s.notes[dId]}</div>}
+            {s.notes[dId] && <div style={css("margin-top:1rem;padding:0.8rem 1rem;border-radius:10px;background:var(--warn-soft);font-size:var(--text-xs);color:var(--fg);line-height:1.5")}><span style={css("font-weight:500")}>Change requested:</span> {s.notes[dId]}</div>}
           </>
         )}
       </div>
@@ -1163,8 +1191,8 @@ function DelivCard({ dId, s, dispatch, get }: { dId: string; s: FState; dispatch
 // ── sticky action bar ────────────────────────────────────────────────────────
 function ActionBar({ cur, s, dispatch }: { cur: FlowStep; s: FState; dispatch: (a: Act) => void }) {
   const wrap = "flex-shrink:0;border-top:1px solid var(--border-soft);background:var(--surface);padding:0.8rem 1.3rem;display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);min-height:4rem";
-  const ghost = "min-height:2.4rem;padding:0 1.1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-pill);font-size:0.85rem;font-weight:500;color:var(--fg-muted);font-family:inherit;cursor:pointer";
-  const primary = "display:inline-flex;align-items:center;gap:0.4rem;min-height:2.4rem;padding:0 1.4rem;border:none;border-radius:var(--radius-pill);background:" + GRAD + ";color:#fff;font-size:0.9rem;font-weight:500;cursor:pointer";
+  const ghost = "min-height:2.4rem;padding:0 1.1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-pill);font-size:var(--text-base);font-weight:500;color:var(--fg-muted);font-family:inherit;cursor:pointer";
+  const primary = "display:inline-flex;align-items:center;gap:0.4rem;min-height:2.4rem;padding:0 1.4rem;border:none;border-radius:var(--radius-pill);background:" + GRAD + ";color:#fff;font-size:var(--text-md);font-weight:500;cursor:pointer";
 
   // The bottom bar is only for the approval screens (gates + deliverables).
   // Welcome/questions handle their own actions inline, below the form.
@@ -1173,7 +1201,7 @@ function ActionBar({ cur, s, dispatch }: { cur: FlowStep; s: FState; dispatch: (
     const signed = s.confirmed[cur.sIdx];
     return (
       <div style={css(wrap)}>
-        <span style={css("font-size:0.8rem;color:var(--fg-muted);font-weight:500;min-width:0")}>{signed ? "Locked in — moving on." : "Review the brief, then sign off."}</span>
+        <span style={css("font-size:var(--text-sm);color:var(--fg-muted);font-weight:500;min-width:0")}>{signed ? "Locked in — moving on." : "Review the brief, then sign off."}</span>
         <div style={css("display:flex;gap:0.6rem;flex-shrink:0")}>
           <button type="button" onClick={() => dispatch({ t: "go", i: s.idx - 1 })} style={css(ghost)}>Edit answers</button>
           <button type="button" onClick={() => dispatch({ t: "confirmGate", s: cur.sIdx })} style={css(primary)}>{signed ? "Continue" : "Sign off & continue"}</button>
@@ -1183,7 +1211,7 @@ function ActionBar({ cur, s, dispatch }: { cur: FlowStep; s: FState; dispatch: (
   }
   // deliv
   const d = DELIVS.find(x => x.id === cur.dId)!;
-  if (s.genActive && !s.genDone[cur.dId]) return <div style={css(wrap)}><span style={css("font-size:0.8rem;color:var(--fg-muted)")}>Generating…</span></div>;
+  if (s.genActive && !s.genDone[cur.dId]) return <div style={css(wrap)}><span style={css("font-size:var(--text-sm);color:var(--fg-muted)")}>Generating…</span></div>;
   if (d.terminal) {
     return (
       <div style={css(wrap)}>
@@ -1197,10 +1225,10 @@ function ActionBar({ cur, s, dispatch }: { cur: FlowStep; s: FState; dispatch: (
   if (s.requesting) {
     return (
       <div style={css(wrap)}>
-        <input value={s.draftNote} onChange={e => dispatch({ t: "draft", v: e.target.value })} placeholder="What would you like changed?" style={css("flex:1;padding:0.55rem 0.8rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.85rem;font-family:inherit;color:var(--fg);background:color-mix(in srgb,var(--surface) 94%,white 6%);outline:none")} />
+        <input value={s.draftNote} onChange={e => dispatch({ t: "draft", v: e.target.value })} placeholder="What would you like changed?" style={css("flex:1;padding:0.55rem 0.8rem;border:1px solid var(--border);border-radius:var(--radius);font-size:var(--text-base);font-family:inherit;color:var(--fg);background:color-mix(in srgb,var(--surface) 94%,white 6%);outline:none")} />
         <div style={css("display:flex;gap:var(--space-2);flex-shrink:0")}>
           <button type="button" onClick={() => dispatch({ t: "cancelReq" })} style={css(ghost)}>Cancel</button>
-          <button type="button" onClick={() => dispatch({ t: "sendNote", id: cur.dId })} style={css("min-height:2.4rem;padding:0 1.1rem;background:var(--accent-soft);border:1px solid var(--accent);border-radius:var(--radius-pill);font-size:0.85rem;font-weight:500;color:var(--accent);font-family:inherit;cursor:pointer")}>Send</button>
+          <button type="button" onClick={() => dispatch({ t: "sendNote", id: cur.dId })} style={css("min-height:2.4rem;padding:0 1.1rem;background:var(--accent-soft);border:1px solid var(--accent);border-radius:var(--radius-pill);font-size:var(--text-base);font-weight:500;color:var(--accent);font-family:inherit;cursor:pointer")}>Send</button>
         </div>
       </div>
     );
@@ -1208,7 +1236,7 @@ function ActionBar({ cur, s, dispatch }: { cur: FlowStep; s: FState; dispatch: (
   const signed = s.signed[cur.dId];
   return (
     <div style={css(wrap)}>
-      <span style={css("font-size:0.8rem;color:" + (signed ? "var(--success)" : "var(--fg-muted)") + ";font-weight:500;min-width:0")}>{signed ? "✓ Signed off" : "Review, then sign off to unlock the next piece."}</span>
+      <span style={css("font-size:var(--text-sm);color:" + (signed ? "var(--success)" : "var(--fg-muted)") + ";font-weight:500;min-width:0")}>{signed ? "✓ Signed off" : "Review, then sign off to unlock the next piece."}</span>
       <div style={css("display:flex;gap:0.6rem;flex-shrink:0")}>
         <button type="button" onClick={() => dispatch({ t: "reqChanges", note: s.notes[cur.dId] || "" })} style={css(ghost)}>Request changes</button>
         <button type="button" onClick={() => dispatch({ t: "sign", id: cur.dId })} style={css(primary)}>{signed ? "Continue" : "Sign off & continue"}</button>

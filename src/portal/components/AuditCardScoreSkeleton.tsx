@@ -43,15 +43,40 @@ export function AuditCardScoreSkeleton({
           color: "var(--fg-faint)",
         }));
 
+  if (!scored) {
+    const parts = (unscoredDetail || "In progress").split(" · ");
+    const stage = parts[0];
+    const statusText = parts.slice(1).join(" · ");
+    const active = unscoredProgress > 0;
+    const tone = active ? "var(--accent)" : "var(--fg-faint)";
+    return (
+      <div className="pt-audit-card-score" data-score-state="empty" style={css("border:1px solid var(--border-soft);border-radius:0.9rem;background:var(--surface);padding:0.85rem 0.9rem;display:flex;flex-direction:column;gap:0.65rem")}>
+        <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-3)")}>
+          <div style={css("min-width:0")}>
+            <div style={css("font-size:var(--text-sm);font-weight:500;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{stage}</div>
+            {statusText && <div style={css("margin-top:0.14rem;display:inline-flex;align-items:center;gap:0.32rem;font-size:var(--text-2xs);color:var(--fg-muted)")}><span aria-hidden="true" style={css("width:0.4rem;height:0.4rem;border-radius:50%;background:" + tone)} />{statusText}</div>}
+          </div>
+          <span style={css("font-size:var(--text-2xl);font-weight:500;line-height:1;font-variant-numeric:tabular-nums;flex-shrink:0;color:" + tone)}>{active ? unscoredProgress + "%" : "—"}</span>
+        </div>
+        <div style={css("height:0.4rem;border-radius:999px;background:var(--surface-alt);overflow:hidden")}>
+          {active && <div style={css("height:100%;width:" + Math.max(3, unscoredProgress) + "%;border-radius:999px;background:var(--accent)")} />}
+        </div>
+        {showCategories && <div className="pt-audit-card-score-categories" style={css("border-top:1px solid var(--border-soft);padding-top:0.55rem")}>
+          <CategoryBars compact cats={bars} empty layout="grid" />
+        </div>}
+      </div>
+    );
+  }
+
   return (
     <div className="pt-audit-card-score" data-score-state={scored ? "scored" : "empty"} style={css("border:1px solid var(--border-soft);border-radius:0.9rem;background:linear-gradient(180deg,color-mix(in srgb,var(--success) 5%,var(--surface) 95%),var(--surface));padding:0.82rem 0.88rem;display:flex;flex-direction:column;gap:0.62rem")}>
       <div style={css("display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-3)")}>
         <div style={css("min-width:0")}>
-          <div style={css("font-size:0.7rem;color:var(--fg-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{projectionLabel}</div>
+          <div style={css("font-size:var(--text-2xs);color:var(--fg-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{projectionLabel}</div>
           <div style={css("display:flex;align-items:baseline;gap:0.4rem;margin-top:0.15rem;flex-wrap:wrap")}>
-            <span style={css("font-size:1.55rem;font-weight:500;color:" + (scored || unscoredProgress ? "var(--fg)" : "var(--fg-faint)") + ";line-height:0.9;font-variant-numeric:tabular-nums")}>{scored ? summary.overall : unscoredProgress ? `${unscoredProgress}%` : "—"}</span>
-            <span style={css("font-size:0.82rem;color:var(--fg-muted)")}>
-              {scored ? <>↗ <strong style={css("font-weight:500;color:var(--success)")}>{summary.projected}</strong></> : unscoredDetail}
+            <span className="pt-audit-score-number" style={css("font-weight:500;color:" + (scored || unscoredProgress ? "var(--fg)" : "var(--fg-faint)") + ";font-variant-numeric:tabular-nums")}>{scored ? summary.overall : unscoredProgress ? `${unscoredProgress}%` : "—"}</span>
+            <span style={css("display:inline-flex;align-items:baseline;gap:0.28rem;color:var(--fg-muted)")}>
+              {scored ? <><span className="pt-audit-score-arrow">↗</span><strong className="pt-audit-score-number" style={css("font-weight:500;color:var(--success);font-variant-numeric:tabular-nums")}>{summary.projected}</strong></> : <span style={css("font-size:var(--text-sm)")}>{unscoredDetail}</span>}
             </span>
           </div>
         </div>

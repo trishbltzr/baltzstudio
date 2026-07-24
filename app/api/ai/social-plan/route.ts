@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { openAIError, responseText, socialMediaApiKey } from "@/lib/openaiServer";
+import { resolvePortalRequestAccess } from "@/lib/portalRequestAccess";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -44,6 +46,11 @@ const PLAN_SCHEMA = {
 export async function POST(request: NextRequest) {
   if (request.headers.get("sec-fetch-site") === "cross-site") {
     return NextResponse.json({ error: "Cross-origin requests are not allowed." }, { status: 403 });
+  }
+  const access = await resolvePortalRequestAccess(request, await createSupabaseServerClient());
+  if (!access) return NextResponse.json({ error: "Sign in to use social planning." }, { status: 401 });
+  if (access.role === "client") {
+    return NextResponse.json({ error: "Client-facing social plans must be generated and reviewed by the studio." }, { status: 403 });
   }
   const apiKey = socialMediaApiKey();
   if (!apiKey) return NextResponse.json({ error: "Social media generation is not configured." }, { status: 503 });

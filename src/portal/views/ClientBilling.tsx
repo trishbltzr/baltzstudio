@@ -33,7 +33,7 @@ export function ClientBilling({ state, actions }: { state: PortalState; actions:
   const cols = state.isMobile ? "minmax(0,1fr)" : "minmax(0,1.55fr) minmax(0,1fr)";
 
   if (INVOICES.length === 0) {
-    return <div style={css("padding:2.5rem 1rem;text-align:center;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);color:var(--fg-faint);font-size:0.8rem")}>No invoices or payment activity yet.</div>;
+    return <div style={css("padding:2.5rem 1rem;text-align:center;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);color:var(--fg-faint);font-size:var(--text-sm)")}>No invoices or payment activity yet.</div>;
   }
 
   return (
@@ -56,26 +56,26 @@ export function ClientBilling({ state, actions }: { state: PortalState; actions:
             <div style={css("display:flex;justify-content:space-between;gap:var(--space-2)")}><span style={{ color: "var(--fg-muted)" }}>Pay to</span><span style={{ fontWeight: 500 }}>Baltazar Studio Ltd</span></div>
             <div style={css("display:flex;justify-content:space-between;gap:var(--space-2)")}><span style={{ color: "var(--fg-muted)" }}>Wise reference</span><span style={{ fontWeight: 500 }}>FLORA-WIAW-02</span></div>
             <div style={css("display:flex;justify-content:space-between;gap:var(--space-2)")}><span style={{ color: "var(--fg-muted)" }}>Currency</span><span style={{ fontWeight: 500 }}>GBP (£)</span></div>
-            <p style={css("margin:0.2rem 0 0;font-size:0.74rem;color:var(--fg-faint);line-height:1.45")}>Scan the QR in your Wise app, or send to the details above using the reference.</p>
+            <p style={css("margin:0.2rem 0 0;font-size:var(--text-2xs);color:var(--fg-faint);line-height:1.45")}>Scan the QR in your Wise app, or send to the details above using the reference.</p>
           </div>
         </div>
         {status === "awaiting_you" ? (
-          <button onClick={() => { setStatus("awaiting_studio"); actions.showToast("Thanks — we'll confirm your transfer shortly"); }} className="pt-op" style={css("margin-top:1rem;width:100%;height:2.4rem;border-radius:var(--radius-pill);border:none;background:var(--accent);color:#fff;font-weight:500;font-size:0.85rem;cursor:pointer")}>I&apos;ve sent the transfer</button>
+          <button onClick={() => { setStatus("awaiting_studio"); actions.showToast("Thanks — we'll confirm your transfer shortly"); }} className="pt-op" style={css("margin-top:1rem;width:100%;height:2.4rem;border-radius:var(--radius-pill);border:none;background:var(--accent);color:#fff;font-weight:500;font-size:var(--text-base);cursor:pointer")}>I&apos;ve sent the transfer</button>
         ) : (
-          <div style={css("margin-top:1rem;padding:0.7rem;border-radius:var(--radius);background:var(--surface-alt);font-size:0.8rem;color:var(--fg-muted);text-align:center")}>{banner[0]} — thank you.</div>
+          <div style={css("margin-top:1rem;padding:0.7rem;border-radius:var(--radius);background:var(--surface-alt);font-size:var(--text-sm);color:var(--fg-muted);text-align:center")}>{banner[0]} — thank you.</div>
         )}
       </div>
 
       <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden")}>
         <div style={css("padding:0.9rem 1.1rem;border-bottom:1px solid var(--border-soft)")}><h3 style={css("margin:0;font-size:var(--text-lg);font-weight:500")}>Payment history</h3></div>
-        <div style={css("display:grid;grid-template-columns:1fr auto 6rem;gap:var(--space-3);align-items:center;padding:0.6rem 1.1rem;border-bottom:1px solid var(--border-soft);font-size:0.64rem;letter-spacing:0.02em;color:var(--fg-faint);font-weight:500")}>
+        <div style={css("display:grid;grid-template-columns:1fr auto 6rem;gap:var(--space-3);align-items:center;padding:0.6rem 1.1rem;border-bottom:1px solid var(--border-soft);font-size:var(--text-2xs);letter-spacing:0.02em;color:var(--fg-faint);font-weight:500")}>
           <span>Invoice</span><span style={{ textAlign: "right" }}>Amount</span><span style={{ textAlign: "right" }}>Status</span>
         </div>
         {INVOICES.map(i => (
           <div key={i.id} style={css("display:grid;grid-template-columns:1fr auto 6rem;gap:var(--space-3);align-items:center;padding:0.8rem 1.1rem;border-bottom:1px solid var(--border-soft)")}>
             <div style={{ minWidth: 0 }}><div style={css("font-weight:500;font-size:var(--text-base)")}>{i.id}</div><div style={css("font-size:var(--text-xs);color:var(--fg-muted)")}>{i.date}</div></div>
-            <span style={css("font-size:0.85rem;font-weight:500;text-align:right")}>{i.amount}</span>
-            <span style={css("justify-self:end;display:inline-flex;align-items:center;font-size:0.68rem;font-weight:500;padding:0.14rem 0.5rem;border-radius:999px;background:var(--success-soft);color:var(--success)")}>{i.status}</span>
+            <span style={css("font-size:var(--text-base);font-weight:500;text-align:right")}>{i.amount}</span>
+            <span style={css("justify-self:end;display:inline-flex;align-items:center;font-size:var(--text-2xs);font-weight:500;padding:0.14rem 0.5rem;border-radius:999px;background:var(--success-soft);color:var(--success)")}>{i.status}</span>
           </div>
         ))}
       </div>

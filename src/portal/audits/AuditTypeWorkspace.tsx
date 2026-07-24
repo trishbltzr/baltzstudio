@@ -7,6 +7,7 @@ import type { PortalActions, PortalState } from "../store";
 import type { AuditType } from "../types";
 import { GuidedIntakeSelector } from "../components/GuidedIntakeSelector";
 import { EngineIndexControls } from "../components/EngineIndexControls";
+import { EngineIndexOverview } from "../components/EngineIndexOverview";
 import { BrandAuditCardPreview } from "../components/BrandAuditCardPreview";
 import { StartOverDialog } from "../components/StartOverDialog";
 import { isUnassignedEngineClient, startClientForEngine } from "../engineLifecycle";
@@ -15,11 +16,13 @@ import { mergeKnow, type Know } from "../discovery/knowledge";
 import { AUDIT_TYPE_DEMO, AUDIT_TYPE_INTRO, BRAND_AUDIT_WIZARD, SHARED_AUDIT_STAGES } from "./auditTypeData";
 import { createStrategyAuditPipeline } from "./strategyAuditPipeline";
 import { SeoAuditWorkspace } from "../builders/SeoProjectWorkspace";
-import { AuditBuilderHandoff } from "./AuditBuilderHandoff";
+import { AuditReportFooter } from "../components/AuditReportFooter";
 import { portalApprovalOutput } from "@/lib/portalApprovalOutput";
 import { isAiStageResult, type BrandVisualEvidence, type GeneratedStageResult } from "@/lib/aiStageGeneration";
 import type { GuidedAuditSession } from "@/lib/portalAuditPersistence";
-import type { PortalBrandAuditRecord } from "@/lib/portalWorkspacePersistence";
+import { normalizePortalAuditExportProfile, type PortalBrandAuditRecord } from "@/lib/portalWorkspacePersistence";
+import { createPortalProcessHandoff, portalProcessHandoffRecommendations, portalProcessHandoffSender, removePortalProcessHandoffs, savePortalProcessHandoff } from "@/lib/portalProcessHandoffs";
+import { durableCheckupCard, useDurableCheckupRuns } from "./durableCheckupRuns";
 
 function brandAuditRecord(session: GuidedAuditSession): PortalBrandAuditRecord {
   const complete = session.proposal || session.approved.plan === true;
@@ -69,9 +72,9 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
   const [unassignedDraftOpen, setUnassignedDraftOpen] = useState(false);
   const [resetClient, setResetClient] = useState<StudioClient | null>(null);
   const [typeKnow, setTypeKnow] = useState<Know>({ data: {}, sources: {} });
-  const [handoffReady, setHandoffReady] = useState(false);
   const syncingCompletedAudits = useRef(new Set<string>());
   const availableClients = useMemo(() => clientsVisibleToRole(state.role, state.clientName), [state.clientName, state.role]);
+  const durableBrandRuns = useDurableCheckupRuns("brand", state.role, state.clientName);
   useEffect(() => {
     if (selectedClient && !availableClients.some(client => client.id === selectedClient.id)) setSelectedClient(null);
   }, [availableClients, selectedClient]);
@@ -103,7 +106,6 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
   const strategyPipeline = useMemo(() => createStrategyAuditPipeline("brand"), []);
   const openAudit = (client: StudioClient) => {
     setTypeKnow({ data: {}, sources: {} });
-    setHandoffReady(false);
     setUnassignedDraftOpen(false);
     setSelectedClient(client);
   };
@@ -113,15 +115,16 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
     window.localStorage.removeItem(`baltazar:brand-audit-intake:${client.id}`);
     window.localStorage.removeItem(`baltazar:builder-handoff:website:${client.id}`);
     actions.saveClientBrandAudit(client.name, null);
+    actions.update(current => ({
+      clientWorkspaces: removePortalProcessHandoffs(current.clientWorkspaces, client.id, "brand-audit"),
+    }));
     setResetClient(null);
     setTypeKnow({ data: {}, sources: {} });
-    setHandoffReady(false);
     setUnassignedDraftOpen(false);
     setSelectedClient(null);
   };
   const openUnassignedAudit = () => {
     setTypeKnow({ data: {}, sources: {} });
-    setHandoffReady(false);
     setSelectedClient(null);
     setUnassignedDraftOpen(true);
   };
@@ -143,10 +146,17 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
     const report = isAiStageResult(audit?.session.aiResults.report) ? audit.session.aiResults.report : null;
     const reportColors = report?.brandVisuals?.status === "verified" ? report.brandVisuals.colors.map(color => [color.role, color.hex] as [string, string]) : [];
     const colors = workspace?.brandSystem?.colors.length ? workspace.brandSystem.colors : reportColors;
-    const fontCount = workspace?.brandSystem?.fonts.length || new Set([report?.brandVisuals?.displayFont, report?.brandVisuals?.bodyFont].filter(Boolean)).size;
+    const fonts = workspace?.brandSystem?.fonts.length
+      ? Array.from(new Set(workspace.brandSystem.fonts.map(([font]) => font).filter(Boolean)))
+      : Array.from(new Set([report?.brandVisuals?.displayFont, report?.brandVisuals?.bodyFont].filter((font): font is string => !!font)));
     const rawVoice = audit?.session.data.voice;
-    const auditToneCount = Array.isArray(rawVoice) ? rawVoice.filter(Boolean).length : typeof rawVoice === "string" ? rawVoice.split(/\r?\n|,|;/).map(value => value.trim()).filter(Boolean).length : 0;
-    const toneCount = workspace?.brandSystem?.tone.traits.length || auditToneCount;
+    const tones = workspace?.brandSystem?.tone.traits.length
+      ? workspace.brandSystem.tone.traits
+      : Array.isArray(rawVoice)
+        ? rawVoice.filter((tone): tone is string => typeof tone === "string" && !!tone.trim()).map(tone => tone.trim())
+        : typeof rawVoice === "string"
+          ? rawVoice.split(/\r?\n|,|;/).map(value => value.trim()).filter(Boolean)
+          : [];
     const websiteUrl = typeof audit?.session.data.url === "string" ? audit.session.data.url.trim() : undefined;
     return {
       id: `brand-${client.id}`,
@@ -162,13 +172,20 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
       showProgress: false,
       showStage: false,
       showMeta: false,
-      hero: <BrandAuditCardPreview status={audit?.status || "not_started"} websiteUrl={websiteUrl} colors={colors} fontCount={fontCount} toneCount={toneCount} />,
+      hero: <>
+        <BrandAuditCardPreview status={audit?.status || "not_started"} websiteUrl={websiteUrl} colors={colors} fonts={fonts} tones={tones} />
+      </>,
       primaryLabel: "Open audit",
       onPrimary: () => openAudit(client),
       secondaryLabel: audit ? "Start over" : "New audit",
       onSecondary: () => setResetClient(client),
     };
   }), [actions, initiatedAuditClients, state.clientWorkspaces]);
+  const durableBrandNames = new Set(durableBrandRuns.map(run => run.clientName.trim().toLowerCase()));
+  const visibleCards = [
+    ...cards.filter(card => !durableBrandNames.has(card.name.trim().toLowerCase())),
+    ...durableBrandRuns.map(durableCheckupCard),
+  ];
 
   if (selectedClient || unassignedDraftOpen) {
     const wizard = BRAND_AUDIT_WIZARD;
@@ -176,6 +193,24 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
     const auditWorkClient = auditClient || UNASSIGNED_WORK_CLIENT;
     const auditLabel = auditWorkClient.name;
     const auditSessionKey = auditClient ? `brand-audit-${auditClient.id}` : "brand-audit-unassigned";
+    const openWebsiteBuilderFromBrand = () => {
+      const session = state.clientWorkspaces[auditWorkClient.id]?.brandAudit?.session;
+      const handoff = createPortalProcessHandoff(session?.processRun, session?.data || {}, {
+        approvedScope: Array.isArray(session?.data.kitNeeds) ? session.data.kitNeeds : undefined,
+        includedRecommendations: portalProcessHandoffRecommendations(session?.aiResults as Record<string, unknown> | undefined),
+        sender: portalProcessHandoffSender(state.role, auditLabel),
+      });
+      if (!handoff) {
+        actions.showToast("Approve the completed action plan before continuing to Website Lab");
+        return;
+      }
+      actions.update(current => ({
+        clientWorkspaces: savePortalProcessHandoff(current.clientWorkspaces, handoff),
+      }));
+      window.localStorage.setItem("baltazar:builder-active:website", auditWorkClient.id);
+      actions.patch({ builderType: "website" });
+      actions.setView("funnels");
+    };
     return (
       <div style={css("width:100%;padding:" + (state.isMobile ? "1rem 0.9rem 1.5rem" : "1.4rem 1.5rem"))}>
         <DiscoveryBuilder
@@ -195,30 +230,40 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
           quickStartClientId={auditWorkClient.id}
           generationMode="brand"
           sessionKey={auditSessionKey}
+          processId="brand-audit"
+          accessState={state}
+          onOpenApprovals={() => actions.setView("review")}
+          processClientId={auditWorkClient.id}
+          processRunId={auditSessionKey}
+          exportProfile={auditClient ? normalizePortalAuditExportProfile(auditClient.name, actions.workspaceForClient(auditClient.name).auditExport) : undefined}
           initialSession={state.clientWorkspaces[auditWorkClient.id]?.brandAudit?.session}
           onSessionChange={session => actions.saveClientBrandAudit(auditWorkClient.name, brandAuditRecord(session))}
           onStartOverRequest={() => setResetClient(auditWorkClient)}
           onIngest={(delta, options) => setTypeKnow(current => options?.replaceSourceReview ? delta : mergeKnow(current, delta))}
           startLabel="Start audit intake →"
-          backLabel="← All audits"
+          backLabel="← All checkups"
           hideHeader={state.role === "client"}
           progressLabel="intake"
           demo={AUDIT_TYPE_DEMO}
           completeTitle="Intake ready"
           completeMsg="Next, build the brand system and action plan."
           completeCta="Build brand system →"
+          stageExtra={stageKey => auditClient && (stageKey === "report" || stageKey === "plan") ? <AuditReportFooter
+            exportProfile={normalizePortalAuditExportProfile(auditClient.name, actions.workspaceForClient(auditClient.name).auditExport)}
+            canManageExport={state.role !== "client"}
+            onSaveExportProfile={update => actions.saveAuditExportProfile(auditClient.name, update)}
+            cta={stageKey === "plan" ? { label: "Plan in Website Builder", icon: "arrowright", onClick: openWebsiteBuilderFromBrand } : undefined}
+          /> : null}
           pipeline={strategyPipeline}
           onPipelineComplete={async (data, aiResults) => {
             const resultKey = auditWorkClient.id;
             window.localStorage.setItem(`baltazar:brand-audit-result:${resultKey}`, JSON.stringify({ data, aiResults, savedAt: new Date().toISOString() }));
-            window.localStorage.setItem(`baltazar:builder-handoff:website:${auditWorkClient.id}`, JSON.stringify({ source: "brand-audit", data, aiResults, savedAt: new Date().toISOString() }));
             if (auditClient) {
               actions.updateClientBrandSystem(auditClient.name, await brandSystemUpdate(data, aiResults));
               actions.showToast(`${label} audit complete for ${auditClient.name}`);
             } else {
               actions.showToast("Unassigned brand audit complete");
             }
-            setHandoffReady(true);
           }}
           onShareFinal={auditClient ? (_data, aiResults) => {
             const output = portalApprovalOutput(aiResults, "The final brand audit, guidelines, and action plan are ready.");
@@ -235,7 +280,6 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
             else { setSelectedClient(null); setUnassignedDraftOpen(false); }
           }}
         />
-        {handoffReady && <div style={css("max-width:60rem;margin:.85rem auto 0") }><AuditBuilderHandoff type="brand" clientName={auditLabel} onContinue={() => { window.localStorage.setItem("baltazar:builder-active:website", auditWorkClient.id); actions.patch({ builderType: "website" }); actions.setView("funnels"); }}/></div>}
         <StartOverDialog
           open={!!resetClient}
           auditLabel="Brand audit"
@@ -256,19 +300,22 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
         description="Add the brand sources. Get a clear brand system and action plan."
         controlsBelow
         controls={<EngineIndexControls
-          metrics={[
-            { label: `${completedAuditCount} completed`, tone: "success" },
-            { label: `${intakeAuditCount} still in intake`, tone: "warn" },
-          ]}
+          metrics={[]}
           action={{
-            label: "Generate audit",
+            label: "Start checkup",
             onClick: startAuditForRole,
             disabled: state.role === "client" && !availableClients.length,
             color: "var(--cocoon)",
           }}
         />}
+        overview={<EngineIndexOverview
+          metrics={[
+            { label: `${completedAuditCount + durableBrandRuns.filter(run => run.state === "current").length} completed`, tone: "success" },
+            { label: `${intakeAuditCount + durableBrandRuns.filter(run => !["current", "ready", "cancelled"].includes(run.state)).length} still in intake`, tone: "warn" },
+          ]}
+        />}
         countLabel="audit"
-        cards={cards}
+        cards={visibleCards}
       />
 
       <StartOverDialog

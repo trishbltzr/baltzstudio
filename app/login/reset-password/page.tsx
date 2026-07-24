@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Lock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { resolveDashboardUser } from "@/lib/auth";
+import { fetchAuthenticatedDashboardUser } from "@/lib/auth";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type RecoveryMessage = {
@@ -71,10 +71,9 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    const nextUser = resolveDashboardUser(
-      data.user?.email,
-      pickSupabaseName(data.user?.user_metadata),
-    );
+    const nextUser = data.user
+      ? await fetchAuthenticatedDashboardUser()
+      : null;
     if (nextUser) {
       sessionStorage.setItem("bs-user", JSON.stringify(nextUser));
     }
@@ -143,14 +142,4 @@ export default function ResetPasswordPage() {
       </div>
     </div>
   );
-}
-
-function pickSupabaseName(metadata: unknown) {
-  if (!metadata || typeof metadata !== "object") return null;
-  const record = metadata as Record<string, unknown>;
-  return typeof record.full_name === "string"
-    ? record.full_name
-    : typeof record.name === "string"
-      ? record.name
-      : null;
 }

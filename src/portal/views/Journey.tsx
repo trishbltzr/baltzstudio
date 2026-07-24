@@ -204,7 +204,7 @@ export function Journey({ state, actions }: { state: PortalState; actions: Porta
         <div style={css("padding:0.1rem 0 1.15rem;text-align:center;max-width:44rem;margin:0 auto")}>
           <div>
             <div style={css("font-size:var(--text-2xs);letter-spacing:0.015em;color:var(--fg-faint);font-weight:500;margin-bottom:0.3rem")}>Current Checkpoint</div>
-            <div style={css("font-size:1.28rem;font-weight:500;line-height:1.15;color:var(--fg)")}>{activeGate ? `Milestone ${activeGate.g} — ${activeGate.title}` : "No active milestone"}</div>
+            <div style={css("font-size:var(--text-2xl);font-weight:500;line-height:1.15;color:var(--fg)")}>{activeGate ? `Milestone ${activeGate.g} — ${activeGate.title}` : "No active milestone"}</div>
             <div style={css("font-size:var(--text-base);color:var(--fg-muted);margin-top:0.26rem;line-height:1.45")}>{activeGate ? `${activeGate.when} · ${activeGate.eta}` : "The next checkpoint will appear here once it is available."}</div>
           </div>
         </div>
@@ -241,10 +241,10 @@ export function Journey({ state, actions }: { state: PortalState; actions: Porta
             {approvalStats.map(stat => (
               <div key={stat.label} className="pt-approval-stat" style={css("border:1px solid " + (stat.active ? "color-mix(in srgb,var(--warn) 34%,var(--border-soft) 66%)" : "var(--border-soft)") + ";background:" + (stat.active ? "linear-gradient(135deg,color-mix(in srgb,var(--warn-soft) 58%,white 42%),var(--surface))" : "var(--surface)"))}>
                 <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.6rem")}>
-                  <div style={css("font-size:1.55rem;font-weight:500;line-height:1;color:" + (stat.active ? "color-mix(in srgb,var(--warn) 65%,black 35%)" : "var(--fg)") )}>{stat.value}</div>
+                  <div style={css("font-size:var(--text-3xl);font-weight:500;line-height:1;color:" + (stat.active ? "color-mix(in srgb,var(--warn) 65%,black 35%)" : "var(--fg)") )}>{stat.value}</div>
                   <span style={css("width:0.48rem;height:0.48rem;border-radius:50%;background:" + (stat.active ? "var(--warn)" : "var(--border)") + ";flex-shrink:0")} />
                 </div>
-                <div style={css("margin-top:0.34rem;font-size:0.84rem;font-weight:500;color:var(--fg-muted);line-height:1.25")}>{stat.label}</div>
+                <div style={css("margin-top:0.34rem;font-size:var(--text-base);font-weight:500;color:var(--fg-muted);line-height:1.25")}>{stat.label}</div>
               </div>
             ))}
           </div>
@@ -267,7 +267,7 @@ export function Journey({ state, actions }: { state: PortalState; actions: Porta
                     </div>
                     <div style={css("display:flex;align-items:center;gap:0.55rem;flex-shrink:0")}>
                       <span style={css("width:2.75rem;height:0.32rem;border-radius:999px;background:var(--border-soft);overflow:hidden")} aria-hidden="true"><span style={css("display:block;height:100%;width:" + pct + "%;border-radius:999px;background:" + (complete ? "var(--success)" : "var(--fg-faint)") + ";transition:width .3s ease")} /></span>
-                      <span style={css("font-size:0.76rem;font-weight:500;white-space:nowrap;color:" + (complete ? "var(--success)" : "var(--fg-faint)"))}>{approved} of {total} approved</span>
+                      <span style={css("font-size:var(--text-xs);font-weight:500;white-space:nowrap;color:" + (complete ? "var(--success)" : "var(--fg-faint)"))}>{approved} of {total} approved</span>
                     </div>
                   </div>
 
@@ -282,10 +282,10 @@ export function Journey({ state, actions }: { state: PortalState; actions: Porta
                           <div className="pt-approval-card-head" style={css("background:" + (active ? "linear-gradient(135deg,color-mix(in srgb," + tone.soft + " 70%,white 30%),var(--surface))" : "var(--surface)"))}>
                             <div style={{ minWidth: 0 }}>
                               <h4 style={css("margin:0;font-size:var(--text-lg);font-weight:500;line-height:1.25;color:" + (locked ? "var(--fg-muted)" : "var(--fg)"))}>{approvalTitle(gate)}</h4>
-                              <div style={css("margin-top:0.22rem;font-size:0.78rem;color:var(--fg-muted)")}>{approvalSentLabel(gate)}</div>
+                              <div style={css("margin-top:0.22rem;font-size:var(--text-xs);color:var(--fg-muted)")}>{approvalSentLabel(gate)}</div>
                             </div>
                             {active && (
-                              <span style={css("display:inline-flex;align-items:center;gap:0.35rem;font-size:0.72rem;font-weight:500;color:var(--warn);white-space:nowrap;flex-shrink:0")}>
+                              <span style={css("display:inline-flex;align-items:center;gap:0.35rem;font-size:var(--text-2xs);font-weight:500;color:var(--warn);white-space:nowrap;flex-shrink:0")}>
                                 <span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--warn)")} />Needs you
                               </span>
                             )}
@@ -312,7 +312,7 @@ export function Journey({ state, actions }: { state: PortalState; actions: Porta
                               <div style={css("display:flex;flex-direction:column;gap:0.9rem")}>
                                 <p style={css("margin:0;font-size:var(--text-base);line-height:1.55;color:var(--fg)")}>{approvalDescription(gate)}</p>
                                 <div className="pt-approval-note">
-                                  <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint)")}>Notes from studio</div>
+                                  <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint)")}>Notes from studio</div>
                                   <p style={css("margin:0.42rem 0 0;font-size:var(--text-base);line-height:1.45;color:var(--fg)")}>{gate.request?.studioReply || gate.request?.note || "Studio-first checkpoint: Admin approved the design direction before client review."}</p>
                                 </div>
                                 {gate.request && (
@@ -340,7 +340,7 @@ export function Journey({ state, actions }: { state: PortalState; actions: Porta
                                       <span className="pt-approval-step">3</span>
                                       <div>
                                         <div style={css("font-size:var(--text-base);font-weight:500;color:var(--fg-muted)")}>Mark up changes</div>
-                                        <div style={css("margin-top:0.45rem;height:2rem;display:inline-flex;align-items:center;padding:0 0.85rem;border-radius:0.65rem;border:1px solid var(--border-soft);background:var(--surface);color:var(--fg-faint);font-size:0.78rem;font-weight:500")}>Markup board</div>
+                                        <div style={css("margin-top:0.45rem;height:2rem;display:inline-flex;align-items:center;padding:0 0.85rem;border-radius:0.65rem;border:1px solid var(--border-soft);background:var(--surface);color:var(--fg-faint);font-size:var(--text-xs);font-weight:500")}>Markup board</div>
                                       </div>
                                     </div>
                                   </div>
@@ -364,7 +364,7 @@ export function Journey({ state, actions }: { state: PortalState; actions: Porta
           <div onClick={event => event.stopPropagation()} style={{ ...css("width:36rem;max-width:100%;background:var(--surface);border:1px solid var(--border-soft);border-radius:1.1rem 1.1rem 0 0;padding:1rem 1rem 1.05rem;display:flex;flex-direction:column;gap:0.8rem"), animation: "pt-ddin .18s ease" }}>
             <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-3)")}>
               <div>
-                <div style={css("font-size:0.64rem;letter-spacing:0.02em;color:var(--fg-faint);font-weight:500;margin-bottom:0.2rem")}>Request Changes</div>
+                <div style={css("font-size:var(--text-2xs);letter-spacing:0.02em;color:var(--fg-faint);font-weight:500;margin-bottom:0.2rem")}>Request Changes</div>
                 <div style={css("font-size:var(--text-lg);font-weight:500;line-height:1.2;color:var(--fg)")}>Tell the studio what should change before you approve.</div>
               </div>
               <button onClick={closeRequest} className="pt-iconbtn" style={css("width:2rem;height:2rem;border-radius:50%;border:1px solid var(--border);background:var(--surface);display:grid;place-items:center;cursor:pointer;color:var(--fg-muted);flex-shrink:0")}><Icon name="x" size={15} /></button>
@@ -410,14 +410,14 @@ export function Journey({ state, actions }: { state: PortalState; actions: Porta
               value={requestNote}
               onChange={event => setRequestNote(event.target.value)}
               placeholder="What should change before this is ready for approval?"
-              style={css("width:100%;min-height:7.5rem;border:1px solid var(--border);border-radius:0.95rem;padding:0.85rem 0.95rem;background:var(--surface-alt);font-size:0.84rem;line-height:1.45;color:var(--fg);resize:vertical")}
+              style={css("width:100%;min-height:7.5rem;border:1px solid var(--border);border-radius:0.95rem;padding:0.85rem 0.95rem;background:var(--surface-alt);font-size:var(--text-base);line-height:1.45;color:var(--fg);resize:vertical")}
             />
 
             <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.7rem;flex-wrap:wrap")}>
               <span style={css("font-size:var(--text-xs);color:var(--fg-faint)")}>This sends one clean round into the studio Inbox, then returns this card to review once the studio replies.</span>
               <div style={css("display:flex;gap:0.45rem")}>
-                <button onClick={closeRequest} className="pt-iconbtn" style={css("height:2.2rem;padding:0 0.95rem;border-radius:var(--radius-pill);border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);font-size:0.76rem;font-weight:500;cursor:pointer")}>Cancel</button>
-                <button onClick={submitRequest} className="pt-op" style={css("height:2.2rem;padding:0 1rem;border-radius:var(--radius-pill);border:none;background:var(--accent);color:#fff;font-size:0.76rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:0.35rem")}><Icon name="send" size={14} />Send to studio</button>
+                <button onClick={closeRequest} className="pt-iconbtn" style={css("height:2.2rem;padding:0 0.95rem;border-radius:var(--radius-pill);border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;cursor:pointer")}>Cancel</button>
+                <button onClick={submitRequest} className="pt-op" style={css("height:2.2rem;padding:0 1rem;border-radius:var(--radius-pill);border:none;background:var(--accent);color:#fff;font-size:var(--text-xs);font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:0.35rem")}><Icon name="send" size={14} />Send to studio</button>
               </div>
             </div>
           </div>

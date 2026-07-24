@@ -3,8 +3,13 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 
 import { findPlaybookDoc } from "@/portal/playbookDocs";
+import { resolvePortalRequestAccess } from "@/lib/portalRequestAccess";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
+  const access = await resolvePortalRequestAccess(request, await createSupabaseServerClient());
+  if (!access) return NextResponse.json({ error: "Sign in to load playbook sources." }, { status: 401 });
+  if (access.role === "client") return NextResponse.json({ error: "Playbook source files are staff-only." }, { status: 403 });
   const { searchParams } = new URL(request.url);
   const doc = findPlaybookDoc(searchParams.get("doc"));
 

@@ -6,12 +6,53 @@ import { AUDIT_CHECKLIST } from "@/lib/auditChecklist";
 import { BRAND_AUDIT_WIZARD } from "./audits/auditTypeData";
 import { AUDIT_WIZARD, FUNNEL_WIZARD } from "./discovery/discoveryData";
 import { WEBSITE_BUILDER_WIZARD } from "./builders/websiteBuilderData";
+import { getProcessDefinition, STANDARD_PROCESS_EXCEPTION_POLICIES, type ProcessExceptionPolicy, type ProcessId, type ProcessOwner } from "./processDefinitions";
 
 export type Owner = "admin" | "dev" | "client" | "assistant" | "";
+export type PlaybookLifecycle = "draft" | "published" | "archived";
+
+export interface PlaybookRequiredInput {
+  id: string;
+  label: string;
+  required: boolean;
+  validation: string;
+}
+
+export interface PlaybookAgentControls {
+  enabled: boolean;
+  definitionKey: string;
+  lifecycle: PlaybookLifecycle;
+  version: number;
+  instructions: string;
+  allowedTools: string[];
+  memoryPolicy: string;
+  approvalGates: string[];
+  samplePrompt: string;
+  evalStatus: "not_run" | "passing" | "failing";
+}
+
+export interface PlaybookGovernance {
+  lifecycle: PlaybookLifecycle;
+  version: number;
+  changeSummary: string;
+  lockedCoreSteps: string[];
+  editableClientFields: string[];
+  requiredInputs: PlaybookRequiredInput[];
+  approvalRequirements: string[];
+  rolePreview: Array<{ role: ProcessOwner; responsibilities: string[] }>;
+  sampleDataPreview: Record<string, string>;
+  owner: string;
+  lastReviewedAt: string;
+  usageCount: number;
+  activeRuns: number;
+  exceptionPolicies: ProcessExceptionPolicy[];
+  agent: PlaybookAgentControls;
+}
 
 export interface PlaybookStep { o: Owner; t: string }
 export interface PlaybookSeed {
   id: string;
+  processId: ProcessId | null;
   svc: Service;
   fn: string;
   icon: string;
@@ -25,6 +66,61 @@ export interface PlaybookSeed {
   md?: string;
   sourceDocId?: string;
   custom?: boolean;
+  governance?: Partial<PlaybookGovernance>;
+}
+
+function slug(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+export function governedPlaybook(seed: PlaybookSeed): PlaybookGovernance {
+  const process = seed.processId ? getProcessDefinition(seed.processId) : null;
+  const requiredLabels = process?.stages.flatMap(stage => stage.requirements) || ["Client or project context"];
+  const requiredInputs = [...new Set(requiredLabels)].map(label => ({
+    id: slug(label),
+    label,
+    required: true,
+    validation: `Required before ${process?.stages.find(stage => stage.requirements.includes(label))?.label || "the Playbook starts"}.`,
+  }));
+  const rolePreview = process
+    ? (["admin", "studio", "client", "assistant", "shared"] as ProcessOwner[]).flatMap(role => {
+      const responsibilities = process.stages.filter(stage => stage.owner === role).map(stage => `${stage.label}: ${stage.nextAction}`);
+      return responsibilities.length ? [{ role, responsibilities }] : [];
+    })
+    : [
+      { role: "admin" as const, responsibilities: ["Own publishing, scope, and exception decisions."] },
+      { role: "studio" as const, responsibilities: ["Run the internal operating steps."] },
+      { role: "client" as const, responsibilities: ["Supply required client inputs and approvals."] },
+    ];
+  const sampleDataPreview = Object.fromEntries(requiredInputs.slice(0, 6).map(input => [input.label, `Example ${input.label.toLowerCase()}`]));
+  return {
+    lifecycle: seed.governance?.lifecycle || (seed.custom ? "draft" : "published"),
+    version: Math.max(1, seed.governance?.version || process?.version || 1),
+    changeSummary: seed.governance?.changeSummary || (seed.custom ? "Initial draft" : "Initial governed operating version"),
+    lockedCoreSteps: seed.governance?.lockedCoreSteps || process?.stages.map(stage => stage.label) || parseProcess(seed.md || genMd(seed)).map(step => step.text),
+    editableClientFields: seed.governance?.editableClientFields || requiredInputs.map(input => input.label),
+    requiredInputs: seed.governance?.requiredInputs || requiredInputs,
+    approvalRequirements: seed.governance?.approvalRequirements || process?.stages.flatMap(stage => stage.gate?.blocksProgress ? [stage.gate.label] : []) || [],
+    rolePreview: seed.governance?.rolePreview || rolePreview,
+    sampleDataPreview: seed.governance?.sampleDataPreview || sampleDataPreview,
+    owner: seed.governance?.owner || "Trisha Baltazar",
+    lastReviewedAt: seed.governance?.lastReviewedAt || "2026-07-23",
+    usageCount: Math.max(0, seed.governance?.usageCount || 0),
+    activeRuns: Math.max(0, seed.governance?.activeRuns || 0),
+    exceptionPolicies: seed.governance?.exceptionPolicies || process?.exceptionPolicies || STANDARD_PROCESS_EXCEPTION_POLICIES,
+    agent: seed.governance?.agent || {
+      enabled: true,
+      definitionKey: `${process?.id || seed.id}-service-agent`,
+      lifecycle: seed.custom ? "draft" : "published",
+      version: Math.max(1, seed.governance?.version || process?.version || 1),
+      instructions: `Follow the published ${seed.fn} Playbook, use only scoped evidence, and route unsupported or material claims to human review.`,
+      allowedTools: ["lookup_review_targets", "list_scoped_evidence", "retrieve_scoped_evidence", "propose_human_review"],
+      memoryPolicy: "Approved client + service + stage facts only; no transcript replay or automatic durable memory.",
+      approvalGates: ["Material client-facing claims", "Scope changes", "Publication and handoff"],
+      samplePrompt: `Review the selected ${seed.fn} checks using only the evidence attached to this run.`,
+      evalStatus: seed.custom ? "not_run" : "passing",
+    },
+  };
 }
 
 export const OWNER_META: Record<string, { label: string; c: string; s: string }> = {
@@ -114,7 +210,7 @@ const PARTNER_ENGINE_ACCESS_POLICY = `## Client delivery and access
 - AI requests run server-side through configured service credentials; provider keys must never be exposed to the browser, copied into client records, or included in exports.`;
 
 export const PB_SEED: PlaybookSeed[] = [
-  { id: "cc-brand-audit", svc: "cocoon", fn: "Brand Audit", icon: "palette", dur: "2–3 days", tag: "Diagnostic",
+  { id: "cc-brand-audit", processId: "brand-audit", svc: "cocoon", fn: "Brand Audit", icon: "palette", dur: "2–3 days", tag: "Diagnostic",
     purpose: "Audit the brand foundation, positioning, voice, visual identity, system, and improvement priorities.", sourceDocId: "cocoon-brand-audit",
     md: `# Brand Audit
 
@@ -182,7 +278,7 @@ ${STANDARD_CLIENT_DELIVERY_POLICY}
 - Mark assumptions clearly and return to the client when a missing input changes the recommendation.
 - Keep consult guidance separate from implementation scope, timeline, and price; only recommend a build when the approved findings support it.
 - Preserve the approved audit evidence when handing work to a builder; do not restart discovery.` },
-  { id: "cc-website-audit", svc: "cocoon", fn: "Website Audit", icon: "chart", dur: "2–3 days", tag: "Diagnostic",
+  { id: "cc-website-audit", processId: "website-audit", svc: "cocoon", fn: "Website Audit", icon: "chart", dur: "2–3 days", tag: "Diagnostic",
     purpose: "Audit positioning, conversion, content, design, navigation, accessibility, mobile, and SEO performance before a rebuild.", sourceDocId: "cocoon-website-audit",
     md: `# Website Audit
 
@@ -249,7 +345,7 @@ ${STANDARD_CLIENT_DELIVERY_POLICY}
 - Every finding must state what was observed, why it matters, and what action follows.
 - Do not let the proposal replace the consult: approve priorities first, then price only the implementation work supported by the audit.
 - Do not begin Website Builder from stale or unapproved audit findings.` },
-  { id: "cc-seo-audit", svc: "cocoon", fn: "SEO Audit", icon: "search", dur: "2–3 days", tag: "Diagnostic",
+  { id: "cc-seo-audit", processId: "seo-audit", svc: "cocoon", fn: "SEO Audit", icon: "search", dur: "2–3 days", tag: "Diagnostic",
     purpose: "Inventory the live site, visualize crawl health, and approve a prioritized technical and on-page SEO report.", sourceDocId: "cocoon-seo-audit",
     md: `# SEO Audit
 
@@ -320,7 +416,7 @@ ${STANDARD_CLIENT_DELIVERY_POLICY}
 - Warnings may proceed only when the limitation remains visible in the audit record.
 - Approve the audit priorities before preparing the retained SEO scope, timeline, reporting cadence, or price.
 - Reuse the approved audit in the builder; never require the same crawl to be uploaded twice.` },
-  { id: "ww-funnel-build", svc: "wiaw", fn: "Funnel Build", icon: "funnel", dur: "Sprint", tag: "Implementation",
+  { id: "ww-funnel-build", processId: "funnel-build", svc: "wiaw", fn: "Funnel Build", icon: "funnel", dur: "Sprint", tag: "Implementation",
     purpose: "Turn approved strategy into a complete funnel flow, conversion copy, wireframe, build plan, launch scope, and AI handover.", sourceDocId: "wiaw-funnel-build",
     md: `# Funnel Build
 
@@ -393,7 +489,7 @@ ${STANDARD_CLIENT_DELIVERY_POLICY}
 - Do not move past a delivery gate without the recorded client approval or a clearly logged change request.
 - Close the sprint with launch status, ownership, training, handoff assets, and the selected In Full Flight or nurture path.
 - If a required integration or input is unknown, label it To confirm instead of inventing it.` },
-  { id: "ww-website-build", svc: "wiaw", fn: "Website Build", icon: "grid", dur: "Sprint", tag: "Implementation",
+  { id: "ww-website-build", processId: "website-build", svc: "wiaw", fn: "Website Build", icon: "grid", dur: "Sprint", tag: "Implementation",
     purpose: "Turn approved audit insights into the full website scope, design direction, implementation plan, and launch-ready tasks.", sourceDocId: "wiaw-website-build",
     md: `# Website Build
 
@@ -469,7 +565,7 @@ ${STANDARD_CLIENT_DELIVERY_POLICY}
 - Do not move past a delivery gate without the recorded client approval or a clearly logged change request.
 - Close the sprint with launch status, DNS and analytics checks, ownership, training, handoff assets, and the selected In Full Flight or nurture path.
 - Keep copy responsibility and excluded scope visible before implementation begins.` },
-  { id: "iff-social-media", svc: "iff", fn: "Social Media Operations", icon: "calendar", dur: "Monthly", tag: "Retainer",
+  { id: "iff-social-media", processId: "social-media-operations", svc: "iff", fn: "Social Media Operations", icon: "calendar", dur: "Monthly", tag: "Retainer",
     purpose: "Turn approved source material into recurring, channel-aware content plans, editable posts, approvals, and schedule-ready exports.", sourceDocId: "iff-social-media",
     md: `# Social Media Operations
 
@@ -550,7 +646,7 @@ ${PARTNER_ENGINE_ACCESS_POLICY}
 - Log scope and billing decisions in the request trail; do not absorb out-of-scope work into the monthly cycle silently.
 - A post is not schedule-ready until its destinations, format, copy, art direction, time, and approval state are explicit.
 - Use platform logos anywhere a channel is named in a visual summary.` },
-  { id: "iff-seo-plan", svc: "iff", fn: "SEO Planning And Execution", icon: "search", dur: "90-day cycle", tag: "Retainer",
+  { id: "iff-seo-plan", processId: "seo-planning-execution", svc: "iff", fn: "SEO Planning And Execution", icon: "search", dur: "90-day cycle", tag: "Retainer",
     purpose: "Turn the approved Cocoon SEO audit into a page-by-page search strategy, information architecture, metadata plan, and growth roadmap.", sourceDocId: "iff-seo-plan",
     md: `# SEO Planning And Execution
 

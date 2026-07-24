@@ -10,6 +10,7 @@ export function GuidedIntakeSelector({
   title,
   description,
   controls,
+  overview,
   controlsBelow = false,
   cards,
   countLabel,
@@ -19,21 +20,24 @@ export function GuidedIntakeSelector({
   title: string;
   description: string;
   controls: ReactNode;
+  overview?: ReactNode;
   controlsBelow?: boolean;
   cards: ClientCardData[];
   countLabel?: string;
 }) {
   return (
-    <div style={css("display:flex;flex-direction:column;gap:var(--space-4)")}>
-      <div style={css((controlsBelow ? "display:flex;flex-direction:column;align-items:stretch" : "display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap") + ";gap:var(--space-4);padding:1rem 1.1rem;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface)")}>
-        <div style={{ minWidth: 0 }}>
-          <span style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;display:block;color:" + eyebrowColor + ";margin-bottom:0.45rem")}>{eyebrow}</span>
-          <h2 style={css("margin:0;font-size:1.22rem;font-weight:500;line-height:1.15")}>{title}</h2>
+    <div className="pt-engine-index-shell" style={css("display:flex;flex-direction:column;gap:var(--space-4)")}>
+      <div className="pt-engine-index-hero" data-controls-below={controlsBelow ? "true" : "false"}>
+        <div className="pt-engine-index-copy">
+          <span style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;display:block;color:" + eyebrowColor + ";margin-bottom:0.45rem")}>{eyebrow}</span>
+          <h2 style={css("margin:0;font-size:var(--text-2xl);font-weight:500;line-height:1.15")}>{title}</h2>
           <p style={css("margin:0.45rem 0 0;font-size:var(--text-base);color:var(--fg-muted);line-height:1.55;max-width:36rem")}>{description}</p>
+          <div className="pt-engine-index-actions">{controls}</div>
         </div>
-        <div style={css("display:flex;align-items:center;justify-content:flex-start;gap:var(--space-2);flex-wrap:wrap;min-width:0" + (controlsBelow ? "" : ";flex:1 1 18rem"))}>
-          {controls}
-        </div>
+        {overview && <div className="pt-engine-index-overview">
+          <span className="pt-engine-index-overview-label">At a glance</span>
+          <div className="pt-engine-index-overview-controls">{overview}</div>
+        </div>}
       </div>
 
       <ClientPickerGrid cards={cards} countLabel={countLabel} />

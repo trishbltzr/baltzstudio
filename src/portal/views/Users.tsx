@@ -151,12 +151,12 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
 
   return (
     <div style={css("display:flex;flex-direction:column;gap:1.1rem")}>
-      <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap")}>
+      <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);flex-wrap:wrap")}>
         <div>
           <div style={css("font-size:var(--text-lg);font-weight:500;color:var(--fg)")}>Team access</div>
           <div style={css("margin-top:0.15rem;font-size:var(--text-xs);color:var(--fg-muted)")}>Invite studio members and clients to the portal.</div>
         </div>
-        <button type="button" onClick={() => { setInviteOpen(true); requestAnimationFrame(() => inviteNameRef.current?.focus()); }} className="pt-op" style={css("height:2.2rem;padding:0 0.9rem;border:none;border-radius:var(--radius-pill);background:var(--accent);color:#fff;font-size:0.78rem;font-weight:500;display:inline-flex;align-items:center;gap:0.4rem;cursor:pointer")}>
+        <button type="button" onClick={() => { setInviteOpen(true); requestAnimationFrame(() => inviteNameRef.current?.focus()); }} className="pt-op" style={css("height:2.2rem;padding:0 0.9rem;border:none;border-radius:var(--radius-pill);background:var(--accent);color:#fff;font-size:var(--text-xs);font-weight:500;display:inline-flex;align-items:center;gap:0.4rem;cursor:pointer")}>
           <Icon name="user" size={15} /> Invite user
         </button>
       </div>
@@ -165,23 +165,23 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
         <form onSubmit={event => { event.preventDefault(); void submitInvite(); }} style={css("padding:1rem 1.05rem;border:1px solid color-mix(in srgb,var(--accent) 24%,var(--border-soft) 76%);border-radius:var(--radius-panel);background:color-mix(in srgb,var(--accent-soft) 35%,var(--surface) 65%);display:grid;grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));gap:0.7rem;align-items:end")}>
           <label style={css("display:flex;flex-direction:column;gap:0.3rem;font-size:var(--text-xs);font-weight:500;color:var(--fg-muted)")}>
             Name
-            <input ref={inviteNameRef} value={inviteName} onChange={event => setInviteName(event.target.value)} placeholder="Full name" className="pt-input" style={css("height:2.25rem;border:1px solid var(--border);border-radius:var(--radius);padding:0 0.7rem;background:var(--surface);color:var(--fg);font-size:0.8rem")} />
+            <input ref={inviteNameRef} value={inviteName} onChange={event => setInviteName(event.target.value)} placeholder="Full name" className="pt-input" style={css("height:2.25rem;border:1px solid var(--border);border-radius:var(--radius);padding:0 0.7rem;background:var(--surface);color:var(--fg);font-size:var(--text-sm)")} />
           </label>
           <label style={css("display:flex;flex-direction:column;gap:0.3rem;font-size:var(--text-xs);font-weight:500;color:var(--fg-muted)")}>
             Email
-            <input type="email" value={inviteEmail} onChange={event => setInviteEmail(event.target.value)} placeholder="name@company.com" className="pt-input" style={css("height:2.25rem;border:1px solid var(--border);border-radius:var(--radius);padding:0 0.7rem;background:var(--surface);color:var(--fg);font-size:0.8rem")} />
+            <input type="email" value={inviteEmail} onChange={event => setInviteEmail(event.target.value)} placeholder="name@company.com" className="pt-input" style={css("height:2.25rem;border:1px solid var(--border);border-radius:var(--radius);padding:0 0.7rem;background:var(--surface);color:var(--fg);font-size:var(--text-sm)")} />
           </label>
           <label style={css("display:flex;flex-direction:column;gap:0.3rem;font-size:var(--text-xs);font-weight:500;color:var(--fg-muted)")}>
             Access
-            <select value={inviteAccess} onChange={event => setInviteAccess(event.target.value)} style={css("height:2.25rem;border:1px solid var(--border);border-radius:var(--radius);padding:0 0.7rem;background:var(--surface);color:var(--fg);font-size:0.8rem")}>
+            <select value={inviteAccess} onChange={event => setInviteAccess(event.target.value)} style={css("height:2.25rem;border:1px solid var(--border);border-radius:var(--radius);padding:0 0.7rem;background:var(--surface);color:var(--fg);font-size:var(--text-sm)")}>
               <option>Member</option>
               <option>Admin</option>
               <option>Client</option>
             </select>
           </label>
           <div style={css("display:flex;align-items:center;gap:0.45rem;justify-content:flex-end")}>
-            <button type="button" disabled={inviteSending} onClick={() => setInviteOpen(false)} style={css("height:2.25rem;padding:0 0.75rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:0.76rem;font-weight:500;cursor:pointer")}>Cancel</button>
-            <button type="submit" disabled={inviteSending} className="pt-op" style={css("height:2.25rem;padding:0 0.9rem;border:none;border-radius:var(--radius-pill);background:var(--accent);color:#fff;font-size:0.76rem;font-weight:500;cursor:pointer;opacity:" + (inviteSending ? ".65" : "1"))}>{inviteSending ? "Saving…" : "Send invite"}</button>
+            <button type="button" disabled={inviteSending} onClick={() => setInviteOpen(false)} style={css("height:2.25rem;padding:0 0.75rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;cursor:pointer")}>Cancel</button>
+            <button type="submit" disabled={inviteSending} className="pt-op" style={css("height:2.25rem;padding:0 0.9rem;border:none;border-radius:var(--radius-pill);background:var(--accent);color:#fff;font-size:var(--text-xs);font-weight:500;cursor:pointer;opacity:" + (inviteSending ? ".65" : "1"))}>{inviteSending ? "Saving…" : "Send invite"}</button>
           </div>
         </form>
       )}
@@ -199,12 +199,12 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
       </div>
 
       <section style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden")}>
-        <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.75rem;padding:0.9rem 1rem;border-bottom:1px solid var(--border-soft)")}>
+        <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);padding:0.9rem 1rem;border-bottom:1px solid var(--border-soft)")}>
           <div>
             <div style={css("font-size:var(--text-md);font-weight:500;color:var(--fg)")}>All users</div>
             <div style={css("margin-top:0.12rem;font-size:var(--text-xs);color:var(--fg-muted)")}>Everyone with portal access or a pending invite.</div>
           </div>
-          <span style={css("font-family:'Courier New',ui-monospace,monospace;font-size:0.68rem;font-weight:500;padding:0.2rem 0.55rem;border-radius:var(--radius-pill);background:var(--surface-alt);color:var(--fg-muted)")}>{directoryUsers.length} users</span>
+          <span style={css("font-family:'Courier New',ui-monospace,monospace;font-size:var(--text-2xs);font-weight:500;padding:0.2rem 0.55rem;border-radius:var(--radius-pill);background:var(--surface-alt);color:var(--fg-muted)")}>{directoryUsers.length} users</span>
         </div>
         {!state.isMobile && (
           <div style={{ display: "grid", gridTemplateColumns: directoryCols, alignItems: "center", gap: "0.75rem", padding: "0.55rem 1rem", borderBottom: "1px solid var(--border-soft)", fontSize: "0.62rem", fontWeight: 500, color: "var(--fg-faint)" }}>
@@ -218,25 +218,25 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
             return (
               <div key={user.email} style={{ display: "grid", gridTemplateColumns: directoryCols, alignItems: "center", gap: "0.75rem", minHeight: "3.9rem", padding: "0.65rem 1rem", borderBottom: "1px solid var(--border-soft)" }}>
                 <div style={css("display:flex;align-items:center;gap:0.65rem;min-width:0")}>
-                  <span style={css("width:2rem;height:2rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:0.68rem;font-weight:500;display:grid;place-items:center;flex-shrink:0")}>{initials(user.name)}</span>
+                  <span style={css("width:2rem;height:2rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:var(--text-2xs);font-weight:500;display:grid;place-items:center;flex-shrink:0")}>{initials(user.name)}</span>
                   <div style={{ minWidth: 0 }}>
                     <div style={css("font-size:var(--text-base);font-weight:500;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{user.name}</div>
-                    <div style={css("font-size:0.68rem;color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{user.email}</div>
-                    {state.isMobile && <div style={css("margin-top:0.1rem;font-size:0.66rem;color:var(--fg-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{user.access} · {user.workspace}</div>}
+                    <div style={css("font-size:var(--text-2xs);color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{user.email}</div>
+                    {state.isMobile && <div style={css("margin-top:0.1rem;font-size:var(--text-2xs);color:var(--fg-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{user.access} · {user.workspace}</div>}
                   </div>
                 </div>
-                {!state.isMobile && <span style={css("font-size:0.75rem;color:var(--fg-muted)")}>{user.access}</span>}
-                {!state.isMobile && <span style={css("font-size:0.75rem;color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{user.workspace}</span>}
+                {!state.isMobile && <span style={css("font-size:var(--text-2xs);color:var(--fg-muted)")}>{user.access}</span>}
+                {!state.isMobile && <span style={css("font-size:var(--text-2xs);color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{user.workspace}</span>}
                 {state.isMobile ? (
                   <div style={css("display:flex;flex-direction:column;align-items:flex-end;gap:0.35rem")}>
-                    <span style={css("font-family:'Courier New',ui-monospace,monospace;font-size:0.62rem;font-weight:500;padding:0.18rem 0.5rem;border-radius:var(--radius-pill);background:color-mix(in srgb," + statusColor + " 12%,white 88%);color:" + statusColor)}>{user.status}</span>
-                    {user.status === "Active" && <button type="button" disabled={Boolean(resettingEmail)} onClick={() => void sendPasswordReset(user.email)} className="pt-iconbtn" style={css("height:1.8rem;padding:0 0.6rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:0.65rem;font-weight:500;cursor:pointer;opacity:" + (resetting ? ".6" : "1"))}>{resetting ? "Sending…" : "Send reset"}</button>}
+                    <span style={css("font-family:'Courier New',ui-monospace,monospace;font-size:var(--text-2xs);font-weight:500;padding:0.18rem 0.5rem;border-radius:var(--radius-pill);background:color-mix(in srgb," + statusColor + " 12%,white 88%);color:" + statusColor)}>{user.status}</span>
+                    {user.status === "Active" && <button type="button" disabled={Boolean(resettingEmail)} onClick={() => void sendPasswordReset(user.email)} className="pt-iconbtn" style={css("height:1.8rem;padding:0 0.6rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-2xs);font-weight:500;cursor:pointer;opacity:" + (resetting ? ".6" : "1"))}>{resetting ? "Sending…" : "Send reset"}</button>}
                   </div>
                 ) : (
                   <>
-                    <span style={css("justify-self:end;font-family:'Courier New',ui-monospace,monospace;font-size:0.62rem;font-weight:500;padding:0.18rem 0.5rem;border-radius:var(--radius-pill);background:color-mix(in srgb," + statusColor + " 12%,white 88%);color:" + statusColor)}>{user.status}</span>
+                    <span style={css("justify-self:end;font-family:'Courier New',ui-monospace,monospace;font-size:var(--text-2xs);font-weight:500;padding:0.18rem 0.5rem;border-radius:var(--radius-pill);background:color-mix(in srgb," + statusColor + " 12%,white 88%);color:" + statusColor)}>{user.status}</span>
                     {user.status === "Active" ? (
-                      <button type="button" disabled={Boolean(resettingEmail)} onClick={() => void sendPasswordReset(user.email)} className="pt-iconbtn" style={css("justify-self:end;height:1.9rem;padding:0 0.65rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:0.66rem;font-weight:500;white-space:nowrap;cursor:pointer;opacity:" + (resetting ? ".6" : "1"))}>{resetting ? "Sending…" : "Send reset"}</button>
+                      <button type="button" disabled={Boolean(resettingEmail)} onClick={() => void sendPasswordReset(user.email)} className="pt-iconbtn" style={css("justify-self:end;height:1.9rem;padding:0 0.65rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-2xs);font-weight:500;white-space:nowrap;cursor:pointer;opacity:" + (resetting ? ".6" : "1"))}>{resetting ? "Sending…" : "Send reset"}</button>
                     ) : <span style={css("justify-self:end;color:var(--fg-faint)")}>—</span>}
                   </>
                 )}
@@ -249,11 +249,11 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
       {overworked.length > 0 && (
         <div style={css("display:flex;align-items:center;gap:0.6rem;padding:0.7rem 1rem;border-radius:var(--radius);background:var(--warn-soft);border:1px solid color-mix(in srgb,var(--warn) 30%,white 70%)")}>
           <span style={{ color: "var(--warn)", display: "flex" }}><Icon name="alert" size={16} /></span>
-          <span style={css("font-size:0.83rem;color:var(--fg);flex:1")}>{overworked.map(m => m.name.split(" ")[0]).join(" & ")} {overworked.length > 1 ? "are" : "is"} over capacity — consider reassigning a client to balance the load.</span>
+          <span style={css("font-size:var(--text-base);color:var(--fg);flex:1")}>{overworked.map(m => m.name.split(" ")[0]).join(" & ")} {overworked.length > 1 ? "are" : "is"} over capacity — consider reassigning a client to balance the load.</span>
         </div>
       )}
 
-      <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-top:0.1rem")}>
+      <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin-top:0.1rem")}>
         <div>
           <div style={css("font-size:var(--text-md);font-weight:500;color:var(--fg)")}>Studio workload</div>
           <div style={css("margin-top:0.12rem;font-size:var(--text-xs);color:var(--fg-muted)")}>Active studio members and their assigned work.</div>
@@ -265,21 +265,21 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
           <div key={p.name} style={css("border:1px solid " + (p.load >= 80 ? "color-mix(in srgb,var(--danger) 35%,white 65%)" : "var(--border-soft)") + ";border-radius:var(--radius-panel);background:var(--surface);overflow:hidden;display:flex;flex-direction:column")}>
             <div style={css("padding:1rem 1.05rem;display:flex;flex-direction:column;gap:var(--space-3)")}>
               <div style={css("display:flex;align-items:center;gap:0.7rem")}>
-                <span style={css("width:2.35rem;height:2.35rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-weight:500;font-size:0.78rem;display:grid;place-items:center;flex-shrink:0")}>{p.init}</span>
+                <span style={css("width:2.35rem;height:2.35rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-weight:500;font-size:var(--text-xs);display:grid;place-items:center;flex-shrink:0")}>{p.init}</span>
                 <div style={{ flex: 1, minWidth: 0 }}><div style={css("font-weight:500;font-size:var(--text-md);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{p.name}</div><div style={css("font-size:var(--text-xs);color:var(--fg-muted)")}>{p.access}</div></div>
-                <span style={css("font-size:0.62rem;font-weight:500;padding:0.16rem 0.5rem;border-radius:999px;background:color-mix(in srgb," + p.wkColor + " 15%,white 85%);color:" + p.wkColor)}>{p.invited ? "Invited" : p.wkLabel}</span>
+                <span style={css("font-size:var(--text-2xs);font-weight:500;padding:0.16rem 0.5rem;border-radius:999px;background:color-mix(in srgb," + p.wkColor + " 15%,white 85%);color:" + p.wkColor)}>{p.invited ? "Invited" : p.wkLabel}</span>
               </div>
               <div style={css("display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-2)")}>
-                <div style={css("text-align:center;padding:0.5rem 0.3rem;background:var(--surface-alt);border-radius:var(--radius-sm)")}><div style={css("font-size:1.05rem;font-weight:500;line-height:1")}>{p.clients}</div><div style={css("font-size:0.62rem;color:var(--fg-faint);margin-top:0.15rem")}>Clients</div></div>
-                <div style={css("text-align:center;padding:0.5rem 0.3rem;background:var(--surface-alt);border-radius:var(--radius-sm)")}><div style={css("font-size:1.05rem;font-weight:500;line-height:1")}>{p.activeTasks}</div><div style={css("font-size:0.62rem;color:var(--fg-faint);margin-top:0.15rem")}>Tasks</div></div>
-                <div style={css("text-align:center;padding:0.5rem 0.3rem;background:var(--surface-alt);border-radius:var(--radius-sm)")}><div style={css("font-size:1.05rem;font-weight:500;line-height:1")}>{p.invited ? "—" : p.prod + "%"}</div><div style={css("font-size:0.62rem;color:var(--fg-faint);margin-top:0.15rem")}>Productivity</div></div>
+                <div style={css("text-align:center;padding:0.5rem 0.3rem;background:var(--surface-alt);border-radius:var(--radius-sm)")}><div style={css("font-size:var(--text-xl);font-weight:500;line-height:1")}>{p.clients}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-faint);margin-top:0.15rem")}>Clients</div></div>
+                <div style={css("text-align:center;padding:0.5rem 0.3rem;background:var(--surface-alt);border-radius:var(--radius-sm)")}><div style={css("font-size:var(--text-xl);font-weight:500;line-height:1")}>{p.activeTasks}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-faint);margin-top:0.15rem")}>Tasks</div></div>
+                <div style={css("text-align:center;padding:0.5rem 0.3rem;background:var(--surface-alt);border-radius:var(--radius-sm)")}><div style={css("font-size:var(--text-xl);font-weight:500;line-height:1")}>{p.invited ? "—" : p.prod + "%"}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-faint);margin-top:0.15rem")}>Productivity</div></div>
               </div>
               <div>
                 <div style={css("display:flex;justify-content:space-between;font-size:var(--text-2xs);color:var(--fg-muted);margin-bottom:0.1rem")}><span>Workload</span><span>{p.load}%</span></div>
                 <div style={css("height:0.4rem;border-radius:999px;background:oklch(0.94 0.006 50);overflow:hidden")}><div style={css("width:" + p.load + "%;height:100%;border-radius:999px;background:" + p.wkColor)} /></div>
               </div>
               {p.invited ? (
-                <div style={css("font-size:0.8rem;color:var(--fg-faint);font-style:italic")}>Onboarding — no projects assigned yet.</div>
+                <div style={css("font-size:var(--text-sm);color:var(--fg-faint);font-style:italic")}>Client intake — no projects assigned yet.</div>
               ) : (
                 <div style={css("display:flex;flex-direction:column;gap:0.4rem")}>
                   {p.projs.map(pr => {
@@ -292,9 +292,9 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
                           <span style={css("font-weight:500;font-size:var(--text-base);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{pr.client}</span>
                         </div>
                         <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:0.45rem;flex-wrap:wrap")}>
-                          <span style={css("display:inline-flex;align-items:center;padding:0.16rem 0.48rem;border-radius:999px;background:oklch(0.96 0.006 50);color:var(--fg-muted);font-size:0.68rem;font-weight:500;white-space:nowrap")}>{stageLabel}</span>
-                          <span style={css("display:inline-flex;align-items:center;padding:0.16rem 0.48rem;border-radius:999px;background:color-mix(in srgb," + healthColor(pr.health) + " 10%,white 90%);color:" + healthColor(pr.health) + ";font-size:0.68rem;font-weight:500;white-space:nowrap")}>{hm[1]}</span>
-                          <span style={css("font-size:0.7rem;color:var(--fg-faint);min-width:2.9rem;text-align:right;white-space:nowrap")}>{pr.due}</span>
+                          <span style={css("display:inline-flex;align-items:center;padding:0.16rem 0.48rem;border-radius:999px;background:oklch(0.96 0.006 50);color:var(--fg-muted);font-size:var(--text-2xs);font-weight:500;white-space:nowrap")}>{stageLabel}</span>
+                          <span style={css("display:inline-flex;align-items:center;padding:0.16rem 0.48rem;border-radius:999px;background:color-mix(in srgb," + healthColor(pr.health) + " 10%,white 90%);color:" + healthColor(pr.health) + ";font-size:var(--text-2xs);font-weight:500;white-space:nowrap")}>{hm[1]}</span>
+                          <span style={css("font-size:var(--text-2xs);color:var(--fg-faint);min-width:2.9rem;text-align:right;white-space:nowrap")}>{pr.due}</span>
                         </div>
                       </div>
                     );

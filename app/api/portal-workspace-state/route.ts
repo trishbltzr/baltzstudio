@@ -4,16 +4,39 @@ import {
   PORTAL_WORKSPACE_FALLBACK_RUN_ID,
   PORTAL_WORKSPACE_ROW_ID,
   normalizePersistedPortalWorkspaceState,
+  projectPersistedPortalWorkspaceStateForClient,
+  type PersistedPortalWorkspaceState,
 } from "@/lib/portalWorkspacePersistence";
+import { resolvePortalRequestAccess, type PortalRequestAccess } from "@/lib/portalRequestAccess";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabasePrivilegedServerClient } from "@/lib/supabase/privileged";
 import type { Json } from "@/lib/supabase/types";
 
 function isMissingWorkspaceTable(error: { code?: string; message?: string } | null) {
   return error?.code === "42P01" || /portal_workspace_state/i.test(error?.message || "");
 }
 
-async function readWorkspaceFallback() {
-  const supabase = await createSupabaseServerClient();
+function workspaceResponse(
+  state: PersistedPortalWorkspaceState | null,
+  updatedAt: string | null,
+  storage: "portal_workspace_state" | "portal_audit_runs",
+  access: PortalRequestAccess,
+) {
+  const projectedState = state && access.role === "client"
+    ? projectPersistedPortalWorkspaceStateForClient(state, access.clientId, access.clientName ?? undefined)
+    : state;
+  return NextResponse.json({
+    state: projectedState,
+    updatedAt,
+    storage,
+    scope: access.role === "client" ? { role: "client", clientId: access.clientId, clientName: access.clientName } : { role: "staff" },
+  });
+}
+
+async function readWorkspaceFallback(
+  supabase: Awaited<ReturnType<typeof createSupabasePrivilegedServerClient>>,
+  access: PortalRequestAccess,
+) {
   const { data, error } = await supabase
     .from("portal_audit_runs")
     .select("state, updated_at")
@@ -25,15 +48,19 @@ async function readWorkspaceFallback() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({
-    state: normalizePersistedPortalWorkspaceState(data?.state) ?? null,
-    updatedAt: data?.updated_at ?? null,
-    storage: "portal_audit_runs",
-  });
+  return workspaceResponse(
+    normalizePersistedPortalWorkspaceState(data?.state) ?? null,
+    data?.updated_at ?? null,
+    "portal_audit_runs",
+    access,
+  );
 }
 
-export async function GET() {
-  const supabase = await createSupabaseServerClient();
+export async function GET(request: Request) {
+  const authClient = await createSupabaseServerClient();
+  const access = await resolvePortalRequestAccess(request, authClient);
+  if (!access) return NextResponse.json({ error: "Sign in to load the portal workspace." }, { status: 401 });
+  const supabase = await createSupabasePrivilegedServerClient();
   const { data, error } = await supabase
     .from("portal_workspace_state")
     .select("state, updated_at")
@@ -42,20 +69,28 @@ export async function GET() {
 
   if (error) {
     if (isMissingWorkspaceTable(error)) {
-      return readWorkspaceFallback();
+      return readWorkspaceFallback(supabase, access);
     }
 
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({
-    state: normalizePersistedPortalWorkspaceState(data?.state) ?? null,
-    updatedAt: data?.updated_at ?? null,
-    storage: "portal_workspace_state",
-  });
+  return workspaceResponse(
+    normalizePersistedPortalWorkspaceState(data?.state) ?? null,
+    data?.updated_at ?? null,
+    "portal_workspace_state",
+    access,
+  );
 }
 
 export async function PUT(request: Request) {
+  const authClient = await createSupabaseServerClient();
+  const access = await resolvePortalRequestAccess(request, authClient);
+  if (!access) return NextResponse.json({ error: "Sign in to save the portal workspace." }, { status: 401 });
+  if (access.role === "client") {
+    return NextResponse.json({ error: "Client accounts cannot replace the shared workspace snapshot." }, { status: 403 });
+  }
+  const supabase = await createSupabasePrivilegedServerClient();
   const body = await request.json().catch(() => null);
   const state = normalizePersistedPortalWorkspaceState(body?.state ?? body);
 
@@ -64,7 +99,6 @@ export async function PUT(request: Request) {
   }
 
   const updatedAt = new Date().toISOString();
-  const supabase = await createSupabaseServerClient();
   const nextState = state as unknown as Json;
   const { error } = await supabase
     .from("portal_workspace_state")

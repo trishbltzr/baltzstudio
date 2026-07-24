@@ -5,12 +5,32 @@ import { PhaseDetailModal, type PhaseDetailEdit } from "../../components/PhaseDe
 import type { Project, TaskAssignee, TaskStatus as DashboardTaskStatus } from "../../types";
 import { clientsVisibleToRole } from "../clients";
 import { CHECKLIST_TEMPLATES, TASK_DESCRIPTIONS } from "../data";
-import { css, laneMeta, roleMeta } from "../helpers";
+import { css, laneMeta, roleMeta, taskOwnerLabel } from "../helpers";
+import { taskAssignmentRole } from "../../lib/portalNotifications";
 import { NEW_TASK_DRAFT_ID, type PortalActions, type PortalState } from "../store";
-import type { Owner, Priority, TaskStatus, TaskSubtask } from "../types";
+import type { Owner, Priority, TaskAssigneeRole, TaskCompletionEventType, TaskStatus, TaskSubtask } from "../types";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const PRIORITY_LABEL: Record<Priority, string> = { high: "High", med: "Medium", low: "Low" };
+const COMPLETION_EVENT_LABELS: Array<[TaskCompletionEventType, string]> = [
+  ["task_completed", "Standard task completion"],
+  ["studio_foundation_task_completed", "Studio foundation complete"],
+  ["client_approval_completed", "Client approval complete"],
+  ["client_revision_notes_submitted", "Client revision notes submitted"],
+  ["build_qa_completed", "Build QA complete"],
+  ["launch_prep_completed", "Launch prep complete"],
+  ["handoff_package_sent", "Handoff package sent"],
+  ["in_full_flight_task_completed", "In Full Flight task complete"],
+  ["no_action_nurture_sent", "No-action nurture sent"],
+];
+const ASSIGNMENT_OPTIONS: Array<{ role: TaskAssigneeRole; label: string; owner: Owner }> = [
+  { role: "client", label: "Client", owner: "client" },
+  { role: "studio_admin", label: "Studio Admin", owner: "studio" },
+  { role: "superadmin", label: "Superadmin", owner: "studio" },
+  { role: "manager", label: "Manager", owner: "studio" },
+  { role: "system", label: "Baltz AI", owner: "ai" },
+  { role: "shared", label: "Client + Studio Admin", owner: "gate" },
+];
 
 function portalStatus(status: DashboardTaskStatus): TaskStatus {
   if (status === "complete") return "done";
@@ -66,6 +86,11 @@ export function TaskModal({ state, actions }: { state: PortalState; actions: Por
   const milestoneTitle = task.milestone || "General";
   const description = task.description ?? TASK_DESCRIPTIONS[task.id] ?? "";
   const lane = laneMeta(task.owner);
+  const ownerLabel = taskOwnerLabel(task.owner, state.role);
+  const assignmentRole = taskAssignmentRole(task);
+  const assignmentLabel = state.role === "client"
+    ? ownerLabel
+    : task.assignment?.label || ASSIGNMENT_OPTIONS.find(option => option.role === assignmentRole)?.label || task.assignee;
   const actor = roleMeta(state.role, state.clientName).name;
   const visibleClients = clientsVisibleToRole(state.role, state.clientName);
 
@@ -103,7 +128,13 @@ export function TaskModal({ state, actions }: { state: PortalState; actions: Por
   const applyPhaseEdit = (edit: PhaseDetailEdit) => {
     if (edit.title !== undefined) actions.updateTask(task.id, { title: edit.title });
     if (edit.description !== undefined) actions.updateTask(task.id, { description: edit.description });
-    if (edit.assignees !== undefined) actions.updateTask(task.id, { assignee: edit.assignees.at(-1) || "Unassigned" });
+    if (edit.assignees !== undefined) {
+      const nextLabel = edit.assignees.at(-1) || "Unassigned";
+      actions.updateTask(task.id, {
+        assignee: nextLabel,
+        assignment: { role: assignmentRole, label: nextLabel },
+      });
+    }
     if (edit.dateFrom !== undefined) actions.updateTask(task.id, { due: isoToDue(edit.dateFrom) });
   };
 
@@ -122,7 +153,7 @@ export function TaskModal({ state, actions }: { state: PortalState; actions: Por
     initialEditing={isDraft}
     initialTitle={task.title}
     initialDescription={description}
-    initialAssignees={[task.assignee]}
+    initialAssignees={[assignmentLabel]}
     initialDateFrom={dueToIso(task.due)}
     initialDateTo={dueToIso(task.due)}
     initialFiles={task.attachments || []}
@@ -138,7 +169,16 @@ export function TaskModal({ state, actions }: { state: PortalState; actions: Por
     renderMeta={editing => editing ? <div style={css("display:grid;grid-template-columns:1fr 1fr;gap:.45rem;margin-bottom:.5rem")}><select aria-label="Client or project" value={task.project} disabled={state.role === "client"} onChange={event => actions.updateTask(task.id, { project: event.target.value })} style={css(input + ";opacity:" + (state.role === "client" ? ".7" : "1") + ";cursor:" + (state.role === "client" ? "not-allowed" : "pointer"))}>{!visibleClients.some(client => client.name === task.project) && state.role === "admin" && <option value={task.project}>{task.project}</option>}{visibleClients.map(client => <option key={client.id} value={client.name}>{client.name}</option>)}</select><input aria-label="Milestone" value={milestoneTitle} onChange={event => actions.updateTask(task.id, { milestone: event.target.value })} style={input} /></div> : <div style={css("font-size:var(--text-xs);color:var(--fg-muted);margin-bottom:.3rem")}>{milestoneTitle} · {task.project}</div>}
     renderExtraFields={editing => <>
       <div style={row}><span style={label}>Priority</span><div style={value}>{editing ? <select aria-label="Priority" value={task.priority} onChange={event => actions.updateTask(task.id, { priority: event.target.value as Priority })} style={input}><option value="high">High</option><option value="med">Medium</option><option value="low">Low</option></select> : <span style={pill("var(--surface-alt)", "var(--fg-muted)")}>{PRIORITY_LABEL[task.priority]} priority</span>}</div></div>
-      <div style={row}><span style={label}>Owner</span><div style={value}>{editing && state.role === "admin" ? <select aria-label="Owner" value={task.owner} onChange={event => actions.updateTask(task.id, { owner: event.target.value as Owner })} style={input}><option value="studio">Studio</option><option value="ai">Assistant</option><option value="client">Client</option><option value="gate">Milestone</option></select> : <span style={pill(lane.s, lane.c)}>{lane.label}</span>}</div></div>
+      <div style={row}><span style={label}>Assigned to</span><div style={value}>{editing && state.role !== "client" ? <select aria-label="Assigned to" value={assignmentRole} onChange={event => {
+        const option = ASSIGNMENT_OPTIONS.find(item => item.role === event.target.value);
+        if (!option) return;
+        actions.updateTask(task.id, {
+          owner: option.owner,
+          assignee: option.label,
+          assignment: { role: option.role, label: option.label },
+        });
+      }} style={input}>{ASSIGNMENT_OPTIONS.map(option => <option key={option.role} value={option.role}>{option.label}</option>)}</select> : <span style={pill(lane.s, lane.c)}>{assignmentLabel}</span>}</div></div>
+      <div style={row}><span style={label}>Completion event</span><div style={value}>{editing && state.role !== "client" ? <select aria-label="Completion event" value={task.completionEventType || "task_completed"} onChange={event => actions.updateTask(task.id, { completionEventType: event.target.value as TaskCompletionEventType })} style={input}>{COMPLETION_EVENT_LABELS.map(([eventType, eventLabel]) => <option key={eventType} value={eventType}>{eventLabel}</option>)}</select> : <span style={pill("var(--surface-alt)", "var(--fg-muted)")}>{COMPLETION_EVENT_LABELS.find(([eventType]) => eventType === (task.completionEventType || "task_completed"))?.[1]}</span>}</div></div>
       <div style={{ ...row, borderBottom: "none" }}><span style={label}>Blocked by</span><div style={value}>{editing ? <select aria-label="Blocked by" value={task.blockedBy || ""} onChange={event => actions.updateTask(task.id, { blockedBy: event.target.value || undefined })} style={input}><option value="">No blocker</option>{state.tasks.filter(item => item.id !== task.id).map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select> : (state.tasks.find(item => item.id === task.blockedBy)?.title || "—")}</div></div>
     </>}
     footer={<div style={css("display:flex;align-items:center;justify-content:flex-end;gap:.45rem;padding:1rem 1.5rem;border-top:1px solid var(--border)")}>{isDraft ? <><span style={css("margin-right:auto;font-size:var(--text-sm);color:var(--fg-muted)")}>Unsaved draft</span><button type="button" onClick={actions.cancelTaskDraft} style={css("height:2.1rem;padding:0 .8rem;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--fg-muted);font-size:var(--text-sm);font-weight:500;cursor:pointer")}>Cancel</button><button type="button" onClick={actions.saveTaskDraft} style={css("height:2.1rem;padding:0 .9rem;border:none;border-radius:999px;background:var(--accent);color:#fff;font-size:var(--text-sm);font-weight:500;cursor:pointer")}>Create task</button></> : deleteConfirm ? <><span style={css("margin-right:auto;font-size:var(--text-sm);color:var(--danger)")}>Delete this task?</span><button type="button" onClick={() => setDeleteConfirm(false)} style={css("height:2rem;padding:0 .75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--fg-muted);font-size:var(--text-sm);font-weight:500;cursor:pointer")}>Cancel</button><button type="button" onClick={() => actions.deleteTask(task.id)} style={css("height:2rem;padding:0 .75rem;border:none;border-radius:999px;background:var(--danger);color:#fff;font-size:var(--text-sm);font-weight:500;cursor:pointer")}>Delete task</button></> : <button type="button" onClick={() => setDeleteConfirm(true)} style={css("height:2rem;padding:0 .75rem;border:1px solid color-mix(in srgb,var(--danger) 35%,var(--border) 65%);border-radius:999px;background:var(--surface);color:var(--danger);font-size:var(--text-sm);font-weight:500;cursor:pointer")}>Delete task</button>}</div>}

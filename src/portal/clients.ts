@@ -25,6 +25,18 @@ export interface StudioClient {
   name: string;
   owner: string;
   audited: boolean; // has completed a Cocoon audit → eligible for a funnel offer
+  lead: {
+    contactName: string;
+    email: string;
+    phone: string;
+    businessName: string;
+    website: string;
+    capturedAt: string;
+  };
+  cocoonLink: {
+    status: "not_sent" | "sent" | "completed";
+    sentAt?: string;
+  };
   audit: ClientFacet;
   funnels: ClientFacet[];
 }
@@ -36,6 +48,8 @@ export const UNASSIGNED_WORK_CLIENT: StudioClient = {
   name: "Unassigned draft",
   owner: "Unassigned",
   audited: false,
+  lead: { contactName: "", email: "", phone: "", businessName: "", website: "", capturedAt: "" },
+  cocoonLink: { status: "not_sent" },
   audit: {
     id: "audit-unassigned",
     subtitle: "Draft",
@@ -70,15 +84,29 @@ export const STUDIO_CLIENTS: StudioClient[] = [
   "Trisha Baltazar & Co.",
   "Yona Signo",
   "ZODA",
-].sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" })).map(name => {
+].sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" })).map((name, index) => {
   // Preserve CreatorIQ's existing persistence key while using the correct
   // service name.
   const id = name === FEATURED_CLIENT_NAME ? "creator-iq" : name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const domain = name === FEATURED_CLIENT_NAME ? "creatoriq.com" : `${id}.com`;
+  const cocoonStatus = name === FEATURED_CLIENT_NAME ? "completed" : name === "Blue Ribbon" ? "sent" : "not_sent";
   return {
     id,
     name,
     owner: NOT_ASSIGNED_TO_KIER.has(name) ? "Unassigned" : "Kier Mangibin",
-    audited: false,
+    audited: name === FEATURED_CLIENT_NAME,
+    lead: {
+      contactName: `${name} team`,
+      email: `hello@${domain}`,
+      phone: `+44 20 7${String(120 + index * 37).padStart(3, "0")} ${String(2040 + index * 53).padStart(4, "0")}`,
+      businessName: name,
+      website: `https://www.${domain}`,
+      capturedAt: `Jul ${String(8 + (index % 14)).padStart(2, "0")}, 2026`,
+    },
+    cocoonLink: {
+      status: cocoonStatus,
+      ...(cocoonStatus === "not_sent" ? {} : { sentAt: name === FEATURED_CLIENT_NAME ? "Jul 21, 2026" : "Jul 09, 2026" }),
+    },
     audit: {
       id: `audit-${id}`,
       subtitle: "Cocoon Consult",
@@ -88,13 +116,21 @@ export const STUDIO_CLIENTS: StudioClient[] = [
       progress: 0,
       due: "—",
     },
-    funnels: [],
+    funnels: name === FEATURED_CLIENT_NAME ? [{
+      id: "funnel-creator-iq-demo",
+      subtitle: "CreatorIQ Enterprise Demo Funnel",
+      statusLabel: "Complete",
+      statusTone: "success" as const,
+      stage: "Development plan · Complete",
+      progress: 100,
+      due: "Jul 21",
+    }] : [],
   };
 });
 
-// CreatorIQ is the featured client shown when the Client role is selected.
-// This is intentionally independent from the alphabetical roster order.
-export const DEFAULT_CLIENT_NAME = FEATURED_CLIENT_NAME;
+// CreatorIQ remains selectable demo data, but it must not become the implicit
+// client context for a new portal session or an arbitrary source URL.
+export const DEFAULT_CLIENT_NAME = STUDIO_CLIENTS.find(client => client.name !== FEATURED_CLIENT_NAME)?.name || FEATURED_CLIENT_NAME;
 export const DEV_USER_NAME = "Kier Mangibin";
 
 export function clientsVisibleToRole(role: "admin" | "dev" | "client", clientName = DEFAULT_CLIENT_NAME) {

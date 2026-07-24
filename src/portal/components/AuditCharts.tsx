@@ -29,8 +29,8 @@ export function CategoryBars({ cats, compact = false, labelWidth, empty = false,
         if (layout === "grid") return (
           <div key={c.label} style={css("display:flex;flex-direction:column;gap:0.24rem;min-width:0")}>
             <div style={css("display:flex;align-items:baseline;justify-content:space-between;gap:0.4rem;min-width:0")}>
-              <span title={c.label} style={css("font-size:0.66rem;font-weight:500;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{c.label}</span>
-              <span style={css("font-size:0.63rem;color:" + (empty ? "var(--fg-faint)" : "var(--fg)") + ";white-space:nowrap;font-variant-numeric:tabular-nums")}>{empty ? "—" : gain > 0 ? `${c.score} → ${target}` : `${c.score}`}</span>
+              <span title={c.label} style={css("font-size:var(--text-2xs);font-weight:500;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{c.label}</span>
+              <span style={css("font-size:var(--text-2xs);color:" + (empty ? "var(--fg-faint)" : "var(--fg)") + ";white-space:nowrap;font-variant-numeric:tabular-nums")}>{empty ? "—" : gain > 0 ? `${c.score} → ${target}` : `${c.score}`}</span>
             </div>
             <div style={css("position:relative;height:0.34rem;border-radius:999px;background:color-mix(in srgb," + barColor + " 40%,var(--surface-alt) 60%)")}>
               {!empty && <div style={css("position:absolute;inset:0 auto 0 0;height:100%;border-radius:999px;width:" + Math.max(2, c.score) + "%;background:" + c.color + ";transition:width .45s ease")} />}
@@ -88,8 +88,8 @@ export function OverallScoreBar({
       <div style={css("display:flex;align-items:flex-end;justify-content:space-between;gap:0.8rem;flex-wrap:wrap")}>
         <div style={css("display:flex;align-items:baseline;gap:0.4rem;min-width:0")}>
           <span style={css("font-size:" + (compact ? "2rem" : "2.5rem") + ";font-weight:500;line-height:0.9;color:var(--fg);font-variant-numeric:tabular-nums")}>{overall}</span>
-          <span style={css("font-size:0.7rem;color:var(--fg-faint)")}>/100</span>
-          {uplift > 0 && <span style={css("display:inline-flex;align-items:baseline;gap:0.22rem;font-size:0.78rem;color:var(--fg-muted);margin-left:0.35rem")}>↗ <strong style={css("font-weight:500;color:" + color)}>{target}</strong></span>}
+          <span style={css("font-size:var(--text-2xs);color:var(--fg-faint)")}>/100</span>
+          {uplift > 0 && <span style={css("display:inline-flex;align-items:baseline;gap:0.22rem;font-size:var(--text-xs);color:var(--fg-muted);margin-left:0.35rem")}>↗ <strong style={css("font-weight:500;color:" + color)}>{target}</strong></span>}
         </div>
         {uplift > 0 && <span style={css("font-size:" + (compact ? "1rem" : "1.2rem") + ";font-weight:500;color:" + color + ";line-height:1")}>+{uplift}</span>}
       </div>
@@ -98,11 +98,11 @@ export function OverallScoreBar({
         {uplift > 0 && <span aria-hidden="true" style={css("position:absolute;top:-0.2rem;bottom:-0.2rem;left:" + target + "%;width:2px;border-radius:1px;background:color-mix(in srgb,var(--fg-muted) 62%,transparent 38%)")} />}
       </div>
       {(label || typeof strong === "number") && (
-        <div style={css("display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap")}>
-          {label && <span style={css("font-size:0.82rem;font-weight:500;color:var(--fg)")}>{label}</span>}
-          {typeof strong === "number" && <span style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:0.68rem;color:var(--fg-faint)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--success)")} />{strong} strong</span>}
-          {typeof needWork === "number" && <span style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:0.68rem;color:var(--fg-faint)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--warn)")} />{needWork} need work</span>}
-          {caption && <span style={css("margin-left:auto;font-size:0.66rem;color:var(--fg-faint)")}>{caption}</span>}
+        <div style={css("display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap")}>
+          {label && <span style={css("font-size:var(--text-sm);font-weight:500;color:var(--fg)")}>{label}</span>}
+          {typeof strong === "number" && <span style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:var(--text-2xs);color:var(--fg-faint)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--success)")} />{strong} strong</span>}
+          {typeof needWork === "number" && <span style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:var(--text-2xs);color:var(--fg-faint)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--warn)")} />{needWork} need work</span>}
+          {caption && <span style={css("margin-left:auto;font-size:var(--text-2xs);color:var(--fg-faint)")}>{caption}</span>}
         </div>
       )}
     </div>

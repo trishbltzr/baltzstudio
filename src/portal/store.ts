@@ -6,9 +6,18 @@ import {
   PORTAL_WORKSPACE_DATA_VERSION,
   mergePortalApprovals,
   mergePortalClientWorkspace,
+  defaultPortalAuditExportProfile,
+  normalizePortalAuditExportProfile,
+  normalizePortalNotificationPreferences,
   normalizePersistedPortalWorkspaceState,
+  applyPortalServiceLifecyclePolicy,
+  portalAuditExportModeAllowed,
+  validatePortalServiceLifecycleUpdate,
+  appendPortalClientAuditRecord,
   portalClientId,
   type PortalApprovalRecord,
+  type PortalAuditExportMode,
+  type PortalAuditExportStatus,
   type PortalClientNoteRecord,
   type PortalClientWorkspace,
   type PortalBrandSystemRecord,
@@ -16,22 +25,48 @@ import {
   type PortalCollaboratorRecord,
   type PortalProposalRecord,
   type PortalWorkspaceFile,
+  type PortalServiceLifecycleRecord,
+  type PortalServiceOperationalEventType,
+  type PortalAiActionType,
+  type PortalAiActionStatus,
 } from "@/lib/portalWorkspacePersistence";
-import type { AuditType, BuilderType, ClientProject, Escalation, JourneyGate, JourneyRequestSeverity, Priority, Role, Service, Task, TaskFilter, TaskImportDraft, TaskStatus, Thread, View } from "./types";
+import {
+  DEFAULT_PORTAL_NOTIFICATION_PREFERENCES,
+  type AuditType,
+  type BuilderType,
+  type ClientProject,
+  type Escalation,
+  type JourneyGate,
+  type JourneyRequestSeverity,
+  type PortalNotificationPreferences,
+  type Priority,
+  type Role,
+  type Service,
+  type Task,
+  type TaskFilter,
+  type TaskImportDraft,
+  type TaskStatus,
+  type Thread,
+  type View,
+} from "./types";
 import type { ProgressChatMessage, ProgressChatSession } from "./types";
 import { seedEscalations, seedJourneyGates, seedTasks, seedThreads } from "./data";
 import { STATUS_ORDER } from "./helpers";
 import { progressChatTranscript, summarizeProgressChatTitle } from "./progressChat";
 import { buildProgressChatContext } from "./progressChatContext";
 import { clientsVisibleToRole, DEFAULT_CLIENT_NAME, DEV_USER_NAME } from "./clients";
-import { BASE_ROLE_VIEWS, canAccessPortalView } from "./access";
+import { BASE_ROLE_VIEWS, canAccessPortalView, hasApprovedHandoffToService } from "./access";
+import { CREATOR_IQ_CLIENT_ID, createCreatorIqDemoWorkspace } from "@/lib/creatorIqDemoWorkspace";
+import { normalizePortalProcessHandoff } from "@/lib/portalProcessHandoffs";
+import { applyTaskStatusLifecycle, initializeTaskLifecycle } from "@/lib/portalTaskLifecycle";
+import { DASHBOARD_USER_EMAIL_HEADER } from "@/lib/dashboardPersistence";
 
 export type TaskView = "board" | "calendar";
 export const NEW_TASK_DRAFT_ID = "__new_task_draft__";
 export type QuickActionIntent = "new_client" | "invite_user" | "new_message" | "new_audit";
 export type TeamInvite = { id: string; name: string; email: string; access: string };
 export type SavedView<F> = { name: string; filter: F };
-type PersistedPortalState = Pick<PortalState, "tasks" | "journeyGates" | "threads" | "escalations" | "ticketSeq" | "clientWorkspaces" | "progressChatSessions" | "activeProgressChatId" | "projectOverrides"> & { dataVersion: string };
+type PersistedPortalState = Pick<PortalState, "tasks" | "journeyGates" | "threads" | "escalations" | "ticketSeq" | "clientWorkspaces" | "progressChatSessions" | "activeProgressChatId" | "projectOverrides" | "notificationReadIds" | "notificationPreferences"> & { dataVersion: string };
 
 export type JourneyRequestPayload = {
   existingThreadId?: string;
@@ -60,6 +95,8 @@ export interface PortalState {
   isMobile: boolean;
   navOpen: boolean;
   notifOpen: boolean;
+  notificationReadIds: string[];
+  notificationPreferences: PortalNotificationPreferences;
   pop: string | null;
   sidePop: "workspace" | "account" | null;
   sidebarCollapsed: boolean;
@@ -128,9 +165,17 @@ function loadSavedViews(): PortalState["savedViews"] {
   return { clients: [], tasks: [] };
 }
 
-function loadPersistedPortalState(): Partial<PersistedPortalState> {
+function portalStateStorageKey(seedRole: Role, clientName: string, canSwitchRoles: boolean, userEmail: string) {
+  const clientScope = userEmail.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+    || portalClientId(clientName);
+  return seedRole === "client" && !canSwitchRoles
+    ? `baltz.clientSlate.v2.portalState.client.${clientScope}`
+    : "baltz.clientSlate.v2.portalState.staff";
+}
+
+function loadPersistedPortalState(storageKey: string): Partial<PersistedPortalState> {
   try {
-    const value = JSON.parse(localStorage.getItem("baltz.clientSlate.v2.portalState") || "null");
+    const value = JSON.parse(localStorage.getItem(storageKey) || "null");
     const normalized = normalizePersistedPortalWorkspaceState(value);
     if (normalized) return normalized as Partial<PersistedPortalState>;
   } catch { /* ignore */ }
@@ -177,21 +222,9 @@ function syncPortalViewUrl(view: View) {
   window.history.replaceState({}, "", nextUrl);
 }
 
-function persistPortalState(state: PortalState) {
+function persistPortalSnapshot(snapshot: PersistedPortalState, storageKey: string) {
   try {
-    const snapshot: PersistedPortalState = {
-      dataVersion: PORTAL_WORKSPACE_DATA_VERSION,
-      tasks: state.tasks,
-      journeyGates: state.journeyGates,
-      threads: state.threads,
-      escalations: state.escalations,
-      ticketSeq: state.ticketSeq,
-      clientWorkspaces: state.clientWorkspaces,
-      progressChatSessions: state.progressChatSessions,
-      activeProgressChatId: state.activeProgressChatId,
-      projectOverrides: state.projectOverrides,
-    };
-    localStorage.setItem("baltz.clientSlate.v2.portalState", JSON.stringify(snapshot));
+    localStorage.setItem(storageKey, JSON.stringify(snapshot));
   } catch { /* ignore */ }
 }
 
@@ -206,19 +239,219 @@ function withClientWorkspace(
   };
 }
 
+const CLIENT_VISIBLE_LIFECYCLE_FIELDS = new Set<keyof PortalServiceLifecycleRecord>([
+  "consultState",
+  "auditState",
+  "deliverableState",
+  "paymentState",
+  "wiawPaymentState",
+  "bookingState",
+  "wiawState",
+  "iffState",
+  "dashboardAccessState",
+  "cocoonPackageLabel",
+  "guidedCallBookedAt",
+  "guidedCallCompletedAt",
+  "guidanceWindowStartsAt",
+  "guidanceWindowEndsAt",
+  "dashboardAccessStartsAt",
+  "dashboardAccessEndsAt",
+  "paymentEmailSentAt",
+  "paymentConfirmedAt",
+  "wiawPaymentConfirmedAt",
+  "currentDevelopmentStage",
+  "nextDevelopmentStage",
+  "nextRequiredAction",
+  "consultLinkSentAt",
+  "formStartedAt",
+  "formCompletedAt",
+  "auditGeneratedAt",
+  "auditReviewedAt",
+  "auditApprovedAt",
+]);
+
+function auditWorkspaceAction(
+  workspace: PortalClientWorkspace,
+  state: PortalState,
+  action: Parameters<typeof appendPortalClientAuditRecord>[1]["action"],
+  summary: string,
+  occurredAt: string,
+  clientVisible: boolean,
+  sourceId?: string,
+) {
+  return appendPortalClientAuditRecord(workspace, {
+    action,
+    summary,
+    actor: state.role === "client" ? state.clientName : state.role === "dev" ? "Kier Mangibin" : "Trish Baltazar",
+    actorRole: state.role,
+    occurredAt,
+    clientVisible,
+    sourceId,
+  });
+}
+
+export function applyTaskWorkflowEffects(state: PortalState, tasks: Task[]): PortalState {
+  const previousById = new Map(state.tasks.map(task => [task.id, task]));
+  const transitions = tasks.flatMap(task => {
+    const previous = previousById.get(task.id);
+    if (!previous || previous.status === task.status || !task.workflowEffects) return [];
+    if (task.status === "done") return [{ task, completed: true }];
+    if (previous.status === "done") return [{ task, completed: false }];
+    return [];
+  });
+  if (!transitions.length) return { ...state, tasks };
+
+  let nextState: PortalState = { ...state, tasks };
+  transitions.forEach(({ task, completed }) => {
+    const effects = task.workflowEffects;
+    if (!effects) return;
+
+    if (effects.journeyGate) {
+      nextState = {
+        ...nextState,
+        journeyGates: nextState.journeyGates.map(gate => gate.id === effects.journeyGate?.id
+          ? { ...gate, status: completed ? effects.journeyGate.doneStatus : effects.journeyGate.reopenedStatus }
+          : gate),
+      };
+    }
+
+    if (effects.project) {
+      nextState = {
+        ...nextState,
+        projectOverrides: {
+          ...nextState.projectOverrides,
+          [task.project]: {
+            ...(nextState.projectOverrides[task.project] || {}),
+            service: effects.project.service,
+            stage: completed ? effects.project.doneStage : effects.project.reopenedStage,
+            progress: completed ? effects.project.doneProgress : effects.project.reopenedProgress,
+          },
+        },
+      };
+    }
+
+    if (effects.lifecycle) {
+      const clientId = portalClientId(task.project);
+      const now = new Date().toISOString();
+      nextState = {
+        ...nextState,
+        clientWorkspaces: withClientWorkspace(nextState, clientId, workspace => {
+          const lifecycle = { ...workspace.serviceLifecycle };
+          const lifecycleEffects = effects.lifecycle;
+          if (!lifecycleEffects) return workspace;
+          const deliverableState = completed
+            ? lifecycleEffects.doneDeliverableState
+            : lifecycleEffects.reopenedDeliverableState;
+          const dashboardAccessState = completed
+            ? lifecycleEffects.doneDashboardAccessState
+            : lifecycleEffects.reopenedDashboardAccessState;
+          const currentDevelopmentStage = completed
+            ? lifecycleEffects.doneCurrentStage
+            : lifecycleEffects.reopenedCurrentStage;
+          const nextDevelopmentStage = completed
+            ? lifecycleEffects.doneNextStage
+            : lifecycleEffects.reopenedNextStage;
+          const nextRequiredAction = completed
+            ? lifecycleEffects.doneNextAction
+            : lifecycleEffects.reopenedNextAction;
+          if (deliverableState) lifecycle.deliverableState = deliverableState;
+          if (dashboardAccessState) lifecycle.dashboardAccessState = dashboardAccessState;
+          if (currentDevelopmentStage !== undefined) lifecycle.currentDevelopmentStage = currentDevelopmentStage;
+          if (nextDevelopmentStage !== undefined) lifecycle.nextDevelopmentStage = nextDevelopmentStage;
+          if (nextRequiredAction !== undefined) lifecycle.nextRequiredAction = nextRequiredAction;
+          lifecycle.updatedAt = now;
+          return { ...workspace, serviceLifecycle: lifecycle };
+        }),
+      };
+    }
+  });
+  return nextState;
+}
+
+function withCreatorIqDemoWorkspace(workspaces: Record<string, PortalClientWorkspace> = {}) {
+  const demo = createCreatorIqDemoWorkspace();
+  const saved = workspaces[CREATOR_IQ_CLIENT_ID];
+  if (!saved) return { ...workspaces, [CREATOR_IQ_CLIENT_ID]: demo };
+  const current = mergePortalClientWorkspace(CREATOR_IQ_CLIENT_ID, saved);
+  const websitePayload = current.engineWork.websiteBuilder?.payload as { session?: { proposal?: boolean }; aiResults?: { direction?: unknown; tasks?: unknown } } | undefined;
+  const seoPayload = current.engineWork.seoAudit?.payload as { project?: { rows?: unknown[] } } | undefined;
+  const socialPayload = current.engineWork.socialBuilder?.payload as { months?: Array<{ project?: { posts?: unknown[] } }> } | undefined;
+  const engineWork = {
+    ...demo.engineWork,
+    ...current.engineWork,
+    websiteBuilder: websitePayload?.session?.proposal || websitePayload?.aiResults?.direction && websitePayload?.aiResults?.tasks
+      ? current.engineWork.websiteBuilder
+      : demo.engineWork.websiteBuilder,
+    seoAudit: seoPayload?.project?.rows?.length ? current.engineWork.seoAudit : demo.engineWork.seoAudit,
+    socialBuilder: socialPayload?.months?.some(month => month.project?.posts?.length)
+      ? current.engineWork.socialBuilder
+      : demo.engineWork.socialBuilder,
+  };
+  const handoffs = current.handoffs.length ? current.handoffs.map(savedHandoff => {
+    const normalized = normalizePortalProcessHandoff(savedHandoff);
+    const demoHandoff = demo.handoffs.find(item => item.id === normalized.id);
+    if (!demoHandoff) return normalized;
+    return {
+      ...demoHandoff,
+      ...normalized,
+      approvedScope: normalized.approvedScope.length ? normalized.approvedScope : demoHandoff.approvedScope,
+      includedRecommendations: normalized.includedRecommendations.length ? normalized.includedRecommendations : demoHandoff.includedRecommendations,
+      unresolvedItems: normalized.unresolvedItems.length ? normalized.unresolvedItems : demoHandoff.unresolvedItems,
+      sender: savedHandoff.sender || demoHandoff.sender,
+      receiver: savedHandoff.receiver || demoHandoff.receiver,
+    };
+  }) : demo.handoffs;
+  return {
+    ...workspaces,
+    [CREATOR_IQ_CLIENT_ID]: {
+      ...demo,
+      ...current,
+      approvals: current.approvals.length ? current.approvals : demo.approvals,
+      notes: current.notes.length ? current.notes : demo.notes,
+      brandSystem: current.brandSystem || demo.brandSystem,
+      brandAudit: current.brandAudit || demo.brandAudit,
+      engineWork,
+      handoffs,
+      funnelPlans: current.funnelPlans,
+      collaborators: current.collaborators,
+      files: current.files,
+      proposal: current.proposal,
+    },
+  };
+}
+
+function creatorIqDemoRequested(params: URLSearchParams, clientName: string) {
+  if (clientName === "CreatorIQ") return true;
+  if (params.get("demo") === CREATOR_IQ_CLIENT_ID) return true;
+  return ["auditReport", "auditReportRun", "auditRun"]
+    .some(key => params.get(key)?.includes(CREATOR_IQ_CLIENT_ID));
+}
+
+function withRequestedDemoWorkspace(
+  workspaces: Record<string, PortalClientWorkspace>,
+  params: URLSearchParams,
+  clientName: string,
+  allowDemo = true,
+) {
+  return allowDemo && creatorIqDemoRequested(params, clientName)
+    ? withCreatorIqDemoWorkspace(workspaces)
+    : workspaces;
+}
+
 export function initialState(role: Role, requestedView?: View | null, clientName = DEFAULT_CLIENT_NAME, canSwitchRoles = false): PortalState {
+  const clientRole = role === "client";
   return {
     role, clientName, canSwitchRoles, hydrated: false, view: requestedView ?? "progress", previewFrom: null, clientDetail: null,
-    isMobile: false, navOpen: false, notifOpen: false, pop: null, sidePop: null, sidebarCollapsed: false, guidedSidebarActive: false, guidedSidebarExitTick: 0, guidedTopBarInfo: null, toast: null, auditType: "website", builderType: "funnel", projectOverrides: {},
-    tasks: seedTasks(), taskModal: null, taskDraft: null, taskView: "board", draggingId: null, dragOverCol: null,
+    isMobile: false, navOpen: false, notifOpen: false, notificationReadIds: [], notificationPreferences: normalizePortalNotificationPreferences(DEFAULT_PORTAL_NOTIFICATION_PREFERENCES), pop: null, sidePop: null, sidebarCollapsed: false, guidedSidebarActive: false, guidedSidebarExitTick: 0, guidedTopBarInfo: null, toast: null, auditType: "website", builderType: "funnel", projectOverrides: {},
+    tasks: clientRole ? seedTasks().filter(task => task.project === clientName) : seedTasks(), taskModal: null, taskDraft: null, taskView: "board", draggingId: null, dragOverCol: null,
     boardSelect: false, selTasks: [], taskChecks: {}, taskComments: {}, taskCommentDraft: "",
     taskFilter: { owner: "all", priority: "all" }, clientFilter: { service: "all", health: "all" },
     savedViews: { clients: [], tasks: [] },
     calY: 2026, calM: 6, calSel: "2026-6-2",
-    journeyGates: seedJourneyGates(),
+    journeyGates: clientRole ? seedJourneyGates().filter(gate => !gate.request) : seedJourneyGates(),
     funExpanded: null, subModal: null, playbookDoc: null,
-    threads: seedThreads(), selectedThreadId: "", draft: "", inboxSearch: "", inboxFilter: "all", statusMenuOpen: false, assignMenuOpen: false,
-    escalations: seedEscalations(),
+    threads: clientRole ? seedThreads().filter(thread => thread.clientName === clientName) : seedThreads(), selectedThreadId: "", draft: "", inboxSearch: "", inboxFilter: "all", statusMenuOpen: false, assignMenuOpen: false,
+    escalations: clientRole ? seedEscalations().filter(escalation => escalation.client === clientName) : seedEscalations(),
     paletteOpen: false, paletteQuery: "",
     fileBrand: "all",
     chatDraft: "", progressChatSessions: [], activeProgressChatId: null, progressChatHistoryOpen: false, ticketSeq: 1042,
@@ -233,6 +466,8 @@ export interface PortalActions {
   showToast: (m: string, onClick?: () => void) => void;
   setRole: (r: Role) => void;
   setView: (v: View) => void;
+  markNotificationRead: (id: string) => void;
+  updateNotificationPreferences: (update: Partial<Omit<PortalNotificationPreferences, "inApp">> & { inApp?: Partial<PortalNotificationPreferences["inApp"]> }) => void;
   openClientDetail: (name: string) => void;
   backToClients: () => void;
   blockerOf: (id: string) => Task | null;
@@ -241,7 +476,7 @@ export interface PortalActions {
   assignTask: (id: string, assignee: string) => void;
   updateTask: (id: string, patch: Partial<Task>) => void;
   deleteTask: (id: string) => void;
-  bulkImportTasks: (drafts: TaskImportDraft[]) => void;
+  bulkImportTasks: (drafts: TaskImportDraft[], onImported?: (taskIds: string[]) => void) => void;
   toggleCheck: (taskId: string, idx: number) => void;
   addTaskComment: (taskId: string, who: string) => void;
   addTaskCommentText: (taskId: string, who: string, text: string) => void;
@@ -253,6 +488,7 @@ export interface PortalActions {
   clearSel: () => void;
   bulkAdvance: () => void;
   bulkDone: () => void;
+  bulkDelete: () => void;
   setTaskFilter: (k: keyof TaskFilter, v: string) => void;
   setClientFilter: (k: "service" | "health", v: string) => void;
   saveView: (scope: "clients" | "tasks", name: string, filter: unknown) => void;
@@ -294,13 +530,19 @@ export interface PortalActions {
     sourceUrl?: string;
   }) => void;
   saveClientBrandAudit: (clientName: string, audit: PortalBrandAuditRecord | null) => void;
+  updateClientServiceLifecycle: (clientName: string, update: Partial<Omit<PortalServiceLifecycleRecord, "updatedAt">>) => void;
+  recordClientServiceEvent: (clientName: string, type: PortalServiceOperationalEventType, reviewed?: boolean) => void;
+  resolveClientServiceEvent: (clientName: string, eventId: string) => void;
+  recordClientAiAction: (clientName: string, type: PortalAiActionType, clientSafePreview: string) => void;
+  reviewClientAiAction: (clientName: string, actionId: string, status: Extract<PortalAiActionStatus, "approved" | "rejected">) => void;
+  saveAuditExportProfile: (clientName: string, update: { mode: PortalAuditExportMode; status: PortalAuditExportStatus; brandName: string; accent: string }) => void;
   uploadPortalFiles: (payload: { clientName: string; folder: string; files: FileList | File[]; threadId?: string }) => Promise<void>;
   openThreadClientDetail: (threadId: string) => void;
   escalateDecision: (payload: { clientName: string; title: string; reason: string; by: string }) => void;
   workspaceForClient: (clientName: string) => PortalClientWorkspace;
 }
 
-export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canSwitchRoles = false) {
+export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canSwitchRoles = false, userEmail = "") {
   const [state, setState] = useState<PortalState>(() => initialState(seedRole, initialRequestedView(seedRole), clientName, canSwitchRoles));
   const [hasHydrated, setHasHydrated] = useState(false);
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
@@ -309,11 +551,40 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragRef = useRef<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idleSaveRef = useRef<number | null>(null);
+  const pendingSnapshotRef = useRef<PersistedPortalState | null>(null);
+  const isActualClient = seedRole === "client" && !canSwitchRoles;
+  const storageKey = useMemo(
+    () => portalStateStorageKey(seedRole, clientName, canSwitchRoles, userEmail),
+    [canSwitchRoles, clientName, seedRole, userEmail],
+  );
+  const workspaceHeaders = useMemo<Record<string, string>>(
+    () => {
+      const headers: Record<string, string> = {};
+      if (userEmail) headers[DASHBOARD_USER_EMAIL_HEADER] = userEmail;
+      return headers;
+    },
+    [userEmail],
+  );
+  const workspaceSnapshot = useMemo<PersistedPortalState>(() => ({
+    dataVersion: PORTAL_WORKSPACE_DATA_VERSION,
+    tasks: state.tasks,
+    journeyGates: state.journeyGates,
+    threads: state.threads,
+    escalations: state.escalations,
+    ticketSeq: state.ticketSeq,
+    clientWorkspaces: state.clientWorkspaces,
+    progressChatSessions: state.progressChatSessions,
+    activeProgressChatId: state.activeProgressChatId,
+    projectOverrides: state.projectOverrides,
+    notificationReadIds: state.notificationReadIds,
+    notificationPreferences: state.notificationPreferences,
+  }), [state.tasks, state.journeyGates, state.threads, state.escalations, state.ticketSeq, state.clientWorkspaces, state.progressChatSessions, state.activeProgressChatId, state.projectOverrides, state.notificationReadIds, state.notificationPreferences]);
 
   // hydrate saved views + responsive flag on mount (client-only)
   useEffect(() => {
     setState(s => {
-      const persisted = loadPersistedPortalState();
+      const persisted = loadPersistedPortalState(storageKey);
       const params = new URLSearchParams(window.location.search);
       const requestedView = params.get("view");
       const requestedAuditType = params.get("auditType");
@@ -321,13 +592,28 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
       const view = normalizeRequestedView(requestedView, s.role) ?? s.view;
       const auditType = requestedAuditType === "brand" || requestedAuditType === "website" || requestedAuditType === "seo" ? requestedAuditType : s.auditType;
       const builderType = requestedBuilderType === "website" || requestedBuilderType === "funnel" || requestedBuilderType === "social" ? requestedBuilderType : s.builderType;
-      return { ...s, ...persisted, savedViews: loadSavedViews(), isMobile: window.innerWidth < 900, view, auditType, builderType, hydrated: true };
+      return {
+        ...s,
+        ...persisted,
+        clientWorkspaces: withRequestedDemoWorkspace(
+          persisted.clientWorkspaces || s.clientWorkspaces,
+          params,
+          s.clientName,
+          !isActualClient,
+        ),
+        savedViews: loadSavedViews(),
+        isMobile: window.innerWidth < 900,
+        view,
+        auditType,
+        builderType,
+        hydrated: true,
+      };
     });
     setHasHydrated(true);
     const onResize = () => setState(s => (s.isMobile !== window.innerWidth < 900 ? { ...s, isMobile: window.innerWidth < 900, navOpen: false } : s));
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, []);
+  }, [isActualClient, storageKey]);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -343,12 +629,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
     const nextView: View = state.role === "client" ? "review" : "progress";
     syncPortalViewUrl(nextView);
     setState(current => ({ ...current, view: nextView }));
-  }, [hasHydrated, state.clientName, state.projectOverrides, state.role, state.view]);
-
-  useEffect(() => {
-    if (!hasHydrated) return;
-    persistPortalState(state);
-  }, [hasHydrated, state.tasks, state.journeyGates, state.threads, state.escalations, state.ticketSeq, state.clientWorkspaces, state.progressChatSessions, state.activeProgressChatId, state.projectOverrides]);
+  }, [hasHydrated, state.clientName, state.clientWorkspaces, state.projectOverrides, state.role, state.view]);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -356,35 +637,51 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
 
     async function loadWorkspace() {
       try {
-        const response = await fetch("/api/portal-workspace-state", { cache: "no-store" });
+        const response = await fetch("/api/portal-workspace-state", {
+          cache: "no-store",
+          headers: workspaceHeaders,
+        });
         const payload = await response.json().catch(() => null);
         if (!response.ok) throw new Error(typeof payload?.error === "string" ? payload.error : "Unable to load the portal workspace state.");
         const persisted = normalizePersistedPortalWorkspaceState(payload?.state);
         if (!cancelled) {
-          setState(s => persisted ? ({
-            ...s,
-            tasks: persisted.tasks as Task[],
-            journeyGates: persisted.journeyGates as JourneyGate[],
-            threads: persisted.threads as Thread[],
-            escalations: persisted.escalations as Escalation[],
-            ticketSeq: persisted.ticketSeq,
-            clientWorkspaces: persisted.clientWorkspaces,
-            progressChatSessions: persisted.progressChatSessions as ProgressChatSession[],
-            activeProgressChatId: persisted.activeProgressChatId,
-            projectOverrides: persisted.projectOverrides,
-          }) : ({
-            ...s,
-            tasks: seedTasks(),
-            journeyGates: seedJourneyGates(),
-            threads: seedThreads(),
-            selectedThreadId: "",
-            escalations: seedEscalations(),
-            ticketSeq: 1,
-            clientWorkspaces: {},
-            progressChatSessions: [],
-            activeProgressChatId: null,
-            projectOverrides: {},
-          }));
+          const params = new URLSearchParams(window.location.search);
+          const scopedClientName = payload?.scope?.role === "client" && typeof payload.scope.clientName === "string"
+            ? payload.scope.clientName
+            : null;
+          setState(s => {
+            const resolvedClientName = scopedClientName || s.clientName;
+            return persisted ? ({
+              ...s,
+              clientName: resolvedClientName,
+              tasks: persisted.tasks as Task[],
+              journeyGates: persisted.journeyGates as JourneyGate[],
+              threads: persisted.threads as Thread[],
+              escalations: persisted.escalations as Escalation[],
+              ticketSeq: persisted.ticketSeq,
+              clientWorkspaces: withRequestedDemoWorkspace(persisted.clientWorkspaces, params, resolvedClientName, !isActualClient),
+              progressChatSessions: persisted.progressChatSessions as ProgressChatSession[],
+              activeProgressChatId: persisted.activeProgressChatId,
+              projectOverrides: persisted.projectOverrides,
+              notificationReadIds: persisted.notificationReadIds,
+              notificationPreferences: persisted.notificationPreferences,
+            }) : ({
+              ...s,
+              clientName: resolvedClientName,
+              tasks: isActualClient ? [] : seedTasks(),
+              journeyGates: isActualClient ? seedJourneyGates().filter(gate => !gate.request) : seedJourneyGates(),
+              threads: isActualClient ? [] : seedThreads(),
+              selectedThreadId: "",
+              escalations: isActualClient ? [] : seedEscalations(),
+              ticketSeq: 1,
+              clientWorkspaces: withRequestedDemoWorkspace({}, params, resolvedClientName, !isActualClient),
+              progressChatSessions: [],
+              activeProgressChatId: null,
+              projectOverrides: {},
+              notificationReadIds: [],
+              notificationPreferences: normalizePortalNotificationPreferences(null),
+            });
+          });
         }
       } catch (error) {
         console.error("Unable to load the portal workspace state.", error);
@@ -397,29 +694,33 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
     return () => {
       cancelled = true;
     };
-  }, [hasHydrated]);
+  }, [hasHydrated, isActualClient, workspaceHeaders]);
 
   useEffect(() => {
     if (!hasHydrated || !workspaceLoaded) return;
-    const snapshot = {
-      dataVersion: PORTAL_WORKSPACE_DATA_VERSION,
-      tasks: state.tasks,
-      journeyGates: state.journeyGates,
-      threads: state.threads,
-      escalations: state.escalations,
-      ticketSeq: state.ticketSeq,
-      clientWorkspaces: state.clientWorkspaces,
-      progressChatSessions: state.progressChatSessions,
-      activeProgressChatId: state.activeProgressChatId,
-      projectOverrides: state.projectOverrides,
-    };
+    pendingSnapshotRef.current = workspaceSnapshot;
 
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
+    const idleWindow = window as typeof window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+    if (idleSaveRef.current != null) {
+      if (idleWindow.cancelIdleCallback) idleWindow.cancelIdleCallback(idleSaveRef.current);
+      else clearTimeout(idleSaveRef.current);
+      idleSaveRef.current = null;
+    }
+
+    const saveSnapshot = async () => {
+      idleSaveRef.current = null;
+      const snapshot = pendingSnapshotRef.current;
+      if (!snapshot) return;
+      persistPortalSnapshot(snapshot, storageKey);
+      if (isActualClient) return;
       try {
         const response = await fetch("/api/portal-workspace-state", {
           method: "PUT",
-          headers: { "content-type": "application/json" },
+          headers: { "content-type": "application/json", ...workspaceHeaders },
           body: JSON.stringify({ state: snapshot }),
         });
         if (!response.ok) {
@@ -429,12 +730,51 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
       } catch (error) {
         console.error("Unable to save the portal workspace state.", error);
       }
+    };
+
+    saveTimer.current = setTimeout(() => {
+      saveTimer.current = null;
+      idleSaveRef.current = idleWindow.requestIdleCallback
+        ? idleWindow.requestIdleCallback(() => void saveSnapshot(), { timeout: 800 })
+        : window.setTimeout(() => void saveSnapshot(), 0);
     }, 350);
 
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+      if (idleSaveRef.current != null) {
+        if (idleWindow.cancelIdleCallback) idleWindow.cancelIdleCallback(idleSaveRef.current);
+        else clearTimeout(idleSaveRef.current);
+        idleSaveRef.current = null;
+      }
     };
-  }, [hasHydrated, workspaceLoaded, state.tasks, state.journeyGates, state.threads, state.escalations, state.ticketSeq, state.clientWorkspaces, state.progressChatSessions, state.activeProgressChatId, state.projectOverrides]);
+  }, [hasHydrated, isActualClient, storageKey, workspaceHeaders, workspaceLoaded, workspaceSnapshot]);
+
+  useEffect(() => {
+    if (!hasHydrated || !workspaceLoaded) return;
+    const flushPendingSnapshot = () => {
+      const snapshot = pendingSnapshotRef.current;
+      if (!snapshot) return;
+      persistPortalSnapshot(snapshot, storageKey);
+      if (isActualClient) return;
+      void fetch("/api/portal-workspace-state", {
+        method: "PUT",
+        headers: { "content-type": "application/json", ...workspaceHeaders },
+        body: JSON.stringify({ state: snapshot }),
+        keepalive: true,
+      }).catch(() => undefined);
+    };
+    const flushWhenHidden = () => {
+      if (document.visibilityState === "hidden") flushPendingSnapshot();
+    };
+
+    window.addEventListener("pagehide", flushPendingSnapshot);
+    document.addEventListener("visibilitychange", flushWhenHidden);
+    return () => {
+      window.removeEventListener("pagehide", flushPendingSnapshot);
+      document.removeEventListener("visibilitychange", flushWhenHidden);
+    };
+  }, [hasHydrated, isActualClient, storageKey, workspaceHeaders, workspaceLoaded]);
 
   const patch = useCallback((p: Partial<PortalState>) => setState(s => ({ ...s, ...p })), []);
   const update = useCallback((fn: (s: PortalState) => Partial<PortalState>) => setState(s => ({ ...s, ...fn(s) })), []);
@@ -534,6 +874,21 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
         syncPortalViewUrl(nextView);
         setState(s => ({ ...s, view: nextView, navOpen: false, notifOpen: false, pop: null, sidePop: null, playbookDoc: null }));
       },
+      markNotificationRead: id => setState(s => s.notificationReadIds.includes(id) ? s : ({
+        ...s,
+        notificationReadIds: [...s.notificationReadIds, id].slice(-500),
+      })),
+      updateNotificationPreferences: update => setState(s => ({
+        ...s,
+        notificationPreferences: {
+          ...s.notificationPreferences,
+          ...update,
+          inApp: {
+            ...s.notificationPreferences.inApp,
+            ...(update.inApp || {}),
+          },
+        },
+      })),
       openClientDetail: name => setState(s => ({ ...s, view: "clients", clientDetail: name, fileBrand: "all", navOpen: false, notifOpen: false, pop: null, playbookDoc: null })),
       backToClients: () => setState(s => ({ ...s, clientDetail: null })),
       workspaceForClient: clientName => workspaceForClient(clientName, stateRef.current.clientWorkspaces),
@@ -596,6 +951,189 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
           clientWorkspaces: withClientWorkspace(s, clientId, workspace => ({ ...workspace, brandAudit: audit })),
         }));
       },
+      updateClientServiceLifecycle: (clientName, update) => {
+        const clientId = portalClientId(clientName);
+        setState(s => {
+          const workspace = mergePortalClientWorkspace(clientId, s.clientWorkspaces[clientId]);
+          if (update.consultState === "link_sent"
+            && !workspace.serviceEvents.some(event => (
+              event.type === "landing_page_signup_received"
+              || event.type === "lead_signup_submitted"
+            ))) {
+            setTimeout(() => showToast("Record the landing-page signup before marking the Cocoon link sent"), 0);
+            return s;
+          }
+          const lifecycleError = validatePortalServiceLifecycleUpdate(workspace.serviceLifecycle, update);
+          if (lifecycleError) {
+            setTimeout(() => showToast(lifecycleError), 0);
+            return s;
+          }
+          if (update.wiawState === "confirmed") {
+            if (!hasApprovedHandoffToService(workspace, "wiaw")) {
+              setTimeout(() => showToast("Accept an approved Cocoon handoff before confirming WIAW"), 0);
+              return s;
+            }
+            if (workspace.serviceLifecycle.wiawPaymentState === "pending"
+              || workspace.serviceLifecycle.wiawPaymentState === "manual_review") {
+              setTimeout(() => showToast("Confirm or waive the WIAW payment before confirming the service"), 0);
+              return s;
+            }
+          }
+          const updatedAt = new Date().toISOString();
+          const changedFields = Object.keys(update) as Array<keyof PortalServiceLifecycleRecord>;
+          const clientVisible = changedFields.length > 0 && changedFields.every(field => CLIENT_VISIBLE_LIFECYCLE_FIELDS.has(field));
+          return {
+            ...s,
+            clientWorkspaces: withClientWorkspace(s, clientId, currentWorkspace => {
+              const lifecycleUpdate = {
+                ...update,
+                ...(update.wiawPaymentState === "confirmed" && !currentWorkspace.serviceLifecycle.wiawPaymentConfirmedAt
+                  ? { wiawPaymentConfirmedAt: updatedAt }
+                  : {}),
+                ...(update.paymentState === "email_sent" && !currentWorkspace.serviceLifecycle.paymentEmailSentAt
+                  ? { paymentEmailSentAt: updatedAt }
+                  : {}),
+              };
+              const updatedWorkspace = {
+                ...currentWorkspace,
+                serviceLifecycle: applyPortalServiceLifecyclePolicy(
+                  currentWorkspace.serviceLifecycle,
+                  lifecycleUpdate,
+                  updatedAt,
+                ),
+              };
+              return auditWorkspaceAction(
+                updatedWorkspace,
+                s,
+                "service_lifecycle_updated",
+                `Updated ${changedFields.join(", ") || "service lifecycle"}`,
+                updatedAt,
+                clientVisible,
+              );
+            }),
+          };
+        });
+      },
+      recordClientServiceEvent: (clientName, type, reviewed = false) => {
+        const clientId = portalClientId(clientName);
+        const occurredAt = new Date().toISOString();
+        setState(s => ({
+          ...s,
+          clientWorkspaces: withClientWorkspace(s, clientId, workspace => auditWorkspaceAction({
+            ...workspace,
+            serviceEvents: [
+              ...workspace.serviceEvents,
+              {
+                id: `${clientId}:${type}:${occurredAt}`,
+                type,
+                occurredAt,
+                status: "active" as const,
+                reviewed,
+                assignee: actorName(s.role),
+              },
+            ].slice(-100),
+          }, s, "workflow_event_recorded", `Recorded ${type.replace(/_/g, " ")}`, occurredAt, reviewed, `${clientId}:${type}:${occurredAt}`)),
+        }));
+        showToast("Workflow event recorded");
+      },
+      resolveClientServiceEvent: (clientName, eventId) => {
+        const clientId = portalClientId(clientName);
+        setState(s => {
+          const resolvedAt = new Date().toISOString();
+          return {
+            ...s,
+            clientWorkspaces: withClientWorkspace(s, clientId, workspace => auditWorkspaceAction({
+              ...workspace,
+              serviceEvents: workspace.serviceEvents.map(event => event.id === eventId
+              ? { ...event, status: "resolved" as const }
+              : event),
+            }, s, "workflow_event_resolved", "Resolved workflow event", resolvedAt, false, eventId)),
+          };
+        });
+        showToast("Workflow event resolved");
+      },
+      recordClientAiAction: (clientName, type, clientSafePreview) => {
+        const preview = clientSafePreview.trim();
+        if (!preview) {
+          showToast("Add the client-safe preview before recording the draft");
+          return;
+        }
+        const clientId = portalClientId(clientName);
+        const createdAt = new Date().toISOString();
+        setState(s => ({
+          ...s,
+          clientWorkspaces: withClientWorkspace(s, clientId, workspace => auditWorkspaceAction({
+            ...workspace,
+            aiActions: [
+              ...workspace.aiActions,
+              {
+                id: `${clientId}:${type}:${createdAt}`,
+                type,
+                status: "review_required" as const,
+                clientSafePreview: preview,
+                createdAt,
+                updatedAt: createdAt,
+                createdBy: actorName(s.role),
+              },
+            ].slice(-100),
+          }, s, "ai_output_recorded", `Queued ${type.replace(/_/g, " ")} for review`, createdAt, false, `${clientId}:${type}:${createdAt}`)),
+        }));
+        showToast("AI draft added to the review queue");
+      },
+      reviewClientAiAction: (clientName, actionId, status) => {
+        const clientId = portalClientId(clientName);
+        const reviewedAt = new Date().toISOString();
+        setState(s => ({
+          ...s,
+          clientWorkspaces: withClientWorkspace(s, clientId, workspace => auditWorkspaceAction({
+            ...workspace,
+            aiActions: workspace.aiActions.map(action => action.id === actionId
+              ? {
+                  ...action,
+                  status,
+                  updatedAt: reviewedAt,
+                  reviewedAt,
+                  reviewedBy: actorName(s.role),
+                }
+              : action),
+          }, s, "ai_output_reviewed", `${status === "approved" ? "Approved" : "Rejected"} AI output`, reviewedAt, status === "approved", actionId)),
+        }));
+        showToast(status === "approved" ? "AI draft approved" : "AI draft rejected");
+      },
+      saveAuditExportProfile: (clientName, update) => {
+        const clientId = portalClientId(clientName);
+        const savedAt = new Date().toISOString();
+        const savedBy = actorName(stateRef.current.role);
+        const policyWorkspace = mergePortalClientWorkspace(
+          clientId,
+          stateRef.current.clientWorkspaces[clientId],
+        );
+        if (!portalAuditExportModeAllowed(policyWorkspace.serviceLifecycle, update.mode)) {
+          showToast(`White-label ${update.mode} output is not enabled for this client`);
+          return;
+        }
+        setState(s => ({
+          ...s,
+          clientWorkspaces: withClientWorkspace(s, clientId, workspace => {
+            const current = workspace.auditExport
+              ? normalizePortalAuditExportProfile(clientName, workspace.auditExport)
+              : defaultPortalAuditExportProfile(clientName);
+            const version = current.savedAt ? current.version + 1 : current.version;
+            const mode = update.mode;
+            const brandName = update.brandName.trim() || (mode === "client" ? clientName : "Baltazar Studio");
+            const accent = /^#[0-9a-f]{6}$/i.test(update.accent) ? update.accent : current.accent;
+            const snapshot = { version, mode, status: update.status, brandName, accent, savedAt, savedBy };
+            return {
+              ...workspace,
+              auditExport: {
+                ...snapshot,
+                history: [...current.history, snapshot].slice(-20),
+              },
+            };
+          }),
+        }));
+        showToast("Export profile saved for " + clientName);
+      },
       blockerOf: id => blockerOf(id, state.tasks),
       advanceTask: id => {
         const L: Record<string, string> = { todo: "To Do", in_progress: "In Progress", review: "In Review", done: "Done" };
@@ -607,10 +1145,10 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
             if (t.id !== id) return t;
             const i = STATUS_ORDER.indexOf(t.status); const ni = Math.min(i + 1, 3);
             if (ni !== i) msg = `${t.title} → ${L[STATUS_ORDER[ni]]}`;
-            return { ...t, status: STATUS_ORDER[ni] };
+            return applyTaskStatusLifecycle(t, STATUS_ORDER[ni], s.role);
           });
           if (msg) setTimeout(() => showToast(msg as string), 0);
-          return { ...s, tasks };
+          return applyTaskWorkflowEffects(s, tasks);
         });
       },
       moveTask: (id, status) => {
@@ -620,9 +1158,9 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
           const cur = (s.tasks.find(t => t.id === id) || {}).status as TaskStatus | undefined;
           if (bk && cur && STATUS_ORDER.indexOf(status) > STATUS_ORDER.indexOf(cur)) { showToast(`Blocked by "${bk.title}" — finish that first`); return s; }
           let msg: string | null = null;
-          const tasks = s.tasks.map(t => { if (t.id !== id || t.status === status) return t; msg = `${t.title} → ${L[status]}`; return { ...t, status }; });
+          const tasks = s.tasks.map(t => { if (t.id !== id || t.status === status) return t; msg = `${t.title} → ${L[status]}`; return applyTaskStatusLifecycle(t, status, s.role); });
           if (msg) setTimeout(() => showToast(msg as string), 0);
-          return { ...s, tasks };
+          return applyTaskWorkflowEffects(s, tasks);
         });
       },
       assignTask: (id, assignee) => setState(s => {
@@ -635,13 +1173,19 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
         if (changed) setTimeout(() => showToast("Assigned to " + assignee), 0);
         return changed ? { ...s, tasks } : s;
       }),
-      updateTask: (id, taskPatch) => setState(s => id === NEW_TASK_DRAFT_ID && s.taskDraft ? ({
-        ...s,
-        taskDraft: { ...s.taskDraft, ...taskPatch, id: NEW_TASK_DRAFT_ID },
-      }) : ({
-        ...s,
-        tasks: s.tasks.map(task => task.id === id ? { ...task, ...taskPatch, id: task.id } : task),
-      })),
+      updateTask: (id, taskPatch) => setState(s => {
+        if (id === NEW_TASK_DRAFT_ID && s.taskDraft) return {
+          ...s,
+          taskDraft: { ...s.taskDraft, ...taskPatch, id: NEW_TASK_DRAFT_ID },
+        };
+        const tasks = s.tasks.map(task => {
+          if (task.id !== id) return task;
+          const { status, ...patch } = taskPatch;
+          const updated = { ...task, ...patch, id: task.id };
+          return status === undefined ? updated : applyTaskStatusLifecycle(updated, status, s.role);
+        });
+        return applyTaskWorkflowEffects(s, tasks);
+      }),
       deleteTask: id => setState(s => {
         if (id === NEW_TASK_DRAFT_ID) return { ...s, taskDraft: null, taskModal: null };
         const task = s.tasks.find(item => item.id === id);
@@ -653,7 +1197,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
           selTasks: s.selTasks.filter(item => item !== id),
         };
       }),
-      bulkImportTasks: drafts => setState(s => {
+      bulkImportTasks: (drafts, onImported) => setState(s => {
         const allowedProjects = new Set(clientsVisibleToRole(s.role, s.clientName).map(client => client.name));
         const scopedDrafts = drafts
           .filter(draft => s.role === "admin" || allowedProjects.has(draft.project))
@@ -665,14 +1209,15 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
         const existingSourceIds = new Set(s.tasks.map(task => task.sourceId).filter(Boolean));
         const uniqueDrafts = scopedDrafts.filter(draft => !draft.sourceId || !existingSourceIds.has(draft.sourceId));
         const maxTaskNumber = Math.max(0, ...s.tasks.map(task => Number.parseInt(task.id.replace(/\D/g, ""), 10) || 0));
-        const imported = uniqueDrafts.map((draft, index): Task => ({
+        const imported = uniqueDrafts.map((draft, index): Task => initializeTaskLifecycle({
           ...draft,
           id: "k" + (maxTaskNumber + index + 1),
           status: draft.status || "todo",
-        }));
+        }, s.role));
         setTimeout(() => showToast(imported.length
           ? `${imported.length} task${imported.length === 1 ? "" : "s"} imported`
           : "Those tasks are already in To-do"), 0);
+        if (imported.length && onImported) setTimeout(() => onImported(imported.map(task => task.id)), 0);
         if (imported.length) setTimeout(() => syncPortalViewUrl("tasks"), 0);
         return imported.length ? {
           ...s,
@@ -704,10 +1249,10 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
           const b = t.blockedBy ? s.tasks.find(x => x.id === t.blockedBy) : null;
           if (b && b.status !== "done") { blk++; return t; }
           const i = STATUS_ORDER.indexOf(t.status); const ni = Math.min(i + 1, 3); if (ni !== i) adv++;
-          return { ...t, status: STATUS_ORDER[ni] };
+          return applyTaskStatusLifecycle(t, STATUS_ORDER[ni], s.role);
         });
         setTimeout(() => showToast(`${adv} task${adv === 1 ? "" : "s"} advanced${blk ? ` · ${blk} blocked` : ""}`), 0);
-        return { ...s, tasks, selTasks: [], boardSelect: false };
+        return { ...applyTaskWorkflowEffects(s, tasks), selTasks: [], boardSelect: false };
       }),
       bulkDone: () => setState(s => {
         let n = 0, blk = 0;
@@ -715,10 +1260,31 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
           if (!s.selTasks.includes(t.id) || t.status === "done") return t;
           const b = t.blockedBy ? s.tasks.find(x => x.id === t.blockedBy) : null;
           if (b && b.status !== "done") { blk++; return t; }
-          n++; return { ...t, status: "done" as TaskStatus };
+          n++; return applyTaskStatusLifecycle(t, "done", s.role);
         });
         setTimeout(() => showToast(`${n} marked done${blk ? ` · ${blk} blocked` : ""}`), 0);
-        return { ...s, tasks, selTasks: [], boardSelect: false };
+        return { ...applyTaskWorkflowEffects(s, tasks), selTasks: [], boardSelect: false };
+      }),
+      bulkDelete: () => setState(s => {
+        const selected = new Set(s.selTasks);
+        const deleted = s.tasks.filter(task => selected.has(task.id));
+        if (!deleted.length) return { ...s, selTasks: [], boardSelect: false };
+        const taskChecks = { ...s.taskChecks };
+        const taskComments = { ...s.taskComments };
+        deleted.forEach(task => {
+          delete taskChecks[task.id];
+          delete taskComments[task.id];
+        });
+        setTimeout(() => showToast(`${deleted.length} task${deleted.length === 1 ? "" : "s"} deleted`), 0);
+        return {
+          ...s,
+          tasks: s.tasks.filter(task => !selected.has(task.id)),
+          taskChecks,
+          taskComments,
+          taskModal: s.taskModal && selected.has(s.taskModal) ? null : s.taskModal,
+          selTasks: [],
+          boardSelect: false,
+        };
       }),
       setTaskFilter: (k, v) => setState(s => ({ ...s, taskFilter: { ...s.taskFilter, [k]: v } as TaskFilter })),
       setClientFilter: (k, v) => setState(s => ({ ...s, clientFilter: { ...s.clientFilter, [k]: v } })),
@@ -785,7 +1351,10 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
         }
         const nextNum = Math.max(0, ...s.tasks.map(task => Number.parseInt(task.id.replace(/\D/g, ""), 10) || 0)) + 1;
         const id = "k" + nextNum;
-        const task: Task = { ...draft, id, title: draft.title.trim(), project: draft.project.trim() };
+        const task = initializeTaskLifecycle(
+          { ...draft, id, title: draft.title.trim(), project: draft.project.trim() },
+          s.role,
+        );
         const draftChecks = s.taskChecks[NEW_TASK_DRAFT_ID];
         const draftComments = s.taskComments[NEW_TASK_DRAFT_ID];
         const { [NEW_TASK_DRAFT_ID]: _discardChecks, ...remainingChecks } = s.taskChecks;
@@ -1073,6 +1642,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
       },
       sendApproval: approvalId => {
         setState(s => {
+          if (s.role === "client") return s;
           const approval = DEFAULT_PORTAL_APPROVALS.find(item => item.id === approvalId)
             || Object.values(s.clientWorkspaces).flatMap(workspace => workspace.approvals).find(item => item.id === approvalId);
           if (!approval) return s;
@@ -1087,15 +1657,16 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
             ...s,
             ticketSeq: threadUpdate.ticketSeq,
             threads: threadUpdate.threads,
-            clientWorkspaces: withClientWorkspace(s, clientId, workspace => ({
+            clientWorkspaces: withClientWorkspace(s, clientId, workspace => auditWorkspaceAction({
               ...workspace,
               approvals: mergePortalApprovals(clientId, workspace.approvals).map(item => item.id === approvalId ? {
                 ...item,
                 sent: true,
                 sentAt: displayDate(),
                 threadId: threadUpdate.threadId,
+                reviewState: "shared",
               } : item),
-            })),
+            }, s, "approval_shared", `Shared ${approval.title} for client review`, new Date().toISOString(), true, approvalId)),
           };
         });
         showToast("Sent to client");
@@ -1104,36 +1675,27 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
         setState(s => {
           const clientId = portalClientId(payload.clientName);
           const approvalId = `${clientId}-${payload.outputType}-${payload.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
-          const threadUpdate = upsertStudioThread(s, {
-            clientName: payload.clientName,
-            text: `${payload.title} is available in Approvals.`,
-            category: "Approval",
-            assignee: "Trish Baltazar",
-          });
           const approval: PortalApprovalRecord = {
             id: approvalId,
             clientId,
             clientName: payload.clientName,
             title: payload.title,
             thumb: payload.outputType === "audit" ? "var(--success-soft)" : "var(--accent-soft)",
-            sent: true,
-            sentAt: displayDate(),
-            threadId: threadUpdate.threadId,
+            sent: false,
+            reviewState: "needs_review",
             outputType: payload.outputType,
             summary: payload.summary,
             sections: payload.sections || [],
           };
           return {
             ...s,
-            ticketSeq: threadUpdate.ticketSeq,
-            threads: threadUpdate.threads,
-            clientWorkspaces: withClientWorkspace(s, clientId, workspace => ({
+            clientWorkspaces: withClientWorkspace(s, clientId, workspace => auditWorkspaceAction({
               ...workspace,
               approvals: [approval, ...mergePortalApprovals(clientId, workspace.approvals).filter(item => item.id !== approvalId)],
-            })),
+            }, s, "output_queued", `Queued ${payload.title} for human review`, new Date().toISOString(), false, approvalId)),
           };
         });
-        showToast(`Shared in ${payload.clientName}'s Approvals`);
+        showToast(`Added to ${payload.clientName}'s review queue`);
       },
       sendProposal: (clientName, proposal) => {
         setState(s => {
@@ -1148,7 +1710,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
             ...s,
             ticketSeq: threadUpdate.ticketSeq,
             threads: threadUpdate.threads,
-            clientWorkspaces: withClientWorkspace(s, clientId, workspace => ({
+            clientWorkspaces: withClientWorkspace(s, clientId, workspace => auditWorkspaceAction({
               ...workspace,
               proposal: {
                 sent: true,
@@ -1156,7 +1718,13 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
                 iffOn: proposal.iffOn,
                 threadId: threadUpdate.threadId,
               } satisfies PortalProposalRecord,
-            })),
+              serviceLifecycle: {
+                ...workspace.serviceLifecycle,
+                wiawState: "recommended",
+                iffState: proposal.iffOn ? "offered" : workspace.serviceLifecycle.iffState,
+                updatedAt: new Date().toISOString(),
+              },
+            }, s, "proposal_sent", `Sent proposal${proposal.iffOn ? " with optional In Full Flight care" : ""}`, new Date().toISOString(), true, threadUpdate.threadId)),
           };
         });
         showToast("Proposal sent to " + clientName);
@@ -1177,10 +1745,10 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
         };
         setState(s => ({
           ...s,
-          clientWorkspaces: withClientWorkspace(s, clientId, workspace => ({
+          clientWorkspaces: withClientWorkspace(s, clientId, workspace => auditWorkspaceAction({
             ...workspace,
             collaborators: [record, ...workspace.collaborators.filter(existing => existing.id !== record.id)],
-          })),
+          }, s, "collaborator_invited", `Invited ${name} as ${collaborator.access}`, new Date().toISOString(), true, record.id)),
         }));
         showToast("Invite saved for " + name);
       },
@@ -1191,13 +1759,13 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
         const form = new FormData();
         form.set("clientId", clientId);
         form.set("folder", payload.folder);
-        form.set("role", stateRef.current.role);
         if (payload.threadId) form.set("threadId", payload.threadId);
         files.forEach(file => form.append("files", file));
 
         try {
           const response = await fetch("/api/portal-files", {
             method: "POST",
+            headers: workspaceHeaders,
             body: form,
           });
           const data = await response.json().catch(() => null);
@@ -1208,10 +1776,10 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
           const uploaded = data.files as PortalWorkspaceFile[];
           setState(s => ({
             ...s,
-            clientWorkspaces: withClientWorkspace(s, clientId, workspace => ({
+            clientWorkspaces: withClientWorkspace(s, clientId, workspace => auditWorkspaceAction({
               ...workspace,
               files: [...uploaded.filter(file => !file.threadId), ...workspace.files],
-            })),
+            }, s, "files_uploaded", `Uploaded ${files.length} file${files.length === 1 ? "" : "s"} to ${payload.folder}`, new Date().toISOString(), true, uploaded[0]?.id)),
           }));
           showToast(files.length === 1 ? "1 file uploaded" : `${files.length} files uploaded`);
         } catch (error) {
@@ -1238,13 +1806,13 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
           return {
             ...s,
             escalations: [nextEscalation, ...s.escalations],
-            clientWorkspaces: withClientWorkspace(s, clientId, workspace => ({
+            clientWorkspaces: withClientWorkspace(s, clientId, workspace => auditWorkspaceAction({
               ...workspace,
               approvals: mergePortalApprovals(clientId, workspace.approvals).map(item => item.clientName === payload.clientName ? {
                 ...item,
                 escalated: true,
               } : item),
-            })),
+            }, s, "decision_escalated", `Escalated ${payload.title}`, new Date().toISOString(), false, nextEscalation.id)),
           };
         });
         showToast("Decision escalated to Trish (Admin)");
@@ -1295,7 +1863,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
       },
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patch, update, showToast]);
+  }, [patch, update, showToast, workspaceHeaders]);
 
   // stable ref so dropOn can reach moveTask
   const actionsRef = useRef(actions);

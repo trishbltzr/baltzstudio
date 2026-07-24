@@ -26,19 +26,19 @@ export function Assistant({ state }: { state: PortalState }) {
     <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);display:flex;flex-direction:column;overflow:hidden")}>
       <div style={css("padding:0.85rem 1.1rem;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:0.65rem")}>
         <span style={css("width:2.1rem;height:2.1rem;border-radius:50%;background:var(--lane-ai-soft);color:var(--lane-ai);display:grid;place-items:center")}><Icon name="layers" size={15} /></span>
-        <div style={{ flex: 1 }}><div style={css("font-weight:500;font-size:0.9rem")}>In Full Flight Assistant</div><div style={css("font-size:var(--text-xs);color:var(--fg-muted)")}>Studio + AI, One Thread</div></div>
-        <div style={css("display:flex;gap:var(--space-3);flex-wrap:wrap")}>{LEGEND.map(([k, l]) => { const lm = laneMeta(k); return <span key={k} style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:0.68rem;color:var(--fg-muted)")}><span style={css("width:0.55rem;height:0.55rem;border-radius:50%;background:" + lm.c)} />{l}</span>; })}</div>
+        <div style={{ flex: 1 }}><div style={css("font-weight:500;font-size:var(--text-md)")}>In Full Flight Assistant</div><div style={css("font-size:var(--text-xs);color:var(--fg-muted)")}>Studio + AI, One Thread</div></div>
+        <div style={css("display:flex;gap:var(--space-3);flex-wrap:wrap")}>{LEGEND.map(([k, l]) => { const lm = laneMeta(k); return <span key={k} style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:var(--text-2xs);color:var(--fg-muted)")}><span style={css("width:0.55rem;height:0.55rem;border-radius:50%;background:" + lm.c)} />{l}</span>; })}</div>
       </div>
       <div style={css("flex:1;padding:1.1rem;display:flex;flex-direction:column;gap:0.8rem;min-height:18rem;max-height:26rem;overflow-y:auto;background:var(--surface-alt)")}>
-        {msgs.length === 0 && <div style={css("margin:auto;text-align:center;color:var(--fg-faint);font-size:0.8rem")}>No messages yet.</div>}
+        {msgs.length === 0 && <div style={css("margin:auto;text-align:center;color:var(--fg-faint);font-size:var(--text-sm)")}>No messages yet.</div>}
         {msgs.map((m, i) => {
           const lm = laneMeta(m.lane);
           const mine = m.lane === "client";
           return (
             <div key={i} style={css("display:flex;flex-direction:column;align-items:" + (mine ? "flex-end" : "flex-start"))}>
-              <div style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:0.58rem;font-weight:500;letter-spacing:0.02em;color:color-mix(in srgb," + lm.c + " 60%,black 40%);margin-bottom:0.22rem")}><span style={css("width:0.4rem;height:0.4rem;border-radius:50%;background:" + lm.c)} />{m.who}</div>
-              <div style={css("max-width:82%;padding:0.6rem 0.85rem;border-radius:0.85rem;font-size:0.83rem;line-height:1.45;border:1px solid color-mix(in srgb," + lm.c + " 30%,transparent);background:" + (mine ? "var(--lane-client-soft)" : lm.s) + ";color:var(--fg)")}>{m.text}</div>
-              <div style={css("font-size:0.62rem;color:var(--fg-faint);margin-top:0.2rem")}>{m.time}</div>
+              <div style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:var(--text-2xs);font-weight:500;letter-spacing:0.02em;color:color-mix(in srgb," + lm.c + " 60%,black 40%);margin-bottom:0.22rem")}><span style={css("width:0.4rem;height:0.4rem;border-radius:50%;background:" + lm.c)} />{m.who}</div>
+              <div style={css("max-width:82%;padding:0.6rem 0.85rem;border-radius:0.85rem;font-size:var(--text-base);line-height:1.45;border:1px solid color-mix(in srgb," + lm.c + " 30%,transparent);background:" + (mine ? "var(--lane-client-soft)" : lm.s) + ";color:var(--fg)")}>{m.text}</div>
+              <div style={css("font-size:var(--text-2xs);color:var(--fg-faint);margin-top:0.2rem")}>{m.time}</div>
             </div>
           );
         })}

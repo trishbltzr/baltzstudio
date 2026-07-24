@@ -9,12 +9,13 @@ import type { PortalActions, PortalState } from "../store";
 import { clientsVisibleToRole, STUDIO_CLIENTS, type StudioClient } from "../clients";
 import { GuidedIntakeSelector } from "../components/GuidedIntakeSelector";
 import { EngineIndexControls } from "../components/EngineIndexControls";
-import { clientsForEngineWork, latestEngineWork, startClientForEngine } from "../engineLifecycle";
+import { EngineIndexOverview } from "../components/EngineIndexOverview";
+import { clientsForEngineWork, engineWorkFromGuidedSession, latestEngineWork, saveEngineWork, startClientForEngine } from "../engineLifecycle";
 import { AuditTypeWorkspace } from "./AuditTypeWorkspace";
 import { AuditReportView } from "../views/AuditReportView";
 import { DiscoveryBuilder } from "../discovery/DiscoveryBuilder";
-import { fromClientMemory, getKnowledge, loadPersistedKnowledge, recordKnowledge, rememberKnowledge, mergeKnow, type Know } from "../discovery/knowledge";
-import { AuditBuilderHandoff } from "./AuditBuilderHandoff";
+import { fromClientMemory, getKnowledge, loadPersistedKnowledge, recordKnowledge, rememberKnowledge, replaceKnowledge, mergeKnow, type Know } from "../discovery/knowledge";
+import { AuditReportFooter } from "../components/AuditReportFooter";
 import { portalApprovalOutput } from "@/lib/portalApprovalOutput";
 import { AUDIT_WIZARD, AUDIT_STAGES, AUDIT_INTRO_STEPS, AUDIT_DEMO } from "../discovery/discoveryData";
 import { AUDIT_PIPELINE, auditScoreToDocs } from "../discovery/auditPipeline";
@@ -24,6 +25,10 @@ import { StartOverDialog } from "../components/StartOverDialog";
 import { AUDIT_CHECKLIST, isAuditScoreResult } from "@/lib/auditChecklist";
 import type { GeneratedStageResult } from "@/lib/aiStageGeneration";
 import { DASHBOARD_USER_EMAIL_HEADER } from "@/lib/dashboardPersistence";
+import { createPortalProcessHandoff, portalProcessHandoffPages, portalProcessHandoffRecommendations, portalProcessHandoffSender, portalProcessHandoffUnresolvedItems, removePortalProcessHandoffs, savePortalProcessHandoff } from "@/lib/portalProcessHandoffs";
+import { clientHasEngineAccess, portalCapabilities } from "../access";
+import { normalizePortalAuditExportProfile } from "@/lib/portalWorkspacePersistence";
+import { durableCheckupCard, durableRunProgress, useDurableCheckupRuns } from "./durableCheckupRuns";
 type Ans = Record<string, string | string[]>;
 
 type AuditRun = PersistedAuditRun;
@@ -108,9 +113,15 @@ function latestCompletedRun(runs: AuditRun[]) {
     .sort((left, right) => auditRunDate(right).localeCompare(auditRunDate(left)))[0] || null;
 }
 
-async function fetchAuditDrafts(clientId?: string) {
-  const query = clientId ? `?clientId=${encodeURIComponent(clientId)}` : "";
-  const response = await fetch(`/api/portal-audit-runs${query}`, { cache: "no-store" });
+async function fetchAuditDrafts(clientId: string | undefined, runId: string | undefined, userEmail: string) {
+  const params = new URLSearchParams();
+  if (clientId) params.set("clientId", clientId);
+  if (runId) params.set("runId", runId);
+  const query = params.size ? `?${params.toString()}` : "";
+  const response = await fetch(`/api/portal-audit-runs${query}`, {
+    cache: "no-store",
+    headers: { [DASHBOARD_USER_EMAIL_HEADER]: userEmail },
+  });
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
@@ -155,6 +166,10 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
   const [resettingAudit, setResettingAudit] = useState(false);
   const [resetAuditError, setResetAuditError] = useState<string | null>(null);
   const [quickKnow, setQuickKnow] = useState<Know>({ data: {}, sources: {} });
+  const durableWebsiteRuns = useDurableCheckupRuns("website", state.role, state.clientName);
+  const capabilities = portalCapabilities(state);
+  const canManageStudioWork = capabilities.canApproveStudioWork;
+  const canOpenLabs = clientHasEngineAccess(state, "labs");
   useEffect(() => { setQuickKnow(s.clientId ? loadPersistedKnowledge(s.clientId) : { data: {}, sources: {} }); }, [s.clientId]);
   const allClients = useMemo(() => clientsVisibleToRole(state.role, state.clientName), [state.clientName, state.role]);
   const workingClients = useMemo(() => clientsForEngineWork(state.role, allClients), [allClients, state.role]);
@@ -195,6 +210,25 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
   const mobile = state.isMobile;
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const restoredFromUrl = useRef(false);
+  const openWebsiteBuilderFromAudit = (targetClient: StudioClient, session: GuidedAuditSession | undefined, context: Ans) => {
+    const aiResults = session?.aiResults as Record<string, unknown> | undefined;
+    const handoff = createPortalProcessHandoff(session?.processRun, context, {
+      approvedScope: portalProcessHandoffPages(aiResults),
+      includedRecommendations: portalProcessHandoffRecommendations(aiResults),
+      unresolvedItems: portalProcessHandoffUnresolvedItems(aiResults),
+      sender: portalProcessHandoffSender(state.role, targetClient.name),
+    });
+    if (!handoff) {
+      actions.showToast("Approve the completed action plan before continuing to Website Lab");
+      return;
+    }
+    actions.update(current => ({
+      clientWorkspaces: savePortalProcessHandoff(current.clientWorkspaces, handoff),
+    }));
+    window.localStorage.setItem("baltazar:builder-active:website", targetClient.id);
+    actions.patch({ builderType: "website" });
+    actions.setView("funnels");
+  };
 
   useEffect(() => {
     if (!state.hydrated) return;
@@ -210,16 +244,17 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
       try {
         const params = new URLSearchParams(window.location.search);
         const requestedClientId = params.get("auditReport") || undefined;
-        const nextDrafts = await fetchAuditDrafts(requestedClientId);
+        const requestedRunId = params.get("auditReportRun") || undefined;
+        const nextDrafts = await fetchAuditDrafts(requestedClientId, requestedRunId, userEmail);
 
         if (!cancelled) {
-          draftsScopeRef.current = requestedClientId || "all";
+          draftsScopeRef.current = requestedRunId || requestedClientId || "all";
           setDrafts(nextDrafts);
           if (!requestedClientId) allDraftsCacheRef.current = nextDrafts;
         }
 
         if (requestedClientId) {
-          void fetchAuditDrafts().then(allDrafts => {
+          void fetchAuditDrafts(undefined, undefined, userEmail).then(allDrafts => {
             allDraftsCacheRef.current = allDrafts;
           }).catch(error => {
             console.error("Unable to warm the audit index.", error);
@@ -237,7 +272,7 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [userEmail]);
 
   useEffect(() => {
     if (!draftsLoaded || restoredFromUrl.current) return;
@@ -438,6 +473,10 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
   const startOrResumeAudit = () => {
     const target = startClientForEngine(state.role, allClients);
     if (!target) return;
+    if (target.id === "unassigned") {
+      createAudit(target.id);
+      return;
+    }
     const existing = latestEngineWork(initiatedRuns.filter(item => item.clientId === target.id));
     if (existing) startAudit(target.id, existing.id);
     else createAudit(target.id);
@@ -468,6 +507,9 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
       if (saveTimer.current) clearTimeout(saveTimer.current);
       runIds.forEach(runId => window.localStorage.removeItem(`guided-audit:${runId}`));
       window.localStorage.removeItem(`baltazar:builder-handoff:website:${resetAuditClientId}`);
+      actions.update(current => ({
+        clientWorkspaces: removePortalProcessHandoffs(current.clientWorkspaces, resetAuditClientId, "website-audit"),
+      }));
       setDrafts(current => current.filter(draft => draft.run.clientId !== resetAuditClientId));
       if (s.clientId === resetAuditClientId) dispatch({ t: "toPicker" });
       if (reportClientId === resetAuditClientId) {
@@ -505,7 +547,7 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
       setDrafts(allDraftsCacheRef.current);
     } else if (draftsScopeRef.current !== "all") {
       setDraftsLoaded(false);
-      void fetchAuditDrafts().then(allDrafts => {
+      void fetchAuditDrafts(undefined, undefined, userEmail).then(allDrafts => {
         draftsScopeRef.current = "all";
         allDraftsCacheRef.current = allDrafts;
         setDrafts(allDrafts);
@@ -578,7 +620,10 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
     recordKnowledge(client.id, data, "Completed audit");
     const response = await fetch("/api/portal-audit-runs", {
       method: "PUT",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        [DASHBOARD_USER_EMAIL_HEADER]: userEmail,
+      },
       body: JSON.stringify({ draft: completedDraft }),
     });
     if (!response.ok) {
@@ -640,12 +685,18 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
     };
     draftsRef.current = [nextDraft, ...draftsRef.current.filter(draft => draft.run.id !== nextDraft.run.id)];
     setDrafts(draftsRef.current);
+    actions.update(current => ({
+      clientWorkspaces: saveEngineWork(current.clientWorkspaces, client.id, "websiteAudit", engineWorkFromGuidedSession(session)),
+    }));
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       try {
         const response = await fetch("/api/portal-audit-runs", {
           method: "PUT",
-          headers: { "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            [DASHBOARD_USER_EMAIL_HEADER]: userEmail,
+          },
           body: JSON.stringify({ draft: nextDraft }),
         });
         if (!response.ok) throw new Error("Unable to save the guided audit session.");
@@ -663,7 +714,7 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
 
   if (!client && !draftsLoaded) {
     return (
-      <div role="status" aria-label={reportRequested ? "Loading audit report" : "Loading audits"} style={css("min-height:60vh;display:grid;place-items:center;padding:2rem;color:var(--fg-muted);font-size:var(--text-sm)")}>
+      <div role="status" aria-label={reportRequested ? "Loading audit report" : "Loading audits"} style={css("min-height:60vh;display:grid;place-items:center;padding:var(--space-8);color:var(--fg-muted);font-size:var(--text-sm)")}>
         {reportRequested ? "Loading audit report…" : "Loading audits…"}
       </div>
     );
@@ -674,16 +725,16 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
       <div style={css("width:100%;padding:" + (mobile ? "1rem 0.75rem calc(6rem + env(safe-area-inset-bottom))" : "1.35rem 2rem 2.4rem"))}>
         <div style={css("width:min(68rem,100%);margin:0 auto") }>
           <div style={css("display:flex;align-items:center;gap:var(--space-3);margin-bottom:0.85rem") }>
-            <button type="button" onClick={closeReportModal} className="pt-op" style={css("display:inline-flex;align-items:center;gap:0.4rem;height:2.1rem;padding:0 0.8rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:0.76rem;font-weight:500;cursor:pointer") }><Icon name="chevleft" size={14} />All audits</button>
-            <div style={css("min-width:0;font-size:0.92rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{reportProposalOpen ? "Build proposal" : "Audit report"} · {reportClient.name}</div>
+            <button type="button" onClick={closeReportModal} className="pt-op" style={css("display:inline-flex;align-items:center;gap:0.4rem;height:2.1rem;padding:0 0.8rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;cursor:pointer") }><Icon name="chevleft" size={14} />All checkups</button>
+            <div style={css("min-width:0;font-size:var(--text-lg);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{canManageStudioWork && reportProposalOpen ? "Build proposal" : "Audit report"} · {reportClient.name}</div>
           </div>
           <article style={css("border:1px solid var(--border-soft);border-radius:1.1rem;background:var(--surface);overflow:clip") }>
             {reportDraft?.state.report ? (
               <div data-audit-report-root style={css("padding:" + (mobile ? "1rem" : "1.4rem"))}>
                 {AUDIT_PIPELINE.renderStage({
-                  stageKey: reportProposalOpen ? "plan" : "report",
+                  stageKey: canManageStudioWork && reportProposalOpen ? "plan" : "report",
                   docs: auditScoreToDocs(reportDraft.state.report, reportClient.name),
-                  aiResult: reportProposalOpen ? reportDraft.state.guidedSession?.aiResults.plan || null : reportDraft.state.report,
+                  aiResult: canManageStudioWork && reportProposalOpen ? reportDraft.state.guidedSession?.aiResults.plan || null : reportDraft.state.report,
                   aiResults: reportDraft.state.guidedSession?.aiResults || { report: reportDraft.state.report },
                   reveal: Number.POSITIVE_INFINITY,
                   building: false,
@@ -693,7 +744,7 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
                   onAdvance: () => undefined,
                   onDownload: async () => {
                     actions.showToast("Opening the print dialog…");
-                    const ok = await printReportNode(document.querySelector("[data-audit-report-root]"), `${reportClient.name} · ${reportProposalOpen ? "Action plan" : "Audit report"}`);
+                    const ok = await printReportNode(document.querySelector("[data-audit-report-root]"), `${reportClient.name} · ${canManageStudioWork && reportProposalOpen ? "Action plan" : "Audit report"}`, normalizePortalAuditExportProfile(reportClient.name, actions.workspaceForClient(reportClient.name).auditExport));
                     actions.showToast(ok ? "Choose Print or Save as PDF" : "The print dialog could not be opened");
                   },
                   onShare: () => {
@@ -703,7 +754,17 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
                   },
                   onCopy: () => actions.showToast("Copied to clipboard"),
                 })}
-                <div style={{ marginTop: "1.2rem" }}><AuditBuilderHandoff type="website" clientName={reportClient.name} onContinue={() => { window.localStorage.setItem(`baltazar:builder-handoff:website:${reportClient.id}`, JSON.stringify({ source: "website-audit", report: reportDraft.state.report, answers: reportDraft.state.answers, savedAt: new Date().toISOString() })); window.localStorage.setItem("baltazar:builder-active:website", reportClient.id); actions.patch({ builderType: "website" }); actions.setView("funnels"); }} /></div>
+                <AuditReportFooter
+                  exportProfile={normalizePortalAuditExportProfile(reportClient.name, actions.workspaceForClient(reportClient.name).auditExport)}
+                  canManageExport={canManageStudioWork}
+                  onSaveExportProfile={update => actions.saveAuditExportProfile(reportClient.name, update)}
+                  onPrint={async () => {
+                    actions.showToast("Opening the print dialog…");
+                    const ok = await printReportNode(document.querySelector("[data-audit-report-root]"), `${reportClient.name} · ${canManageStudioWork && reportProposalOpen ? "Action plan" : "Audit report"}`, normalizePortalAuditExportProfile(reportClient.name, actions.workspaceForClient(reportClient.name).auditExport));
+                    actions.showToast(ok ? "Choose Print or Save as PDF" : "The print dialog could not be opened");
+                  }}
+                  cta={canOpenLabs ? { label: "Build the website plan", icon: "arrowright", onClick: () => openWebsiteBuilderFromAudit(reportClient, reportDraft.state.guidedSession, reportDraft.state.answers) } : undefined}
+                />
               </div>
             ) : <AuditReportView
               key={reportClient.id + "-" + (reportRunId || "latest") + (reportProposalOpen ? "-proposal" : "-report")}
@@ -713,8 +774,8 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
               clientName={reportClient.name}
               reportRunLabel={reportRun ? auditRunLabel(reportRun) : undefined}
               reportRunDate={reportRun ? auditRunDateLabel(reportRun) : undefined}
-              initialLayout={reportProposalOpen ? "priority" : "report"}
-              showInlineProposal={reportProposalOpen}
+              initialLayout={canManageStudioWork && reportProposalOpen ? "priority" : "report"}
+              showInlineProposal={canManageStudioWork && reportProposalOpen}
               proposalIffOn={proposalIffOn}
               proposalSent={actions.workspaceForClient(reportClient.name).proposal?.sent === true}
               onToggleProposalIff={() => setProposalIffOn(v => !v)}
@@ -728,6 +789,38 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
   }
 
   if (!client) {
+    const reviewCount = auditGroups.filter(group => group.runs.some(item => item.statusLabel === "Ready for approval" || item.statusLabel === "Report ready")).length;
+    // Grade analytics across each client's latest completed audit.
+    const scored = auditGroups.map(group => {
+      const run = group.runs.filter(item => item.progress >= 100).sort((a, b) => auditRunDate(b).localeCompare(auditRunDate(a)))[0];
+      if (!run) return null;
+      const report = draftsByRunId.get(run.id)?.state.report;
+      const rpt = isAuditScoreResult(report) ? report : null;
+      const score = typeof run.internalScore === "number" ? run.internalScore : typeof run.score === "number" ? run.score : rpt?.overallScore;
+      if (typeof score !== "number") return null;
+      const target = typeof run.targetScore === "number" ? run.targetScore : rpt?.targetScore;
+      return { score, target: typeof target === "number" ? target : null, categories: rpt?.categories ?? [] };
+    }).filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+    const avgScore = scored.length ? Math.round(scored.reduce((sum, r) => sum + r.score, 0) / scored.length) : null;
+    const upliftSamples = scored.filter(r => r.target !== null);
+    const avgUplift = upliftSamples.length ? Math.round(upliftSamples.reduce((sum, r) => sum + Math.max(0, (r.target as number) - r.score), 0) / upliftSamples.length) : null;
+    const catAgg = new Map<string, { sum: number; count: number }>();
+    scored.forEach(r => r.categories.forEach(category => { const current = catAgg.get(category.label) ?? { sum: 0, count: 0 }; current.sum += category.score; current.count += 1; catAgg.set(category.label, current); }));
+    const weakest = [...catAgg.entries()].map(([label, v]) => ({ label, avg: Math.round(v.sum / v.count) })).sort((a, b) => a.avg - b.avg)[0] ?? null;
+    const trendDeltas: number[] = [];
+    auditGroups.forEach(group => {
+      const runScores = group.runs.filter(item => item.progress >= 100).sort((a, b) => auditRunDate(a).localeCompare(auditRunDate(b)))
+        .map(run => { const rpt = draftsByRunId.get(run.id)?.state.report; const rr = isAuditScoreResult(rpt) ? rpt : null; return typeof run.internalScore === "number" ? run.internalScore : typeof run.score === "number" ? run.score : rr?.overallScore; })
+        .filter((n): n is number => typeof n === "number");
+      if (runScores.length >= 2) trendDeltas.push(runScores[runScores.length - 1] - runScores[runScores.length - 2]);
+    });
+    const trend = trendDeltas.length ? Math.round(trendDeltas.reduce((sum, n) => sum + n, 0) / trendDeltas.length) : null;
+    const durableClientNames = new Set(durableWebsiteRuns.map(run => run.clientName.trim().toLowerCase()));
+    const legacyAuditGroups = auditGroups.filter(group => !durableClientNames.has(group.client.name.trim().toLowerCase()));
+    const totalClientCount = legacyAuditGroups.length + durableWebsiteRuns.length;
+    const durableCompletedCount = durableWebsiteRuns.filter(run => run.state === "current").length;
+    const durableReviewCount = durableWebsiteRuns.filter(run => run.state === "ready").length;
+    const durableInProgressCount = durableWebsiteRuns.filter(run => !["current", "ready", "cancelled"].includes(run.state)).length;
     return (
       <div style={css("width:100%;padding:" + (mobile ? "1rem 0.75rem calc(6rem + env(safe-area-inset-bottom))" : "1.6rem 2rem 2.4rem"))}>
         <GuidedIntakeSelector
@@ -736,15 +829,30 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
           title="Start or continue a website audit"
           description="Review the site. See what works, what does not, and what to fix first."
           controls={<EngineIndexControls
-            metrics={[
-              { label: `${completedCount} completed`, tone: "success" },
-              { label: `${inProgressCount} still in intake`, tone: "warn" },
+            metrics={[]}
+            action={{ label: "Start checkup", onClick: startOrResumeAudit, color: "var(--cocoon)" }}
+          />}
+          overview={<EngineIndexOverview
+            metrics={scored.length > 0 ? [
+              { label: `${totalClientCount} clients`, tone: "accent" },
+              { label: `${completedCount + durableCompletedCount} completed`, tone: "success" },
+              { label: `${avgScore} avg score`, tone: "accent" },
+              { label: `${avgUplift !== null ? "+" + avgUplift : "—"} avg uplift`, tone: "success" },
+            ] : [
+              { label: `${totalClientCount} clients`, tone: "accent" },
+              { label: `${completedCount + durableCompletedCount} completed`, tone: "success" },
+              { label: `${inProgressCount + durableInProgressCount} still in intake`, tone: "warn" },
+              { label: `${reviewCount + durableReviewCount} need review`, tone: reviewCount + durableReviewCount ? "warn" : "muted" },
             ]}
-            action={{ label: "Generate audit", onClick: startOrResumeAudit, color: "var(--cocoon)" }}
+            insight={(weakest || trend !== null) ? <>
+              {trend !== null && <span style={css("display:inline-flex;align-items:center;gap:0.2rem;font-weight:500;color:" + (trend >= 0 ? "var(--success)" : "var(--danger)"))}>{trend >= 0 ? "↑" : "↓"} {Math.abs(trend)} vs last run</span>}
+              {trend !== null && weakest && <span aria-hidden="true">·</span>}
+              {weakest && <span>Weakest: <strong style={css("font-weight:500;color:var(--fg)")}>{weakest.label}</strong> <span style={css("color:var(--warn)")}>{weakest.avg}</span></span>}
+            </> : undefined}
           />}
           controlsBelow
           countLabel="client"
-          cards={auditGroups.map(group => {
+          cards={[...legacyAuditGroups.map(group => {
             const completedRun = latestCompletedRun(group.runs);
             const activeRun = group.runs.find(item => item.progress < 100 && item.progress > 0) || group.runs.find(item => item.progress < 100) || null;
             const scoredRun = group.runs
@@ -791,7 +899,17 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
               showProgress: false,
               showStage: false,
               showMeta: false,
-              hero: <AuditCardScoreSkeleton summary={heroSummary} scored={hasScore} cats={heroCats} />,
+              hero: <>
+                <AuditCardScoreSkeleton
+                  summary={heroSummary}
+                  scored={hasScore}
+                  cats={heroCats}
+                  unscoredProgress={displayRun.progress}
+                  unscoredDetail={displayRun.progress ? displayRun.stage.replace(/\s*·\s*/g, " · ") : "Intake not started"}
+                  unscoredStatus={displayRun.progress ? "Continue" : "New"}
+                  showCategories={hasScore}
+                />
+              </>,
               headerAction: latestComplete ? {
                 label: "Build proposal for " + group.client.name,
                 shortLabel: "Proposal",
@@ -804,7 +922,7 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
               secondaryIcon: "replay",
               onSecondary: () => requestStartOver(group.client.id),
             };
-          })}
+          }), ...durableWebsiteRuns.map(durableCheckupCard)]}
         />
         <StartOverDialog
           open={!!resetAuditClientId}
@@ -839,25 +957,45 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
         prefillNotes={auditKnow.notes}
         quickStartMode="audit"
         sessionKey={run?.id}
+        processId="website-audit"
+        accessState={state}
+        onOpenApprovals={() => actions.setView("review")}
+        processClientId={client.id}
+        processRunId={run?.id}
+        processDueAt={run?.due}
+        exportProfile={normalizePortalAuditExportProfile(client.name, actions.workspaceForClient(client.name).auditExport)}
         initialSession={run ? draftsByRunId.get(run.id)?.state.guidedSession : undefined}
         onSessionChange={saveGuidedSession}
         onStartOverRequest={() => requestStartOver(client.id)}
-        onIngest={delta => {
+        onIngest={(delta, options) => {
+          if (options?.replaceSourceReview) {
+            replaceKnowledge(client.id, delta);
+            setQuickKnow(delta);
+            return;
+          }
           rememberKnowledge(client.id, delta);
           setQuickKnow(k => mergeKnow(k, delta));
         }}
         startLabel="Start audit intake →"
-        backLabel={state.role === "client" ? "← Back to dashboard" : "← All audits"}
+        backLabel={state.role === "client" ? "← Back to dashboard" : "← All checkups"}
         hideHeader={state.role === "client"}
         progressLabel="intake"
         demo={AUDIT_DEMO}
         completeTitle="Intake ready"
         completeMsg="Next, score the site and build the action plan."
         completeCta="Build the report →"
-        stageExtra={stageKey => stageKey === "plan" ? (
-          <div style={{ marginTop: "1.2rem", textAlign: "left" }}>
-            <AuditBuilderHandoff type="website" clientName={client.name} onContinue={() => { window.localStorage.setItem(`baltazar:builder-handoff:website:${client.id}`, JSON.stringify({ source: "website-audit", savedAt: new Date().toISOString() })); window.localStorage.setItem("baltazar:builder-active:website", client.id); actions.patch({ builderType: "website" }); actions.setView("funnels"); }} />
-          </div>
+        stageExtra={stageKey => stageKey === "report" || stageKey === "plan" ? (
+          <AuditReportFooter
+            exportProfile={normalizePortalAuditExportProfile(client.name, actions.workspaceForClient(client.name).auditExport)}
+            canManageExport={canManageStudioWork}
+            onSaveExportProfile={update => actions.saveAuditExportProfile(client.name, update)}
+            onPrint={async () => {
+              actions.showToast("Opening the print dialog…");
+              const ok = await printReportNode(document.querySelector(`[data-pipeline-stage="${stageKey}"]`), `${client.name} · ${stageKey === "plan" ? "Action plan" : "Audit report"}`, normalizePortalAuditExportProfile(client.name, actions.workspaceForClient(client.name).auditExport));
+              actions.showToast(ok ? "Choose Print or Save as PDF" : "The print dialog could not be opened");
+            }}
+            cta={stageKey === "plan" && canOpenLabs ? { label: "Build the website plan", icon: "arrowright", onClick: () => openWebsiteBuilderFromAudit(client, draftsByRunId.get(run?.id || "")?.state.guidedSession, quickKnow.data) } : undefined}
+          />
         ) : null}
         pipeline={AUDIT_PIPELINE}
         onPipelineComplete={(data, aiResults) => completeGuidedAudit(data, aiResults).catch(error => actions.showToast(error instanceof Error ? error.message : "Unable to save the completed audit"))}

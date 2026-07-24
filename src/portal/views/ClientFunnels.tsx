@@ -101,13 +101,13 @@ export function ClientFunnels({ state, actions }: { state: PortalState; actions:
       <div style={css("box-sizing:border-box;width:100%;padding:" + (state.isMobile ? "1rem 0.9rem 1.5rem" : "1.6rem 2rem 2.4rem"))}>
         <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap;padding:1rem 1.1rem;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);margin-bottom:1rem") }>
           <div style={{ minWidth: 0 }}>
-            <span style={css("text-transform:uppercase;font-size:.68rem;font-weight:400;letter-spacing:.04em;line-height:1.2;display:block;color:var(--accent);margin-bottom:.45rem")}>Funnel build plans</span>
-            <h2 style={css("margin:0;font-size:1.22rem;font-weight:500;line-height:1.15")}>Start or review a funnel build</h2>
+            <span style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:.04em;line-height:1.2;display:block;color:var(--accent);margin-bottom:.45rem")}>Funnel build plans</span>
+            <h2 style={css("margin:0;font-size:var(--text-2xl);font-weight:500;line-height:1.15")}>Start or review a funnel build</h2>
             <p style={css("margin:.45rem 0 0;font-size:var(--text-base);color:var(--fg-muted);line-height:1.55;max-width:36rem")}>Request the funnel direction, conversion path, copy wireframe, and development plan before production begins.</p>
           </div>
           <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2);flex-wrap:wrap;flex-shrink:0") }>
-            <span style={css("display:inline-flex;align-items:center;gap:.35rem;padding:.45rem .75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:.73rem;color:var(--fg-muted)")}><span style={css("width:.42rem;height:.42rem;border-radius:50%;background:var(--accent)")}/>0 created</span>
-            <button type="button" onClick={requestFunnel} style={css("display:inline-flex;align-items:center;gap:.42rem;min-height:2.3rem;padding:0 .95rem;border:none;border-radius:999px;background:var(--accent);color:#fff;font-size:.78rem;font-weight:500;cursor:pointer")}><Icon name="plus" size={15}/>Request funnel</button>
+            <span style={css("display:inline-flex;align-items:center;gap:.35rem;padding:.45rem .75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:var(--text-2xs);color:var(--fg-muted)")}><span style={css("width:.42rem;height:.42rem;border-radius:50%;background:var(--accent)")}/>0 created</span>
+            <button type="button" onClick={requestFunnel} style={css("display:inline-flex;align-items:center;gap:.42rem;min-height:2.3rem;padding:0 .95rem;border:none;border-radius:999px;background:var(--accent);color:#fff;font-size:var(--text-xs);font-weight:500;cursor:pointer")}><Icon name="plus" size={15}/>Request funnel</button>
           </div>
         </div>
         <ClientPickerGrid countLabel="client" compact cards={cards} />
@@ -126,15 +126,15 @@ export function ClientFunnels({ state, actions }: { state: PortalState; actions:
     <div style={css("display:flex;flex-direction:column;gap:var(--space-4)")}>
       <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap;padding:1rem 1.1rem;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface)")}>
         <div style={{ minWidth: 0 }}>
-          <span style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;display:block;color:var(--accent);margin-bottom:0.45rem")}>Funnel direction</span>
-          <h2 style={css("margin:0;font-size:1.22rem;font-weight:500;line-height:1.15")}>Review your funnel plan</h2>
+          <span style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;display:block;color:var(--accent);margin-bottom:0.45rem")}>Funnel direction</span>
+          <h2 style={css("margin:0;font-size:var(--text-2xl);font-weight:500;line-height:1.15")}>Review your funnel plan</h2>
           <p style={css("margin:0.45rem 0 0;font-size:var(--text-base);color:var(--fg-muted);line-height:1.55;max-width:36rem")}>Open the finished direction to review the goal, build path, and preview the plan before it moves forward.</p>
         </div>
         <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2);flex-wrap:wrap;flex-shrink:0")}>
-          <span style={css("display:inline-flex;align-items:center;gap:0.35rem;padding:0.45rem 0.75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:0.73rem;color:var(--fg-muted)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--success)")} />{readyCount} ready</span>
-          <span style={css("display:inline-flex;align-items:center;gap:0.35rem;padding:0.45rem 0.75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:0.73rem;color:var(--fg-muted)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--accent)")} />{funnels.length} plan{funnels.length === 1 ? "" : "s"}</span>
+          <span style={css("display:inline-flex;align-items:center;gap:0.35rem;padding:0.45rem 0.75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:var(--text-2xs);color:var(--fg-muted)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--success)")} />{readyCount} ready</span>
+          <span style={css("display:inline-flex;align-items:center;gap:0.35rem;padding:0.45rem 0.75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:var(--text-2xs);color:var(--fg-muted)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--accent)")} />{funnels.length} plan{funnels.length === 1 ? "" : "s"}</span>
           {latestPlan && (
-            <button type="button" onClick={() => setActivePlan(latestPlan)} className="pt-op" style={css("display:inline-flex;align-items:center;gap:0.42rem;min-height:2.3rem;padding:0 0.95rem;border:none;border-radius:999px;background:var(--accent);color:#fff;font-size:0.78rem;font-weight:500;cursor:pointer")}><Icon name="funnel" size={15} />Open latest</button>
+            <button type="button" onClick={() => setActivePlan(latestPlan)} className="pt-op" style={css("display:inline-flex;align-items:center;gap:0.42rem;min-height:2.3rem;padding:0 0.95rem;border:none;border-radius:999px;background:var(--accent);color:#fff;font-size:var(--text-xs);font-weight:500;cursor:pointer")}><Icon name="funnel" size={15} />Open latest</button>
           )}
         </div>
       </div>
@@ -144,10 +144,10 @@ export function ClientFunnels({ state, actions }: { state: PortalState; actions:
           <div aria-hidden="true" style={css("height:0.24rem;background:linear-gradient(90deg,var(--accent) 0%,color-mix(in srgb,var(--accent) 72%,var(--surface) 28%) 72%,color-mix(in srgb,var(--accent) 20%,var(--surface) 80%) 100%);flex-shrink:0")} />
           <div style={css("padding:0.86rem 0.88rem 0.94rem")}>
             <div style={css("display:flex;align-items:center;gap:0.62rem;margin-bottom:0.6rem")}>
-              <span style={css("width:1.9rem;height:1.9rem;border-radius:0.66rem;background:color-mix(in srgb,var(--accent) 13%,var(--surface-alt) 87%);color:var(--accent);display:grid;place-items:center;font-weight:500;font-size:0.78rem;flex-shrink:0")}>{client.name[0]}</span>
+              <span style={css("width:1.9rem;height:1.9rem;border-radius:0.66rem;background:color-mix(in srgb,var(--accent) 13%,var(--surface-alt) 87%);color:var(--accent);display:grid;place-items:center;font-weight:500;font-size:var(--text-xs);flex-shrink:0")}>{client.name[0]}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={css("font-weight:500;font-size:0.86rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{client.name}</div>
-                <div style={css("font-size:0.67rem;color:var(--fg-muted);margin-top:0.1rem")}>{funnels.length} funnel{funnels.length === 1 ? "" : "s"} available</div>
+                <div style={css("font-weight:500;font-size:var(--text-base);overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{client.name}</div>
+                <div style={css("font-size:var(--text-2xs);color:var(--fg-muted);margin-top:0.1rem")}>{funnels.length} funnel{funnels.length === 1 ? "" : "s"} available</div>
               </div>
             </div>
             <FunnelFlowHero direction={latestDirection} goal={latestGoal} build={latestBuild} readyCount={readyCount} />
@@ -164,10 +164,10 @@ export function ClientFunnels({ state, actions }: { state: PortalState; actions:
               style={css("display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:0.56rem;align-items:center;width:100%;min-height:2.42rem;padding:0.42rem 0.5rem 0.42rem 0.62rem;border:1px solid color-mix(in srgb,var(--border-soft) 88%,white 12%);border-radius:999px;background:color-mix(in srgb,var(--surface-alt) 58%,var(--surface) 42%);color:var(--fg);text-align:left;cursor:pointer")}
             >
               <span style={css("width:0.46rem;height:0.46rem;border-radius:50%;background:" + tone.color + ";flex-shrink:0")} />
-              <span style={css("font-size:0.78rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{funnelDisplayTitle(plan)}</span>
+              <span style={css("font-size:var(--text-xs);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{funnelDisplayTitle(plan)}</span>
               <span style={css("display:flex;align-items:center;justify-content:flex-end;gap:0.42rem;min-width:0")}>
                 <span style={css("display:inline-flex;align-items:center;font-size:var(--text-2xs);font-weight:500;padding:0.22rem 0.5rem;border-radius:999px;white-space:nowrap;background:" + tone.soft + ";color:" + tone.color)}>{plan.statusLabel}</span>
-                <span style={css("display:inline-flex;align-items:center;gap:0.22rem;font-size:0.64rem;color:var(--fg-faint);white-space:nowrap")}><Icon name="cal" size={10} />{plan.due}</span>
+                <span style={css("display:inline-flex;align-items:center;gap:0.22rem;font-size:var(--text-2xs);color:var(--fg-faint);white-space:nowrap")}><Icon name="cal" size={10} />{plan.due}</span>
               </span>
             </button>
           );

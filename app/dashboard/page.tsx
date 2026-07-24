@@ -6,6 +6,8 @@ import type { DashboardUserRole } from "@/types";
 import { Portal } from "@/portal/Portal";
 import type { Role as PortalRole } from "@/portal/types";
 import type { LoginUser } from "@/lib/authTypes";
+import { fetchAuthenticatedDashboardUser } from "@/lib/auth";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 // Map the login role onto the redesigned portal's role model (manager → dev).
 function mapPortalRole(role: DashboardUserRole): PortalRole {
@@ -20,15 +22,43 @@ export default function Dashboard() {
   const [currentUser, setCurrentUser] = useState<LoginUser | null>(null);
 
   useEffect(() => {
-    const saved = sessionStorage.getItem("bs-user");
-    if (saved) {
-      try {
-        setCurrentUser(JSON.parse(saved) as LoginUser);
-      } catch {
-        sessionStorage.removeItem("bs-user");
+    let cancelled = false;
+
+    async function loadCurrentUser() {
+      let savedUser: LoginUser | null = null;
+      const saved = sessionStorage.getItem("bs-user");
+      if (saved) {
+        try {
+          savedUser = JSON.parse(saved) as LoginUser;
+        } catch {
+          sessionStorage.removeItem("bs-user");
+        }
       }
+
+      const sessionUser = await fetchAuthenticatedDashboardUser();
+      if (cancelled) return;
+      const verifiedUser = sessionUser
+        ? {
+          ...sessionUser,
+          ...(savedUser?.email.toLowerCase() === sessionUser.email.toLowerCase() && savedUser.clientName
+            ? { clientName: savedUser.clientName }
+            : {}),
+        }
+        : null;
+      if (verifiedUser) {
+        sessionStorage.setItem("bs-user", JSON.stringify(verifiedUser));
+        setCurrentUser(verifiedUser);
+      } else {
+        sessionStorage.removeItem("bs-user");
+        setCurrentUser(null);
+      }
+      setUserLoaded(true);
     }
-    setUserLoaded(true);
+
+    void loadCurrentUser();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -39,6 +69,10 @@ export default function Dashboard() {
 
   function handleLogout() {
     sessionStorage.removeItem("bs-user");
+    void createSupabaseBrowserClient().auth.signOut();
+    if (process.env.NODE_ENV !== "production") {
+      void fetch("/api/dev-login", { method: "DELETE" });
+    }
     setCurrentUser(null);
     router.push("/login");
   }

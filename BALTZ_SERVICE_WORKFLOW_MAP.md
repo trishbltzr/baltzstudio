@@ -14,6 +14,83 @@ Related planning docs:
 
 - `BALTZ_CLIENT_CHAT_PREVIEW_MVP.md` for the In Full Flight client chat-to-edit product model and stack.
 
+## Canonical Service Process Contract
+
+The executable source of truth for dashboard service processes is `src/portal/processDefinitions.ts`. Playbook prose explains how a service is delivered, while the canonical process contract defines the stable data the product uses to render and govern it.
+
+Every process definition must include:
+
+- A stable process ID and version.
+- The owning service and process category.
+- Ordered stages with a stable ID, client-safe label, icon, kind, owner, and access level.
+- Required inputs, produced outputs, and the explicit next action for every stage.
+- Blocking approval gates and their approvers where progress requires a decision.
+- The final output and an optional typed handoff target.
+- A client presentation when several internal stages are intentionally grouped into a simpler client-facing skeleton.
+
+The initial registry covers Brand Checkup, Website Checkup, SEO Checkup, Funnel Lab, Website Lab, Social Media Operations, and SEO Planning & Execution. Existing Brand, Website, Funnel, and Website Build stage rails now read their IDs and labels from this contract. SEO retains its five-stage internal process and explicitly defines the three-stage client presentation instead of treating them as competing processes.
+
+Service playbooks reference the corresponding process ID. New custom playbooks remain unbound until they are deliberately attached to a governed process definition; a Markdown document alone does not create executable workflow behavior.
+
+### Template And Client Run Boundary
+
+A process template and a client process run are different records:
+
+- The template is the reusable, editable definition in `src/portal/processDefinitions.ts`.
+- A client run stores the process ID, template version, and an immutable snapshot of the template stages that existed when that run began.
+- Run state stores the client, current stage, per-stage status, approval-waiting state, timestamps, completion state, and the frozen template snapshot.
+- Editing a template affects only future runs. Existing runs continue against their saved snapshot until an explicit migration is designed and recorded.
+- Older workspace records without a process run remain readable and receive a versioned snapshot the next time that workflow is saved.
+
+Guided Brand, Website, Funnel, and Website Build sessions persist their process run with the guided session. SEO and Social persist the run beside their existing engine-work payload. Funnel plan records also retain the originating run snapshot so a delivered plan remains traceable to the process version that produced it.
+
+### Shared Process Tracker
+
+Snapshot reads all visible client process runs through one role-aware selector. The tracker shows the current stage, run status, completed-stage progress, next owner, next action, approval blocker, and due state from the same process-run contract used by the engines.
+
+- Admin sees process runs for all visible clients.
+- Manager sees only clients available to that role.
+- Client sees only their workspace and receives client-safe wording for internal stages.
+- An internal stage is summarized as `Studio review` for clients until a client-visible output or approval is ready.
+- Approval-waiting runs name the required approver as the blocker.
+- Tracker cards deep-link to the relevant Checkup or Lab workspace.
+- Legacy Brand, Website, SEO, Social, and Funnel records are represented through a deterministic compatibility adapter until their next save persists the full process run.
+
+### Shared Stage Transition Guard
+
+All process runs now use one deterministic transition evaluator before a requested stage is persisted. A run can remain on its current stage or move forward only when every earlier stage in its saved template snapshot is complete. Blocking approval gates use the saved gate label as the reason; an unknown stage is rejected instead of being silently accepted.
+
+This guard is intentionally local and non-automated. It does not approve work, infer that a requirement was met, send a notification, or advance a client automatically. Existing engines continue to decide when their real work is complete, then pass those explicit completed stage IDs into the shared run contract. Legacy records receive the same ordered-stage interpretation through their compatibility adapter.
+
+### Persisted Process Handoffs
+
+Completed Brand and Website Checkups now create a durable typed handoff when a user explicitly continues to Website Lab. The handoff records the source process and run, frozen template and output versions, target process, final-output label, approved scope, included recommendations, unresolved evidence, approval state, sender, receiver, timestamps, tasks created from the handoff, and a sanitized copy of client-supplied string or list context. Generated internal reasoning and arbitrary objects are not carried forward.
+
+Website Lab consumes the latest ready handoff for that client, marks it accepted, uses its client-safe context as a prefill, and stores the handoff ID on the target process run. Its handoff summary shows the approved transfer and traceability counts, while imported implementation To-do's are linked back to the originating handoff record. Browser-local keys remain only as a one-time navigation hint and legacy fallback. Restarting the source Checkup removes its saved handoffs so stale audit context cannot silently reopen a build.
+
+On the first approved handoff acceptance, Website Lab also creates a client-independent implementation workspace from that exact handoff. Approved scope becomes bounded preparation work, included recommendations become build work, and the fixed operating sequence is Scope & content preparation, Design-system approval, Page design & build, Content population & QA, and Launch & measurement. Design Preview, Full Site Preview, and Handoff Package remain explicit client-owned approval gates. Stable handoff-derived source IDs make the seed idempotent and keep every generated task traceable to the source output version.
+
+Each versioned process run also retains an append-only event history for creation, stage changes, approval waits, completion, and accepted-handoff linkage. The event history is derived only from persisted semantic changes, so repeated saves at the same stage do not create noise. It establishes traceability for later Activity and notification work without enabling automatic approvals, publishing, or messaging.
+
+Handoff creation is explicit and non-automated: completing a Checkup does not start a paid Lab, create tasks, change access, or imply commercial approval.
+
+### Standard AI Review Lifecycle
+
+Every AI-assisted output uses one review lifecycle: `Not generated → Draft → Needs review → Approved → Shared`. The shared contract is persisted with guided Checkup and Lab sessions, and older records derive the same state from their existing generated result, approval, and sharing facts. Funnel index cards, Social Media planning, generated-stage headers, and Approvals use the same labels instead of local variants such as Ready for approval, Ready to ship, Scheduled, or Complete.
+
+The transition order is deterministic. A human may return `Needs review` to `Draft` when requesting changes, but AI cannot independently mark an output Approved or Shared. Approval still requires the existing explicit review action; Shared is recorded only after the existing share action succeeds. The lifecycle does not alter scope, complete a process gate, publish content, or send a notification by itself.
+
+### Client Capability Access
+
+The shared portal skeleton does not imply equal operational access. Every role reads one capability profile, while every engine stage also respects the owner, access level, and approval gate in its canonical process definition.
+
+- **Standard client** (default/Cocoon): sees Snapshot process tracking, Approvals, the Brand, Website, and SEO Checkup skeleton, client-owned intake, and approved client-visible outputs. Studio evidence, unapproved drafts, reset controls, task imports, proposal publishing, and Labs remain unavailable.
+- **Collaborative client** (`wiaw`): receives the standard client capabilities plus selected live Lab stages that require client participation. Studio-owned evidence and publishing controls remain internal.
+- **In Full Flight client** (`iff`): receives the collaborative engine access needed for active retained services, still bounded by each stage's owner, access level, and approval state.
+- **Admin and Manager**: can operate live Checkups and Labs, inspect evidence, review drafts, approve studio work, create task imports, and publish client outputs within their existing role permissions.
+
+Direct URLs use the same capability checks as navigation. A hidden link therefore cannot bypass an entitlement. Access tier is derived from the client's confirmed service record; a completed audit or handoff never upgrades access automatically.
+
 ## Current Website Development Process Snapshot
 
 Use this section as the plain-English view of where the website-development journey is now and what stages come next.
@@ -160,6 +237,109 @@ Execution rules:
 - Services without an evidence-valid quality formula use explicit completeness and approval gates instead of a cosmetic percentage. Reported performance always comes from a named measurement source.
 - AI must not silently invent missing client facts, change an approved strategy, merge client records, or bypass a prerequisite. It should name the missing input or assumption and stop when it would materially change the sold scope.
 
+### Baselines, Targeted Rechecks, And Escalation
+
+Creating a client account should enqueue one durable evidence-baseline workflow after the real domain and required sources are saved. The baseline is immutable comparison evidence, not a final answer that is copied forever and not a reason to repeat the entire Checkup on every visit.
+
+Each deterministic check stores its own status, evidence dependencies, evidence fingerprint, captured-at time, checklist version, and last verified result. Routine follow-up work selects only:
+
+- Checks whose current status is Failed or Unverified.
+- Checks whose supporting evidence is missing, stale, or changed.
+- Previously passed checks that depend on a source flagged by a lightweight change detector.
+- New or materially changed checks introduced by a published Playbook/checklist version.
+
+A cheap sentinel pass may inspect the domain, sitemap, robots rules, response health, source fingerprints, connected-data freshness, and known integration availability without generating another full report. It expands the target set only when it detects a relevant change. A full evidence refresh is reserved for a domain/source replacement, a material site-structure change, a major checklist version, evidence beyond the approved freshness window, a significant regression or anomaly, an explicit studio request, or a recovery policy that requires it.
+
+Targeted rechecks create a new immutable check-result revision and update the current Checkup projection; they do not overwrite the original baseline or duplicate unchanged evidence. If a failed or unverified check becomes Passed, the record retains the previous result, new evidence, verifying agent or person, and timestamp. If a passed check regresses, the system opens a blocker or review item with an owner and recovery action instead of silently lowering the score.
+
+Labs consume the latest approved Checkup projection plus its versioned handoff. They do not trigger a full Checkup automatically. A Lab may request a targeted recheck when an implementation decision depends on missing, stale, failed, or contradictory evidence.
+
+### Reusable Service Agents And Durable Memory
+
+The background workflow runner and the service agent have separate responsibilities:
+
+- The workflow runner owns scheduling, idempotency, retries, checkpoints, timeouts, concurrency, cancellation, and resumability.
+- The service agent reads a published agent definition, selects allowed tools, interprets qualitative evidence, prepares structured findings, and stops at approval or policy boundaries.
+- Deterministic tools own crawling, DOM checks, Lighthouse, source hashing, validation, persistence, blocker creation, and handoff creation. The model must not fabricate their results.
+
+Start with one governed service agent rather than a free-form swarm. The agent definition binds a stable agent ID and version to a published Playbook version, instructions, allowed tools, structured output schema, approval requirements, memory policy, owner, change summary, and eval suite. Brand, Website, SEO, Funnel, and retained-service behavior can begin as versioned configurations of that agent. Add specialist handoffs only when a measured workflow needs separate ownership or context.
+
+“Tell the agent once and it remembers” is implemented through four explicit state layers:
+
+1. **Instructions:** versioned agent and Playbook rules that change only through an explicit draft, review, and publish action.
+2. **Client memory:** approved facts, preferences, decisions, terminology, source references, scope, provenance, reviewer, confidence, and optional expiry stored in the dashboard database.
+3. **Run memory:** the current target checks, evidence snapshot IDs, tool outputs, blockers, approvals, and resumable workflow state.
+4. **Learning history:** concise run outcomes, corrections, eval failures, and accepted improvements used to propose a new agent version; it never edits published instructions automatically.
+
+Conversation history is useful for continuing one interaction but is not the business source of truth. The agent retrieves only memory scoped to the current client, service, and stage. Generated prose, inferred facts, rejected recommendations, cross-client data, secrets, and internal reasoning are never promoted to durable client memory. A user or trusted deterministic integration must verify a fact before it becomes reusable memory.
+
+The first tool contract should stay narrow and auditable:
+
+- `get_recheck_targets(clientId, serviceId)` returns Failed, Unverified, stale, changed, and newly required checks with reasons.
+- `collect_evidence(targetIds)` gathers only the dependencies required by those targets.
+- `evaluate_deterministic_checks(targetIds, evidenceSnapshotId)` runs published formulas without model judgment.
+- `classify_qualitative_evidence(targetIds, evidenceSnapshotId)` returns structured, cited assessments for the checks that genuinely require AI.
+- `record_check_revision(...)` appends evidence-backed results without overwriting the baseline.
+- `open_process_exception(...)` records an owner, recovery action, and retry policy.
+- `request_human_review(...)` pauses at claims, scope, approval, or client-facing publication boundaries.
+- `create_approved_handoff(...)` transfers only reviewed outputs into the relevant Lab.
+
+Every run records the agent version, Playbook/checklist version, selected targets and reasons, evidence IDs, tools called, output schema version, approvals, corrections, cost/latency, and final state. Replaying the same idempotency key must return the existing run rather than duplicate evidence or actions.
+
+### End-To-End Evidence And Agent Workflow
+
+The operating sequence for Checkups and Labs is:
+
+1. **Create the client:** save the real client and normalized source record first.
+2. **Commit the trigger:** emit one idempotent `client.created` baseline event after the database write succeeds.
+3. **Start the durable workflow:** create a resumable run with the client, service, source version, Playbook/checklist version, and agent version frozen.
+4. **Choose the scope:** a baseline targets every applicable check; a routine run targets only Failed, Unverified, stale, changed, newly required, or sentinel-affected checks.
+5. **Collect required evidence:** discover and capture only the pages, assets, connected data, and device variants required by the selected targets.
+6. **Run deterministic checks:** compute factual statuses and formulas before invoking AI.
+7. **Run qualitative analysis:** the service agent evaluates only the selected qualitative checks using stored evidence and approved scoped memory.
+8. **Validate the result:** enforce provenance, coverage, confidence, contradiction, and policy gates; unsupported work remains Unverified.
+9. **Persist revisions:** append evidence and check-result revisions, retain the immutable baseline, and update the current Checkup projection atomically.
+10. **Handle exceptions:** partial, blocked, failed, cancelled, and regressed results receive an owner, recovery action, retry policy, and durable checkpoint.
+11. **Review and approve:** human review remains mandatory wherever the published Agent Definition or Playbook requires it.
+12. **Share or hand off:** approved client-safe Checkup output may be shared through Approvals or transferred as a versioned handoff into the relevant Lab.
+13. **Monitor cheaply:** scheduled or manual sentinel checks look for material source/dependency changes without producing another report.
+14. **Escalate deliberately:** a sentinel flag expands the affected target set; only an approved full-refresh trigger restarts the complete evidence scope.
+15. **Learn safely:** corrections and eval failures create a Learning Event and proposed Agent Definition draft; published instructions and durable Client Memory never self-modify.
+
+The visible run status follows the durable workflow rather than an invented percentage:
+
+`Queued → Validating → Discovering → Capturing → Checking → Reviewing → Ready`
+
+`Partial`, `Blocked`, `Failed`, and `Cancelled` are terminal or resumable operational states with explicit recovery information. A no-change targeted run ends as `Current` without creating a duplicate report.
+
+Data ownership remains unambiguous:
+
+| Layer | Source of truth | May update it |
+| --- | --- | --- |
+| Published operating method | Versioned Playbook and Agent Definition | Explicit internal draft/review/publish action |
+| Client facts and preferences | Approved scoped Client Memory | Human or trusted deterministic integration |
+| Website and connected-data facts | Immutable Evidence Snapshot and items | Evidence workflow tools |
+| Check status | Append-only Check Result Revision | Deterministic evaluator or reviewed qualitative agent result |
+| Current Checkup | Projection of applicable latest verified revisions | Atomic projection service |
+| Current Lab context | Approved versioned Checkup handoff plus Lab inputs | Explicit handoff and Lab workflow |
+| One active run | Run Memory, events, checkpoints, and approvals | Durable workflow runner and approved tools |
+| Proposed process improvement | Learning Event and draft Agent Definition | Eval/correction pipeline followed by human review |
+
+### Implementation And Rollout Workflow
+
+Work proceeds in eight gated releases rather than one large switch:
+
+1. **Data foundation:** establish tenant-safe records for clients, sources, evidence, check revisions, service runs, Agent Definitions, scoped memory, and learning events.
+2. **Durable execution:** move crawl, render, Lighthouse, persistence, and recovery into resumable background steps with bounded concurrency and idempotent events.
+3. **Authoritative baseline:** prove that a new arbitrary domain can produce a cited baseline without demo fallbacks or unsupported scoring.
+4. **Selective maintenance:** add sentinel detection, dependency expansion, targeted rechecks, regression blockers, and true no-op runs.
+5. **Reusable agent:** bind one published Agent Definition to narrow tools, structured outputs, approved scoped memory, resumable approvals, and reviewable learning.
+6. **Adaptive UI:** expose real workflow stage, target count, elapsed time, estimated completion range, evidence freshness, approvals, and concise recovery actions without stretching sparse content.
+7. **Migration:** preserve valid history and deep links while tagging demos, removing implicit seeds, and retiring synchronous evidence recollection.
+8. **Pilot and release:** run evals, security and observability checks, shadow comparisons, one real-client pilot, controlled cohorts, and a data-preserving rollback rehearsal.
+
+Every release has an acceptance gate. Code-complete work remains provisional until its data, browser, restart, isolation, or parity proof passes. The durable runner now includes committed-event dispatch, source validation, reasoned page discovery, evidence persistence, deterministic checklist analysis, immutable result revisions, progress events, cancellation, bounded capture, partial evidence, stale-run blocking, and recovery redispatch. Dependency-aware sentinels, true no-op targeted rechecks, regression blockers, Lab dependency requests, a governed qualitative agent, and Admin/Manager human correction are implemented. The Trisha Baltazar pilot has now proved arbitrary-domain capture, exact targeted selection, scoped approved memory, client isolation, human review gates, and partial-run recovery from saved evidence. The remaining release gates are a genuine reviewed legacy-to-normalized shadow comparison and a controlled production cohort before general release.
+
 ### Stage 8: Nurture And Access End
 
 Status: mapped as a system lifecycle rule, not a visible client dashboard tab.
@@ -223,7 +403,7 @@ Use this section to define who owns each task and what notification should be se
 
 ### Current Dashboard Notification Triggers
 
-The current dashboard does not yet run a background automation engine. Notifications are derived at render time from the selected project state in `src/components/notifications.tsx`.
+The current dashboard does not yet run a background automation engine. The shared portal shell derives role-scoped update events at render time in `src/portal/selectors.ts`; the older project notification surface continues to derive its rows from selected project state in `src/components/notifications.tsx`.
 
 Current trigger sources:
 
@@ -234,6 +414,10 @@ Current trigger sources:
 | Approval gate | Gate status is `revision`. | Client requested revisions. | Not currently pushed to the client list. | Admin review queue. |
 | Approval gate | Gate status is `approved`. | Client approved the gate. | Approval received confirmation. | Next milestone/phase context. |
 | Phase tasks | All tasks in a phase are complete. | Phase completed by Studio. | Milestone/phase completed by Baltazar Studio. | Milestones or current project overview. |
+| Portal task | Status is `review`. | Task and client are named as ready for review. | Not shown. | Open To-do's. |
+| Portal task owned by Client | Status changes to `done`. | Client, task, and completion are named. | The completed request is removed from the client's action list. | Open To-do's. |
+| Portal task owned by Studio / Assistant / Milestone | Status is `done`. | Not repeated back to the completing studio role. | The completed task is named as an update. | Open To-do's. |
+| Portal task | A completed task is reopened or corrected. | The derived completion event disappears or changes with the current status. | The stale completion event disappears; an active client-owned task returns to the action list. | Open To-do's. |
 
 Current read/dismiss behavior:
 
@@ -242,6 +426,8 @@ Current read/dismiss behavior:
 - Popover and full Notifications page share the same row renderer.
 - Notification and activity timestamps use the same display rule: `Now`, minutes, hours, then month/day only after 24 hours.
 - The notification list is not yet stored as a normalized notification table in Supabase.
+- The shared shell digest is intentionally derived from current persisted workspace state. It is bounded to five visible rows, keeps the full count, and deep-links each row to its current destination.
+- This render-time reconciliation does not send a message, advance a workflow, approve work, or enable background notification automation.
 
 ### Notification Push Decision Rules
 
@@ -267,6 +453,8 @@ Use these rules when deciding whether a task completion should create or update 
 - Reopening or changing a completed task should either update the original notification state or send a correction, not leave stale notifications visible.
 - If a completed task unlocks another stage, the notification should name the unlocked stage.
 - If a completed task requires client action, the notification should make the client action the first sentence.
+
+Implementation note: tasks that legitimately advance a workflow carry an explicit, reversible `workflowEffects` link. The link declares the exact Journey gate, project stage/progress, deliverable state, dashboard access state, and next-action projection for both completion and reopening. Ordinary tasks have no workflow effects. All portal task status paths apply the task and its declared projections in one persisted workspace snapshot, while the notification digest derives its count from that same post-transition state.
 
 ## Current System Draft
 
@@ -435,6 +623,19 @@ The client should not have unlimited access to the studio by default after Cocoo
 
 For payment, the studio can send a Wise payment email with the QR code and payment details. Payment confirmation then triggers the booking/dashboard access step.
 
+### Current Configurable Service Policies
+
+The dashboard records these choices per client instead of hiding them in copy or silently inferring dates:
+
+- Paid Cocoon uses `Cocoon Consult` by default; staff can record a client-specific admin label without changing the public taxonomy.
+- Wise payment confirmation defaults to manual-only. A future verified-match integration can be enabled explicitly, but confirmation still requires the verified recipient and transfer reference.
+- The reviewed Wise email has an editable subject/body with `{client_name}` and `{transfer_reference}` tokens. QR delivery is explicitly `approved asset`, `approved secure link`, or `none`; client-safe copy is projected only after staff marks the details sent.
+- The three-month Cocoon dashboard window defaults to payment confirmation and can instead start at booking, guided-call completion, or a manual date.
+- Guided-call completion starts the separate 24-hour guidance window.
+- Confirmed WIAW removes the fixed dashboard expiry. Paused projects either retain or suspend access according to the recorded policy; cancellation defaults to ending access immediately.
+- In Full Flight Labs require a completed WIAW/approved continuation source plus an active care plan, unless staff explicitly selects manual access.
+- White-label output audience is explicit: clients, partners, or both. The default is clients.
+
 | Moment | What We Collect | What Happens Next |
 | --- | --- | --- |
 | Landing Page Signup Submitted | Email, phone number, name, business name, website | Studio sends the Cocoon Consult link |
@@ -468,6 +669,8 @@ This section tracks what the backend, dashboard logic, admin tools, and AI suppo
 | Client Notes Submitted | Categorize notes, detect conflicts, create admin tasks, and summarize revision priorities | Yes | Confirmation that notes were received |
 | WIAW Complete | Generate launch handoff, access notes, maintenance recommendations, and In Full Flight prompt | Yes | Handoff package and support invitation |
 | No Continuation After Cocoon Or WIAW | Start the appropriate nurture path, send useful follow-up, and automatically archive or delete dashboard access when the follow-up window ends | No | Nurture emails and deletion notice |
+
+Client Lab access is fail-closed: an approved accepted-or-linked Cocoon handoff prepares the WIAW workspace for staff, but the Client cannot enter live Labs until `wiawState` is explicitly confirmed. A persisted `dashboardAccessState: deleted` closes the Client portal shell entirely; returning requires a new paid Cocoon Consult because prior evidence may be stale. Admin preview can inspect that closed state without reopening access.
 
 ### AI Action Guardrails
 
@@ -805,6 +1008,50 @@ When this document becomes a Canva, Miro, or dashboard visual, avoid showing the
 - One evolving workspace, not scattered portals
 - Support continuity, not upsell urgency
 
+### 11. Keep Checkup Exports Reusable And Review-Gated
+
+Brand, Website, and SEO Checkups share one export contract per client. The studio can prepare a Baltazar Studio, direct-client, or partner-branded document using an approved display name and accent. Each explicit save creates a recoverable version with its reviewer and timestamp; restoring an older profile creates a new draft instead of overwriting history.
+
+The Client role sees the same saved export identity as a read-only status. Printable documents remove report controls, internal-only content, and admin-only content before rendering the cover and report body. Export status can be moved through Draft, Reviewed, Ready, and Sent manually, but printing never marks a document sent and no external delivery occurs without a human action.
+
+### 12. Keep Checkups Domain-Neutral
+
+CreatorIQ is a selectable seeded demo, not the default client or the source for a new Checkup. A studio-created Checkup begins as a clean unassigned intake. The active URL supplies the draft identity and public evidence; changing that domain replaces prior source-derived answers and generated report stages so one client cannot leak into another.
+
+Shared Checkup and Lab indexes choose their card-column count from the available workspace width. Sparse card sets keep a bounded card track instead of stretching across the page, and guided rails/report summaries collapse before their content becomes cramped. The same layout contract applies to arbitrary client domains at desktop, tablet, and mobile widths.
+
+### 13. Keep Studio Review Human-Gated And Role-Scoped
+
+The shared Approvals view is the studio review command center. It derives one current queue from pending client-safe outputs, process approval gates, review-stage To-do's, unresolved escalations, and unread client replies. Every row names the client, owner, status, urgency, and source destination so the decision happens with its full workflow context.
+
+Admin can review all current studio items. Manager sees only clients assigned to that role. Client never receives the studio command center and keeps the separate read-only approvals presentation. Generated outputs remain clearly review-gated, and `Send to client` is still an explicit human action; the queue does not approve, send, publish, charge, remind, or delete automatically.
+
+### 14. Keep Process Movement Explicit And Client-Safe
+
+Every Snapshot process card names the current stage, next visible stage, next owner, blocker, and exact next action from the persisted process run. Admin can see the studio-wide process set, Manager sees only assigned-client processes, and Client sees only its own processes. When the current stage is internal, Client receives the neutral `Studio review` label and the tracker skips internal-only stages when calculating what comes next.
+
+The tracker is informational and deep-links to the source Checkup or Lab. It does not advance a stage, clear a blocker, or approve a gate. Its bounded horizontal carousel preserves card width at desktop and mobile sizes instead of stretching sparse cards or forcing the page to overflow.
+
+### 15. Keep Lead Intake Visible Without Pretending Integration Exists
+
+Admin Client Details includes a clearly labeled mock lead record with contact name, business, email, phone, website, and captured date, plus a manual Cocoon Consult link status of Not sent, Sent, or Consult completed. This gives the studio a stable preview of the future landing-page handoff without implying that the separate landing page or an email provider is connected.
+
+The lead panel is Admin-only. Manager continues to see only assigned clients and does not receive lead/contact intake metadata; Client cannot open the studio Clients route. A Not sent record explains that manual action is required but intentionally provides no send control, so preview data cannot trigger an email or advance the workflow.
+
+### 16. Keep WIAW And In Full Flight Access Prerequisite-Gated
+
+A service label alone does not unlock live Labs. A WIAW Client needs a completed Cocoon source plus an approved strategy handoff that the studio has accepted or linked to the receiving Lab. An In Full Flight Client needs completed WIAW delivery or an approved accepted-or-linked retained-service handoff. These prerequisites come from the persisted client workspace rather than a named demo client or URL.
+
+When the prerequisite is missing, Client navigation hides Labs but a direct Labs URL remains useful: it shows the missing prerequisites, a route back to Snapshot, and access to already approved outputs. Checkups remain available under the existing capability rules. The gate does not accept a handoff, confirm payment, start a service, or expire an active qualifying workspace automatically.
+
+### 17. Govern Playbooks And Recover Process Exceptions
+
+A Playbook is an internal reusable operating template with a Draft, Published, or Archived lifecycle; version and change summary; owner and last-reviewed date; usage and active-run counts; locked core steps; editable client fields; required inputs and validation; approval requirements; and role and sample-data previews. Publishing or archiving is an explicit internal action and never starts client work. Existing built-in and saved templates receive safe governance defaults when newer metadata is absent.
+
+Every Checkup, Lab, and retained-service process carries the same typed recovery contract for missing access or assets, failed crawl or generation, unsupported evidence, client inactivity, rejected approval, scope changes, reopened stages, failed handoffs, and overdue work. An open exception blocks stage movement and must name an owner and recovery action. Resolving it preserves the exception and event history and reactivates only the affected stage.
+
+Operational quality is measured from process events and exceptions: time in stage, blocked time, approval turnaround, revision count, handoff success, recommendations converted into tasks, completed recommendation tasks, client inactivity, and automation failures. These signals complement—rather than replace—diagnostic scores and completion percentages. Shared product language is fixed as Checkup (diagnostic service), Lab (planning/build workspace), Playbook (internal reusable template), Approval (client decision surface), and Journey (client progress and milestones).
+
 ## Visual Artifact Notes
 
 When this becomes a Canva, Miro, or FigJam artifact:
@@ -819,6 +1066,17 @@ When this becomes a Canva, Miro, or FigJam artifact:
 
 ## Change Log
 
+- 2026-07-24: Completed the Trisha Baltazar Website Checkup pilot on `trishabaltazar.com`: validated arbitrary-domain evidence, 84-check and one-check selective maintenance, one approved client-scoped memory retrieval, temporary Client-role isolation, a bounded governed-agent failure, and checkpoint recovery without recrawling. Partial runs are now explicitly resumable, agent timeouts use one total budget with no automatic step retry, cancelled agent work closes durably, and recheck lineage excludes cancelled runs.
+- 2026-07-24: Completed the production portal-storage boundary rollout: hardened legacy state, private workspace/upload resources, validated insert-only access requests, a local and Sensitive production server credential, authenticated API continuity, service-role-only workflow RPC transport, covered rollout foreign keys, a passing hardening verifier, and a successful deployment at `dashboard.trishabaltazar.com`.
+- 2026-07-23: Added immutable evidence baselines, targeted Failed/Unverified rechecks with sentinel-based expansion, full-refresh escalation rules, and a governed reusable service-agent model with scoped durable memory.
+- 2026-07-23: Added governed Playbook lifecycle/version metadata, required-input and preview contracts, shared exception recovery policies, blocked-process ownership, and operational-quality metrics derived from process history.
+- 2026-07-23: Gated WIAW and In Full Flight Labs on persisted accepted-or-linked handoffs or completed delivery, with hidden locked navigation and client-safe direct-route explanations.
+- 2026-07-23: Added Admin-only mock lead intake and manual Cocoon Consult link-delivery visibility, plus corrected Manager Clients roster scoping to assigned clients only.
+- 2026-07-23: Made Snapshot process movement explicit with role-safe Current and Next stage labels, owner, blocker, and next action while keeping internal client stages hidden.
+- 2026-07-23: Added a role-scoped, human-gated studio review command center for outputs, approval gates, review-stage To-do's, escalations, and unread client replies without enabling automatic delivery or workflow actions.
+- 2026-07-23: Added one persisted, versioned white-label export profile shared by Brand, Website, and SEO Checkups, with studio/client/partner branding, Client-safe preview, internal-content stripping, and manual-only sent state.
+- 2026-07-24: Replaced unresolved package, Wise-copy, access-window, WIAW pause/cancellation, In Full Flight, and white-label audience decisions with explicit persisted per-client policies and deterministic access effects.
+- 2026-07-23: Made new Checkups domain-neutral, removed CreatorIQ as the fallback Client context, replaced old source memory on domain changes, and made shared Checkup/Lab columns adaptive to available width.
 - 2026-06-21: Replaced archive-after-no-action behavior with dashboard deletion after the three-month Cocoon access window or one-month post-WIAW follow-up window; returning clients must pay for a new Cocoon Consult because stale audits should not drive new strategy.
 - 2026-06-22: Clarified that no-upgrade Cocoon accounts are automatically archived or deleted after the follow-up window; this is system behavior and does not require an admin interaction.
 - 2026-06-21: Noted that the landing page lives in a different repo previewed on `localhost:3411`; this dashboard repo should use dummy/mock signup data for now.

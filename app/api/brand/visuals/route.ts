@@ -3,6 +3,8 @@ import type { BrandVisualEvidence } from "@/lib/aiStageGeneration";
 import { brandVisualsFromEvidence } from "@/lib/brandVisualEvidence";
 import { collectWebsiteEvidence } from "@/lib/renderedWebsiteEvidence";
 import { scanWebsite } from "@/lib/websiteScanner";
+import { resolvePortalRequestAccess } from "@/lib/portalRequestAccess";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -11,6 +13,8 @@ const CACHE_TTL = 10 * 60_000;
 const cache = new Map<string, { expiresAt: number; value: BrandVisualEvidence }>();
 
 export async function GET(request: NextRequest) {
+  const access = await resolvePortalRequestAccess(request, await createSupabaseServerClient());
+  if (!access) return NextResponse.json({ error: "Sign in to inspect brand visuals." }, { status: 401 });
   const input = request.nextUrl.searchParams.get("url")?.trim() || "";
   if (!input) return NextResponse.json({ error: "Add a public website URL." }, { status: 400 });
   const cached = cache.get(input);

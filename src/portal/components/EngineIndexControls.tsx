@@ -23,7 +23,7 @@ export function EngineIndexControls({
   action,
 }: {
   metrics: EngineIndexMetric[];
-  action: {
+  action?: {
     label: string;
     onClick: () => void;
     disabled?: boolean;
@@ -36,20 +36,20 @@ export function EngineIndexControls({
       {metrics.map(metric => {
         const tone = metric.tone || "accent";
         return (
-          <span key={metric.label} style={css("display:inline-flex;align-items:center;gap:.35rem;min-height:2rem;padding:0 .72rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:.72rem;color:var(--fg-muted);white-space:nowrap")}>
+          <span key={metric.label} style={css("display:inline-flex;align-items:center;gap:.35rem;min-height:2rem;padding:0 .72rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:var(--text-2xs);color:var(--fg-muted);white-space:nowrap")}>
             {metric.icon ? <Icon name={metric.icon} size={13}/> : <span aria-hidden="true" style={css(`width:.42rem;height:.42rem;border-radius:50%;background:${metricColor[tone]}`)}/>} 
             {metric.label}
           </span>
         );
       })}
-      <button
-        type="button"
-        disabled={action.disabled}
-        onClick={action.onClick}
-        style={css(`display:inline-flex;align-items:center;justify-content:center;gap:.42rem;min-height:2.3rem;padding:0 .95rem;border:none;border-radius:999px;background:${action.disabled ? "var(--surface-alt)" : action.color || "var(--accent)"};color:${action.disabled ? "var(--fg-faint)" : "#fff"};font-size:.78rem;font-weight:500;cursor:${action.disabled ? "not-allowed" : "pointer"};opacity:${action.disabled ? ".58" : "1"}`)}
-      >
-        <Icon name={action.icon || "plus"} size={15}/>{action.label}
-      </button>
+      {action && <button
+          type="button"
+          disabled={action.disabled}
+          onClick={action.onClick}
+          style={css(`display:inline-flex;align-items:center;justify-content:center;gap:.42rem;min-height:2.3rem;padding:0 .95rem;border:none;border-radius:999px;background:${action.disabled ? "var(--surface-alt)" : action.color || "var(--accent)"};color:${action.disabled ? "var(--fg-faint)" : "#fff"};font-size:var(--text-xs);font-weight:500;cursor:${action.disabled ? "not-allowed" : "pointer"};opacity:${action.disabled ? ".58" : "1"}`)}
+        >
+          <Icon name={action.icon || "plus"} size={15}/>{action.label}
+        </button>}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { Icon } from "../icons";
 import { STUDIO_CLIENTS } from "../clients";
 import type { PortalActions, PortalState } from "../store";
 import { AuditReportView, getAuditReportDetail, getAuditReportSummary, recommendationPlan } from "./AuditReportView";
+import type { PortalServiceLifecycleRecord } from "@/lib/portalWorkspacePersistence";
 
 type AuditTheme = ReturnType<typeof getAuditReportDetail>["themes"][number];
 
@@ -26,11 +27,11 @@ function AuditThemeCard({ theme }: { theme: AuditTheme }) {
     >
       <div style={css("display:flex;align-items:center;gap:0.8rem")}>
         <span style={css("width:3.35rem;height:3.35rem;border-radius:50%;background:conic-gradient(" + color + " " + (theme.score * 3.6) + "deg, oklch(0.91 0.007 40) 0);display:grid;place-items:center;flex-shrink:0")}>
-          <span style={css("width:2.58rem;height:2.58rem;border-radius:50%;background:var(--surface);display:grid;place-items:center;font-size:1rem;font-weight:500;color:var(--fg)")}>{theme.score}</span>
+          <span style={css("width:2.58rem;height:2.58rem;border-radius:50%;background:var(--surface);display:grid;place-items:center;font-size:var(--text-lg);font-weight:500;color:var(--fg)")}>{theme.score}</span>
         </span>
         <div style={{ minWidth: 0 }}>
-          <h3 style={css("margin:0;font-size:1.05rem;font-weight:500;letter-spacing:-0.01em;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{theme.name}</h3>
-          <span style={css("display:inline-flex;align-items:center;margin-top:0.35rem;padding:0.16rem 0.58rem;border-radius:999px;background:color-mix(in srgb," + color + " 15%,white 85%);color:color-mix(in srgb," + color + " 58%,black 42%);font-size:0.68rem;font-weight:500;line-height:1")}>{theme.band}</span>
+          <h3 style={css("margin:0;font-size:var(--text-xl);font-weight:500;letter-spacing:-0.01em;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{theme.name}</h3>
+          <span style={css("display:inline-flex;align-items:center;margin-top:0.35rem;padding:0.16rem 0.58rem;border-radius:999px;background:color-mix(in srgb," + color + " 15%,white 85%);color:color-mix(in srgb," + color + " 58%,black 42%);font-size:var(--text-2xs);font-weight:500;line-height:1")}>{theme.band}</span>
         </div>
       </div>
 
@@ -39,7 +40,7 @@ function AuditThemeCard({ theme }: { theme: AuditTheme }) {
           <div style={css("height:100%;width:" + theme.score + "%;border-radius:999px;background:" + color)} />
           <span style={css("position:absolute;left:" + targetLeft + "%;top:-0.18rem;width:2px;height:0.78rem;border-radius:999px;background:var(--fg);opacity:0.45;transform:translateX(-1px)")} />
         </div>
-        <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin-top:0.48rem;font-size:0.78rem;color:var(--fg-muted)")}>
+        <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin-top:0.48rem;font-size:var(--text-xs);color:var(--fg-muted)")}>
           <span><strong style={{ fontWeight: 500, color: "var(--fg)" }}>{theme.score}</strong> <span style={{ color: "var(--fg-muted)" }}>↗ target {theme.target}</span></span>
           <strong style={{ fontWeight: 500, color: "var(--success)" }}>+{lift}</strong>
         </div>
@@ -49,7 +50,7 @@ function AuditThemeCard({ theme }: { theme: AuditTheme }) {
 
       <div style={css("display:flex;flex-direction:column;gap:0.48rem;flex:1")}>
         {theme.findings.map(finding => (
-          <div key={finding} style={css("display:grid;grid-template-columns:auto minmax(0,1fr);gap:0.48rem;align-items:start;color:var(--fg-muted);font-size:0.83rem;line-height:1.35")}>
+          <div key={finding} style={css("display:grid;grid-template-columns:auto minmax(0,1fr);gap:0.48rem;align-items:start;color:var(--fg-muted);font-size:var(--text-base);line-height:1.35")}>
             <span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:" + color + ";margin-top:0.42rem")} />
             <span>{finding}</span>
           </div>
@@ -57,10 +58,10 @@ function AuditThemeCard({ theme }: { theme: AuditTheme }) {
       </div>
 
       <div style={css("display:flex;flex-direction:column;gap:0.42rem;padding:0.75rem 0.8rem;border-radius:var(--radius);background:var(--surface-alt);font-size:var(--text-base);line-height:1.35;color:var(--fg)")}>
-        <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint)")}>Recommendation plan</div>
+        <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint)")}>Recommendation plan</div>
         {plan.map((item, index) => (
           <div key={item} style={css("display:grid;grid-template-columns:auto minmax(0,1fr);gap:0.52rem;align-items:start")}>
-            <span style={css("width:1.08rem;height:1.08rem;border-radius:0.36rem;background:color-mix(in srgb," + color + " 15%,white 85%);color:" + color + ";display:grid;place-items:center;font-size:0.54rem;font-weight:500;margin-top:0.06rem")}>{index + 1}</span>
+            <span style={css("width:1.08rem;height:1.08rem;border-radius:0.36rem;background:color-mix(in srgb," + color + " 15%,white 85%);color:" + color + ";display:grid;place-items:center;font-size:var(--text-2xs);font-weight:500;margin-top:0.06rem")}>{index + 1}</span>
             <span>{item}</span>
           </div>
         ))}
@@ -91,7 +92,7 @@ function AuditUpsellScreen({
   const steps = [
     { icon: "checkmark", label: "Audit reviewed", detail: current + " current score", tone: "var(--success)" },
     { icon: "feather", label: "Winged in a Week", detail: priorityCount + " priority fixes", tone: "var(--accent)" },
-    { icon: "life", label: "In Full Flight", detail: "Optional care after launch", tone: "var(--cocoon)" },
+    { icon: "life", label: "In Full Flight", detail: "Optional ongoing care after launch", tone: "var(--cocoon)" },
   ];
   const scoreCards = [
     ["Current", String(current), "var(--fg)"],
@@ -104,27 +105,27 @@ function AuditUpsellScreen({
       <div style={css("display:grid;grid-template-columns:" + (mobile ? "minmax(0,1fr)" : "minmax(0,1.1fr) minmax(18rem,0.9fr)") + ";gap:var(--space-4);align-items:stretch")}>
         <div style={css("display:flex;flex-direction:column;justify-content:space-between;gap:var(--space-4);min-width:0")}>
           <div>
-            <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;display:flex;align-items:center;gap:0.45rem;color:var(--cocoon)")}>
+            <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;display:flex;align-items:center;gap:0.45rem;color:var(--cocoon)")}>
               <span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--cocoon)")} />
               Recommended next step
             </div>
             <h3 style={css("margin:0.42rem 0 0;font-size:" + (mobile ? "1.25rem" : "1.55rem") + ";font-weight:500;letter-spacing:-0.025em;line-height:1.08;color:var(--fg)")}>Ready to turn the audit into action?</h3>
-            <p style={css("margin:0.45rem 0 0;max-width:42rem;font-size:0.86rem;line-height:1.55;color:var(--fg-muted)")}>
+            <p style={css("margin:0.45rem 0 0;max-width:42rem;font-size:var(--text-base);line-height:1.55;color:var(--fg-muted)")}>
               {clientName}&apos;s report is ready to become a focused sprint plan.
             </p>
             <div style={css("display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap;margin-top:0.85rem")}>
-              <button type="button" onClick={onOpenPlan} className="pt-op" style={css("display:inline-flex;align-items:center;justify-content:center;gap:0.42rem;min-height:2.35rem;padding:0 1rem;border:none;border-radius:999px;background:var(--fg);color:#fff;font-size:0.78rem;font-weight:500;cursor:pointer")}>
+              <button type="button" onClick={onOpenPlan} className="pt-op" style={css("display:inline-flex;align-items:center;justify-content:center;gap:0.42rem;min-height:2.35rem;padding:0 1rem;border:none;border-radius:999px;background:var(--fg);color:#fff;font-size:var(--text-xs);font-weight:500;cursor:pointer")}>
                 View sprint proposal <Icon name="arrow" size={13} />
               </button>
-              <button type="button" onClick={onOpenFunnels} style={css("display:inline-flex;align-items:center;justify-content:center;gap:0.42rem;min-height:2.35rem;padding:0 0.95rem;border:1px solid var(--border);border-radius:999px;background:rgba(255,255,255,.68);color:var(--fg);font-size:0.78rem;font-weight:500;cursor:pointer")}>
+              <button type="button" onClick={onOpenFunnels} style={css("display:inline-flex;align-items:center;justify-content:center;gap:0.42rem;min-height:2.35rem;padding:0 0.95rem;border:1px solid var(--border);border-radius:999px;background:rgba(255,255,255,.68);color:var(--fg);font-size:var(--text-xs);font-weight:500;cursor:pointer")}>
                 Open funnel direction <Icon name="funnel" size={13} />
               </button>
             </div>
             <div style={css("display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0.45rem;max-width:" + (mobile ? "100%" : "22rem") + ";margin-top:0.9rem")}>
               {scoreCards.map(([label, value, color]) => (
                 <div key={label} style={css("border:1px solid var(--border-soft);border-radius:0.8rem;background:rgba(255,255,255,.72);padding:0.65rem 0.55rem;text-align:center")}>
-                  <div style={css("font-size:1.15rem;font-weight:500;line-height:1;color:" + color)}>{value}</div>
-                  <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint);margin-top:0.28rem")}>{label}</div>
+                  <div style={css("font-size:var(--text-xl);font-weight:500;line-height:1;color:" + color)}>{value}</div>
+                  <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint);margin-top:0.28rem")}>{label}</div>
                 </div>
               ))}
             </div>
@@ -140,7 +141,7 @@ function AuditUpsellScreen({
                 </span>
                 <span style={{ minWidth: 0 }}>
                   <span style={css("display:block;font-size:var(--text-base);font-weight:500;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{step.label}</span>
-                  <span style={css("display:block;margin-top:0.06rem;font-size:0.7rem;color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{step.detail}</span>
+                  <span style={css("display:block;margin-top:0.06rem;font-size:var(--text-2xs);color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{step.detail}</span>
                 </span>
               </div>
             ))}
@@ -151,13 +152,75 @@ function AuditUpsellScreen({
   );
 }
 
+function AuditJourneyNextSteps({
+  lifecycle,
+  onOpenStatus,
+  onOpenJourney,
+}: {
+  lifecycle: PortalServiceLifecycleRecord;
+  onOpenStatus: () => void;
+  onOpenJourney: () => void;
+}) {
+  const paymentReady = lifecycle.paymentState === "confirmed";
+  const callReady = lifecycle.bookingState !== "locked";
+  const handoffReady = lifecycle.auditState === "approved"
+    || lifecycle.auditState === "shared"
+    || lifecycle.deliverableState === "approved"
+    || lifecycle.deliverableState === "delivered";
+  const cards = [
+    {
+      eyebrow: "Paid Cocoon guidance",
+      title: callReady ? "Your guided call is ready" : "Add a guided strategy call",
+      detail: paymentReady
+        ? "Payment is confirmed. Open your status to continue with booking."
+        : "The studio reviews and sends the Wise details before the call can be unlocked.",
+      status: lifecycle.bookingState === "booked" ? "Booked" : lifecycle.bookingState === "completed" ? "Complete" : callReady ? "Unlocked" : "Payment first",
+      action: "View service status",
+      onOpen: onOpenStatus,
+      icon: "calendar",
+    },
+    {
+      eyebrow: "Strategy handoff",
+      title: handoffReady ? "Your next path is mapped" : "Handoff follows review",
+      detail: lifecycle.nextRequiredAction
+        || lifecycle.nextDevelopmentStage
+        || "The approved handoff will identify the dashboard path, booking route, or funnel direction.",
+      status: lifecycle.wiawState === "complete" ? "WIAW complete" : lifecycle.wiawState === "confirmed" ? "WIAW confirmed" : lifecycle.wiawState === "recommended" ? "WIAW recommended" : handoffReady ? "Ready" : "Pending review",
+      action: "Open journey",
+      onOpen: onOpenJourney,
+      icon: "layers",
+    },
+  ] as const;
+  return (
+    <section style={css("display:grid;grid-template-columns:repeat(auto-fit,minmax(min(20rem,100%),1fr));gap:0.7rem")}>
+      {cards.map(card => (
+        <article key={card.eyebrow} style={css("min-width:0;padding:0.9rem 1rem;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);display:grid;grid-template-columns:auto minmax(0,1fr);gap:0.75rem")}>
+          <span style={css("width:2.2rem;height:2.2rem;border-radius:0.7rem;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)")}>
+            <Icon name={card.icon} size={15} />
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <div style={css("font-size:var(--text-label);letter-spacing:.04em;text-transform:uppercase;color:var(--fg-faint)")}>{card.eyebrow}</div>
+            <div style={css("display:flex;align-items:center;justify-content:space-between;gap:.55rem;margin-top:.18rem;flex-wrap:wrap")}>
+              <h3 style={css("margin:0;font-size:var(--text-lg);font-weight:500")}>{card.title}</h3>
+              <span style={css("padding:.16rem .5rem;border-radius:999px;background:var(--surface-alt);color:var(--fg-muted);font-size:var(--text-2xs);font-weight:500")}>{card.status}</span>
+            </div>
+            <p style={css("margin:.3rem 0 0;font-size:var(--text-sm);line-height:1.45;color:var(--fg-muted)")}>{card.detail}</p>
+            <button type="button" onClick={card.onOpen} style={css("margin-top:.55rem;padding:0;border:0;background:transparent;color:var(--accent);font:inherit;font-size:var(--text-xs);font-weight:500;cursor:pointer")}>{card.action} →</button>
+          </div>
+        </article>
+      ))}
+    </section>
+  );
+}
+
 export function ClientAudits({ state, actions }: { state: PortalState; actions: PortalActions }) {
   const [reportOpen, setReportOpen] = useState(false);
   const client = STUDIO_CLIENTS.find(item => item.name === state.clientName) || STUDIO_CLIENTS[0];
   if (!client.audited) {
-    return <div style={css("padding:2.5rem 1rem;text-align:center;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);color:var(--fg-faint);font-size:0.8rem")}>No completed audit yet.</div>;
+    return <div style={css("padding:2.5rem 1rem;text-align:center;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);color:var(--fg-faint);font-size:var(--text-sm)")}>No completed audit yet.</div>;
   }
   const report = getAuditReportDetail(client.id);
+  const lifecycle = actions.workspaceForClient(state.clientName).serviceLifecycle;
   const summary = getAuditReportSummary(client.id);
   const lift = summary.target - summary.overall;
   const themes = [...report.themes].sort((a, b) => a.score - b.score);
@@ -173,14 +236,14 @@ export function ClientAudits({ state, actions }: { state: PortalState; actions: 
       <div style={css("display:flex;flex-direction:column;gap:1.1rem")}>
         <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap;padding:1rem 1.1rem;border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface)")}>
           <div style={{ minWidth: 0 }}>
-            <span style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;display:block;color:var(--cocoon);margin-bottom:0.45rem")}>Cocoon Consult plan</span>
-            <h2 style={css("margin:0;font-size:1.22rem;font-weight:500;line-height:1.15")}>Your audit plan is ready</h2>
+            <span style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;display:block;color:var(--cocoon);margin-bottom:0.45rem")}>Cocoon Consult plan</span>
+            <h2 style={css("margin:0;font-size:var(--text-2xl);font-weight:500;line-height:1.15")}>Your audit plan is ready</h2>
             <p style={css("margin:0.45rem 0 0;font-size:var(--text-base);color:var(--fg-muted);line-height:1.55;max-width:36rem")}>Review the current score, target lift, and the recommended fixes from your latest Cocoon Consult audit.</p>
           </div>
           <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2);flex-wrap:wrap;flex-shrink:0")}>
-            <span style={css("display:inline-flex;align-items:center;gap:0.35rem;padding:0.45rem 0.75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:0.73rem;color:var(--fg-muted)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--cocoon)")} />{summary.overall} current</span>
-            <span style={css("display:inline-flex;align-items:center;gap:0.35rem;padding:0.45rem 0.75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:0.73rem;color:var(--fg-muted)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--success)")} />{summary.target} target</span>
-            <button onClick={() => setReportOpen(true)} className="pt-op" style={css("display:inline-flex;align-items:center;gap:0.42rem;min-height:2.3rem;padding:0 0.95rem;border:none;border-radius:999px;background:var(--accent);color:#fff;font-size:0.78rem;font-weight:500;cursor:pointer")}><Icon name="chart" size={15} />View Plan</button>
+            <span style={css("display:inline-flex;align-items:center;gap:0.35rem;padding:0.45rem 0.75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:var(--text-2xs);color:var(--fg-muted)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--cocoon)")} />{summary.overall} current</span>
+            <span style={css("display:inline-flex;align-items:center;gap:0.35rem;padding:0.45rem 0.75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:var(--text-2xs);color:var(--fg-muted)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--success)")} />{summary.target} target</span>
+            <button onClick={() => setReportOpen(true)} className="pt-op" style={css("display:inline-flex;align-items:center;gap:0.42rem;min-height:2.3rem;padding:0 0.95rem;border:none;border-radius:999px;background:var(--accent);color:#fff;font-size:var(--text-xs);font-weight:500;cursor:pointer")}><Icon name="chart" size={15} />View Plan</button>
           </div>
         </div>
 
@@ -205,6 +268,11 @@ export function ClientAudits({ state, actions }: { state: PortalState; actions: 
           mobile={state.isMobile}
           onOpenPlan={() => setReportOpen(true)}
           onOpenFunnels={() => actions.setView("funnels")}
+        />
+        <AuditJourneyNextSteps
+          lifecycle={lifecycle}
+          onOpenStatus={() => actions.setView("progress")}
+          onOpenJourney={() => actions.setView("milestones")}
         />
 
         <section style={css("display:grid;grid-template-columns:" + (state.isMobile ? "minmax(0,1fr)" : "repeat(3,minmax(0,1fr))") + ";gap:var(--space-3);align-items:stretch")}>

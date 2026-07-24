@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { decryptConnection, encryptConnection, GA4_CONNECTION_COOKIE, GA4_STATE_COOKIE, ga4Config, ga4CookieOptions, readOAuthState } from "@/lib/ga4OAuth";
+import { resolvePortalRequestAccess } from "@/lib/portalRequestAccess";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   const returnUrl = new URL("/dashboard?view=audits&auditType=seo", request.nextUrl.origin);
   try {
+    const access = await resolvePortalRequestAccess(request, await createSupabaseServerClient());
+    if (!access) throw new Error("Sign in before completing the GA4 connection.");
     const config = ga4Config(request.nextUrl.origin);
     const stateValue = request.nextUrl.searchParams.get("state") || "";
     const cookieState = request.cookies.get(GA4_STATE_COOKIE)?.value || "";
     if (!stateValue || stateValue !== cookieState) throw new Error("The Google Analytics connection could not be verified. Please try again.");
     const state = readOAuthState(stateValue, config.stateSecret);
     if (!state) throw new Error("The Google Analytics connection expired. Please try again.");
+    if (access.role === "client" && access.clientId !== state.clientId) {
+      throw new Error("This GA4 connection does not belong to the signed-in client.");
+    }
     const code = request.nextUrl.searchParams.get("code");
     if (!code) throw new Error(request.nextUrl.searchParams.get("error") || "Google did not return an authorization code.");
 

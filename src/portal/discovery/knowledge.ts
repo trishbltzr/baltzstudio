@@ -49,6 +49,12 @@ export function rememberKnowledge(clientId: string, delta: Know) {
   try { window.localStorage.setItem(STORAGE_PREFIX + clientId, JSON.stringify(merged)); } catch { /* memory still works for this session */ }
 }
 
+export function replaceKnowledge(clientId: string, next: Know) {
+  RUNTIME[clientId] = next;
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(STORAGE_PREFIX + clientId, JSON.stringify(next)); } catch { /* memory still works for this session */ }
+}
+
 function baselineFor(clientId: string): Know {
   const data: Ans = {};
   const sources: Record<string, string> = {};

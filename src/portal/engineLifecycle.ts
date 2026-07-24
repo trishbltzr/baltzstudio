@@ -60,6 +60,7 @@ export function engineWorkFromGuidedSession(session: GuidedAuditSession): Portal
     status: complete ? "complete" : progress > 0 ? "in_progress" : "intake",
     progress,
     updatedAt: new Date().toISOString(),
+    processRun: session.processRun,
     payload: { session },
   };
 }

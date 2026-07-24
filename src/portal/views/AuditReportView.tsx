@@ -8,6 +8,7 @@ import { CategoryBars } from "../components/AuditCharts";
 import { STUDIO_CLIENTS } from "../clients";
 import type { PortalActions, PortalState } from "../store";
 import type { Priority, TaskImportDraft } from "../types";
+import { clientHasEngineAccess, portalCapabilities } from "../access";
 
 export interface Theme { name: string; score: number; target: number; band: string; summary: string; findings: string[]; rec: string }
 interface AuditReportData {
@@ -157,7 +158,7 @@ export function getAuditProposalConfig(clientId: string) {
 }
 const bandColor = (b: string) => ({ Strong: "var(--success)", Good: "var(--iff)", "Needs work": "var(--warn)", Priority: "var(--danger)" }[b] || "var(--fg-muted)");
 const bandRank: Record<string, number> = { Priority: 0, "Needs work": 1, Good: 2, Strong: 3 };
-const pill = (b: string) => css("display:inline-flex;align-items:center;font-size:0.62rem;font-weight:500;padding:0.12rem 0.5rem;border-radius:999px;background:color-mix(in srgb," + bandColor(b) + " 16%,white 84%);color:color-mix(in srgb," + bandColor(b) + " 55%,black 45%)");
+const pill = (b: string) => css("display:inline-flex;align-items:center;font-size:var(--text-2xs);font-weight:500;padding:0.12rem 0.5rem;border-radius:999px;background:color-mix(in srgb," + bandColor(b) + " 16%,white 84%);color:color-mix(in srgb," + bandColor(b) + " 55%,black 45%)");
 
 // Flat score chip (was a donut ring) — keeps the call sites but drops the
 // repeated ring in favour of a tabular number tile that pairs with the bars.
@@ -253,32 +254,32 @@ function AuditTaskImportModal({
   onImport: () => void;
 }) {
   return (
-    <div role="dialog" aria-modal="true" aria-label="Import audit tasks" onClick={onClose} style={css("position:fixed;inset:0;z-index:100;background:rgba(30,22,15,.42);display:flex;align-items:center;justify-content:center;padding:1rem")}>
+    <div role="dialog" aria-modal="true" aria-label="Import audit tasks" onClick={onClose} style={css("position:fixed;inset:0;z-index:100;background:rgba(30,22,15,.42);display:flex;align-items:center;justify-content:center;padding:var(--space-4)")}>
       <div onClick={event => event.stopPropagation()} style={css("width:min(42rem,100%);max-height:88vh;overflow:hidden;display:flex;flex-direction:column;border-radius:var(--radius-panel);background:var(--surface);box-shadow:0 1.4rem 4rem rgba(48,34,31,.2)")}>
-        <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:1.2rem 1.3rem;border-bottom:1px solid var(--border-soft)")}>
+        <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);padding:1.2rem 1.3rem;border-bottom:1px solid var(--border-soft)")}>
           <div>
             <div style={css("font-size:var(--text-2xs);font-weight:500;letter-spacing:.03em;color:var(--cocoon);text-transform:uppercase")}>Audit to To-do</div>
-            <h2 style={css("margin:.18rem 0 0;font-size:1.25rem;font-weight:500")}>Import recommendations for {clientName}</h2>
-            <p style={css("margin:.35rem 0 0;font-size:.8rem;line-height:1.45;color:var(--fg-muted)")}>Selected items become real tasks in Board and Calendar, with milestones shown inside the client details.</p>
+            <h2 style={css("margin:.18rem 0 0;font-size:var(--text-2xl);font-weight:500")}>Import recommendations for {clientName}</h2>
+            <p style={css("margin:.35rem 0 0;font-size:var(--text-sm);line-height:1.45;color:var(--fg-muted)")}>Selected items become real tasks in Board and Calendar, with milestones shown inside the client details.</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="pt-iconbtn" style={css("width:2rem;height:2rem;border-radius:50%;border:1px solid var(--border-soft);background:var(--surface);display:grid;place-items:center;cursor:pointer;color:var(--fg-muted);flex-shrink:0")}><Icon name="x" size={15} /></button>
         </div>
-        <div style={css("display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.75rem 1.3rem;border-bottom:1px solid var(--border-soft);background:var(--surface-alt)")}>
-          <span style={css("font-size:.76rem;color:var(--fg-muted)")}>{selected.size} of {drafts.length} selected</span>
-          <button type="button" onClick={onSelectAll} style={css("border:none;background:transparent;color:var(--accent);font-size:.76rem;font-weight:500;cursor:pointer")}>{selected.size === drafts.length ? "Clear all" : "Select all"}</button>
+        <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);padding:.75rem 1.3rem;border-bottom:1px solid var(--border-soft);background:var(--surface-alt)")}>
+          <span style={css("font-size:var(--text-xs);color:var(--fg-muted)")}>{selected.size} of {drafts.length} selected</span>
+          <button type="button" onClick={onSelectAll} style={css("border:none;background:transparent;color:var(--accent);font-size:var(--text-xs);font-weight:500;cursor:pointer")}>{selected.size === drafts.length ? "Clear all" : "Select all"}</button>
         </div>
         <div style={css("overflow-y:auto;padding:.65rem 1.3rem")}>{drafts.map(draft => {
           const sourceId = draft.sourceId || draft.title;
           const checked = selected.has(sourceId);
-          return <button key={sourceId} type="button" onClick={() => onToggle(sourceId)} style={css("width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:.75rem;padding:.72rem .2rem;border:none;border-bottom:1px solid var(--border-soft);background:transparent;text-align:left;cursor:pointer;color:var(--fg)")}>
+          return <button key={sourceId} type="button" onClick={() => onToggle(sourceId)} style={css("width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:var(--space-3);padding:.72rem .2rem;border:none;border-bottom:1px solid var(--border-soft);background:transparent;text-align:left;cursor:pointer;color:var(--fg)")}>
             <span style={css("width:1.15rem;height:1.15rem;margin-top:.08rem;border-radius:.32rem;border:1.5px solid " + (checked ? "var(--accent)" : "var(--border)") + ";background:" + (checked ? "var(--accent)" : "var(--surface)") + ";color:#fff;display:grid;place-items:center")}>{checked && <Icon name="checkmark" size={12} />}</span>
-            <span><span style={css("display:block;font-size:.82rem;font-weight:500;line-height:1.35")}>{draft.title}</span><span style={css("display:block;margin-top:.18rem;font-size:.68rem;color:var(--fg-faint)")}>{draft.milestone} · due {draft.due}</span></span>
-            <span style={css("font-size:.62rem;font-weight:500;padding:.15rem .45rem;border-radius:999px;background:var(--surface-alt);color:var(--fg-muted);text-transform:capitalize")}>{draft.priority}</span>
+            <span><span style={css("display:block;font-size:var(--text-sm);font-weight:500;line-height:1.35")}>{draft.title}</span><span style={css("display:block;margin-top:.18rem;font-size:var(--text-2xs);color:var(--fg-faint)")}>{draft.milestone} · due {draft.due}</span></span>
+            <span style={css("font-size:var(--text-2xs);font-weight:500;padding:.15rem .45rem;border-radius:999px;background:var(--surface-alt);color:var(--fg-muted);text-transform:capitalize")}>{draft.priority}</span>
           </button>;
         })}</div>
         <div style={css("display:flex;justify-content:flex-end;gap:.55rem;padding:1rem 1.3rem;border-top:1px solid var(--border-soft)")}>
-          <button type="button" onClick={onClose} style={css("height:2.25rem;padding:0 .95rem;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);font-size:.78rem;font-weight:500;cursor:pointer")}>Cancel</button>
-          <button type="button" disabled={!selected.size} onClick={onImport} className="pt-op" style={css("height:2.25rem;padding:0 1rem;border-radius:999px;border:none;background:var(--accent);color:#fff;font-size:.78rem;font-weight:500;cursor:" + (selected.size ? "pointer" : "not-allowed") + ";opacity:" + (selected.size ? "1" : ".45"))}>Import {selected.size} task{selected.size === 1 ? "" : "s"}</button>
+          <button type="button" onClick={onClose} style={css("height:2.25rem;padding:0 .95rem;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;cursor:pointer")}>Cancel</button>
+          <button type="button" disabled={!selected.size} onClick={onImport} className="pt-op" style={css("height:2.25rem;padding:0 1rem;border-radius:999px;border:none;background:var(--accent);color:#fff;font-size:var(--text-xs);font-weight:500;cursor:" + (selected.size ? "pointer" : "not-allowed") + ";opacity:" + (selected.size ? "1" : ".45"))}>Import {selected.size} task{selected.size === 1 ? "" : "s"}</button>
         </div>
       </div>
     </div>
@@ -295,13 +296,13 @@ function PriorityPlanCards({ themes, mobile }: { themes: Theme[]; mobile: boolea
             <div style={css("display:flex;align-items:center;gap:var(--space-3);margin-bottom:0.7rem;flex-wrap:" + (mobile ? "wrap" : "nowrap"))}>
               <Ring score={t.score} band={t.band} size={2.8} />
               <div style={{ flex: 1, minWidth: 0 }}><div style={css("font-weight:500;font-size:var(--text-lg)")}>{t.name}</div><span style={{ marginTop: "0.2rem", ...pill(t.band) }}>{t.band}</span></div>
-              <div style={css("text-align:right;flex-shrink:0;margin-left:auto")}><div style={css("font-size:0.78rem;color:var(--fg-muted);display:flex;align-items:center;justify-content:flex-end;gap:0.3rem;white-space:nowrap")}>{t.score}<span style={{ color: "var(--cocoon)" }}><Icon name="arrow" size={13} /></span><strong style={{ fontWeight: 500, color: "var(--cocoon)" }}>{t.target}</strong></div><div style={css("font-size:var(--text-2xs);color:var(--success);font-weight:500;white-space:nowrap")}>+{t.target - t.score} projected</div></div>
+              <div style={css("text-align:right;flex-shrink:0;margin-left:auto")}><div style={css("font-size:var(--text-xs);color:var(--fg-muted);display:flex;align-items:center;justify-content:flex-end;gap:0.3rem;white-space:nowrap")}>{t.score}<span style={{ color: "var(--cocoon)" }}><Icon name="arrow" size={13} /></span><strong style={{ fontWeight: 500, color: "var(--cocoon)" }}>{t.target}</strong></div><div style={css("font-size:var(--text-2xs);color:var(--success);font-weight:500;white-space:nowrap")}>+{t.target - t.score} projected</div></div>
             </div>
-            <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint);margin:0.2rem 0 0.5rem")}>Recommendation plan</div>
+            <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint);margin:0.2rem 0 0.5rem")}>Recommendation plan</div>
             <div style={css("display:flex;flex-direction:column;gap:0.4rem")}>
               {plan.map((item, index) => (
-                <div key={item} style={css("display:grid;grid-template-columns:auto minmax(0,1fr);gap:0.55rem;align-items:flex-start;font-size:0.8rem;line-height:1.42;padding:0.58rem 0.68rem;border-radius:0.78rem;background:color-mix(in srgb,var(--cocoon) 6%,var(--surface-alt) 94%);border:1px solid color-mix(in srgb,var(--cocoon) 10%,var(--border-soft) 90%)")}>
-                  <span style={css("width:1.25rem;height:1.25rem;border-radius:0.42rem;background:color-mix(in srgb,var(--cocoon) 14%,white 86%);color:var(--cocoon);display:grid;place-items:center;flex-shrink:0;font-size:0.58rem;font-weight:500")}>{index + 1}</span>
+                <div key={item} style={css("display:grid;grid-template-columns:auto minmax(0,1fr);gap:0.55rem;align-items:flex-start;font-size:var(--text-sm);line-height:1.42;padding:0.58rem 0.68rem;border-radius:0.78rem;background:color-mix(in srgb,var(--cocoon) 6%,var(--surface-alt) 94%);border:1px solid color-mix(in srgb,var(--cocoon) 10%,var(--border-soft) 90%)")}>
+                  <span style={css("width:1.25rem;height:1.25rem;border-radius:0.42rem;background:color-mix(in srgb,var(--cocoon) 14%,white 86%);color:var(--cocoon);display:grid;place-items:center;flex-shrink:0;font-size:var(--text-2xs);font-weight:500")}>{index + 1}</span>
                   <span>{item}</span>
                 </div>
               ))}
@@ -323,19 +324,19 @@ function BrandAuditPanel({ themes, mobile }: { themes: Theme[]; mobile: boolean 
 
   return (
     <section data-brand-audit style={css("border:1px solid color-mix(in srgb,var(--cocoon) 24%,var(--border-soft) 76%);border-radius:var(--radius-panel);background:linear-gradient(135deg,color-mix(in srgb,var(--cocoon) 7%,white 93%),var(--surface));padding:" + (mobile ? "1rem" : "1.15rem 1.25rem"))}>
-      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap")}>
+      <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap")}>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--cocoon)")}>Brand audit</div>
-          <h3 style={css("margin:0.3rem 0 0;font-size:1.05rem;font-weight:500;color:var(--fg)")}>Suggested brand direction</h3>
-          <p style={css("margin:0.3rem 0 0;font-size:0.78rem;color:var(--fg-muted);line-height:1.5;max-width:40rem")}>A focused recommendation for how the positioning, voice, and visual system should evolve alongside the website action plan.</p>
+          <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--cocoon)")}>Brand audit</div>
+          <h3 style={css("margin:0.3rem 0 0;font-size:var(--text-xl);font-weight:500;color:var(--fg)")}>Suggested brand direction</h3>
+          <p style={css("margin:0.3rem 0 0;font-size:var(--text-xs);color:var(--fg-muted);line-height:1.5;max-width:40rem")}>A focused recommendation for how the positioning, voice, and visual system should evolve alongside the website action plan.</p>
         </div>
-        <div style={css("min-width:4.2rem;padding:0.55rem 0.7rem;border:1px solid color-mix(in srgb,var(--cocoon) 18%,var(--border-soft) 82%);border-radius:0.8rem;background:rgba(255,255,255,.72);text-align:center")}><div style={css("font-size:1.25rem;font-weight:500;color:var(--cocoon);line-height:1")}>{brandScore}</div><div style={css("font-size:0.62rem;color:var(--fg-faint);margin-top:0.18rem")}>brand score</div></div>
+        <div style={css("min-width:4.2rem;padding:0.55rem 0.7rem;border:1px solid color-mix(in srgb,var(--cocoon) 18%,var(--border-soft) 82%);border-radius:0.8rem;background:rgba(255,255,255,.72);text-align:center")}><div style={css("font-size:var(--text-2xl);font-weight:500;color:var(--cocoon);line-height:1")}>{brandScore}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-faint);margin-top:0.18rem")}>brand score</div></div>
       </div>
       <div style={css("display:grid;grid-template-columns:" + (mobile ? "minmax(0,1fr)" : "repeat(3,minmax(0,1fr))") + ";gap:0.55rem;margin-top:0.9rem")}>
         {brandThemes.map(theme => (
           <div key={theme.name} style={css("padding:0.75rem 0.8rem;border:1px solid var(--border-soft);border-radius:0.82rem;background:rgba(255,255,255,.72)")}>
-            <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.5rem")}><span style={css("font-size:0.78rem;font-weight:500;color:var(--fg)")}>{theme.name}</span><span style={css("font-size:0.7rem;font-weight:500;color:" + bandColor(theme.band))}>{theme.score}</span></div>
-            <div style={css("font-size:0.74rem;color:var(--fg-muted);line-height:1.45;margin-top:0.42rem")}>{theme.rec}</div>
+            <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)")}><span style={css("font-size:var(--text-xs);font-weight:500;color:var(--fg)")}>{theme.name}</span><span style={css("font-size:var(--text-2xs);font-weight:500;color:" + bandColor(theme.band))}>{theme.score}</span></div>
+            <div style={css("font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.45;margin-top:0.42rem")}>{theme.rec}</div>
           </div>
         ))}
       </div>
@@ -386,8 +387,8 @@ function InlineAuditProposal({
       <div style={css("padding:1rem 1.2rem 1.2rem;display:flex;flex-direction:column;gap:var(--space-4)")}>
         <div style={css("padding:1.05rem 1.1rem;border:1px solid var(--border-soft);border-radius:0.95rem;background:linear-gradient(135deg,color-mix(in srgb,var(--cocoon) 8%,white 92%),var(--surface));display:grid;grid-template-columns:" + (mobile ? "minmax(0,1fr)" : "minmax(0,1.15fr) minmax(16rem,0.85fr)") + ";gap:var(--space-4);align-items:stretch")}>
           <div style={css("display:flex;flex-direction:column;gap:0.85rem;min-width:0")}>
-            <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;display:flex;align-items:center;gap:0.42rem;color:var(--cocoon)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--cocoon)")} />Build proposal</div>
-            <h3 style={css("margin:0.35rem 0 0;font-size:1.25rem;font-weight:500;letter-spacing:-0.015em")}>Winged in a Week for {client}</h3>
+            <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;display:flex;align-items:center;gap:0.42rem;color:var(--cocoon)")}><span style={css("width:0.42rem;height:0.42rem;border-radius:50%;background:var(--cocoon)")} />Build proposal</div>
+            <h3 style={css("margin:0.35rem 0 0;font-size:var(--text-2xl);font-weight:500;letter-spacing:-0.015em")}>Winged in a Week for {client}</h3>
             <p style={css("margin:0;font-size:var(--text-base);color:var(--fg-muted);line-height:1.5")}>A focused {sprintDays}-day implementation sprint built from the audit recommendations, with the highest-impact fixes shipped first and a clear handoff at the end.</p>
             <div style={css("display:grid;grid-template-columns:" + (mobile ? "repeat(2,minmax(0,1fr))" : "repeat(4,minmax(0,1fr))") + ";gap:0.45rem")}>
               {[
@@ -397,7 +398,7 @@ function InlineAuditProposal({
                 ["Delivery", "Handoff"],
               ].map(([label, value]) => (
                 <div key={label} style={css("border:1px solid var(--border-soft);border-radius:0.78rem;background:rgba(255,255,255,.7);padding:0.58rem 0.62rem")}>
-                  <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint)")}>{label}</div>
+                  <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint)")}>{label}</div>
                   <div style={css("font-size:var(--text-base);font-weight:500;color:var(--fg);margin-top:0.18rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{value}</div>
                 </div>
               ))}
@@ -411,25 +412,25 @@ function InlineAuditProposal({
                 ["Lift", "+" + (scoreTarget - scoreNow), "accent"],
               ].map(([label, value, tone]) => (
                 <div key={label} style={css("border:1px solid var(--border-soft);border-radius:0.72rem;background:var(--surface);padding:0.55rem 0.45rem;text-align:center")}>
-                  <div style={css("font-size:1rem;font-weight:500;line-height:1;color:var(--" + tone + ")")}>{value}</div>
-                  <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint);margin-top:0.26rem")}>{label}</div>
+                  <div style={css("font-size:var(--text-lg);font-weight:500;line-height:1;color:var(--" + tone + ")")}>{value}</div>
+                  <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint);margin-top:0.26rem")}>{label}</div>
                 </div>
               ))}
             </div>
             <div style={css("display:flex;flex-direction:column;gap:0.42rem")}>
               {timeline.map((item, index) => (
                 <div key={item.label} style={css("display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--space-2);align-items:flex-start")}>
-                  <span style={css("width:1.35rem;height:1.35rem;border-radius:50%;background:" + (index === 0 ? "var(--fg)" : "var(--surface-alt)") + ";color:" + (index === 0 ? "#fff" : "var(--fg-muted)") + ";display:grid;place-items:center;font-size:0.58rem;font-weight:500")}>{index + 1}</span>
+                  <span style={css("width:1.35rem;height:1.35rem;border-radius:50%;background:" + (index === 0 ? "var(--fg)" : "var(--surface-alt)") + ";color:" + (index === 0 ? "#fff" : "var(--fg-muted)") + ";display:grid;place-items:center;font-size:var(--text-2xs);font-weight:500")}>{index + 1}</span>
                   <span style={{ minWidth: 0 }}>
-                    <span style={css("display:block;font-size:0.76rem;font-weight:500;color:var(--fg)")}>{item.label}</span>
-                    <span style={css("display:block;font-size:0.68rem;color:var(--fg-muted);line-height:1.35;margin-top:0.03rem")}>{item.note}</span>
+                    <span style={css("display:block;font-size:var(--text-xs);font-weight:500;color:var(--fg)")}>{item.label}</span>
+                    <span style={css("display:block;font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.35;margin-top:0.03rem")}>{item.note}</span>
                   </span>
                 </div>
               ))}
             </div>
             <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.6rem;border-top:1px solid var(--border-soft);padding-top:0.62rem")}>
-              <span style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint)")}>Sprint length</span>
-              <span style={css("font-size:0.92rem;font-weight:500;color:var(--fg)")}>{sprintDays} working days</span>
+              <span style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint)")}>Sprint length</span>
+              <span style={css("font-size:var(--text-lg);font-weight:500;color:var(--fg)")}>{sprintDays} working days</span>
             </div>
           </div>
         </div>
@@ -442,8 +443,8 @@ function InlineAuditProposal({
             <div key={label} style={css("display:flex;gap:0.55rem;align-items:flex-start;min-width:0")}>
               <span style={css("width:1.35rem;height:1.35rem;border-radius:0.45rem;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex-shrink:0")}><Icon name="checkmark" size={12} /></span>
               <div style={{ minWidth: 0 }}>
-                <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint)")}>{label}</div>
-                <div style={css("font-size:0.74rem;color:var(--fg-muted);line-height:1.45;margin-top:0.08rem")}>{text}</div>
+                <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint)")}>{label}</div>
+                <div style={css("font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.45;margin-top:0.08rem")}>{text}</div>
               </div>
             </div>
           ))}
@@ -453,15 +454,15 @@ function InlineAuditProposal({
         </div>
         <div>
           <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);margin-bottom:0.65rem")}>
-            <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;display:flex;align-items:center;gap:0.4rem;color:var(--fg-faint)")}><span style={css("width:0.4rem;height:0.4rem;border-radius:50%;background:var(--warn)")} />Implementation timeline</div>
+            <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;display:flex;align-items:center;gap:0.4rem;color:var(--fg-faint)")}><span style={css("width:0.4rem;height:0.4rem;border-radius:50%;background:var(--warn)")} />Implementation timeline</div>
             <span style={css("font-size:var(--text-xs);color:var(--fg-muted);font-weight:500")}>{sprintDays} working days</span>
           </div>
           <div style={css("display:flex;flex-direction:column;border:1px solid var(--border-soft);border-radius:0.9rem;overflow:hidden")}>
             {lines.map(line => (
               <div key={line.name} style={css("display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:var(--space-3);align-items:flex-start;padding:0.82rem 0.9rem;border-bottom:1px solid var(--border-soft)")}>
                 <span style={css("width:1.8rem;height:1.8rem;border-radius:0.55rem;background:color-mix(in srgb," + line.color + " 15%,white 85%);color:" + line.color + ";display:grid;place-items:center")}><Icon name="replay" size={13} /></span>
-                <div style={{ minWidth: 0 }}><div style={css("font-size:0.84rem;font-weight:500;color:var(--fg)")}>{line.name}</div><div style={css("font-size:0.74rem;color:var(--fg-muted);line-height:1.45;margin-top:0.1rem")}>{line.work}</div></div>
-                <span style={css("font-size:0.7rem;color:var(--fg-faint);font-weight:500;white-space:nowrap")}>{line.daysLabel}</span>
+                <div style={{ minWidth: 0 }}><div style={css("font-size:var(--text-base);font-weight:500;color:var(--fg)")}>{line.name}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.45;margin-top:0.1rem")}>{line.work}</div></div>
+                <span style={css("font-size:var(--text-2xs);color:var(--fg-faint);font-weight:500;white-space:nowrap")}>{line.daysLabel}</span>
               </div>
             ))}
           </div>
@@ -471,7 +472,7 @@ function InlineAuditProposal({
           {deliverables.map(item => (
             <div key={item.title} style={css("border:1px solid var(--border-soft);border-radius:0.9rem;background:var(--surface-alt);padding:0.82rem 0.9rem;display:grid;grid-template-columns:auto minmax(0,1fr);gap:0.65rem;align-items:flex-start")}>
               <span style={css("width:1.8rem;height:1.8rem;border-radius:0.52rem;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center")}><Icon name={item.icon} size={13} /></span>
-              <div><div style={css("font-size:var(--text-base);font-weight:500;color:var(--fg)")}>{item.title}</div><div style={css("font-size:0.73rem;color:var(--fg-muted);line-height:1.45;margin-top:0.1rem")}>{item.note}</div></div>
+              <div><div style={css("font-size:var(--text-base);font-weight:500;color:var(--fg)")}>{item.title}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.45;margin-top:0.1rem")}>{item.note}</div></div>
             </div>
           ))}
         </div>
@@ -479,15 +480,15 @@ function InlineAuditProposal({
         <div style={css("display:grid;grid-template-columns:minmax(0,1fr);gap:0.7rem")}>
           <button type="button" onClick={onToggleIff} style={css("display:flex;align-items:center;gap:var(--space-3);text-align:left;padding:0.85rem 0.95rem;border-radius:0.95rem;border:1.5px solid " + (iffOn ? "var(--accent)" : "var(--border-soft)") + ";background:" + (iffOn ? "var(--accent-soft)" : "var(--surface)") + ";cursor:pointer")}>
             <span style={css("width:2rem;height:2rem;border-radius:0.6rem;display:grid;place-items:center;background:" + (iffOn ? "var(--accent)" : "var(--surface-alt)") + ";color:" + (iffOn ? "#fff" : "var(--fg-muted)"))}>{iffOn ? <Icon name="checkmark" size={14} /> : <Icon name="feather" size={14} />}</span>
-            <span style={{ flex: 1 }}><span style={css("display:block;font-size:0.84rem;font-weight:500;color:var(--fg)")}>Add In Full Flight</span><span style={css("display:block;font-size:0.74rem;color:var(--fg-muted);margin-top:0.08rem")}>Post-sprint QA, care, and monthly improvements.</span></span>
+            <span style={{ flex: 1 }}><span style={css("display:block;font-size:var(--text-base);font-weight:500;color:var(--fg)")}>{iffOn ? "In Full Flight selected" : "Continue with In Full Flight"}</span><span style={css("display:block;font-size:var(--text-2xs);color:var(--fg-muted);margin-top:0.08rem")}>Optional post-launch QA, care, and monthly improvements.</span></span>
             <span style={css("font-size:var(--text-base);font-weight:500;color:var(--fg);white-space:nowrap")}>£600/mo</span>
           </button>
           <div style={css("border:1px solid var(--border-soft);border-radius:0.95rem;background:var(--surface-alt);padding:0.85rem 0.95rem;display:flex;align-items:center;justify-content:space-between;gap:var(--space-4)")}>
-            <div><div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint)")}>Investment</div><div style={css("font-size:1.35rem;font-weight:500;line-height:1.1;margin-top:0.12rem")}>£2,400</div><div style={css("font-size:var(--text-xs);color:var(--fg-muted);margin-top:0.14rem")}>{iffOn ? "Then £600/mo" : "One-time sprint"}</div></div>
+            <div><div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint)")}>Investment</div><div style={css("font-size:var(--text-2xl);font-weight:500;line-height:1.1;margin-top:0.12rem")}>£2,400</div><div style={css("font-size:var(--text-xs);color:var(--fg-muted);margin-top:0.14rem")}>{iffOn ? "Then £600/mo" : "One-time sprint"}</div></div>
             {sent ? (
-              <span style={css("display:inline-flex;align-items:center;gap:0.35rem;height:2.25rem;padding:0 0.9rem;border-radius:999px;background:var(--success-soft);color:var(--success);font-size:0.78rem;font-weight:500")}><Icon name="checkmark" size={14} />Sent</span>
+              <span style={css("display:inline-flex;align-items:center;gap:0.35rem;height:2.25rem;padding:0 0.9rem;border-radius:999px;background:var(--success-soft);color:var(--success);font-size:var(--text-xs);font-weight:500")}><Icon name="checkmark" size={14} />Sent</span>
             ) : (
-              <button type="button" onClick={onSend} className="pt-op" style={css("display:inline-flex;align-items:center;gap:0.4rem;height:2.25rem;padding:0 1rem;border-radius:999px;border:none;background:var(--accent);color:#fff;font-size:0.78rem;font-weight:500;cursor:pointer")}><Icon name="send" size={14} />Send</button>
+              <button type="button" onClick={onSend} className="pt-op" style={css("display:inline-flex;align-items:center;gap:0.4rem;height:2.25rem;padding:0 1rem;border-radius:999px;border:none;background:var(--accent);color:#fff;font-size:var(--text-xs);font-weight:500;cursor:pointer")}><Icon name="send" size={14} />Send</button>
             )}
           </div>
         </div>
@@ -529,6 +530,9 @@ export function AuditReportView({
 }) {
   const [layout, setLayout] = useState<"report" | "priority">(initialProposalOpen ? "priority" : initialLayout);
   const mobile = state.isMobile;
+  const capabilities = portalCapabilities(state);
+  const canManageStudioWork = capabilities.canApproveStudioWork;
+  const canOpenLabs = clientHasEngineAccess(state, "labs");
   const report = useMemo(() => REPORTS[clientId || portalClientId(clientName)] || DEFAULT_REPORT, [clientId, clientName]);
   const proposal = useMemo(() => getAuditProposalConfig(clientId || portalClientId(clientName)), [clientId, clientName]);
   const sorted = useMemo(() => [...report.themes].sort((a, b) => bandRank[a.band] - bandRank[b.band] || a.score - b.score), [report]);
@@ -569,13 +573,13 @@ export function AuditReportView({
           </div>
         )}
         <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2);flex-wrap:wrap;width:" + (mobile ? "100%" : "auto"))}>
-          <button type="button" onClick={() => setImportOpen(true)} className="pt-op" style={css("display:inline-flex;align-items:center;justify-content:center;gap:.4rem;height:2.1rem;padding:0 .85rem;border-radius:999px;border:none;background:var(--accent);color:#fff;font-size:.76rem;font-weight:500;cursor:pointer;flex:" + (mobile ? "1" : "0 0 auto"))}><Icon name="checkmark" size={13} />Import to To-do</button>
+          {canManageStudioWork && <button type="button" onClick={() => setImportOpen(true)} className="pt-op" style={css("display:inline-flex;align-items:center;justify-content:center;gap:.4rem;height:2.1rem;padding:0 .85rem;border-radius:999px;border:none;background:var(--accent);color:#fff;font-size:var(--text-xs);font-weight:500;cursor:pointer;flex:" + (mobile ? "1" : "0 0 auto"))}><Icon name="checkmark" size={13} />Import to To-do</button>}
           <div style={css("display:inline-flex;gap:0.2rem;padding:0.2rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill);background:var(--surface-alt);width:" + (mobile ? "100%" : "auto"))}>
             <button
               type="button"
               onClick={() => setLayout("report")}
               aria-current={layout === "report" ? "page" : undefined}
-              style={css("appearance:none;border:none;cursor:pointer;font-size:0.76rem;font-weight:500;padding:0.32rem 0.72rem;border-radius:var(--radius-pill);flex:" + (mobile ? "1" : "0 0 auto") + ";" + (layout === "report" ? "background:var(--fg);color:#fff" : "background:transparent;color:var(--fg-muted)"))}
+              style={css("appearance:none;border:none;cursor:pointer;font-size:var(--text-xs);font-weight:500;padding:0.32rem 0.72rem;border-radius:var(--radius-pill);flex:" + (mobile ? "1" : "0 0 auto") + ";" + (layout === "report" ? "background:var(--fg);color:#fff" : "background:transparent;color:var(--fg-muted)"))}
             >
               Audit report
             </button>
@@ -583,7 +587,7 @@ export function AuditReportView({
               type="button"
               onClick={() => setLayout("priority")}
               aria-current={layout === "priority" ? "page" : undefined}
-              style={css("appearance:none;border:none;cursor:pointer;font-size:0.76rem;font-weight:500;padding:0.32rem 0.72rem;border-radius:var(--radius-pill);flex:" + (mobile ? "1" : "0 0 auto") + ";" + (layout === "priority" ? "background:var(--fg);color:#fff" : "background:transparent;color:var(--fg-muted)"))}
+              style={css("appearance:none;border:none;cursor:pointer;font-size:var(--text-xs);font-weight:500;padding:0.32rem 0.72rem;border-radius:var(--radius-pill);flex:" + (mobile ? "1" : "0 0 auto") + ";" + (layout === "priority" ? "background:var(--fg);color:#fff" : "background:transparent;color:var(--fg-muted)"))}
             >
               Action plan
             </button>
@@ -596,15 +600,15 @@ export function AuditReportView({
           <div style={css("display:grid;grid-template-columns:" + (state.isMobile ? "minmax(0,1fr)" : "repeat(2,minmax(0,1fr))") + ";gap:0.7rem")}>
             <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);padding:" + (mobile ? "1rem" : "1.2rem 1.25rem") + ";display:flex;align-items:center;gap:" + (mobile ? "0.85rem" : "1.2rem"))}>
               <div style={css("width:" + (mobile ? "4.7rem" : "5.4rem") + ";flex-shrink:0;display:flex;flex-direction:column;gap:0.42rem;padding:0.7rem 0.75rem;border-radius:0.85rem;background:color-mix(in srgb,var(--cocoon) 10%,var(--surface) 90%)")}>
-                <div style={css("display:flex;align-items:baseline;gap:0.2rem")}><span style={css("font-size:" + (mobile ? "1.6rem" : "1.85rem") + ";font-weight:500;line-height:0.9;color:var(--cocoon);font-variant-numeric:tabular-nums")}>{report.overall}</span><span style={css("font-size:0.55rem;color:var(--fg-faint)")}>/100</span></div>
+                <div style={css("display:flex;align-items:baseline;gap:0.2rem")}><span style={css("font-size:" + (mobile ? "1.6rem" : "1.85rem") + ";font-weight:500;line-height:0.9;color:var(--cocoon);font-variant-numeric:tabular-nums")}>{report.overall}</span><span style={css("font-size:var(--text-2xs);color:var(--fg-faint)")}>/100</span></div>
                 <div style={css("height:0.35rem;border-radius:999px;background:color-mix(in srgb,var(--cocoon) 18%,var(--surface) 82%)")}><div style={css("height:100%;border-radius:999px;width:" + Math.max(2, report.overall) + "%;background:var(--cocoon)")} /></div>
               </div>
               <div style={{ minWidth: 0 }}>
                 <div style={css("font-size:var(--text-2xs);font-weight:500;letter-spacing:0.02em;color:var(--fg-faint)")}>Overall Today</div>
-                <div style={css("font-size:1.05rem;font-weight:500;margin-top:0.1rem")}>{report.headline}</div>
+                <div style={css("font-size:var(--text-xl);font-weight:500;margin-top:0.1rem")}>{report.headline}</div>
                 <div style={css("display:flex;gap:0.4rem;margin-top:0.6rem;flex-wrap:wrap")}>
-                  <span style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:0.7rem;font-weight:500;padding:0.2rem 0.55rem;border-radius:999px;background:color-mix(in srgb,var(--success) 15%,white 85%);color:color-mix(in srgb,var(--success) 55%,black 45%)")}><span style={css("width:0.45rem;height:0.45rem;border-radius:50%;background:var(--success)")} />{strongCount} strong</span>
-                  <span style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:0.7rem;font-weight:500;padding:0.2rem 0.55rem;border-radius:999px;background:color-mix(in srgb,var(--warn) 16%,white 84%);color:color-mix(in srgb,var(--warn) 52%,black 48%)")}><span style={css("width:0.45rem;height:0.45rem;border-radius:50%;background:var(--warn)")} />{weakCount} need work</span>
+                  <span style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:var(--text-2xs);font-weight:500;padding:0.2rem 0.55rem;border-radius:999px;background:color-mix(in srgb,var(--success) 15%,white 85%);color:color-mix(in srgb,var(--success) 55%,black 45%)")}><span style={css("width:0.45rem;height:0.45rem;border-radius:50%;background:var(--success)")} />{strongCount} strong</span>
+                  <span style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:var(--text-2xs);font-weight:500;padding:0.2rem 0.55rem;border-radius:999px;background:color-mix(in srgb,var(--warn) 16%,white 84%);color:color-mix(in srgb,var(--warn) 52%,black 48%)")}><span style={css("width:0.45rem;height:0.45rem;border-radius:50%;background:var(--warn)")} />{weakCount} need work</span>
                 </div>
               </div>
             </div>
@@ -612,16 +616,16 @@ export function AuditReportView({
               <div style={css("display:flex;align-items:" + (mobile ? "flex-start" : "center") + ";justify-content:space-between;gap:var(--space-3)")}>
                 <div>
                   <div style={css("font-size:var(--text-2xs);font-weight:500;letter-spacing:0.02em;color:var(--fg-faint)")}>Projected after Winged in a Week</div>
-                  <div style={css("display:flex;align-items:baseline;gap:var(--space-2);margin-top:0.25rem")}><span style={css("font-size:1.05rem;color:var(--fg-muted);font-weight:500")}>{report.overall}</span><span style={{ color: "var(--cocoon)" }}><Icon name="arrow" size={13} /></span><span style={css("font-size:1.9rem;font-weight:500;line-height:1;color:var(--cocoon)")}>{report.target}</span></div>
+                  <div style={css("display:flex;align-items:baseline;gap:var(--space-2);margin-top:0.25rem")}><span style={css("font-size:var(--text-xl);color:var(--fg-muted);font-weight:500")}>{report.overall}</span><span style={{ color: "var(--cocoon)" }}><Icon name="arrow" size={13} /></span><span style={css("font-size:var(--text-4xl);font-weight:500;line-height:1;color:var(--cocoon)")}>{report.target}</span></div>
                 </div>
-                <div style={css("text-align:right;flex-shrink:0")}><div style={css("font-size:1.35rem;font-weight:500;color:var(--success);line-height:1")}>+{overallDelta}</div><div style={css("font-size:0.64rem;color:var(--fg-faint)")}>points</div></div>
+                <div style={css("text-align:right;flex-shrink:0")}><div style={css("font-size:var(--text-2xl);font-weight:500;color:var(--success);line-height:1")}>+{overallDelta}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-faint)")}>points</div></div>
               </div>
               <div style={css("position:relative;height:0.45rem;border-radius:999px;background:color-mix(in srgb,var(--cocoon) 12%,white 88%);margin-top:0.85rem;overflow:hidden")}><div style={css("position:absolute;inset:0 auto 0 0;width:" + report.overall + "%;background:var(--cocoon);border-radius:999px")} /></div>
             </div>
           </div>
 
           <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);padding:" + (mobile ? "1rem" : "1.1rem 1.25rem"))}>
-            <div style={css("display:flex;align-items:baseline;justify-content:space-between;gap:1rem;margin-bottom:0.85rem")}><div style={css("font-size:1rem;font-weight:500")}>Category scores</div><span style={css("font-size:0.7rem;color:var(--fg-faint)")}>current → target</span></div>
+            <div style={css("display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-4);margin-bottom:0.85rem")}><div style={css("font-size:var(--text-lg);font-weight:500")}>Category scores</div><span style={css("font-size:var(--text-2xs);color:var(--fg-faint)")}>current → target</span></div>
             <CategoryBars cats={sorted.map(t => ({ label: t.name, score: t.score, target: t.target, color: bandColor(t.band) }))} />
           </div>
 
@@ -634,20 +638,20 @@ export function AuditReportView({
                 <div key={t.name} style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);padding:" + (mobile ? "0.95rem" : "1.1rem 1.15rem") + ";display:flex;flex-direction:column")}>
                   <div style={css("display:flex;align-items:center;gap:0.8rem")}>
                     <Ring score={t.score} band={t.band} size={3} />
-                    <div style={{ minWidth: 0, flex: 1 }}><div style={css("font-weight:500;font-size:0.92rem;line-height:1.2")}>{t.name}</div><span style={{ marginTop: "0.3rem", ...pill(t.band) }}>{t.band}</span></div>
+                    <div style={{ minWidth: 0, flex: 1 }}><div style={css("font-weight:500;font-size:var(--text-lg);line-height:1.2")}>{t.name}</div><span style={{ marginTop: "0.3rem", ...pill(t.band) }}>{t.band}</span></div>
                   </div>
                   <div style={{ marginTop: "0.95rem" }}>
                     <div style={css("position:relative;height:0.4rem;border-radius:999px;background:oklch(0.93 0.008 40)")}><div style={css("position:absolute;inset:0 auto 0 0;height:100%;border-radius:999px;width:" + t.score + "%;background:" + bandColor(t.band))} /><div style={{ position: "absolute", top: "-0.2rem", bottom: "-0.2rem", width: "2px", background: "var(--fg)", opacity: 0.55, left: t.target + "%" }} /></div>
                     <div style={css("display:flex;align-items:center;gap:0.3rem;font-size:var(--text-xs);color:var(--fg-muted);margin-top:0.55rem")}><strong style={{ fontWeight: 500, color: "var(--fg)" }}>{t.score}</strong><Icon name="arrow" size={13} /><span>target {t.target}</span><span style={{ color: "var(--success)", fontWeight: 500, marginLeft: "auto" }}>+{t.target - t.score}</span></div>
                   </div>
                   <div style={css("margin-top:0.85rem;padding-top:0.85rem;border-top:1px solid var(--border-soft)")}>
-                    {t.findings.map(f => <div key={f} style={css("display:flex;gap:0.45rem;align-items:flex-start;font-size:0.79rem;color:var(--fg-muted);line-height:1.45;margin-bottom:0.35rem")}><span style={css("width:0.4rem;height:0.4rem;border-radius:50%;flex-shrink:0;margin-top:0.42rem;background:" + bandColor(t.band))} /><span>{f}</span></div>)}
+                    {t.findings.map(f => <div key={f} style={css("display:flex;gap:0.45rem;align-items:flex-start;font-size:var(--text-xs);color:var(--fg-muted);line-height:1.45;margin-bottom:0.35rem")}><span style={css("width:0.4rem;height:0.4rem;border-radius:50%;flex-shrink:0;margin-top:0.42rem;background:" + bandColor(t.band))} /><span>{f}</span></div>)}
                   </div>
                   <div style={css("margin-top:auto;padding:0.72rem 0.78rem;border-radius:var(--radius);background:var(--surface-alt);display:flex;flex-direction:column;gap:0.42rem")}>
-                    <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint)")}>Recommendation plan</div>
+                    <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint)")}>Recommendation plan</div>
                     {plan.map((item, index) => (
-                      <div key={item} style={css("display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--space-2);align-items:flex-start;font-size:0.78rem;line-height:1.42;color:var(--fg)")}>
-                        <span style={css("width:1.1rem;height:1.1rem;border-radius:0.38rem;background:color-mix(in srgb," + bandColor(t.band) + " 15%,white 85%);color:" + bandColor(t.band) + ";display:grid;place-items:center;font-size:0.55rem;font-weight:500;flex-shrink:0")}>{index + 1}</span>
+                      <div key={item} style={css("display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--space-2);align-items:flex-start;font-size:var(--text-xs);line-height:1.42;color:var(--fg)")}>
+                        <span style={css("width:1.1rem;height:1.1rem;border-radius:0.38rem;background:color-mix(in srgb," + bandColor(t.band) + " 15%,white 85%);color:" + bandColor(t.band) + ";display:grid;place-items:center;font-size:var(--text-2xs);font-weight:500;flex-shrink:0")}>{index + 1}</span>
                         <span>{item}</span>
                       </div>
                     ))}
@@ -662,21 +666,21 @@ export function AuditReportView({
           <div style={css("position:" + (mobile ? "static" : "sticky") + ";top:1rem;align-self:start;display:flex;flex-direction:column;gap:0.7rem")}>
             <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);padding:" + (mobile ? "1rem" : "1.2rem") + ";text-align:center")}>
               <div style={{ width: "6rem", height: "6rem", margin: "0 auto", borderRadius: "50%", background: "color-mix(in srgb,var(--cocoon) 14%,white 86%)", border: "0.24rem solid color-mix(in srgb,var(--cocoon) 58%,white 42%)", display: "grid", placeItems: "center" }}>
-                <div style={css("width:4.7rem;height:4.7rem;border-radius:50%;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center")}><span style={css("font-size:1.6rem;font-weight:500;line-height:1")}>{report.overall}</span><span style={css("font-size:0.58rem;color:var(--fg-faint);line-height:1;margin-top:0.15rem")}>/ 100</span></div>
+                <div style={css("width:4.7rem;height:4.7rem;border-radius:50%;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center")}><span style={css("font-size:var(--text-3xl);font-weight:500;line-height:1")}>{report.overall}</span><span style={css("font-size:var(--text-2xs);color:var(--fg-faint);line-height:1;margin-top:0.15rem")}>/ 100</span></div>
               </div>
               <div style={css("font-size:var(--text-lg);font-weight:500;margin-top:0.7rem")}>{report.headline}</div>
-              <div style={css("display:flex;align-items:center;justify-content:center;gap:0.4rem;font-size:0.8rem;color:var(--fg-muted);margin-top:0.5rem")}><span>{report.overall}</span><span style={{ color: "var(--cocoon)" }}><Icon name="arrow" size={13} /></span><span style={{ color: "var(--cocoon)", fontWeight: 500 }}>{report.target}</span><span style={{ color: "var(--success)", fontWeight: 500 }}>+{overallDelta}</span></div>
-              <div style={css("font-size:0.68rem;color:var(--fg-faint);margin-top:0.15rem")}>Projected after Winged in a Week</div>
+              <div style={css("display:flex;align-items:center;justify-content:center;gap:0.4rem;font-size:var(--text-sm);color:var(--fg-muted);margin-top:0.5rem")}><span>{report.overall}</span><span style={{ color: "var(--cocoon)" }}><Icon name="arrow" size={13} /></span><span style={{ color: "var(--cocoon)", fontWeight: 500 }}>{report.target}</span><span style={{ color: "var(--success)", fontWeight: 500 }}>+{overallDelta}</span></div>
+              <div style={css("font-size:var(--text-2xs);color:var(--fg-faint);margin-top:0.15rem")}>Projected after Winged in a Week</div>
             </div>
             <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:oklch(0.985 0.012 22);padding:" + (mobile ? "0.9rem" : "1rem 1.1rem") + ";box-shadow:inset 0 0 0 1px oklch(0.88 0.04 20 / 0.3)")}>
-              <div style={css("font-size:0.8rem;color:var(--fg-muted);line-height:1.5")}>{report.sprintIntro}</div>
-              <button onClick={() => { onBack(); actions.setView("funnels"); }} className="pt-op" style={css("margin-top:0.8rem;width:100%;height:2.2rem;border-radius:var(--radius-pill);border:none;background:var(--fg);color:#fff;font-size:0.8rem;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:0.4rem")}>Build a plan <Icon name="arrow" size={13} /></button>
+              <div style={css("font-size:var(--text-sm);color:var(--fg-muted);line-height:1.5")}>{report.sprintIntro}</div>
+              {canOpenLabs && <button onClick={() => { onBack(); actions.setView("funnels"); }} className="pt-op" style={css("margin-top:0.8rem;width:100%;height:2.2rem;border-radius:var(--radius-pill);border:none;background:var(--fg);color:#fff;font-size:var(--text-sm);font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:0.4rem")}>Build a plan <Icon name="arrow" size={13} /></button>}
             </div>
           </div>
 
           <div style={css("display:flex;flex-direction:column;gap:0.7rem;min-width:0")}>
-            {!(showInlineProposal || initialProposalOpen) && <PriorityPlanCards themes={recommendationThemes} mobile={mobile} />}
-            {(showInlineProposal || initialProposalOpen) && (
+            {(!canManageStudioWork || !(showInlineProposal || initialProposalOpen)) && <PriorityPlanCards themes={recommendationThemes} mobile={mobile} />}
+            {canManageStudioWork && (showInlineProposal || initialProposalOpen) && (
               <InlineAuditProposal
                 client={clientName}
                 scoreNow={proposal.scoreNow}
@@ -696,7 +700,7 @@ export function AuditReportView({
       )}
 
       </div>
-      {importOpen && (
+      {canManageStudioWork && importOpen && (
         <AuditTaskImportModal
           clientName={clientName}
           drafts={importDrafts}

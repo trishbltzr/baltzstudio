@@ -1,6 +1,6 @@
 import { ArrowRight, Building2, Check, Eye, EyeOff, Feather, Lock, Mail, Search, User, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { resolveDashboardUser } from "@/lib/auth";
+import { fetchAuthenticatedDashboardUser } from "@/lib/auth";
 import { REMEMBER_LOGIN_AFTER_OAUTH_STORAGE_KEY, type LoginUser } from "@/lib/authTypes";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -13,28 +13,6 @@ const JOURNEY_STEPS = [
 // Keep the OAuth implementation ready to restore without exposing an inactive
 // login path in the interface.
 const GOOGLE_SIGN_IN_VISIBLE = false;
-
-const QUICK_LOGIN_USERS: Array<{ label: string; detail: string; user: LoginUser }> = [
-  {
-    label: "Admin",
-    detail: "Studio workspace",
-    user: {
-      email: "trisha@baltazarstudio.co",
-      name: "Trisha Baltazar",
-      role: "admin",
-    },
-  },
-  {
-    label: "Client",
-    detail: "CreatorIQ portal",
-    user: {
-      email: "creator-iq@client.baltazarstudio.co",
-      name: "CreatorIQ",
-      role: "client",
-      clientName: "CreatorIQ",
-    },
-  },
-];
 
 export function LoginPage({
   onLogin,
@@ -104,13 +82,11 @@ export function LoginPage({
       return;
     }
 
-    const nextUser = resolveDashboardUser(
-      data.user.email,
-      pickSupabaseName(data.user.user_metadata),
-    );
+    const nextUser = await fetchAuthenticatedDashboardUser();
 
     if (!nextUser) {
-      setMessage({ tone: "error", text: "We couldn't map this account into the portal yet." });
+      await supabase.auth.signOut();
+      setMessage({ tone: "error", text: "This account is signed in, but it has not been assigned portal access yet." });
       setLoading(false);
       return;
     }
@@ -434,61 +410,32 @@ export function LoginPage({
               >
                 Back to Sign In
               </button>
-            ) : (
+            ) : GOOGLE_SIGN_IN_VISIBLE ? (
               <>
                 <div className="login-divider" aria-hidden="true">
                   <span />
-                  <small>quick access</small>
+                  <small>or</small>
                   <span />
                 </div>
 
-                <div className="login-quick-grid" aria-label="Quick login options">
-                  {QUICK_LOGIN_USERS.map(option => (
-                    <button
-                      key={option.user.role}
-                      type="button"
-                      className="login-quick-btn"
-                      onClick={() => onLogin(option.user, false)}
-                      disabled={loading}
-                    >
-                      <span className="login-quick-avatar" aria-hidden="true">{option.label.charAt(0)}</span>
-                      <span className="login-quick-copy">
-                        <strong>Continue as {option.label}</strong>
-                        <small>{option.detail}</small>
-                      </span>
-                      <ArrowRight size={15} aria-hidden="true" />
-                    </button>
-                  ))}
-                </div>
-
-                {GOOGLE_SIGN_IN_VISIBLE ? (
-                  <>
-                    <div className="login-divider" aria-hidden="true">
-                      <span />
-                      <small>or</small>
-                      <span />
-                    </div>
-
-                    <button
-                      type="button"
-                      className="login-google-btn"
-                      onClick={handleSSOClick}
-                      disabled={loading || assistLoading === "google"}
-                    >
-                      <span className="login-google-mark" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" role="presentation">
-                          <path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.55-.2-2.27H12v4.3h6.45a5.52 5.52 0 0 1-2.39 3.62v3.01h3.88c2.27-2.09 3.55-5.16 3.55-8.66Z" />
-                          <path fill="#34A853" d="M12 24c3.24 0 5.95-1.07 7.94-2.9l-3.88-3.01c-1.07.72-2.45 1.15-4.06 1.15-3.12 0-5.76-2.1-6.7-4.92H1.3v3.1A12 12 0 0 0 12 24Z" />
-                          <path fill="#FBBC05" d="M5.3 14.32A7.18 7.18 0 0 1 4.92 12c0-.8.14-1.58.38-2.32v-3.1H1.3A12 12 0 0 0 0 12c0 1.93.46 3.76 1.3 5.42l4-3.1Z" />
-                          <path fill="#EA4335" d="M12 4.77c1.76 0 3.34.61 4.59 1.81l3.44-3.44C17.94 1.16 15.24 0 12 0A12 12 0 0 0 1.3 6.58l4 3.1c.94-2.82 3.58-4.91 6.7-4.91Z" />
-                        </svg>
-                      </span>
-                      <span>{assistLoading === "google" ? "Redirecting to Google..." : "Continue with Google"}</span>
-                    </button>
-                  </>
-                ) : null}
+                <button
+                  type="button"
+                  className="login-google-btn"
+                  onClick={handleSSOClick}
+                  disabled={loading || assistLoading === "google"}
+                >
+                  <span className="login-google-mark" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" role="presentation">
+                      <path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.55-.2-2.27H12v4.3h6.45a5.52 5.52 0 0 1-2.39 3.62v3.01h3.88c2.27-2.09 3.55-5.16 3.55-8.66Z" />
+                      <path fill="#34A853" d="M12 24c3.24 0 5.95-1.07 7.94-2.9l-3.88-3.01c-1.07.72-2.45 1.15-4.06 1.15-3.12 0-5.76-2.1-6.7-4.92H1.3v3.1A12 12 0 0 0 12 24Z" />
+                      <path fill="#FBBC05" d="M5.3 14.32A7.18 7.18 0 0 1 4.92 12c0-.8.14-1.58.38-2.32v-3.1H1.3A12 12 0 0 0 0 12c0 1.93.46 3.76 1.3 5.42l4-3.1Z" />
+                      <path fill="#EA4335" d="M12 4.77c1.76 0 3.34.61 4.59 1.81l3.44-3.44C17.94 1.16 15.24 0 12 0A12 12 0 0 0 1.3 6.58l4 3.1c.94-2.82 3.58-4.91 6.7-4.91Z" />
+                    </svg>
+                  </span>
+                  <span>{assistLoading === "google" ? "Redirecting to Google..." : "Continue with Google"}</span>
+                </button>
               </>
-            )}
+            ) : null}
           </form>
 
           {!isForgotMode ? (
@@ -644,16 +591,6 @@ async function isOAuthProviderEnabled(provider: string): Promise<boolean> {
   } catch {
     return true;
   }
-}
-
-function pickSupabaseName(metadata: unknown) {
-  if (!metadata || typeof metadata !== "object") return null;
-  const record = metadata as Record<string, unknown>;
-  return typeof record.full_name === "string"
-    ? record.full_name
-    : typeof record.name === "string"
-      ? record.name
-      : null;
 }
 
 function firstName(name: string) {

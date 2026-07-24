@@ -26,6 +26,384 @@ Note: use `[~]` only when code has landed but TypeScript/build/browser verificat
 
 ---
 
+## Active Workflow Improvement: Durable Handoffs
+
+Source: highest-value process improvement item 4, continued July 23, 2026.
+
+- [x] Expand the existing persisted Checkup-to-Lab handoff into a durable record with source/output versions, approved scope, included recommendations, unresolved items, approval state, sender, receiver, and timestamps.
+- [x] Link implementation To-do IDs back to the originating handoff when Website Lab imports its task plan.
+- [x] Show a compact Website Lab handoff summary without adding automatic approvals, notifications, or publishing.
+- [x] Verify TypeScript, production build, persistence compatibility, and the CreatorIQ Website Lab surface. Evidence: TypeScript, diff check, and webpack build pass; CreatorIQ displays Trish Baltazar → Website Lab, output v1, 8 scope items, 4 recommendations, approved status, and 9 task IDs after import with no 1280px horizontal overflow.
+
+---
+
+## Active Workflow Improvement: Standard AI Review States
+
+Source: highest-value process improvement item 5, continued July 23, 2026.
+
+- [x] Define one shared `Not generated → Draft → Needs review → Approved → Shared` lifecycle with deterministic forward transitions and an explicit Needs review → Draft revision path.
+- [x] Persist review state in guided Checkup and Lab sessions while deriving safe states for older saved sessions.
+- [x] Replace local AI-output status variants across generated stages, Funnel cards, Social Media planning, and Approvals.
+- [x] Verify TypeScript, production build, backwards compatibility, and representative live states without enabling automatic approval or publishing.
+  - Live evidence: seeded Social Media cards render `Draft`, `Needs review`, and `Not generated`; the current CreatorIQ Funnel renders `Draft`.
+
+---
+
+## Active Workflow Improvement: Client Capability Access
+
+Source: highest-value process improvement item 6, continued July 23, 2026.
+
+- [x] Define one central capability profile for Studio, standard Client, collaborative Client, and In Full Flight Client access.
+- [x] Keep the shared Brand, Website, and SEO Checkup skeleton available to standard clients while limiting them to intake, process tracking, approved outputs, feedback, and Approvals.
+- [x] Expose live Lab stages only to collaborative and In Full Flight clients; keep evidence, studio approvals, proposal publishing, resets, and task imports internal.
+- [x] Verify Admin/Manager continuity, standard Client navigation and direct-route guards, approved-output presentation, and responsive behavior. Evidence: the standard CreatorIQ Client nav contains Checkups but no Labs; its Snapshot shows Checkups plus Approvals and only three Checkup process cards; the Website Checkup retains the shared three-stage rail and approved action plan while rendering zero Generate, Approve, Start over, task-import, or Website Lab controls. Admin retains Checkups and Labs. TypeScript, diff check, and the webpack production build pass.
+
+---
+
+## Active Workflow Improvement: Assignee-aware Notification Events
+
+Source: highest-value process improvement item 7, continued July 23, 2026.
+
+- [x] Define a typed, role-scoped notification event derived from existing task ownership and lifecycle state.
+- [x] Replace static placeholder update counts with actionable task, review, escalation, inbox, and client-journey events.
+- [x] Reconcile task completion and reopening at render time so stale task notifications disappear without enabling background sends or unapproved automation.
+- [x] Verify task completion/reopening changes the correct Admin, Manager, and Client notification digest; then run TypeScript, diff check, and the production build. Browser evidence: Admin changed from 0 updates to `CreatorIQ completed Approve the master platform narrative`, then returned to 0 when the task reopened; Manager remained at 0 because the task is outside its assigned clients; CreatorIQ Client received 9 client-owned actions in a bounded five-row digest with `+4 more updates`. TypeScript, diff check, and the webpack production build pass.
+
+---
+
+## Active Workflow Improvement: White-label Checkup Exports
+
+Source: highest-value process improvement item 9, continued July 23, 2026. The reusable profile supports Baltazar Studio, direct-client, and partner branding; Baltazar Studio remains the safe default.
+
+- [x] Add one persisted export profile per client with branding mode, approved display name, accent, review status, current version, and recoverable version history.
+- [x] Reuse one compact export control across Brand, Website, and SEO Checkup reports while keeping Client access read-only.
+- [x] Render the approved profile and version in the printable document, strip controls and internal-only content, and never mark an export sent automatically.
+- [x] Verify Admin configuration, Client-safe preview, PDF/print preparation, persistence compatibility, TypeScript, diff check, and the production build. Evidence: Admin reloads `CreatorIQ · v1 · ready` and exposes branding, display-name, status, and accent controls; CreatorIQ Client sees the same profile as a non-interactive label with zero settings; the print document renders a CreatorIQ-branded cover and removes all buttons/internal controls; TypeScript, diff check, and the webpack build pass.
+
+---
+
+## Active Batch: Domain-Neutral Checkups And Adaptive Containers
+
+Source: Website Checkup browser comments and multi-client readiness request, captured July 23, 2026.
+
+- [x] Remove the provisional-score badge and make current/projected card scores the same size. Evidence: current, arrow, and projected value all compute to 18.88px; report text contains no Provisional score badge.
+- [x] Treat CreatorIQ as seeded, selectable demo data only: it is no longer the fallback Client context; Start checkup creates a clean unassigned intake, while changing an unassigned Checkup domain replaces the previous source-review memory and derives the visible identity from the new domain. Evidence: the fallback Client role opens Blue Ribbon with no CreatorIQ context; a new unassigned run contains no CreatorIQ report text and changes its visible source label to `example.org` after entering `https://example.org`.
+- [x] Make shared Checkup/Lab card grids choose their column count from available width without stretching a sparse card set edge-to-edge. Evidence: the shared grid renders 3/2/2/2/1 columns at 1357/1142/1000/760/390px with one card occupying a reserved track rather than bleeding across the workspace.
+- [x] Collapse constrained guided-workspace and report-summary columns before their content becomes cramped. Evidence: report summary renders two 489px columns at 1357px, then one 775px/633px column at 1142px/1000px and one fluid column on mobile.
+- [x] Verify a non-CreatorIQ URL, desktop/tablet/mobile column behavior, no horizontal page overflow, TypeScript, diff check, and the production build. Evidence: every measured viewport reports zero horizontal page overflow; TypeScript, diff check, and the webpack build pass.
+- [x] Adapt Website Checkup card content to lifecycle state: intake cards prioritize progress and the next action, while scored cards retain the category snapshot.
+- [x] Add a live audit overview module that occupies the spare wide-screen track, becomes a horizontal summary at medium widths, and condenses into a compact mobile module.
+- [x] Verify the composition—not only dimensions—changes across wide, medium, and mobile containers without overflow or lost actions. Evidence: at 1357px the overview shares the three-track row; at 760px it spans above the two-card grid; at 390px the actionable client cards lead and the overview follows. All three measurements reported zero horizontal overflow, overlays, or console errors; TypeScript, diff check, and the webpack production build pass.
+
+---
+
+## Active Workflow Improvement: Studio Review Command Center
+
+Source: remaining implementation-order item 6, continued July 23, 2026. This pass is deliberately review-only: it does not add automatic approval, payment, email, publishing, reminder, or deletion actions.
+
+- [x] Derive one role-scoped review queue from pending outputs, process approval gates, review-stage To-do's, escalations, and unread client threads.
+- [x] Replace the placeholder Approvals notes panel with an at-a-glance command center showing queue counts, urgency, client context, ownership, and the exact destination for each item.
+- [x] Keep the existing explicit Send to client action for reviewed outputs while ensuring Manager only sees assigned clients and Client retains the current read-only approvals page.
+- [x] Verify Admin, Manager, and Client behavior at desktop and mobile widths, then run TypeScript, diff check, and the production build. Evidence: Admin opens `?view=review` directly with one pending CreatorIQ output and the explicit Send action; Manager opens the command center with no CreatorIQ leakage; Client keeps `Final work ready for you` with no studio queue; Admin at 390 px and all desktop role checks report zero document/main horizontal overflow. `tsc --noEmit`, `git diff --check`, and `next build --webpack` pass.
+
+---
+
+## Active Workflow Improvement: Explicit Process Stage Overview
+
+Source: next safe unfinished Batch 6 workflow item, continued July 23, 2026. This pass reads the existing persisted process state and does not advance stages or trigger automation.
+
+- [x] Derive a role-safe next-stage label for every process tracker item while keeping internal client-hidden stages private.
+- [x] Show explicit Current stage and Next stage context on each process card alongside owner, blocker, and next action.
+- [x] Preserve the adaptive bounded carousel and deep-link behavior for Admin, Manager, and Client.
+- [x] Verify role scoping, client-safe labels, desktop/mobile layout, TypeScript, diff check, and the production build. Evidence: Admin renders six process cards with paired Current/Next labels and deep-links the first Website Checkup to its source; Manager renders the correct empty assigned-process state without CreatorIQ fallback; Client renders three own-process cards, replaces an internal SEO stage with `Studio review`, skips the hidden Website report stage, and deep-links safely. Admin desktop/mobile and Client desktop report zero document, main, or tracker overflow. `tsc --noEmit`, `git diff --check`, and `next build --webpack` pass.
+- [x] Keep blocker pills concise, such as `Overdue`, while preserving the owner and recovery action in the process record and an accessible hover label.
+- [x] Verify blocker labels remain compact across Snapshot desktop and mobile cards without losing the full recovery detail. Evidence: desktop and 390 px render only `Overdue` in the pill, retain the full owner/recovery copy in `title` and `aria-label`, report no console errors or framework overlay, and have zero document overflow.
+
+---
+
+## Active Workflow Improvement: Admin Lead Intake Visibility
+
+Source: next safe unfinished Batch 6 workflow items, continued July 23, 2026. Data remains clearly marked preview/mock data; no landing-page integration, email send, or link automation is enabled.
+
+- [x] Add typed mock lead contact, business, website, capture, and Cocoon-link delivery metadata to the shared client roster.
+- [x] Show the lead-intake and Cocoon-link status in Client Details for Admin only.
+- [x] Keep Manager and Client from receiving the Admin lead panel, and provide no automatic send control.
+- [x] Verify multiple clients, Admin desktop/mobile, Manager isolation, TypeScript, diff check, and the production build. Evidence: CreatorIQ renders `Consult completed`, Blue Ribbon renders `Link sent`, and Concertina renders `Not sent` plus `Manual action required` with no send-link button. Admin desktop, 1000 px, and 390 px report zero document/main overflow. Manager Client Details contains no lead panel, its roster contains 12 assigned clients and no CreatorIQ, while Client direct access to `?view=clients` redirects to Snapshot. `tsc --noEmit`, `git diff --check`, and `next build --webpack` pass.
+
+---
+
+## Active Workflow Improvement: Item 8 WIAW And In Full Flight Access Gates
+
+Source: implementation-order item 8 / Batch 9, continued July 23, 2026. This pass enforces persisted prerequisites and explains locked access; it does not confirm payment, accept a handoff, or start a service automatically.
+
+- [x] Require an approved, accepted-or-linked Cocoon strategy handoff before a WIAW Client can enter live Labs.
+- [x] Require completed WIAW delivery or an accepted retained-service handoff before an In Full Flight Client can enter live Labs.
+- [x] Keep locked Labs hidden from Client navigation while allowing a direct URL to show a useful, client-safe prerequisite explanation.
+- [x] Keep Checkups and approved outputs available under the existing capability rules.
+- [x] Verify eligible and ineligible WIAW/IFF clients, desktop/mobile locked states, navigation, TypeScript, diff check, and the production build. Browser evidence: eligible CreatorIQ WIAW/IFF sessions retain Labs and render the builder; ineligible Blue Ribbon WIAW/IFF sessions hide Labs, retain Checkups, and show the approved-output recovery route. Desktop and 390 px report zero horizontal overflow. `tsc --noEmit`, `git diff --check`, and `next build --webpack` pass.
+
+---
+
+## Active Workflow Improvement: Template Governance And Exception Operations
+
+Source: process and template governance request captured July 23, 2026. This pass adds explicit metadata, recovery ownership, and operational measurement without auto-publishing templates or advancing live client work.
+
+### Template governance
+
+- [x] Add Draft, Published, and Archived lifecycle states to reusable Playbooks.
+- [x] Add version, change summary, owner, last-reviewed date, usage count, and active-run metadata.
+- [x] Distinguish locked core steps from editable client fields.
+- [x] Define required inputs, validation rules, approval requirements, role preview, and sample-data preview.
+- [x] Keep existing saved/custom Playbooks backwards compatible through safe defaults.
+
+### Exception operations
+
+- [x] Model missing access/assets, failed crawl/generation, unsupported evidence, client inactivity, rejected approval, scope change, reopened stage, failed handoff, and overdue work.
+- [x] Require every open exception to name an owner and recovery action.
+- [x] Surface exceptions as blockers instead of allowing indefinite generic In Progress states.
+- [x] Preserve an exception and recovery history when work resumes.
+
+### Shared terminology
+
+- [x] Use Checkup for diagnostic client services.
+- [x] Use Lab for implementation planning/building workspaces.
+- [x] Use Playbook for internal reusable operating templates.
+- [x] Use Approval for client decision surfaces.
+- [x] Use Journey for client-facing progress and milestones.
+
+### Operational quality
+
+- [x] Derive time in stage, blocked time, approval turnaround, revision count, and handoff success from process events.
+- [x] Track recommendations converted to tasks, tasks completed from recommendations, client inactivity, and automation failures.
+- [x] Show operational-quality signals in the Playbook/process surfaces without replacing diagnostic scores or completion percentages.
+- [x] Verify lifecycle editing, role/sample previews, exception recovery, metrics, responsive behavior, TypeScript, diff check, and the production build. Evidence: the seven built-in Playbooks render governed metadata; a custom Playbook persists Draft → Published; role and sample-data previews open; all nine recovery policies and operational metrics render; desktop and 390 px report no console error, framework overlay, or horizontal overflow. `tsc --noEmit`, `git diff --check`, and `next build --webpack` pass.
+
+---
+
+## Active Batch: Snapshot, Client Cards, and Inbox Polish
+
+Source: browser comments captured July 23, 2026.
+
+Target: `http://localhost:3412/dashboard` across Snapshot, Clients, and Inbox.
+
+### Comment Checklist
+
+- [x] **1. Simplify Snapshot client rows**
+  - [x] Remove the duplicated project/service subtitle beneath the client name.
+  - [x] Make client initials circular in populated and empty rows.
+  - [x] Verify the Snapshot table remains aligned and readable. Evidence: the first five live rows have one-line name cells and 32px square initials with a 50% radius.
+
+- [x] **2. Standardize Clients cards**
+  - [x] Make every leading client initial circular.
+  - [x] Split the Admin card footer into two equal-width actions.
+  - [x] Verify all visible cards use consistent geometry. Evidence: the first three live cards have 31.2px circular initials and footer actions within 1px of equal width.
+
+- [x] **3. Simplify Snapshot-created Inbox transcripts**
+  - [x] Remove the User and Baltz AI label pills.
+  - [x] Preserve readable question/response spacing and supported bold text.
+  - [x] Verify ordinary Inbox messages remain unchanged. Evidence: the ticket renders two label-free regions, the response retains four semantic bold spans, and non-transcript messages still use their original rendering path.
+
+- [x] **4. Make Snapshot stats adaptive**
+  - [x] Keep the stat cards on one line when they fit.
+  - [x] Switch to a horizontally scrollable strip before the cards would wrap.
+  - [x] Apply the shared behavior to Admin, Manager, and Client stat strips.
+  - [x] Verify desktop, constrained desktop/tablet, and mobile behavior. Evidence: six cards occupy one row at every width; 1331px fits without overflow, 1142px scrolls within 790px, and 390px scrolls within 314px with zero page overflow.
+
+### Verification Checklist
+
+- [x] `tsc --noEmit`, `git diff --check`, and `next build --webpack` pass.
+- [x] Snapshot, Clients, and Inbox load without new runtime errors.
+- [x] The revised surfaces remain readable without unintended page overflow.
+
+### July 23 adaptive engine follow-up
+
+- [x] Make Checkup and Lab index grids respond to their own available container width and card count: one bounded card, two balanced columns, or an auto-fitting multi-card grid.
+- [x] Stack the engine overview inside the hero when its container becomes constrained instead of stretching sparse content edge to edge.
+- [x] Keep CreatorIQ demo data explicit while allowing arbitrary client/domain records to render through the same card and workflow skeleton.
+- [x] Verify the engine surfaces at 1357, 1024, 768, and 390 px with zero horizontal page overflow; the card grid changes 3 → 2 → 2 → 1 columns and the hero overview stacks before it collides.
+- [x] Verify production and focused checks: TypeScript, diff check, webpack build, mobile smoke, all six Admin/Client engine routes, governed-agent smoke, and six-case agent eval.
+
+### Execution Rules
+
+Proceed one checklist item at a time: implement, verify, update this section, then continue.
+
+---
+
+## Active Batch: Compact Checkup Results and Shared Client Skeletons
+
+Source: browser comments on the CreatorIQ Website report plus the Client-role parity request, captured July 23, 2026.
+
+Target: `http://localhost:3412/dashboard?view=audits&auditType=website&auditReport=creator-iq&auditReportRun=audit-creator-iq-demo` and the Client Brand, Website, and SEO Checkup routes.
+
+### Comment Checklist
+
+- [x] **1. Move category specifics into a popup**
+  - [x] Keep each checklist category as a compact score-and-status summary.
+  - [x] Open the full passed, failed, unverified, and N/A evidence list in an accessible modal.
+  - [x] Verify opening, closing, keyboard dismissal, and page-length reduction. Evidence: six compact summaries render; Content opens seven checks, focuses its close control, closes with Escape, and reduces the report body to about 1,956px before the handoff.
+  - [x] Render the popup at the document root so report-card containment cannot clip or reposition it. Evidence: the dialog parent is `BODY` and its overlay covers the full 1331×878 viewport.
+  - [x] Ensure opening one category closes any previously open category popup. Evidence: category cards broadcast one shared active-dialog key, and the full-screen overlay prevents interaction with underlying category triggers.
+  - [x] Re-verify centered desktop and mobile geometry against the viewport. Evidence: desktop centers a 736px panel; mobile renders a 358px panel with 16px gutters inside 390px, zero page overflow, working Escape dismissal, and no console errors.
+
+- [x] **2. Remove the redundant score formula**
+  - [x] Remove the `passed ÷ ... × 100` line from category summaries.
+  - [x] Keep the Passed, Failed, Unverified, and N/A pills as the score breakdown. Evidence: Content renders `6 Passed`, `1 Failed`, `0 Unverified`, and `0 N/A` with no category formula line.
+
+- [x] **3. Improve the next-service handoff**
+  - [x] Clarify the hierarchy and benefit of continuing into Website Builder.
+  - [x] Preserve the client context, no-reupload promise, and existing destination.
+  - [x] Verify the handoff remains compact and responsive. Evidence: the handoff now reads findings → rebuild scope → delivery tasks, retains both context pills, and has no desktop or 390px overflow.
+
+- [x] **4. Unify Client Checkup skeletons**
+  - [x] Use the same shared Brand, Website, and SEO Checkup workspace/pipeline skeletons in Client mode.
+  - [x] Preserve Client-only navigation, permissions, and client scoping.
+  - [x] Verify all three Client Checkup types render the same stage structure as their studio equivalents. Evidence: Client Brand, Website, and SEO expose `Audit intake`, `Audit report`, and `Action plan`; SEO now reports a three-stage workflow and uses its Client report state.
+
+### Verification Checklist
+
+- [x] `tsc --noEmit`, `git diff --check`, and `next build --webpack` pass.
+- [x] Admin and Client Checkup routes load without new runtime errors.
+- [x] Category summaries, modal content, and handoff remain readable at desktop and mobile widths. Evidence: the mobile modal is 285px inside a 390px viewport with zero page overflow.
+
+### Execution Rules
+
+Proceed one checklist item at a time: implement, verify, update this section, then continue.
+
+---
+
+## Active Batch: Card Detail Hierarchy and Inbox Transcript Formatting
+
+Source: browser comments on Brand and Website Checkup cards plus the Snapshot-created Inbox ticket, captured July 23, 2026.
+
+Target: `http://localhost:3412/dashboard?view=audits` and `http://localhost:3412/dashboard?view=inbox`.
+
+### Comment Checklist
+
+- [x] **1. Rebalance Brand preview labels and values**
+  - [x] Put Colours, Typeface, and Voice traits labels on the left and their values on the right.
+  - [x] Keep overlapping colour swatches and `+n` overflow.
+  - [x] Spell out the first typeface and voice trait, then retain an overflow count.
+  - [x] Verify the three-row treatment matches existing portal label/value hierarchy. Evidence: the preview is 289px wide with a 287px scroll width and zero page overflow.
+  - [x] Present the typeface value in a compact pill. Evidence: Proxima Nova has a 1px border and 999px radius.
+  - [x] Show only the dominant voice trait in a pill, followed by a `+n` remainder. Evidence: CreatorIQ renders `Authoritative +3`.
+
+- [x] **2. Reduce the audit score pair**
+  - [x] Make the current and projected numbers smaller.
+  - [x] Match the arrow size to the green projected number.
+  - [x] Preserve score prominence, uplift, progress, and category bars. Evidence: the Website card renders current/projected at 20.48px and 18.88px, with the arrow also at 18.88px.
+
+- [x] **3. Make shared client initials circular**
+  - [x] Replace the nearly-circular radius with a true circle in the shared card component.
+  - [x] Verify consistent geometry across all shared Checkup and Lab cards. Evidence: the shared CreatorIQ tile is a 31.2px square with a 50% radius.
+
+- [x] **4. Format Snapshot ticket transcripts in Inbox**
+  - [x] Separate User and Baltz AI transcript entries into readable blocks.
+  - [x] Render supported bold Markdown without exposing raw `**` markers.
+  - [x] Preserve ordinary Inbox messages, timestamps, sender alignment, and ticket behavior. Evidence: the CreatorIQ ticket exposes separate User/Baltz AI labels and semantic strong text while retaining `CreatorIQ · Now`.
+
+- [x] **5. Move the report print action to the bottom**
+  - [x] Remove the print/save action from the report header area.
+  - [x] Place the same action after the complete report content.
+  - [x] Preserve the existing PDF behavior and button styling. Evidence: one print button renders at y=14,060 after the checklist begins at y=1,248.
+
+- [x] **6. Remove the duplicate overall-score tile**
+  - [x] Remove the standalone `/100` score tile from the report summary.
+  - [x] Keep the score explanation, reliability, evidence coverage, category scores, and checklist results. Evidence: no exact `94/100` leaf remains; the complete category and checklist sections still render.
+
+### Verification Checklist
+
+- [x] `tsc --noEmit`, `git diff --check`, and `next build --webpack` pass.
+- [x] Brand, Website, Inbox, and Client report routes load without new runtime errors.
+- [x] Revised cards, transcript, and report remain within their containers without overflow.
+
+### Execution Rules
+
+Proceed one checklist item at a time: implement, verify, update this section, then continue.
+
+---
+
+## Active Batch: Audit Card Cleanup and Checklist AI Boundary
+
+Source: browser comments on SEO and Brand Checkup cards plus the audit-checklist AI question, captured July 23, 2026.
+
+Target: `http://localhost:3412/dashboard?view=audits&auditType=seo` and `http://localhost:3412/dashboard?view=audits&auditType=brand`.
+
+### Comment Checklist
+
+- [x] **1. Simplify the SEO card header**
+  - [x] Remove the sitemap source-and-date subtitle from initiated SEO cards.
+  - [x] Preserve client name, crawl status, refresh action, score, and card actions.
+  - [x] Verify the CreatorIQ card header remains balanced.
+
+- [x] **2. Balance the current and projected SEO scores**
+  - [x] Render both score numbers at nearly the same size while keeping the current score slightly dominant.
+  - [x] Preserve the arrow, uplift, progress marker, and category evidence.
+  - [x] Verify the `89 → 90` hierarchy live. Evidence: current and projected scores render at 24.8px and 22.08px; the arrow remains a quieter 12.48px.
+
+- [x] **3. Redesign the Brand card preview as a vertical list**
+  - [x] Remove the Brand system preview heading row.
+  - [x] Stack Colours, Typefaces, and Voice as three compact rows.
+  - [x] Use left-aligned overlapping markers, show at most three, and add `+n` for additional items.
+  - [x] Verify the CreatorIQ preview retains its five colours, one typeface, and four voice traits without overflow. Evidence: three rows render at 289px wide with `+2` colours and `+1` voice traits, and a 287px internal scroll width.
+
+- [x] **4. Document the audit-checklist AI boundary**
+  - [x] Deterministic checks should run from crawl, DOM, Lighthouse, or connected data: status/indexation, redirects, titles, descriptions, headings, canonicals, link depth, structured data, performance, accessibility, analytics, and Search Console evidence.
+  - [x] AI is useful only for qualitative evidence classification: clarity, tone, hierarchy, scannability, familiar interaction patterns, visual consistency, and whether content directly answers intent.
+  - [x] Keep scoring deterministic as passed divided by passed plus failed; leave unsupported checks unverified or human-reviewed. The current website audit already follows this model, while SEO auto-verifies crawl-supported checks without requiring AI.
+
+- [x] **5. Round every shared client-card initial tile**
+  - [x] Make the leading client initial tile nearly circular in the shared card component.
+  - [x] Apply the treatment across Website, Brand, SEO, and Lab indexes.
+  - [x] Verify the CreatorIQ Website card and shared card variants retain alignment. Evidence: the shared tile is a 31.2px square with a 42% radius and the Website card has no page overflow.
+
+### Verification Checklist
+
+- [x] `tsc --noEmit`, `git diff --check`, and `next build --webpack` pass.
+- [x] SEO, Brand, and Website cards load without new console/runtime errors.
+- [x] The revised cards remain readable without horizontal overflow.
+
+### Execution Rules
+
+Proceed one checklist item at a time: implement, verify, update this section, then continue.
+
+---
+
+## Active Batch: Approval Count, Demo Labels, and Social Cards
+
+Source: browser comments on Manager Approvals and the Social Media Lab, captured July 23, 2026.
+
+Target: `http://localhost:3412/dashboard?view=review` and `http://localhost:3412/dashboard?view=funnels&builderType=social` across the shared portal shell.
+
+### Comment Checklist
+
+- [x] **1. Keep the Approvals badge accurate**
+  - [x] Derive the desktop and mobile badge from the same role-scoped, unsent approval records shown in Approvals.
+  - [x] Hide the badge when the current role has no work waiting for client review.
+  - [x] Verify the Manager badge matches the visible Approvals queue.
+
+- [x] **2. Rename every engine preview badge to Demo**
+  - [x] Replace the shared Checkups and Labs `Beta` labels with `Demo`.
+  - [x] Verify the label across shared Admin and Manager navigation surfaces.
+
+- [x] **3. Remove social calendar summary metrics**
+  - [x] Remove the Months, Planned posts, and Latest strip from every Social Media calendar card.
+  - [x] Preserve the calendar preview and individual month rows.
+  - [x] Verify all visible social cards use the simplified layout at desktop and mobile widths. Evidence: the shared card mapping no longer supplies the strip at any breakpoint; all three live cards retain their calendar preview and July 2026 row.
+
+### Verification Checklist
+
+- [x] `tsc --noEmit`, `git diff --check`, and `next build --webpack` pass.
+- [x] The Manager Approvals page and badge are driven by the same filtered records.
+- [x] No shared portal navigation badge still says `Beta`.
+- [x] Social Media cards render without the removed summary strip or responsive overflow.
+- [x] Target routes load without new console or runtime errors.
+
+### Execution Rules
+
+Proceed one checklist item at a time: implement, verify, update this section, then move to the next item.
+
+---
+
 ## Active Batch: Remembered Profile Login
 
 Source: login flow refinement requested for `http://localhost:3412/login`, captured July 16, 2026.
@@ -963,6 +1341,141 @@ Proceed one checklist item at a time:
 2. Run targeted verification for that item.
 3. Update this checklist immediately.
 4. Move to the next item only after the current item is verified or marked `[~]` with a blocker note.
+
+## Active Batch: Engine Hero At-a-Glance Consolidation
+
+Source: Browser comments 1–10 on Website, Brand, and SEO Checkups plus Funnel, Social Media, and Website Labs, captured July 23, 2026.
+
+- [x] Shorten the SEO card projection label and enforce equal current/projected number sizing.
+- [x] Move Website Checkup metrics into a compact At a glance region inside the index hero.
+- [x] Remove the separate Website Checkup overview card and its Next focus content.
+- [x] Apply the same hero-level At a glance treatment to Brand and SEO Checkups.
+- [x] Apply the same hero-level At a glance treatment to Funnel, Social Media, and Website Labs.
+- [x] Verify all six engine indexes at desktop and mobile widths, including no overflow, lost CTA, or empty grid track. Evidence: every route rendered one hero-level At a glance block, retained its CTA, removed the old summary card, stacked cleanly at 390px, and reported zero overflow or console errors. SEO current/projected values both computed to 17.92px. TypeScript, diff check, and the webpack production build pass.
+
+## Active Batch: Split Engine Actions From At-a-Glance Blocks
+
+Source: Funnel Lab browser comments 1–2 with instruction to apply the correction across Labs and Checkups, captured July 23, 2026.
+
+- [x] Restore count/status pills and primary CTA buttons to the original action row beneath the hero description.
+- [x] Keep only informational metric blocks inside the hero-level At a glance region.
+- [x] Apply the split consistently across Website, Brand, and SEO Checkups plus Funnel, Social Media, and Website Labs.
+- [x] Verify all six indexes at desktop and mobile widths with retained actions, one At a glance region, and no overflow. Evidence: each route keeps its CTA inside the left copy/action column, keeps buttons out of the At a glance region, places the metric block to the right on desktop and below the action on mobile, and reports zero overflow or console errors. TypeScript, diff check, and the webpack production build pass.
+
+---
+
+## Active Batch: Snapshot History And Checkup Intake Polish
+
+Source: Browser Comments 1–3 on `/dashboard?view=progress` and `/dashboard?view=audits&auditType=brand`, captured July 23, 2026.
+
+Target: responsive Snapshot chat history, history control clarity, playful Audit naming, and the standalone Brand prefill header.
+
+### Comment Checklist
+
+- [x] **1. Make Snapshot chat history responsive**
+  - [x] Keep the history heading, saved-session count, New, Clear, and close controls readable without wrapping into a cramped cluster.
+  - [x] Collapse the history panel into an overlay before the desktop shell becomes too narrow.
+  - [x] Verify desktop, 1024px, and 390px layouts. Evidence: 272px side panel at 1331px, 304px absolute overlay at 1024px, and a 288px overlay with no horizontal overflow at 390px.
+
+- [x] **2. Clarify the View history icon**
+  - [x] Replace the ambiguous history glyph with a recognisable panel/history-list control.
+  - [x] Preserve the accessible label and active state.
+  - [x] Verify the control opens and closes the history panel. Evidence: the live control exposes `View chat history` / `Hide chat history` and `aria-pressed` while toggling the panel.
+
+- [x] **3. Tighten Brand prefill spacing and identify domain drafts**
+  - [x] Reduce the gap between the prefill eyebrow, heading, helper text, and first field.
+  - [x] Replace `Unassigned draft` with a domain-derived draft label as soon as a domain prefill is entered.
+  - [x] Keep `Unassigned draft` only while no identifying prefill exists.
+  - [x] Verify the label updates live and survives the prefill review transition. Evidence: the breadcrumb and eyebrow changed `Unassigned draft → creatoriq.com → Unassigned draft`; the display label is held by the discovery parent so the prefill child can unmount without losing it.
+
+- [x] **4. Rename Audits to a clear, playful portal label**
+  - [x] Use `Checkups` for the shared navigation, page heading, Snapshot cards, and quick actions.
+  - [x] Preserve existing audit routes, persistence keys, report terminology, and workflow behavior.
+  - [x] Verify Brand, Website, and SEO remain available under Checkups. Evidence: the live sidebar and page heading show Checkups, with Brand, Website, and SEO still nested below it.
+
+### Verification Checklist
+
+- [x] `tsc --noEmit`, `git diff --check`, and the production build pass.
+- [x] Both target routes load without console or runtime errors.
+- [x] All four items are verified in the local browser.
+
+### Execution Rules
+
+Proceed one checklist item at a time: implement, verify, update this batch, then continue.
+
+---
+
+## Active Batch: CreatorIQ Cross-Engine Demo Outputs
+
+Source: Request to show pre-seeded CreatorIQ outputs across the dashboard, July 23, 2026.
+
+### Output Checklist
+
+- [x] Website Checkup opens a completed, scored CreatorIQ report and action plan. Evidence: the live card reports 94/100 with six category scores and opens the priority action plan.
+- [x] Brand Checkup opens a completed CreatorIQ brand kit and action plan using verified live colours and Proxima Nova. Evidence: the live card shows five verified colours, one typeface, four voice traits, and a 3-of-3 completed output.
+- [x] SEO Checkup opens a populated CreatorIQ crawl, findings, readiness, and planning workspace. Evidence: the live workspace shows 10 URLs, 89 SEO health, 94 discovery readiness, and four finding types.
+- [x] Website Lab opens a completed CreatorIQ build-ready brief and implementation tasks. Evidence: the live output restores 3 of 3 stages at 100% with nine editable tasks.
+- [x] Funnel Lab opens a completed CreatorIQ funnel plan and task plan. Evidence: the live plan uses the CreatorIQ audience, Request a demo action, four-page flow, custom platform, and Google Analytics context.
+- [x] Social Media Lab opens a populated CreatorIQ monthly calendar with editable posts. Evidence: July 2026 opens with eight posts across Instagram and LinkedIn, four already approved.
+- [x] Existing saved CreatorIQ work takes precedence over the fallback seed. Evidence: workspace merging preserves populated saved engine records while supplying the demo only when the saved output is absent or incomplete.
+
+### Verification Checklist
+
+- [x] All six CreatorIQ output routes are visible and openable in the local browser.
+- [x] Desktop and 390 px layouts have no horizontal overflow. Evidence: every route measured a 390 px document width with zero page overflow.
+- [x] No target route produces a console/runtime error.
+- [x] `tsc --noEmit`, `git diff --check`, and `next build --webpack` pass.
+
+### Execution Rules
+
+Keep the demo seed centralized, evidence-based, and safe to replace with newer persisted CreatorIQ work.
+
+---
+
+## Active Batch: Task, Client, Social, And Funnel Polish
+
+Source: Browser Comments 1–6 on `/dashboard?view=tasks`, `/dashboard?view=clients`, and Labs builder routes, captured July 23, 2026.
+
+Target: bulk task actions and imports, client cards, Social Media calendar cards, and Funnel development-plan presentation.
+
+### Comment Checklist
+
+- [x] **1. Add bulk task deletion**
+  - [x] Add a destructive Delete action beside Advance and Mark done when tasks are selected.
+  - [x] Require confirmation and remove only the selected tasks.
+  - [x] Clear selection after deletion and verify the remaining board state persists. Evidence: a temporary task was created, selected, deleted, and confirmed absent while the Select control returned.
+
+- [x] **2. Add CSV task import**
+  - [x] Add CSV upload to the existing task import-source menu.
+  - [x] Parse a documented, forgiving task-column format and show actionable validation errors.
+  - [x] Preview or confirm imported rows before adding them to the board. Evidence: a two-row fixture using Client, Medium, In progress, and a quoted comma previewed correctly, imported into the expected lanes, and was removed after verification.
+
+- [x] **3. Remove Notes from client cards**
+  - [x] Remove the Notes card action without affecting View Details or the preview control.
+  - [x] Rebalance the footer actions after removal. Evidence: the live Clients route showed 0 Notes buttons while retaining 15 View Details and 15 preview controls, with the detail action expanding into the freed footer space.
+
+- [x] **4. Fix Social Media card metrics alignment**
+  - [x] Give Months, Planned posts, and Latest consistent widths, padding, and vertical alignment.
+  - [x] Keep labels and values readable without truncation at desktop and mobile widths. Evidence: all three desktop metric cells measured 91.58 px by 64.46 px on each card; the 390 px layout stacked 361.2 px cards with zero horizontal overflow.
+
+- [x] **5. Remove the funnel build-offer block**
+  - [x] Remove the Done-for-you build price, sharing, draft, and build CTA block from the development plan.
+  - [x] Keep the task-plan section flowing naturally after the deliverables. Evidence: the live CreatorIQ plan contained none of the offer label, price, Save as draft, or build CTA text; the task panel followed the deliverables with the standard section gap.
+
+- [x] **6. Shorten the funnel overview copy**
+  - [x] Replace the long implementation paragraph with a concise summary that preserves the plan intent.
+  - [x] Verify the heading, summary, and metrics retain a compact hierarchy. Evidence: the live CreatorIQ summary is capped at 24 words and rendered in a compact three-line block above the unchanged Pages, Emails, and Days to launch metrics.
+
+### Verification Checklist
+
+- [x] `tsc --noEmit`, `git diff --check`, and the production build pass.
+- [x] All four target routes load without console or runtime errors.
+- [x] Desktop and 390px layouts remain readable.
+- [x] All six items are verified in the local browser.
+
+### Execution Rules
+
+Proceed one checklist item at a time: implement, verify, update this batch, then continue.
 
 ---
 

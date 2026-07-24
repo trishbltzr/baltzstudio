@@ -68,7 +68,7 @@ export function GuidedWelcome({
 
         <div style={css("position:relative;display:grid;grid-template-columns:" + heroGrid + ";gap:" + (mobile ? "1rem" : "1.65rem") + ";align-items:start")}>
           <div style={css("padding:" + introPad)}>
-            <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;display:inline-flex;align-items:center;gap:0.62rem;color:" + accent + ";font-size:" + (mobile ? "0.68rem" : "0.74rem") + ";margin-bottom:" + (mobile ? "0.9rem" : "1.15rem"))}>
+            <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;display:inline-flex;align-items:center;gap:0.62rem;color:" + accent + ";font-size:" + (mobile ? "0.68rem" : "0.74rem") + ";margin-bottom:" + (mobile ? "0.9rem" : "1.15rem"))}>
               <span style={css("width:0.58rem;height:0.58rem;border-radius:50%;background:" + accent)} />
               {eyebrow}
             </div>
@@ -76,7 +76,7 @@ export function GuidedWelcome({
             <h1 style={css("font-size:" + (mobile ? "2rem" : "3.1rem") + ";font-weight:500;line-height:" + (mobile ? "1.02" : "0.98") + ";letter-spacing:-0.045em;max-width:" + (mobile ? "none" : "33rem") + ";margin:0 0 " + (mobile ? "0.8rem" : "1rem"))}>{title}</h1>
             <p style={css("margin:0;max-width:" + (mobile ? "none" : "30rem") + ";font-size:" + (mobile ? "1rem" : "1.02rem") + ";line-height:1.58;color:var(--fg-muted)")}>{description}</p>
 
-            <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;margin-top:" + (mobile ? "1.2rem" : "1.6rem") + ";margin-bottom:0.7rem;font-size:" + (mobile ? "0.72rem" : "0.78rem") + ";color:var(--fg-faint)")}>{listHeading}</div>
+            <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;margin-top:" + (mobile ? "1.2rem" : "1.6rem") + ";margin-bottom:0.7rem;font-size:" + (mobile ? "0.72rem" : "0.78rem") + ";color:var(--fg-faint)")}>{listHeading}</div>
 
             <div style={css("overflow:hidden;border:1px solid color-mix(in srgb,var(--border-soft) 82%,white 18%);border-radius:1.3rem;background:color-mix(in srgb,var(--surface) 95%,white 5%)")}>
               {listItems.map((item, index) => (

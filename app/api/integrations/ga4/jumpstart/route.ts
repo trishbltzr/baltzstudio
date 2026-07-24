@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { decryptConnection, encryptConnection, GA4_CONNECTION_COOKIE, ga4Config, ga4CookieOptions, refreshGa4Connection } from "@/lib/ga4OAuth";
+import { resolvePortalRequestAccess } from "@/lib/portalRequestAccess";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
@@ -17,8 +19,13 @@ async function runReport(accessToken: string, propertyId: string, body: Record<s
 
 export async function POST(request: NextRequest) {
   try {
+    const access = await resolvePortalRequestAccess(request, await createSupabaseServerClient());
+    if (!access) return NextResponse.json({ error: "Sign in to import GA4." }, { status: 401 });
     const body = await request.json().catch(() => null);
     const clientId = typeof body?.clientId === "string" ? body.clientId : "";
+    if (access.role === "client" && access.clientId !== clientId) {
+      return NextResponse.json({ error: "Client accounts can import only their own GA4 data." }, { status: 403 });
+    }
     const propertyId = typeof body?.propertyId === "string" ? body.propertyId.replace(/^properties\//, "") : "";
     if (!clientId || !/^\d+$/.test(propertyId)) return NextResponse.json({ error: "Choose a valid GA4 property." }, { status: 400 });
     const config = ga4Config(request.nextUrl.origin);

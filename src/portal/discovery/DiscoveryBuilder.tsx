@@ -7,10 +7,15 @@ import { Icon } from "../icons";
 import { QuickStart, type QuickStartApplyOptions } from "./QuickStart";
 import type { Know } from "./knowledge";
 import { isAiStageResult, isGeneratedStageResult, type AiGenerationMode, type GeneratedStageResult } from "@/lib/aiStageGeneration";
+import { aiReviewMeta, deriveAiReviewState, normalizeAiReviewStates, transitionAiReviewState, type AiReviewState } from "@/lib/aiReviewState";
 import { AUDIT_SCORING_STEPS, isAuditScoreResult } from "@/lib/auditChecklist";
 import type { GuidedAuditSession } from "@/lib/portalAuditPersistence";
 import type { TaskImportDraft } from "../types";
 import { GuidedLoadingState } from "../components/GuidedLoadingState";
+import type { ProcessId } from "../processDefinitions";
+import { syncPortalProcessRun } from "@/lib/portalProcessRuns";
+import { clientAccessTier, processStageAccess, type PortalAccessState, type ProcessStageAccess } from "../access";
+import type { PortalAuditExportProfile } from "@/lib/portalWorkspacePersistence";
 
 // ── data shapes ───────────────────────────────────────────────────────────────
 export type DQKind = "text" | "textarea" | "single" | "multi";
@@ -158,7 +163,11 @@ function readGuidedSession(sessionKey: string | undefined, serverSession: Guided
     const raw = window.localStorage.getItem(`guided-audit:${sessionKey}`);
     if (!raw) return serverSession;
     const parsed = JSON.parse(raw) as GuidedAuditSession;
-    return parsed && typeof parsed === "object" && typeof parsed.qIdx === "number" ? parsed : serverSession;
+    if (!parsed || typeof parsed !== "object" || typeof parsed.qIdx !== "number") return serverSession;
+    // A completed persisted output is authoritative over an older local intake
+    // snapshot, which may otherwise make a ready demo or saved result look empty.
+    if (serverSession?.proposal && !parsed.proposal) return serverSession;
+    return parsed;
   } catch {
     return serverSession;
   }
@@ -211,6 +220,7 @@ export function DiscoveryBuilder({
   completeExtra, stageExtra, demo, demoAction = "complete", onExit, onComplete, mobile, pipeline, showToast,
   prefill, prefillSources, prefillNotes, quickStartMode, onIngest, onPipelineComplete,
   sessionKey, initialSession, onSessionChange, generationMode, quickStartClientId, onImportTasks, onShareFinal, onStartOverRequest,
+  processId, processClientId, processRunId, processDueAt, processSourceHandoffId, accessState, onOpenApprovals, exportProfile,
 }: {
   accent: string;
   title: string;
@@ -249,6 +259,14 @@ export function DiscoveryBuilder({
   initialSession?: GuidedAuditSession;
   onSessionChange?: (session: GuidedAuditSession) => void;
   onStartOverRequest?: () => void;
+  processId?: ProcessId;
+  processClientId?: string;
+  processRunId?: string;
+  processDueAt?: string;
+  processSourceHandoffId?: string;
+  accessState?: PortalAccessState;
+  onOpenApprovals?: () => void;
+  exportProfile?: PortalAuditExportProfile | null;
 }) {
   const restoredSession = useMemo(() => readGuidedSession(sessionKey, initialSession), [sessionKey, initialSession]);
   const effectiveGenerationMode = generationMode || quickStartMode;
@@ -266,9 +284,11 @@ export function DiscoveryBuilder({
   const hasMemoryChoice = !!(quickStartMode && onIngest);
   const [memoryResolved, setMemoryResolved] = useState(restoredSession?.memoryResolved ?? !hasMemoryChoice);
   const [aiResults, setAiResults] = useState<Record<string, GeneratedStageResult>>(restoredSession?.aiResults || {});
+  const [reviewStates, setReviewStates] = useState<Record<string, AiReviewState>>(() => normalizeAiReviewStates(restoredSession?.reviewStates, Object.keys(restoredSession?.aiResults || {}), restoredSession?.approved || {}));
   const [generatingStage, setGeneratingStage] = useState<string | null>(null);
   const [generationTick, setGenerationTick] = useState(0);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [draftSourceLabel, setDraftSourceLabel] = useState("");
   const isAiSuggestion = (k: string) => /^(Website scan|Source inference|Source review|AI inference|AI Jumpstart)/.test(prefillSources?.[k] || "");
   const isKnown = (k: string) => { const v = prefill?.[k]; return v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0) && !isAiSuggestion(k); };
   const questionLabels = useMemo(() => Object.fromEntries(wizard.flatMap(topic => topic.qs.map(question => [question.key, question.label]))), [wizard]);
@@ -282,19 +302,28 @@ export function DiscoveryBuilder({
     : quickStartMode === "audit" && typeof collected.name === "string"
       ? collected.name.trim()
       : clientName;
+  const displayClientName = clientName === "Unassigned draft" && draftSourceLabel ? draftSourceLabel : clientName;
   const total = flat.length;
   const scrollRef = useRef<HTMLDivElement>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const prefillSignature = JSON.stringify(prefill || {});
   const appliedPrefillSignature = useRef(prefillSignature);
+  const processRunRef = useRef(initialSession?.processRun);
   const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = []; };
   const toast = (m: string, onClick?: () => void) => showToast?.(m, onClick);
-  const shareFinal = () => {
+  const setReviewState = (stageKey: string, nextState: AiReviewState) => setReviewStates(current => ({
+    ...current,
+    [stageKey]: transitionAiReviewState(current[stageKey], nextState),
+  }));
+  const shareFinal = async () => {
+    const finalStageKey = stages[stages.length - 1]?.key;
     if (!onShareFinal) {
       toast("Share link copied — send it to your client");
+      if (finalStageKey) setReviewState(finalStageKey, "shared");
       return;
     }
-    void onShareFinal(collected, aiResults);
+    await onShareFinal(collected, aiResults);
+    if (finalStageKey) setReviewState(finalStageKey, "shared");
   };
 
   const onSessionChangeRef = useRef(onSessionChange);
@@ -302,7 +331,23 @@ export function DiscoveryBuilder({
 
   useEffect(() => {
     if (!sessionKey) return;
+    const currentStageId = stages[Math.min(s.stage, stages.length - 1)]?.key || stages[0]?.key || "intake";
+    const processRun = processId ? syncPortalProcessRun(processRunRef.current, {
+      processId,
+      runId: processRunId || sessionKey,
+      clientId: processClientId || clientName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "client",
+      clientName,
+      currentStageId,
+      approvedStageIds: Object.entries(s.approved).filter(([, approved]) => approved).map(([stageId]) => stageId),
+      started: s.entered || s.qIdx > 0 || s.stage > 0 || Object.keys(aiResults).length > 0,
+      awaitingApproval: s.stage > 0 && !!aiResults[currentStageId] && !s.approved[currentStageId],
+      complete: s.proposal || s.approved[stages[stages.length - 1]?.key] === true,
+      dueAt: processDueAt,
+      sourceHandoffId: processSourceHandoffId,
+    }) : undefined;
+    processRunRef.current = processRun;
     const session: GuidedAuditSession = {
+      processRun,
       entered: s.entered,
       introReveal: s.introReveal,
       data: s.data,
@@ -314,6 +359,7 @@ export function DiscoveryBuilder({
       proposal: s.proposal,
       memoryResolved,
       aiResults,
+      reviewStates,
     };
     try {
       window.localStorage.setItem(`guided-audit:${sessionKey}`, JSON.stringify(session));
@@ -321,7 +367,7 @@ export function DiscoveryBuilder({
       // Server persistence below remains the source of truth when storage is unavailable.
     }
     onSessionChangeRef.current?.(session);
-  }, [aiResults, memoryResolved, s.approved, s.data, s.draft, s.entered, s.introReveal, s.proposal, s.qIdx, s.stage, sessionKey, total]);
+  }, [aiResults, clientName, memoryResolved, processClientId, processDueAt, processId, processRunId, processSourceHandoffId, reviewStates, s.approved, s.data, s.draft, s.entered, s.introReveal, s.proposal, s.qIdx, s.stage, sessionKey, stages, total]);
 
   useEffect(() => {
     if (appliedPrefillSignature.current === prefillSignature) return;
@@ -443,7 +489,18 @@ export function DiscoveryBuilder({
     : curKey === "plan" ? finalPlanMessages : finalScoringMessages;
   const generationHeading = funnelGeneration?.heading || (effectiveGenerationMode === "brand" ? curKey === "plan" ? "Planning the brand improvements" : "Building the verified brand system" : curKey === "plan" || curKey === "tasks" ? "Building your action plan" : effectiveGenerationMode === "website_builder" ? "Mapping the website rebuild" : effectiveGenerationMode === "seo" ? "Preparing your SEO audit" : "Scoring your site against the checklist");
   const generationDescription = funnelGeneration?.description || (effectiveGenerationMode === "brand" ? curKey === "plan" ? "We are turning the approved brand findings into a focused, evidence-backed sequence of actions." : "We are matching the intake and client notes to live website colours, typography, logo, messaging, and voice." : curKey === "plan" || curKey === "tasks" ? "We are sequencing the approved direction into clear implementation tasks." : effectiveGenerationMode === "website_builder" ? "We are matching every sitemap page to the redesign scope before design begins." : effectiveGenerationMode === "seo" ? "We are combining website evidence with available analytics context without inventing search data." : "We are checking the rendered pages systematically—not grading from intake alone.");
+  const generationEstimate = effectiveGenerationMode === "audit" && curKey === "report"
+    ? "About 2–4 minutes"
+    : effectiveGenerationMode === "brand" || effectiveGenerationMode === "seo"
+      ? "About 1–2 minutes"
+      : "About 30–60 seconds";
   const stageApproved = !!s.approved[curKey];
+  const currentStageAccess: ProcessStageAccess = processId && accessState ? processStageAccess(accessState, processId, curKey, stageApproved) : "manage";
+  const canOperateStage = currentStageAccess === "manage" || currentStageAccess === "participate";
+  const restrictedStage = currentStageAccess === "locked" || currentStageAccess === "hidden";
+  const proposalRestricted = !!(accessState?.role === "client" && clientAccessTier(accessState) === "standard");
+  const nextStageKey = stages[1]?.key;
+  const canEnterPipeline = !processId || !accessState || !nextStageKey || ["manage", "participate"].includes(processStageAccess(accessState, processId, nextStageKey, false));
   const currentStageExtra = stageExtra?.(curKey);
   const docs = useMemo(() => (pipeline ? pipeline.buildDocs(collected) : null), [pipeline, collected]);
 
@@ -457,11 +514,20 @@ export function DiscoveryBuilder({
     return () => clearInterval(interval);
   }, [effectiveGenerationMode, generatingStage]);
 
-  const beginBuild = () => { dispatch({ t: "beginBuild" }); toast("Discovery locked — starting the build"); };
+  const beginBuild = () => {
+    if (!canEnterPipeline) {
+      onComplete(collected);
+      toast("Intake sent to the studio for review");
+      return;
+    }
+    dispatch({ t: "beginBuild" });
+    toast("Discovery locked — starting the build");
+  };
   const gotoStage = (i: number) => { if (i <= maxStage) dispatch({ t: "gotoStage", i }); };
   const onGen = async () => {
-    if (!pipeline || !effectiveGenerationMode || isGenerating) return;
+    if (!pipeline || !effectiveGenerationMode || isGenerating || !canOperateStage) return;
     setGeneratingStage(curKey);
+    setReviewState(curKey, "draft");
     setGenerationError(null);
     const controller = new AbortController();
     const generationTimeout = setTimeout(() => controller.abort(), 240_000);
@@ -480,17 +546,19 @@ export function DiscoveryBuilder({
         priorities: aiResults.report.priorities,
       } : undefined;
       const priorStageContext = effectiveGenerationMode === "audit" ? auditReportContext : effectiveGenerationMode === "funnel" || effectiveGenerationMode === "brand" || effectiveGenerationMode === "seo" || effectiveGenerationMode === "website_builder" ? aiResults : undefined;
+      const serviceRunId = new URLSearchParams(window.location.search).get("serviceRunId") || undefined;
       const response = await fetch("/api/ai/generate-stage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
-        body: JSON.stringify({ mode: effectiveGenerationMode, stageKey: curKey, clientName, personName, brandName, data: collected, clientNotes: prefillNotes, priorResult: priorStageContext }),
+        body: JSON.stringify({ mode: effectiveGenerationMode, stageKey: curKey, clientName, personName, brandName, data: collected, clientNotes: prefillNotes, priorResult: priorStageContext, serviceRunId }),
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(typeof payload?.error === "string" ? payload.error : "Generation failed.");
       if (!isGeneratedStageResult(payload?.result)) throw new Error("The generated response was incomplete. Please try again.");
       const nextResults = { ...aiResults, [curKey]: payload.result };
       setAiResults(nextResults);
+      setReviewState(curKey, "needs_review");
       if (["audit", "brand", "seo"].includes(effectiveGenerationMode) && curKey === "report") {
         toast("The audit report is complete — ready to reveal", () => {
           document.querySelector('[data-pipeline-stage="report"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -503,6 +571,7 @@ export function DiscoveryBuilder({
         toast(`${curStage.label} is ready to review`);
       }
     } catch (error) {
+      setReviewStates(current => ({ ...current, [curKey]: aiResults[curKey] ? current[curKey] || "needs_review" : "not_generated" }));
       setGenerationError(controller.signal.aborted
         ? "The audit took too long to finish. Nothing was lost—retry the report to start a fresh bounded run."
         : error instanceof Error ? error.message : "Generation failed.");
@@ -512,14 +581,18 @@ export function DiscoveryBuilder({
     }
   };
   const requestChanges = () => {
+    if (!canOperateStage) return;
     setAiResults(results => {
       const next = { ...results };
       delete next[curKey];
       return next;
     });
+    setReviewState(curKey, "draft");
     setGenerationError(null);
   };
   const approveStage = () => {
+    if (!canOperateStage) return;
+    setReviewState(curKey, "approved");
     dispatch({ t: "approve", k: curKey });
     if (isLast) {
       dispatch({ t: "proposal", v: true });
@@ -538,13 +611,16 @@ export function DiscoveryBuilder({
     if (options?.replaceSourceReview) {
       dispatch({ t: "replaceIngest", data: delta.data });
       setAiResults({});
+      setReviewStates({});
       setGenerationError(null);
     }
     onIngest?.(delta, options);
   };
   const restartDiscovery = () => {
+    setDraftSourceLabel("");
     setMemoryResolved(!hasMemoryChoice);
     setAiResults({});
+    setReviewStates({});
     setGenerationError(null);
     if (sessionKey) window.localStorage.removeItem(`guided-audit:${sessionKey}`);
     dispatch({ t: "restart" });
@@ -553,7 +629,7 @@ export function DiscoveryBuilder({
   // ── styles ──
   const card = "border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden";
   const railWrap = "border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden" + (mobile ? "" : ";position:sticky;top:0.5rem");
-  const bubble = "background:var(--surface);border:1px solid var(--border-soft);border-radius:14px;border-top-left-radius:4px;padding:0.8rem 0.95rem;font-size:0.9rem;line-height:1.55;color:var(--fg-muted)";
+  const bubble = "background:var(--surface);border:1px solid var(--border-soft);border-radius:14px;border-top-left-radius:4px;padding:0.8rem 0.95rem;font-size:var(--text-md);line-height:1.55;color:var(--fg-muted)";
   const activeQuestionBorder = quickStartMode === "audit" ? `color-mix(in srgb,${accent} 24%,var(--border-soft) 76%)` : "var(--accent-dim)";
   const optBtn = (sel: boolean) => "border:1px solid " + (sel ? accent : "var(--border)") + ";border-radius:var(--radius-pill);background:" + (sel ? "color-mix(in srgb," + accent + " 12%,white 88%)" : "var(--surface)") + ";color:" + (sel ? accent : "var(--fg)") + ";padding:0.5rem 0.9rem;font-size:var(--text-base);font-weight:500;cursor:pointer;font-family:inherit";
 
@@ -583,7 +659,7 @@ export function DiscoveryBuilder({
                 : "background:var(--surface);border:1.5px solid var(--border);color:var(--fg-muted)";
           return (
             <button key={st.key} type="button" onClick={() => !locked && gotoStage(i)} disabled={locked} style={css("width:calc(100% - 1rem);margin:0 0.5rem;display:flex;align-items:center;gap:0.65rem;min-height:2.35rem;padding:0.3rem 0.6rem;border:none;border-radius:999px;text-align:left;font-family:inherit;cursor:" + (locked ? "default" : "pointer") + ";background:" + (isCurrent ? "color-mix(in srgb,var(--success) 9%,white 91%)" : "transparent") + ";opacity:" + (locked ? "0.58" : "1"))}>
-              <span style={css("width:1.2rem;height:1.2rem;border-radius:50%;display:grid;place-items:center;flex-shrink:0;font-size:0.62rem;font-weight:500;" + dot)}>{isDone ? <Icon name="checkmark" size={9} /> : (i + 1)}</span>
+              <span style={css("width:1.2rem;height:1.2rem;border-radius:50%;display:grid;place-items:center;flex-shrink:0;font-size:var(--text-2xs);font-weight:500;" + dot)}>{isDone ? <Icon name="checkmark" size={9} /> : (i + 1)}</span>
               <span style={css("min-width:0;font-size:var(--text-base);font-weight:" + (isCurrent || isDone ? "500" : "400") + ";color:" + (isCurrent ? "var(--success)" : locked ? "var(--fg-muted)" : "var(--fg)") + ";white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2")}>{st.label}</span>
             </button>
           );
@@ -608,19 +684,19 @@ export function DiscoveryBuilder({
         <div key={step.title} style={css("display:flex;align-items:center;gap:0.7rem;padding:0.62rem 0.85rem;background:var(--surface)" + (i < introSteps.length - 1 ? ";border-bottom:1px solid var(--border-soft)" : ""))}>
           {step.icon
             ? <span style={css("width:1.85rem;height:1.85rem;border-radius:8px;background:color-mix(in srgb," + accent + " 14%,white 86%);color:" + accent + ";display:grid;place-items:center;flex-shrink:0")}><Icon name={step.icon} size={15} /></span>
-            : <span style={css("width:1.45rem;height:1.45rem;border-radius:50%;border:1px solid var(--border);display:grid;place-items:center;font-size:0.68rem;color:var(--fg-muted);flex-shrink:0")}>{i + 1}</span>}
-          <span style={css("flex:1;min-width:0;font-size:0.85rem;font-weight:500")}>{step.title}</span>
-          {step.tag && <span style={css("font-size:0.68rem;color:var(--fg-faint);white-space:nowrap")}>{step.tag}</span>}
+            : <span style={css("width:1.45rem;height:1.45rem;border-radius:50%;border:1px solid var(--border);display:grid;place-items:center;font-size:var(--text-2xs);color:var(--fg-muted);flex-shrink:0")}>{i + 1}</span>}
+          <span style={css("flex:1;min-width:0;font-size:var(--text-base);font-weight:500")}>{step.title}</span>
+          {step.tag && <span style={css("font-size:var(--text-2xs);color:var(--fg-faint);white-space:nowrap")}>{step.tag}</span>}
         </div>
       ))}
     </div>
   );
   const introLeft = (
     <div style={css("padding:" + (mobile ? "1.4rem 1.3rem 1.6rem" : "1.9rem 1.8rem 2rem") + ";display:flex;flex-direction:column")}>
-      <div style={css("text-transform:uppercase;font-size:0.68rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;display:flex;align-items:center;gap:var(--space-2);color:" + accent)}><span style={css("width:0.38rem;height:0.38rem;border-radius:50%;background:" + accent)} />{intro.eyebrow}</div>
-      <h2 style={css("margin:0.75rem 0 0;font-size:1.55rem;font-weight:500;line-height:1.1;letter-spacing:-0.02em")}>{intro.heading}</h2>
+      <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;display:flex;align-items:center;gap:var(--space-2);color:" + accent)}><span style={css("width:0.38rem;height:0.38rem;border-radius:50%;background:" + accent)} />{intro.eyebrow}</div>
+      <h2 style={css("margin:0.75rem 0 0;font-size:var(--text-3xl);font-weight:500;line-height:1.1;letter-spacing:-0.02em")}>{intro.heading}</h2>
       {introList}
-      <button type="button" onClick={() => dispatch({ t: "enter" })} className="pt-op" style={css("margin-top:1.2rem;border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;padding:0.68rem 1.5rem;font-size:0.86rem;font-weight:500;cursor:pointer;font-family:inherit;width:100%")}>{startLabel}</button>
+      <button type="button" onClick={() => dispatch({ t: "enter" })} className="pt-op" style={css("margin-top:1.2rem;border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;padding:0.68rem 1.5rem;font-size:var(--text-base);font-weight:500;cursor:pointer;font-family:inherit;width:100%")}>{startLabel}</button>
     </div>
   );
   const introScreen = (
@@ -637,8 +713,8 @@ export function DiscoveryBuilder({
       <div style={css("background:var(--surface);border-bottom:1px solid var(--border-soft);padding:0.85rem 1.1rem 0.95rem")}>
         <div style={css("display:flex;align-items:center;gap:0.7rem")}>
           <span style={css("width:2.1rem;height:2.1rem;border-radius:10px;background:" + accent + ";color:#fff;display:grid;place-items:center;flex-shrink:0")}><Icon name="feather" size={16} /></span>
-          <div style={css("flex:1;min-width:0")}><div style={css("font-size:var(--text-lg);font-weight:500")}>{stages[0]?.label || "Discovery"}</div><div style={css("font-size:0.74rem;color:var(--fg-muted)")}>{pct}% of {progressLabel}</div></div>
-          {memoryResolved && <button type="button" onClick={onStartOverRequest || restartDiscovery} className="pt-softbtn" style={css("border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);font-size:0.78rem;font-weight:500;padding:0.36rem 0.74rem;border-radius:var(--radius-pill);cursor:pointer;font-family:inherit")}>{quickStartMode === "funnel" ? "Start funnel over" : "Start audit over"}</button>}
+          <div style={css("flex:1;min-width:0")}><div style={css("font-size:var(--text-lg);font-weight:500")}>{stages[0]?.label || "Discovery"}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-muted)")}>{pct}% of {progressLabel}</div></div>
+          {memoryResolved && <button type="button" onClick={onStartOverRequest || restartDiscovery} className="pt-softbtn" style={css("border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;padding:0.36rem 0.74rem;border-radius:var(--radius-pill);cursor:pointer;font-family:inherit")}>{quickStartMode === "funnel" ? "Start funnel over" : "Start audit over"}</button>}
         </div>
         <div style={css("height:0.45rem;border-radius:999px;background:oklch(0.92 0.006 50);overflow:hidden;margin-top:0.8rem")}><div style={css("height:100%;border-radius:999px;background:" + accent + ";width:" + pct + "%;transition:width .5s ease")} /></div>
       </div>
@@ -646,14 +722,14 @@ export function DiscoveryBuilder({
       <div ref={scrollRef} style={css("padding:1.1rem;display:flex;flex-direction:column;gap:var(--space-3);max-height:" + (mobile ? "60vh" : "32rem") + ";overflow-y:auto;scroll-behavior:smooth")}>
         {s.introReveal >= 0 && (
           <div style={css("flex-shrink:0;display:flex;gap:0.6rem;align-items:flex-start;animation:cocoonFade .3s ease both")}>
-            <span style={css("width:1.9rem;height:1.9rem;flex-shrink:0;border-radius:50%;display:grid;place-items:center;font-size:0.56rem;font-weight:500;background:color-mix(in srgb," + accent + " 14%,white 86%);color:" + accent)}>BS</span>
+            <span style={css("width:1.9rem;height:1.9rem;flex-shrink:0;border-radius:50%;display:grid;place-items:center;font-size:var(--text-2xs);font-weight:500;background:color-mix(in srgb," + accent + " 14%,white 86%);color:" + accent)}>BS</span>
             <div style={css(bubble)}>{quickStartMode === "brand" ? "Add the brand sources, then review each answer. Skip anything you do not know." : quickStartMode === "audit" ? "Add the website, then review each answer. Skip anything you do not know." : "Answer what you can. Skip anything you do not know."}</div>
           </div>
         )}
 
         {hasMemoryChoice && !memoryResolved && s.introReveal > 0 && s.introReveal < 2 && (
           <div style={css("flex-shrink:0;display:flex;gap:0.55rem;align-items:flex-start")}>
-            <span style={css("width:1.7rem;height:1.7rem;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:0.52rem;font-weight:500;background:color-mix(in srgb," + accent + " 14%,white 86%);color:" + accent)}>BS</span>
+            <span style={css("width:1.7rem;height:1.7rem;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:var(--text-2xs);font-weight:500;background:color-mix(in srgb," + accent + " 14%,white 86%);color:" + accent)}>BS</span>
             <div style={css("display:flex;align-items:center;gap:0.28rem;background:var(--surface);border:1px solid var(--border-soft);border-radius:14px;border-top-left-radius:4px;padding:0.7rem 0.85rem")}>
               {[0, 1, 2].map(i => <span key={i} className="pt-typing-dot" style={{ background: accent, animationDelay: i * 0.15 + "s" }} />)}
             </div>
@@ -662,7 +738,7 @@ export function DiscoveryBuilder({
 
         {quickStartMode && onIngest && !memoryResolved && s.introReveal >= 2 && (
           <div style={css("flex-shrink:0")}>
-            <QuickStart mode={quickStartMode} accent={accent} known={{ data: { ...(prefill || {}), ...s.data }, sources: prefillSources || {} }} questionLabels={questionLabels} onApply={applyQuickStart} onContinue={continueFromMemory} showToast={showToast} mobile={mobile} clientName={clientName} clientId={quickStartClientId} currentUrl={typeof s.data.url === "string" ? s.data.url : undefined} />
+            <QuickStart mode={quickStartMode} accent={accent} known={{ data: { ...(prefill || {}), ...s.data }, sources: prefillSources || {} }} questionLabels={questionLabels} onApply={applyQuickStart} onContinue={continueFromMemory} onDraftLabelChange={setDraftSourceLabel} showToast={showToast} mobile={mobile} clientName={clientName} clientId={quickStartClientId} currentUrl={typeof s.data.url === "string" ? s.data.url : undefined} />
           </div>
         )}
 
@@ -670,7 +746,7 @@ export function DiscoveryBuilder({
           <div key={g.topic} style={css("flex-shrink:0;border:1px solid var(--border-soft);border-radius:12px;overflow:hidden;animation:cocoonFade .25s ease both")}>
             <div style={css("display:flex;align-items:center;gap:0.55rem;padding:0.6rem 0.85rem;background:color-mix(in srgb," + accent + " 8%,white 92%)")}>
               <span style={css("width:1.5rem;height:1.5rem;border-radius:7px;background:color-mix(in srgb," + accent + " 16%,white 84%);color:" + accent + ";display:grid;place-items:center;flex-shrink:0")}><Icon name={g.icon} size={12} /></span>
-              <span style={css("font-size:0.86rem;font-weight:500")}>{g.topic}</span>
+              <span style={css("font-size:var(--text-base);font-weight:500")}>{g.topic}</span>
             </div>
             {g.items.map((it, i) => (
               <div key={i} style={css("display:flex;align-items:center;gap:var(--space-4);padding:0.62rem 0.85rem" + (i < g.items.length - 1 ? ";border-top:1px solid var(--border-soft)" : ""))}>
@@ -687,7 +763,7 @@ export function DiscoveryBuilder({
 
         {memoryResolved && s.typing && !complete && (
           <div style={css("flex-shrink:0;display:flex;gap:0.55rem;align-items:flex-start")}>
-            <span style={css("width:1.7rem;height:1.7rem;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:0.52rem;font-weight:500;background:color-mix(in srgb," + accent + " 14%,white 86%);color:" + accent)}>BS</span>
+            <span style={css("width:1.7rem;height:1.7rem;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:var(--text-2xs);font-weight:500;background:color-mix(in srgb," + accent + " 14%,white 86%);color:" + accent)}>BS</span>
             <div style={css("display:flex;align-items:center;gap:0.28rem;background:var(--surface);border:1px solid var(--border-soft);border-radius:14px;border-top-left-radius:4px;padding:0.7rem 0.85rem")}>
               {[0, 1, 2].map(i => <span key={i} className="pt-typing-dot" style={{ background: accent, animationDelay: i * 0.15 + "s" }} />)}
             </div>
@@ -696,15 +772,15 @@ export function DiscoveryBuilder({
 
         {memoryResolved && cur && !s.typing && (
           <div style={css("flex-shrink:0;display:flex;gap:0.55rem;align-items:flex-start;animation:cocoonFade .3s ease both")}>
-            <span style={css("width:1.9rem;height:1.9rem;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:0.56rem;font-weight:500;background:" + accent + ";color:#fff")}>BS</span>
+            <span style={css("width:1.9rem;height:1.9rem;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:var(--text-2xs);font-weight:500;background:" + accent + ";color:#fff")}>BS</span>
             <div style={css("flex:1;min-width:0;display:flex;flex-direction:column;gap:0.6rem")}>
               <div style={css("background:color-mix(in srgb," + accent + " 6%,white 94%);border:1px solid " + activeQuestionBorder + ";border-radius:16px;border-top-left-radius:5px;padding:0.85rem 1rem")}>
                 <div style={css("display:flex;align-items:center;gap:var(--space-2);margin-bottom:0.5rem")}>
-                  <span style={css("text-transform:uppercase;font-size:0.74rem;font-weight:400;letter-spacing:0.04em;line-height:1.2;color:" + accent + ";background:color-mix(in srgb," + accent + " 14%,white 86%);padding:0.18rem 0.54rem;border-radius:999px")}>{cur.topic}</span>
-                  <span style={css("font-size:0.74rem;color:var(--fg-faint);white-space:nowrap")}>{s.qIdx + 1} of {total}</span>
+                  <span style={css("text-transform:uppercase;font-size:var(--text-2xs);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:" + accent + ";background:color-mix(in srgb," + accent + " 14%,white 86%);padding:0.18rem 0.54rem;border-radius:999px")}>{cur.topic}</span>
+                  <span style={css("font-size:var(--text-2xs);color:var(--fg-faint);white-space:nowrap")}>{s.qIdx + 1} of {total}</span>
                 </div>
-                <div style={css("font-size:0.98rem;font-weight:500;line-height:1.4")}>{cur.label}</div>
-                {cur.hint && <div style={css("font-size:0.84rem;color:var(--fg-muted);margin-top:0.28rem;line-height:1.45")}>{cur.hint}</div>}
+                <div style={css("font-size:var(--text-lg);font-weight:500;line-height:1.4")}>{cur.label}</div>
+                {cur.hint && <div style={css("font-size:var(--text-base);color:var(--fg-muted);margin-top:0.28rem;line-height:1.45")}>{cur.hint}</div>}
               </div>
 
               {cur.kind === "single" && (
@@ -721,29 +797,29 @@ export function DiscoveryBuilder({
                 );
               })()}
               {cur.kind === "text" && (
-                <input value={s.draft} onChange={e => dispatch({ t: "draft", v: e.target.value })} onKeyDown={e => { if (e.key === "Enter") dispatch({ t: "sendText", k: cur.key }); }} placeholder={cur.ph} className="pt-input" style={css("width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:var(--radius-pill);padding:0.6rem 0.95rem;font-size:0.85rem;background:var(--surface-alt);font-family:inherit;outline:none")} />
+                <input value={s.draft} onChange={e => dispatch({ t: "draft", v: e.target.value })} onKeyDown={e => { if (e.key === "Enter") dispatch({ t: "sendText", k: cur.key }); }} placeholder={cur.ph} className="pt-input" style={css("width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:var(--radius-pill);padding:0.6rem 0.95rem;font-size:var(--text-base);background:var(--surface-alt);font-family:inherit;outline:none")} />
               )}
               {cur.kind === "textarea" && (
                 <div>
-                  <textarea value={s.draft} onChange={e => dispatch({ t: "draft", v: e.target.value })} onKeyDown={e => { if (cur.list && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); const target = e.currentTarget; const start = target.selectionStart; const end = target.selectionEnd; const prefix = s.draft.trim() ? "\n• " : "• "; dispatch({ t: "draft", v: s.draft.slice(0, start) + prefix + s.draft.slice(end) }); } }} placeholder={cur.ph} rows={cur.list ? 5 : 3} className="pt-input" style={css("width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:var(--radius);padding:0.6rem 0.85rem;font-size:0.85rem;line-height:1.55;background:var(--surface-alt);font-family:inherit;resize:vertical;outline:none")} />
-                  {cur.list && <div style={css("margin-top:.32rem;font-size:.72rem;line-height:1.4;color:var(--fg-faint)")}>Add one page or content item per line. We’ll keep it formatted as a bulleted list.</div>}
+                  <textarea value={s.draft} onChange={e => dispatch({ t: "draft", v: e.target.value })} onKeyDown={e => { if (cur.list && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); const target = e.currentTarget; const start = target.selectionStart; const end = target.selectionEnd; const prefix = s.draft.trim() ? "\n• " : "• "; dispatch({ t: "draft", v: s.draft.slice(0, start) + prefix + s.draft.slice(end) }); } }} placeholder={cur.ph} rows={cur.list ? 5 : 3} className="pt-input" style={css("width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:var(--radius);padding:0.6rem 0.85rem;font-size:var(--text-base);line-height:1.55;background:var(--surface-alt);font-family:inherit;resize:vertical;outline:none")} />
+                  {cur.list && <div style={css("margin-top:.32rem;font-size:var(--text-2xs);line-height:1.4;color:var(--fg-faint)")}>Add one page or content item per line. We’ll keep it formatted as a bulleted list.</div>}
                 </div>
               )}
 
               {isAiSuggestion(cur.key) && prefillNotes?.[cur.key] && (
-                <div role="note" style={css("border:1px solid color-mix(in srgb," + accent + " 22%,var(--border) 78%);border-radius:var(--radius);background:color-mix(in srgb," + accent + " 6%,white 94%);padding:0.72rem 0.8rem;font-size:0.82rem;line-height:1.5;color:var(--fg-muted)")}>
-                  <strong style={css("display:block;margin-bottom:0.2rem;font-size:0.76rem;font-weight:500;color:" + accent)}>Here’s what we found</strong>
+                <div role="note" style={css("border:1px solid color-mix(in srgb," + accent + " 22%,var(--border) 78%);border-radius:var(--radius);background:color-mix(in srgb," + accent + " 6%,white 94%);padding:0.72rem 0.8rem;font-size:var(--text-sm);line-height:1.5;color:var(--fg-muted)")}>
+                  <strong style={css("display:block;margin-bottom:0.2rem;font-size:var(--text-xs);font-weight:500;color:" + accent)}>Here’s what we found</strong>
                   {prefillNotes[cur.key]}
                 </div>
               )}
 
               <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);margin-top:0.25rem")}>
                 <div style={css("display:flex;gap:var(--space-2)")}>
-                  {s.qIdx > 0 && <button type="button" onClick={() => dispatch({ t: "back" })} className="pt-softbtn" style={css("border:1px solid var(--border-soft);background:var(--surface);color:var(--fg-muted);font-size:0.8rem;font-weight:500;cursor:pointer;font-family:inherit;padding:0.45rem 0.95rem;border-radius:var(--radius-pill)")}>← Back</button>}
-                  <button type="button" onClick={() => dispatch({ t: "skip" })} className="pt-softbtn" style={css("border:1px solid var(--border-soft);background:var(--surface);color:var(--fg-muted);font-size:0.8rem;font-weight:500;cursor:pointer;font-family:inherit;padding:0.45rem 0.95rem;border-radius:var(--radius-pill)")}>Skip this →</button>
+                  {s.qIdx > 0 && <button type="button" onClick={() => dispatch({ t: "back" })} className="pt-softbtn" style={css("border:1px solid var(--border-soft);background:var(--surface);color:var(--fg-muted);font-size:var(--text-sm);font-weight:500;cursor:pointer;font-family:inherit;padding:0.45rem 0.95rem;border-radius:var(--radius-pill)")}>← Back</button>}
+                  <button type="button" onClick={() => dispatch({ t: "skip" })} className="pt-softbtn" style={css("border:1px solid var(--border-soft);background:var(--surface);color:var(--fg-muted);font-size:var(--text-sm);font-weight:500;cursor:pointer;font-family:inherit;padding:0.45rem 0.95rem;border-radius:var(--radius-pill)")}>Skip this →</button>
                 </div>
-                {(cur.kind === "text" || cur.kind === "textarea") && <button type="button" onClick={submitCurrentText} disabled={!s.draft.trim()} className="pt-op" style={css("border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;padding:0.55rem 1.35rem;font-size:0.84rem;font-weight:500;cursor:" + (s.draft.trim() ? "pointer" : "not-allowed") + ";opacity:" + (s.draft.trim() ? "1" : ".5") + ";font-family:inherit")}>Continue</button>}
-                {(cur.kind === "single" || cur.kind === "multi") && <button type="button" onClick={() => dispatch({ t: "next" })} disabled={!canContinueSelection} className="pt-op" style={css("border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;padding:0.55rem 1.35rem;font-size:0.84rem;font-weight:500;cursor:" + (canContinueSelection ? "pointer" : "not-allowed") + ";opacity:" + (canContinueSelection ? "1" : ".5") + ";font-family:inherit")}>Continue</button>}
+                {(cur.kind === "text" || cur.kind === "textarea") && <button type="button" onClick={submitCurrentText} disabled={!s.draft.trim()} className="pt-op" style={css("border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;padding:0.55rem 1.35rem;font-size:var(--text-base);font-weight:500;cursor:" + (s.draft.trim() ? "pointer" : "not-allowed") + ";opacity:" + (s.draft.trim() ? "1" : ".5") + ";font-family:inherit")}>Continue</button>}
+                {(cur.kind === "single" || cur.kind === "multi") && <button type="button" onClick={() => dispatch({ t: "next" })} disabled={!canContinueSelection} className="pt-op" style={css("border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;padding:0.55rem 1.35rem;font-size:var(--text-base);font-weight:500;cursor:" + (canContinueSelection ? "pointer" : "not-allowed") + ";opacity:" + (canContinueSelection ? "1" : ".5") + ";font-family:inherit")}>Continue</button>}
               </div>
             </div>
           </div>
@@ -753,8 +829,8 @@ export function DiscoveryBuilder({
           <>
             <div style={css("flex-shrink:0;border:1px solid color-mix(in srgb," + accent + " 24%,var(--border-soft) 76%);border-radius:var(--radius-panel);background:color-mix(in srgb," + accent + " 8%,white 92%);padding:1.1rem 1.25rem;text-align:center;animation:cocoonFade .3s ease both")}>
               <div style={css("font-size:var(--text-lg);font-weight:500")}>{completeTitle}</div>
-              <p style={css("margin:0.35rem auto 0.85rem;font-size:0.83rem;color:var(--fg-muted);line-height:1.5;max-width:30rem")}>{(pipeline?.beginMsg && pipeline.beginMsg(collected)) || completeMsg}</p>
-              <button type="button" onClick={() => (pipeline ? beginBuild() : onComplete(collected))} className="pt-op" style={css("border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;padding:0.6rem 1.3rem;font-size:0.85rem;font-weight:500;cursor:pointer;font-family:inherit")}>{pipeline ? pipeline.beginLabel : completeCta}</button>
+              <p style={css("margin:0.35rem auto 0.85rem;font-size:var(--text-base);color:var(--fg-muted);line-height:1.5;max-width:30rem")}>{(pipeline?.beginMsg && pipeline.beginMsg(collected)) || completeMsg}</p>
+              <button type="button" onClick={() => (pipeline ? beginBuild() : onComplete(collected))} className="pt-op" style={css("border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;padding:0.6rem 1.3rem;font-size:var(--text-base);font-weight:500;cursor:pointer;font-family:inherit")}>{pipeline ? (canEnterPipeline ? pipeline.beginLabel : "Submit intake →") : completeCta}</button>
             </div>
             {completeExtra}
           </>
@@ -764,50 +840,62 @@ export function DiscoveryBuilder({
   );
 
   // ── stage panel ──
-  const statusPill = stageApproved
-    ? ["Approved", "var(--success)", "var(--success-soft)"]
-    : genDone ? ["Ready for review", accent, "color-mix(in srgb," + accent + " 14%,white 86%)"]
-      : ["Not generated", "var(--fg-muted)", "var(--surface-alt)"];
+  const reviewState = deriveAiReviewState({
+    explicit: reviewStates[curKey],
+    generated: genDone,
+    approved: stageApproved,
+    drafting: isGenerating,
+  });
+  const reviewMeta = aiReviewMeta(reviewState);
+  const reviewColor = reviewMeta.tone === "success" ? "var(--success)" : reviewMeta.tone === "accent" ? accent : reviewMeta.tone === "warn" ? "var(--warn)" : "var(--fg-muted)";
+  const reviewBackground = reviewMeta.tone === "success" ? "var(--success-soft)" : reviewMeta.tone === "accent" ? "color-mix(in srgb," + accent + " 14%,white 86%)" : reviewMeta.tone === "warn" ? "var(--warn-soft)" : "var(--surface-alt)";
   const stagePanel = pipeline && curStage && (
     <div data-pipeline-stage={curKey} style={css(card + ";width:100%;box-sizing:border-box;animation:cocoonFade .2s ease both")}>
       <div style={css("padding:0.9rem 1.15rem;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:0.6rem")}>
         <span style={css("width:1.9rem;height:1.9rem;border-radius:8px;background:color-mix(in srgb," + accent + " 14%,white 86%);color:" + accent + ";display:grid;place-items:center")}><Icon name={curStage.icon} size={17} /></span>
         <div style={css("flex:1;min-width:0")}>
-          <div style={css("font-size:0.98rem;font-weight:500")}>{curStage.label}</div>
-          <div style={css("margin-top:0.08rem;font-size:0.68rem;color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{personName ? `For ${personName} · ` : ""}{brandName}</div>
+          <div style={css("font-size:var(--text-lg);font-weight:500")}>{currentStageAccess === "hidden" ? "Studio review" : curStage.label}</div>
+          <div style={css("margin-top:0.08rem;font-size:var(--text-2xs);color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{personName ? `For ${personName} · ` : ""}{brandName}</div>
         </div>
-        <span style={css("font-size:0.68rem;font-weight:500;padding:0.2rem 0.6rem;border-radius:999px;background:" + statusPill[2] + ";color:" + statusPill[1])}>{statusPill[0]}</span>
+        <span style={css("font-size:var(--text-2xs);font-weight:500;padding:0.2rem 0.6rem;border-radius:999px;background:" + reviewBackground + ";color:" + reviewColor)}>{reviewMeta.label}</span>
       </div>
 
-      {!genDone ? (
+      {restrictedStage ? (
+        <div role="note" style={css("padding:2rem 1.5rem;text-align:center") }>
+          <span style={css("width:2.4rem;height:2.4rem;margin:0 auto;display:grid;place-items:center;border-radius:50%;background:var(--surface-alt);color:var(--fg-muted)")}><Icon name="lock" size={16}/></span>
+          <h3 style={css("margin:.75rem 0 0;font-size:var(--text-lg);font-weight:500")}>{currentStageAccess === "hidden" ? "The studio is reviewing this stage" : "This stage is not ready to share yet"}</h3>
+          <p style={css("margin:.35rem auto 0;max-width:29rem;font-size:var(--text-xs);line-height:1.5;color:var(--fg-muted)")}>{currentStageAccess === "hidden" ? "Internal evidence, scoring, corrections, and publishing controls stay with the studio. You’ll receive the reviewed client-safe output in Approvals." : "You can track progress here. The reviewed deliverable will appear in Approvals after the studio shares it."}</p>
+          {onOpenApprovals && <button type="button" onClick={onOpenApprovals} className="pt-softbtn" style={css("margin-top:.85rem;height:2.2rem;padding:0 .9rem;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;cursor:pointer")}>Open Approvals</button>}
+        </div>
+      ) : !genDone ? (
         <div style={css("padding:2.4rem 1.5rem;text-align:center")}>
-          {!isGenerating && <p style={css("margin:0 auto 0.95rem;font-size:0.9rem;color:var(--fg-muted);line-height:1.55;max-width:30rem")}>{pipeline.genPrompt(curKey)}</p>}
+          {!isGenerating && <p style={css("margin:0 auto 0.95rem;font-size:var(--text-md);color:var(--fg-muted);line-height:1.55;max-width:30rem")}>{pipeline.genPrompt(curKey)}</p>}
           {isGenerating && guidedGeneration ? (
-            <GuidedLoadingState accent={accent} heading={generationHeading} description={generationDescription} steps={generationSteps} tick={generationTick} finalMessages={finalGenerationMessages} fullWidth={quickStartMode === "funnel"}/>
-          ) : <button type="button" onClick={() => void onGen()} disabled={isGenerating} className="pt-op" style={css("border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;padding:0.6rem 1.3rem;font-size:0.85rem;font-weight:500;cursor:" + (isGenerating ? "wait" : "pointer") + ";font-family:inherit;opacity:" + (isGenerating ? ".72" : "1"))}>{isGenerating ? "Generating…" : `✦ ${pipeline.genCta(curKey)}`}</button>}
+            <GuidedLoadingState accent={accent} heading={generationHeading} description={generationDescription} steps={generationSteps} tick={generationTick} finalMessages={finalGenerationMessages} estimatedDuration={generationEstimate} fullWidth={quickStartMode === "funnel"}/>
+          ) : <button type="button" onClick={() => void onGen()} disabled={isGenerating} className="pt-op" style={css("border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;padding:0.6rem 1.3rem;font-size:var(--text-base);font-weight:500;cursor:" + (isGenerating ? "wait" : "pointer") + ";font-family:inherit;opacity:" + (isGenerating ? ".72" : "1"))}>{isGenerating ? "Generating…" : `✦ ${pipeline.genCta(curKey)}`}</button>}
           {generationError && (
-            <div role="alert" style={css("margin:0.9rem auto 0;max-width:30rem;border:1px solid color-mix(in srgb,var(--danger) 28%,var(--border) 72%);border-radius:var(--radius);background:color-mix(in srgb,var(--danger) 7%,white 93%);padding:0.7rem 0.85rem;color:var(--danger);font-size:0.76rem;line-height:1.45")}>{generationError}</div>
+            <div role="alert" style={css("margin:0.9rem auto 0;max-width:30rem;border:1px solid color-mix(in srgb,var(--danger) 28%,var(--border) 72%);border-radius:var(--radius);background:color-mix(in srgb,var(--danger) 7%,white 93%);padding:0.7rem 0.85rem;color:var(--danger);font-size:var(--text-xs);line-height:1.45")}>{generationError}</div>
           )}
         </div>
       ) : (
         <div style={css("padding:1.15rem 1.25rem")}>
           {isAiStageResult(aiResult) && !["funnel", "website_builder", "brand"].includes(quickStartMode || "") && !(quickStartMode === "audit" && curKey === "plan") && <section aria-label="Generated strategy" style={css("margin-bottom:1.1rem;border:1px solid color-mix(in srgb," + accent + " 22%,var(--border) 78%);border-radius:var(--radius-panel);background:color-mix(in srgb," + accent + " 5%,white 95%);padding:1rem 1.05rem") }>
-            <div style={css("display:flex;align-items:center;gap:0.55rem;margin-bottom:0.5rem")}><span style={css("width:1.65rem;height:1.65rem;border-radius:50%;display:grid;place-items:center;background:" + accent + ";color:#fff;font-size:0.52rem;font-weight:500")}>BS</span><strong style={css("font-size:0.94rem;font-weight:500")}>{aiResult.title}</strong></div>
-            <p style={css("margin:0;color:var(--fg-muted);font-size:0.8rem;line-height:1.55")}>{aiResult.summary}</p>
+            <div style={css("display:flex;align-items:center;gap:0.55rem;margin-bottom:0.5rem")}><span style={css("width:1.65rem;height:1.65rem;border-radius:50%;display:grid;place-items:center;background:" + accent + ";color:#fff;font-size:var(--text-2xs);font-weight:500")}>BS</span><strong style={css("font-size:var(--text-lg);font-weight:500")}>{aiResult.title}</strong></div>
+            <p style={css("margin:0;color:var(--fg-muted);font-size:var(--text-sm);line-height:1.55")}>{aiResult.summary}</p>
             <div style={css("display:grid;grid-template-columns:" + (mobile ? "1fr" : "repeat(2,minmax(0,1fr))") + ";gap:0.65rem;margin-top:0.85rem") }>
               {aiResult.sections.map(section => (
                 <article key={section.heading} style={css("border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface);padding:0.75rem 0.8rem")}>
-                  <h4 style={css("margin:0;font-size:0.78rem;font-weight:500")}>{section.heading}</h4>
-                  <p style={css("margin:0.3rem 0 0;font-size:0.72rem;color:var(--fg-muted);line-height:1.45")}>{section.body}</p>
-                  <ul style={css("margin:0.48rem 0 0;padding-left:1rem;color:var(--fg-muted);font-size:0.7rem;line-height:1.45")}>{section.bullets.map(bullet => <li key={bullet}>{bullet}</li>)}</ul>
+                  <h4 style={css("margin:0;font-size:var(--text-xs);font-weight:500")}>{section.heading}</h4>
+                  <p style={css("margin:0.3rem 0 0;font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.45")}>{section.body}</p>
+                  <ul style={css("margin:0.48rem 0 0;padding-left:1rem;color:var(--fg-muted);font-size:var(--text-2xs);line-height:1.45")}>{section.bullets.map(bullet => <li key={bullet}>{bullet}</li>)}</ul>
                 </article>
               ))}
             </div>
             <div style={css("display:flex;flex-direction:column;gap:0.45rem;margin-top:0.8rem") }>
               {aiResult.recommendations.map((recommendation, index) => (
                 <div key={recommendation.title} style={css("display:grid;grid-template-columns:1.45rem minmax(0,1fr);gap:0.55rem;align-items:start") }>
-                  <span style={css("width:1.35rem;height:1.35rem;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb," + accent + " 12%,white 88%);color:" + accent + ";font-size:0.62rem;font-weight:500")}>{index + 1}</span>
-                  <div><strong style={css("display:block;font-size:0.74rem;font-weight:500")}>{recommendation.title}</strong><span style={css("display:block;margin-top:0.12rem;font-size:0.69rem;color:var(--fg-muted);line-height:1.4")}>{recommendation.rationale} <b style={css("font-weight:500;color:var(--fg)")}>Next: {recommendation.action}</b></span></div>
+                  <span style={css("width:1.35rem;height:1.35rem;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb," + accent + " 12%,white 88%);color:" + accent + ";font-size:var(--text-2xs);font-weight:500")}>{index + 1}</span>
+                  <div><strong style={css("display:block;font-size:var(--text-2xs);font-weight:500")}>{recommendation.title}</strong><span style={css("display:block;margin-top:0.12rem;font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.4")}>{recommendation.rationale} <b style={css("font-weight:500;color:var(--fg)")}>Next: {recommendation.action}</b></span></div>
                 </div>
               ))}
             </div>
@@ -817,15 +905,15 @@ export function DiscoveryBuilder({
             onAdvance: approveStage,
             onDownload: async () => {
               toast("Opening the print dialog…");
-              const ok = await printReportNode(document.querySelector(`[data-pipeline-stage="${curKey}"]`), `${clientName} · ${curStage.label}`);
+              const ok = await printReportNode(document.querySelector(`[data-pipeline-stage="${curKey}"]`), `${clientName} · ${curStage.label}`, exportProfile);
               toast(ok ? "Choose Print or Save as PDF" : "The print dialog could not be opened");
             },
             onShare: () => toast("Share link copied — send it to your client"),
             onCopy: () => toast("Copied to clipboard"),
           })}
-          {genDone && !stageApproved && (
+          {genDone && !stageApproved && canOperateStage && (
             <div style={css("margin-top:1.15rem;padding-top:1rem;border-top:1px solid var(--border-soft);display:flex;align-items:center;justify-content:flex-end;gap:0.6rem")}>
-              <button type="button" onClick={requestChanges} className="pt-softbtn" style={css("border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);padding:0.5rem 1rem;font-size:0.8rem;cursor:pointer;font-family:inherit")}>Request changes</button>
+              <button type="button" onClick={requestChanges} className="pt-softbtn" style={css("border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);padding:0.5rem 1rem;font-size:var(--text-sm);cursor:pointer;font-family:inherit")}>Request changes</button>
               <button type="button" onClick={approveStage} className="pt-op" style={css("border:none;border-radius:var(--radius-pill);background:var(--success);color:#fff;padding:0.5rem 1.15rem;font-size:var(--text-base);font-weight:500;cursor:pointer;font-family:inherit")}>{pipeline.approveLabel(curKey, isLast)}</button>
             </div>
           )}
@@ -837,7 +925,9 @@ export function DiscoveryBuilder({
 
   // ── main content selector ──
   let main: ReactNode;
-  if (pipeline && s.proposal) {
+  if (pipeline && s.proposal && proposalRestricted) {
+    main = <div role="note" style={css(card + ";padding:2rem 1.5rem;text-align:center") }><span style={css("width:2.4rem;height:2.4rem;margin:0 auto;display:grid;place-items:center;border-radius:50%;background:var(--accent-soft);color:" + accent)}><Icon name="flag" size={16}/></span><h3 style={css("margin:.75rem 0 0;font-size:var(--text-lg);font-weight:500")}>The reviewed output is in Approvals</h3><p style={css("margin:.35rem auto 0;max-width:30rem;font-size:var(--text-xs);line-height:1.5;color:var(--fg-muted)")}>Standard client access keeps internal drafts and publishing controls with the studio. Open Approvals to review the client-ready deliverable and leave feedback.</p>{onOpenApprovals && <button type="button" onClick={onOpenApprovals} className="pt-op" style={css("margin-top:.85rem;height:2.25rem;padding:0 1rem;border:none;border-radius:999px;background:" + accent + ";color:#fff;font-size:var(--text-xs);font-weight:500;cursor:pointer")}>Open Approvals</button>}</div>;
+  } else if (pipeline && s.proposal) {
     main = pipeline.renderProposal({
       docs, aiResults, clientName, mobile, accent, sent: false,
       onBack: () => dispatch({ t: "proposal", v: false }),
@@ -855,11 +945,11 @@ export function DiscoveryBuilder({
   return (
     <div style={css("width:100%;max-width:60rem;margin:0 auto;display:flex;flex-direction:column;gap:0.85rem;box-sizing:border-box;animation:cocoonFade .2s ease both")}>
       {!hideHeader && <div style={css("display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap")}>
-        <button type="button" onClick={onExit} className="pt-softbtn" style={css("border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);padding:0.4rem 0.8rem;font-size:0.78rem;cursor:pointer;font-family:inherit")}>{backLabel}</button>
-        <div style={{ minWidth: 0 }}><span style={css("font-size:var(--text-lg);font-weight:500")}>{title}</span><span style={css("font-size:var(--text-base);color:var(--fg-muted)")}> · {clientName}</span></div>
+        <button type="button" onClick={onExit} className="pt-softbtn" style={css("border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);padding:0.4rem 0.8rem;font-size:var(--text-xs);cursor:pointer;font-family:inherit")}>{backLabel}</button>
+        <div style={{ minWidth: 0 }}><span style={css("font-size:var(--text-lg);font-weight:500")}>{title}</span><span style={css("font-size:var(--text-base);color:var(--fg-muted)")}> · {displayClientName}</span></div>
       </div>}
-      <div style={css(mobile ? "display:flex;flex-direction:column;gap:0.85rem" : "display:grid;grid-template-columns:17rem minmax(0,1fr);gap:0.85rem;align-items:start")}>
-        {rail}
+      <div className="pt-guided-workspace" style={css(mobile ? "display:flex;flex-direction:column;gap:0.85rem" : "display:grid;grid-template-columns:17rem minmax(0,1fr);gap:0.85rem;align-items:start")}>
+        <div className="pt-guided-rail">{rail}</div>
         <div style={css("width:100%;min-width:0")}>{main}</div>
       </div>
     </div>

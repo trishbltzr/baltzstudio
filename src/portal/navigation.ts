@@ -1,11 +1,11 @@
 import type { PortalActions, PortalState } from "./store";
+import type { PortalAccessState } from "./access";
 import type { Role, View } from "./types";
-import { clientHasEngineAccess } from "./access";
 
 export interface NavItemMeta {
   label: string;
   icon: string;
-  badge?: "Beta";
+  badge?: "Demo";
 }
 
 export interface NavSection {
@@ -18,9 +18,9 @@ export const NAV_ITEM_META = {
   clients: { label: "Clients", icon: "briefcase" },
   tasks: { label: "To-do's", icon: "checklist" },
   review: { label: "Approvals", icon: "flag" },
-  audits_new: { label: "Audits", icon: "audit", badge: "Beta" },
-  audit: { label: "Audits", icon: "audit", badge: "Beta" },
-  funnels: { label: "Builders", icon: "funnel", badge: "Beta" },
+  audits_new: { label: "Checkups", icon: "audit", badge: "Demo" },
+  audit: { label: "Checkups", icon: "audit", badge: "Demo" },
+  funnels: { label: "Labs", icon: "flask", badge: "Demo" },
   inbox: { label: "Inbox", icon: "inbox" },
   activity: { label: "Activity", icon: "activity" },
   team: { label: "Team", icon: "users" },
@@ -33,7 +33,7 @@ export const NAV_ITEM_META = {
 } satisfies Partial<Record<View, NavItemMeta>>;
 
 const SNAPSHOT_SECTION = { label: "", views: ["progress"] } as const;
-const STUDIO_DELIVERY_SECTION = { label: "Delivery", views: ["clients", "tasks"] } as const;
+const STUDIO_DELIVERY_SECTION = { label: "Delivery", views: ["clients", "tasks", "review"] } as const;
 const STUDIO_ENGINES_SECTION = { label: "Engines", views: ["audits_new", "funnels"] } as const;
 const CLIENT_ENGINES_SECTION = { label: "Engines", views: ["audit", "funnels"] } as const;
 
@@ -59,8 +59,10 @@ export const NAV_SECTIONS: Record<Role, readonly NavSection[]> = {
   ],
 };
 
-export function navSectionsForState(state: PortalState): readonly NavSection[] {
-  if (state.role !== "client" || !clientHasEngineAccess(state)) return NAV_SECTIONS[state.role];
+export function navSectionsForState(state: PortalAccessState): readonly NavSection[] {
+  if (state.role !== "client") return NAV_SECTIONS[state.role];
+  // Labs is always shown to clients; the funnels view keeps its own unlock gate
+  // and renders the prerequisite screen for clients who have not unlocked it yet.
   return [
     SNAPSHOT_SECTION,
     { label: "Your Project", views: ["review", "milestones", "tasks"] },
@@ -85,11 +87,11 @@ export interface QuickAction {
 
 const QUICK_ACTIONS: Record<Role, QuickAction[]> = {
   admin: [
-    { label: "New Client", sub: "Start onboarding", icon: "briefcase", intent: "new_client", view: "onboarding" },
+    { label: "New Client", sub: "Start client intake", icon: "briefcase", intent: "new_client", view: "onboarding" },
     { label: "Invite User", sub: "Give portal access", icon: "user", intent: "invite_user", view: "team" },
     { label: "New Message", sub: "Open the inbox", icon: "msg", intent: "new_message", view: "inbox" },
     { label: "New To-do", sub: "Add a task", icon: "checklist", intent: "new_task", view: "tasks" },
-    { label: "New Audit", sub: "Cocoon Consult intake", icon: "audit", intent: "new_audit", view: "audits_new" },
+    { label: "New Checkup", sub: "Cocoon Consult intake", icon: "audit", intent: "new_audit", view: "audits_new" },
   ],
   dev: [
     { label: "New Message", sub: "Open the inbox", icon: "msg", intent: "new_message", view: "inbox" },
@@ -114,19 +116,21 @@ export function quickActionsForRole(role: Role): QuickAction[] {
   return QUICK_ACTIONS[role];
 }
 
-export function quickActionsForState(state: PortalState): QuickAction[] {
-  if (state.role !== "client" || !clientHasEngineAccess(state)) return QUICK_ACTIONS[state.role];
+export function quickActionsForState(state: PortalAccessState): QuickAction[] {
+  if (state.role !== "client") return QUICK_ACTIONS[state.role];
   return [
     ...QUICK_ACTIONS.client.slice(0, 3),
-    { label: "Review Audit", sub: "See findings", icon: "audit", intent: "review_audit", view: "audit" },
+    { label: "Review Checkup", sub: "See findings", icon: "audit", intent: "review_audit", view: "audit" },
   ];
 }
 
-export function mobilePrimaryViewsForState(state: PortalState): View[] {
+export function mobilePrimaryViewsForState(state: Pick<PortalState, "role">): View[] {
   return MOBILE_PRIMARY_VIEWS[state.role];
 }
 
-export function runQuickAction(action: QuickAction, state: PortalState, actions: PortalActions) {
+export type QuickActionExecutionState = Pick<PortalState, "role" | "clientName" | "threads" | "selectedThreadId">;
+
+export function runQuickAction(action: QuickAction, state: QuickActionExecutionState, actions: PortalActions) {
   const firstThreadId = state.role === "client"
     ? state.threads.find(thread => thread.clientName === state.clientName && !!thread.isTicket && thread.messages.some(message => message.from === "client"))?.id || state.selectedThreadId
     : state.threads.find(thread => thread.unread > 0)?.id || state.threads[0]?.id || state.selectedThreadId;
@@ -171,6 +175,6 @@ export function runQuickAction(action: QuickAction, state: PortalState, actions:
       return;
     case "review_audit":
       actions.setView("audit");
-      actions.showToast("Audit review ready");
+      actions.showToast("Checkup review ready");
   }
 }

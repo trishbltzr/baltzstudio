@@ -19,6 +19,7 @@ create index if not exists portal_access_requests_requested_email_idx
 
 alter table public.portal_access_requests enable row level security;
 
+revoke all on table public.portal_access_requests from anon, authenticated;
 grant insert on public.portal_access_requests to anon, authenticated;
 
 drop policy if exists portal_access_requests_insert on public.portal_access_requests;

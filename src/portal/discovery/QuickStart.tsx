@@ -9,7 +9,7 @@ export interface QuickStartApplyOptions {
   replaceSourceReview?: boolean;
 }
 
-const INPUT = "width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:var(--radius);padding:0.58rem 0.72rem;font-size:0.88rem;font-family:inherit;background:var(--surface-alt);color:var(--fg);outline:none";
+const INPUT = "width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:var(--radius);padding:0.58rem 0.72rem;font-size:var(--text-md);font-family:inherit;background:var(--surface-alt);color:var(--fg);outline:none";
 const SCAN_STEPS = [
   "Opening the website and finding key pages",
   "Reading offers, messaging, proof, and conversion paths",
@@ -41,13 +41,14 @@ function websiteUrlFromDomain(value: string) {
 // AI Jumpstart reads public website pages and/or a pasted brief, then returns only
 // evidence-backed questionnaire answers. Known answers are sent as exclusions so
 // the client is asked only for genuine gaps.
-export function QuickStart({ mode, accent, known, questionLabels, onApply, onContinue, showToast, mobile, clientName, clientId, currentUrl }: {
+export function QuickStart({ mode, accent, known, questionLabels, onApply, onContinue, onDraftLabelChange, showToast, mobile, clientName, clientId, currentUrl }: {
   mode: "audit" | "brand" | "seo" | "website_builder" | "funnel";
   accent: string;
   known: Know;
   questionLabels: Record<string, string>;
   onApply: (delta: Know, options?: QuickStartApplyOptions) => void;
   onContinue?: () => void;
+  onDraftLabelChange?: (label: string) => void;
   showToast?: (m: string) => void;
   mobile?: boolean;
   clientName?: string;
@@ -78,8 +79,17 @@ export function QuickStart({ mode, accent, known, questionLabels, onApply, onCon
   const rememberedSourceUrl = currentUrl || (typeof known.data.url === "string" ? known.data.url : "");
   const enteredDomain = domainFromSource(link);
   const rememberedDomain = domainFromSource(rememberedSourceUrl);
-  const sourceChanged = mode === "brand" && !!enteredDomain && !!rememberedDomain && enteredDomain !== rememberedDomain;
+  const supportsDomainSwitch = mode === "brand" || mode === "audit" || mode === "seo" || mode === "website_builder";
+  const sourceChanged = supportsDomainSwitch && !!enteredDomain && !!rememberedDomain && enteredDomain !== rememberedDomain;
   const hasPreviousScan = !sourceChanged && Object.values(known.sources).some(source => /^(Website scan|Source inference|Source review|AI inference|AI Jumpstart)/.test(source));
+  const displayClientName = supportsDomainSwitch && clientName === "Unassigned draft"
+    ? enteredDomain || clientName
+    : clientName;
+
+  useEffect(() => {
+    if (!supportsDomainSwitch || clientName !== "Unassigned draft") return;
+    onDraftLabelChange?.(enteredDomain);
+  }, [clientName, enteredDomain, onDraftLabelChange, supportsDomainSwitch]);
 
   useEffect(() => {
     const clientChanged = previousClient.current !== clientName;
@@ -156,10 +166,11 @@ export function QuickStart({ mode, accent, known, questionLabels, onApply, onCon
       const n = typeof payload.result.answeredCount === "number" ? payload.result.answeredCount : Object.keys(delta.data).length;
       const pages = Array.isArray(payload.pagesScanned) ? payload.pagesScanned.length : 0;
       if (sourceChanged) {
-        const preservedSources = Object.fromEntries(Object.keys(relevantKnown).map(key => [key, known.sources[key] || "Client-confirmed"]));
+        const preservedKnown = clientName === "Unassigned draft" ? {} : relevantKnown;
+        const preservedSources = Object.fromEntries(Object.keys(preservedKnown).map(key => [key, known.sources[key] || "Client-confirmed"]));
         delta = {
           ...delta,
-          data: { ...relevantKnown, ...delta.data },
+          data: { ...preservedKnown, ...delta.data },
           sources: { ...preservedSources, ...delta.sources },
         };
       }
@@ -181,41 +192,41 @@ export function QuickStart({ mode, accent, known, questionLabels, onApply, onCon
     : "Add a funnel link or paste the brief. We’ll check the source against saved client notes and prefill only supported answers.";
   return (
     <div style={css("border:1px solid color-mix(in srgb," + accent + " 22%,var(--border-soft) 78%);border-radius:var(--radius-panel);background:color-mix(in srgb," + accent + " 5%,var(--surface) 95%);padding:" + (mobile ? "0.9rem 1rem" : "1.05rem 1.15rem"))}>
-      <div style={css("display:flex;align-items:center;gap:0.55rem;margin-bottom:0.2rem")}>
+      <div style={css("display:flex;align-items:center;gap:0.55rem;margin-bottom:0.1rem")}>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={css(eyebrowStyle(accent) + ";font-size:0.76rem")}>{mode === "website_builder" ? `Website revamp · ${clientName || "Matched"}` : mode === "brand" ? `Brand prefill · ${clientName || "Matched"}` : mode === "seo" ? `SEO prefill · ${clientName || "Matched"}` : mode === "audit" ? `Website prefill · ${clientName || "Matched"}` : "Jump-start"}</div>
-          <div style={css("font-size:0.95rem;font-weight:500;line-height:1.2;margin-top:0.1rem")}>{label}</div>
+          <div style={css(eyebrowStyle(accent) + ";font-size:var(--text-xs)")}>{mode === "website_builder" ? `Website revamp · ${clientName || "Matched"}` : mode === "brand" ? `Brand prefill · ${displayClientName || "Matched"}` : mode === "seo" ? `SEO prefill · ${clientName || "Matched"}` : mode === "audit" ? `Website prefill · ${clientName || "Matched"}` : "Jump-start"}</div>
+          <div style={css("font-size:var(--text-lg);font-weight:500;line-height:1.2;margin-top:0.04rem")}>{label}</div>
         </div>
-        {hasPreviousScan && <span style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:0.76rem;font-weight:500;color:" + accent + ";background:var(--surface);border:1px solid var(--border-soft);border-radius:999px;padding:0.25rem 0.6rem;flex-shrink:0")}><Icon name="check" size={12} />Previous scan ready</span>}
+        {hasPreviousScan && <span style={css("display:inline-flex;align-items:center;gap:0.3rem;font-size:var(--text-xs);font-weight:500;color:" + accent + ";background:var(--surface);border:1px solid var(--border-soft);border-radius:999px;padding:0.25rem 0.6rem;flex-shrink:0")}><Icon name="check" size={12} />Previous scan ready</span>}
       </div>
-      <p style={css("margin:0 0 0.9rem;font-size:0.84rem;color:var(--fg-muted);line-height:1.55")}>{sub}</p>
+      <p style={css("margin:0 0 0.65rem;font-size:var(--text-base);color:var(--fg-muted);line-height:1.4")}>{sub}</p>
 
-      {scanError && <div role="alert" style={css("margin:0 0 0.75rem;border:1px solid color-mix(in srgb,var(--danger) 30%,var(--border) 70%);border-radius:var(--radius);background:var(--surface);padding:0.7rem 0.8rem;font-size:0.8rem;line-height:1.5;color:var(--danger)")}>{scanError}</div>}
+      {scanError && <div role="alert" style={css("margin:0 0 0.75rem;border:1px solid color-mix(in srgb,var(--danger) 30%,var(--border) 70%);border-radius:var(--radius);background:var(--surface);padding:0.7rem 0.8rem;font-size:var(--text-sm);line-height:1.5;color:var(--danger)")}>{scanError}</div>}
 
       <div style={css("display:flex;flex-direction:column;gap:0.55rem")}>
-        <label style={css("display:flex;flex-direction:column;gap:0.32rem;font-size:0.8rem;font-weight:500;color:var(--fg-muted)")}>
+        <label style={css("display:flex;flex-direction:column;gap:0.32rem;font-size:var(--text-sm);font-weight:500;color:var(--fg-muted)")}>
           {mode === "website_builder" ? "Existing website URL (optional)" : mode === "brand" ? "Domain (optional when guidelines are uploaded)" : mode === "seo" || mode === "audit" ? "Website URL" : "Link to an existing funnel (optional)"}
           <div style={css("display:flex;gap:0.4rem")}>
             <input value={link} onChange={e => setLink(e.target.value)} placeholder={mode === "funnel" ? "get.brand.com/offer" : "brand.com"} className="pt-input" style={css(INPUT)} />
           </div>
         </label>
 
-        {(mode === "brand" || mode === "audit" || mode === "funnel" || mode === "website_builder") && <div style={css("display:flex;flex-direction:column;gap:0.32rem;font-size:0.8rem;font-weight:500;color:var(--fg-muted)")}>
+        {(mode === "brand" || mode === "audit" || mode === "funnel" || mode === "website_builder") && <div style={css("display:flex;flex-direction:column;gap:0.32rem;font-size:var(--text-sm);font-weight:500;color:var(--fg-muted)")}>
           {mode === "brand" || mode === "audit" ? "Brand guidelines (optional)" : mode === "website_builder" ? "Existing brief or copy (optional)" : "Working copy (optional)"}
-          <button type="button" onClick={() => fileRef.current?.click()} style={css("display:flex;align-items:center;gap:0.5rem;width:100%;box-sizing:border-box;border:1px dashed var(--border);border-radius:var(--radius);background:var(--surface);padding:0.55rem 0.65rem;cursor:pointer;text-align:left")}>
+          <button type="button" onClick={() => fileRef.current?.click()} style={css("display:flex;align-items:center;gap:var(--space-2);width:100%;box-sizing:border-box;border:1px dashed var(--border);border-radius:var(--radius);background:var(--surface);padding:0.55rem 0.65rem;cursor:pointer;text-align:left")}>
             <Icon name="clip" size={15} />
-            <span style={css("flex:1;min-width:0;font-size:0.82rem;color:" + (files.length ? "var(--fg)" : "var(--fg-faint)"))}>{files.length ? files.map(file => file.name).join(", ") : (mode === "brand" || mode === "audit" ? "Upload brand-guidelines.pdf" : mode === "website_builder" ? "Upload a brief or copy document" : "Upload copy (PDF, DOCX, TXT or Markdown)")}</span>
-            {files.length > 0 && <span style={css("font-size:0.7rem;color:" + accent + ";font-weight:500")}>{files.length} file{files.length === 1 ? "" : "s"}</span>}
+            <span style={css("flex:1;min-width:0;font-size:var(--text-sm);color:" + (files.length ? "var(--fg)" : "var(--fg-faint)"))}>{files.length ? files.map(file => file.name).join(", ") : (mode === "brand" || mode === "audit" ? "Upload brand-guidelines.pdf" : mode === "website_builder" ? "Upload a brief or copy document" : "Upload copy (PDF, DOCX, TXT or Markdown)")}</span>
+            {files.length > 0 && <span style={css("font-size:var(--text-2xs);color:" + accent + ";font-weight:500")}>{files.length} file{files.length === 1 ? "" : "s"}</span>}
           </button>
           <input ref={fileRef} type="file" multiple={mode !== "brand"} hidden accept={mode === "brand" ? ".pdf,.txt,.md" : mode === "funnel" || mode === "website_builder" ? ".pdf,.doc,.docx,.txt,.md" : undefined} onChange={e => { const next = Array.from(e.target.files || []); if (next.length) setFiles(mode === "brand" ? next.slice(0, 1) : prev => [...prev, ...next].slice(0, 3)); e.currentTarget.value = ""; }} />
         </div>}
 
-        {mode === "brand" && <label style={css("display:flex;flex-direction:column;gap:0.32rem;font-size:0.8rem;font-weight:500;color:var(--fg-muted)")}>Public social profiles (optional)<textarea value={socialLinks} onChange={event => setSocialLinks(event.target.value)} rows={3} placeholder="Instagram, TikTok, LinkedIn — one URL per line" className="pt-input" style={css(INPUT + ";resize:vertical;line-height:1.5")} /></label>}
+        {mode === "brand" && <label style={css("display:flex;flex-direction:column;gap:0.32rem;font-size:var(--text-sm);font-weight:500;color:var(--fg-muted)")}>Public social profiles (optional)<textarea value={socialLinks} onChange={event => setSocialLinks(event.target.value)} rows={3} placeholder="Instagram, TikTok, LinkedIn — one URL per line" className="pt-input" style={css(INPUT + ";resize:vertical;line-height:1.5")} /></label>}
 
-        {mode === "seo" && <div style={css("border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);padding:0.7rem 0.75rem") }><div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.7rem") }><div><div style={css("font-size:0.8rem;font-weight:500")}>Google Analytics 4</div><div style={css("font-size:0.7rem;color:var(--fg-muted);margin-top:0.15rem")}>{ga4Properties.length ? "Connected — choose the property to import." : ga4Configured ? "Connect the client’s GA4 for behavioral evidence." : "Not configured yet — website-only Jumpstart remains available."}</div></div>{!ga4Properties.length && ga4Configured && clientId && <button type="button" onClick={() => window.location.assign(`/api/integrations/ga4/connect?clientId=${encodeURIComponent(clientId)}`)} disabled={ga4Checking} className="pt-softbtn" style={css("min-height:2rem;padding:0 0.75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:0.72rem;font-weight:500;cursor:pointer")}>Connect GA4</button>}</div>{ga4Properties.length > 0 && <select value={ga4Property} onChange={event => setGa4Property(event.target.value)} style={css(INPUT + ";margin-top:0.6rem")}>{ga4Properties.map(property => <option key={property.property} value={property.property.replace("properties/", "")}>{property.displayName} · {property.account}</option>)}</select>}</div>}
+        {mode === "seo" && <div style={css("border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);padding:0.7rem 0.75rem") }><div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.7rem") }><div><div style={css("font-size:var(--text-sm);font-weight:500")}>Google Analytics 4</div><div style={css("font-size:var(--text-2xs);color:var(--fg-muted);margin-top:0.15rem")}>{ga4Properties.length ? "Connected — choose the property to import." : ga4Configured ? "Connect the client’s GA4 for behavioral evidence." : "Not configured yet — website-only Jumpstart remains available."}</div></div>{!ga4Properties.length && ga4Configured && clientId && <button type="button" onClick={() => window.location.assign(`/api/integrations/ga4/connect?clientId=${encodeURIComponent(clientId)}`)} disabled={ga4Checking} className="pt-softbtn" style={css("min-height:2rem;padding:0 0.75rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);font-size:var(--text-2xs);font-weight:500;cursor:pointer")}>Connect GA4</button>}</div>{ga4Properties.length > 0 && <select value={ga4Property} onChange={event => setGa4Property(event.target.value)} style={css(INPUT + ";margin-top:0.6rem")}>{ga4Properties.map(property => <option key={property.property} value={property.property.replace("properties/", "")}>{property.displayName} · {property.account}</option>)}</select>}</div>}
 
         {(mode === "funnel" || mode === "website_builder") && (
-          <label style={css("display:flex;flex-direction:column;gap:0.32rem;font-size:0.8rem;font-weight:500;color:var(--fg-muted)")}>
+          <label style={css("display:flex;flex-direction:column;gap:0.32rem;font-size:var(--text-sm);font-weight:500;color:var(--fg-muted)")}>
             {mode === "website_builder" ? "Paste a brief, existing copy, or planning notes (optional)" : "Paste a brief or extra direction (optional)"}
             <textarea value={brief} onChange={e => setBrief(e.target.value)} rows={mobile ? 4 : 5} placeholder={mode === "website_builder" ? "Paste the requested pages, goals, existing copy, or any build requirements…" : "Paste the client’s brief, proposal notes, or direction for turning the uploaded copy into a landing page…"} className="pt-input" style={css(INPUT + ";resize:vertical;line-height:1.5")} />
           </label>
@@ -223,12 +234,12 @@ export function QuickStart({ mode, accent, known, questionLabels, onApply, onCon
       </div>
 
       <div style={css("display:flex;align-items:center;gap:0.6rem;margin-top:0.85rem;flex-wrap:wrap")}>
-        <button type="button" onClick={() => void understand()} disabled={scanning} className="pt-op" style={css("display:inline-flex;align-items:center;gap:0.42rem;min-height:2.35rem;padding:0 1.05rem;border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;font-size:0.84rem;font-weight:500;cursor:" + (scanning ? "wait" : "pointer") + ";opacity:" + (scanning ? ".72" : "1"))}>
+        <button type="button" onClick={() => void understand()} disabled={scanning} className="pt-op" style={css("display:inline-flex;align-items:center;gap:0.42rem;min-height:2.35rem;padding:0 1.05rem;border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;font-size:var(--text-base);font-weight:500;cursor:" + (scanning ? "wait" : "pointer") + ";opacity:" + (scanning ? ".72" : "1"))}>
           <Icon name="sparkle" size={15} />{scanning ? (mode === "website_builder" ? "Reading sources…" : "Reviewing sources…") : mode === "brand" ? "Review brand sources" : mode === "audit" ? "Review website" : mode === "seo" ? "Review SEO sources" : "Review sources"}
         </button>
-        {onContinue && !scanning && hasPreviousScan && <button type="button" onClick={onContinue} className="pt-softbtn" style={css("display:inline-flex;align-items:center;justify-content:center;min-height:2.35rem;padding:0 .95rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:.82rem;font-weight:500;cursor:pointer")}>Use previous scan</button>}
+        {onContinue && !scanning && hasPreviousScan && <button type="button" onClick={onContinue} className="pt-softbtn" style={css("display:inline-flex;align-items:center;justify-content:center;min-height:2.35rem;padding:0 .95rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-sm);font-weight:500;cursor:pointer")}>Use previous scan</button>}
       </div>
-      <p aria-live="polite" style={css("margin:0.55rem 0 0;font-size:0.78rem;line-height:1.45;color:var(--fg-muted)")}>{scanning ? activeScanSteps[scanStep] + "…" : mode === "website_builder" ? "Next: confirm the pages and build requirements." : "Next: review each answer."}</p>
+      <p aria-live="polite" style={css("margin:0.55rem 0 0;font-size:var(--text-xs);line-height:1.45;color:var(--fg-muted)")}>{scanning ? activeScanSteps[scanStep] + "…" : mode === "website_builder" ? "Next: confirm the pages and build requirements." : "Next: review each answer."}</p>
     </div>
   );
 }

@@ -1,8 +1,18 @@
 import { NextResponse } from "next/server";
 import type { LoginUser } from "@/lib/authTypes";
 import { STUDIO_CLIENTS } from "@/portal/clients";
+import {
+  DEVELOPMENT_LOGIN_COOKIE,
+  createDevelopmentLoginToken,
+  developmentLoginCookieOptions,
+} from "@/lib/developmentLoginSession";
+import { createSupabasePrivilegedServerClient } from "@/lib/supabase/privileged";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-type DevelopmentLogin = LoginUser & { password: string };
+type DevelopmentLogin = LoginUser & {
+  password: string;
+  supabaseEmail?: string;
+};
 
 const DEVELOPMENT_LOGINS: DevelopmentLogin[] = [
   {
@@ -10,6 +20,7 @@ const DEVELOPMENT_LOGINS: DevelopmentLogin[] = [
     password: "studio123",
     role: "admin",
     name: "Trisha Baltazar",
+    supabaseEmail: "baltazartrishajoan@gmail.com",
   },
   {
     email: "kier@baltazarstudio.co",
@@ -40,6 +51,44 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
   }
 
-  const { password: _password, ...user } = match;
-  return NextResponse.json({ user });
+  if (match.supabaseEmail) {
+    const privileged = await createSupabasePrivilegedServerClient();
+    const { data: link, error: linkError } = await privileged.auth.admin.generateLink({
+      type: "magiclink",
+      email: match.supabaseEmail,
+    });
+    const tokenHash = link.properties?.hashed_token;
+    if (linkError || !tokenHash) {
+      return NextResponse.json({
+        error: linkError?.message || "The local Supabase session could not be created.",
+      }, { status: 500 });
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const { error: sessionError } = await supabase.auth.verifyOtp({
+      type: "magiclink",
+      token_hash: tokenHash,
+    });
+    if (sessionError) {
+      return NextResponse.json({ error: sessionError.message }, { status: 500 });
+    }
+  }
+
+  const { password: _password, supabaseEmail: _supabaseEmail, ...user } = match;
+  const response = NextResponse.json({ user });
+  response.cookies.set(
+    DEVELOPMENT_LOGIN_COOKIE,
+    createDevelopmentLoginToken(user.email),
+    developmentLoginCookieOptions(),
+  );
+  return response;
+}
+
+export async function DELETE() {
+  const response = NextResponse.json({ ok: true });
+  response.cookies.set(DEVELOPMENT_LOGIN_COOKIE, "", {
+    ...developmentLoginCookieOptions(),
+    maxAge: 0,
+  });
+  return response;
 }
