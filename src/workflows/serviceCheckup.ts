@@ -68,6 +68,8 @@ type WorkflowContext = {
 
 type CaptureResult = {
   url: string;
+  targetKey: string;
+  strategy: "mobile" | "desktop" | "technical";
   ok: boolean;
   itemCount: number;
   error?: string;
@@ -134,7 +136,12 @@ type ResumeCheckpoint = {
   phase: string;
   pages: DiscoveredTarget[];
   snapshotId: string | null;
-  captured: Array<{ url: string; ok: boolean }>;
+  captured: Array<{
+    url: string;
+    targetKey: string;
+    strategy: "mobile" | "desktop" | "technical";
+    ok: boolean;
+  }>;
   failedPages: Array<{ url: string; error?: string }>;
   lighthouseAvailable: boolean | null;
   coverage: number | null;
@@ -153,9 +160,19 @@ export function parseServiceCheckupResumeCheckpoint(value: Json): ResumeCheckpoi
     })
     : [];
   const captured = Array.isArray(value.captured)
-    ? value.captured.flatMap(item => isObject(item) && typeof item.url === "string" && typeof item.ok === "boolean"
-      ? [{ url: item.url, ok: item.ok }]
-      : [])
+    ? value.captured.flatMap(item => {
+      if (!isObject(item) || typeof item.url !== "string" || typeof item.ok !== "boolean") return [];
+      const strategy: "mobile" | "desktop" | "technical" =
+        item.strategy === "mobile" || item.strategy === "desktop" || item.strategy === "technical"
+          ? item.strategy
+          : "technical";
+      return [{
+        url: item.url,
+        targetKey: typeof item.targetKey === "string" ? item.targetKey : item.url,
+        strategy,
+        ok: item.ok,
+      }];
+    })
     : [];
   const failedPages = Array.isArray(value.failedPages)
     ? value.failedPages.flatMap(item => isObject(item) && typeof item.url === "string"
@@ -580,6 +597,7 @@ async function capturePage(
   url: string,
   includeTechnical: boolean,
   strategies: Array<"mobile" | "desktop">,
+  targetKey: string,
 ): Promise<CaptureResult> {
   "use step";
   const attempt = getStepMetadata().attempt;
@@ -611,7 +629,13 @@ async function capturePage(
     }
     const itemCount = bundle.rendered.length + (includeTechnical ? 1 : 0);
     console.log(`[serviceCheckup.capturePage] DONE runId=${input.runId} url=${url} items=${itemCount}`);
-    return { url, ok: true, itemCount };
+    return {
+      url,
+      targetKey,
+      strategy: strategies[0] || "technical",
+      ok: true,
+      itemCount,
+    };
   } catch (error) {
     if (error instanceof FatalError) throw error;
     const message = cleanError(error);
@@ -624,7 +648,14 @@ async function capturePage(
       status: "failed",
       payload: { error: message },
     });
-    return { url, ok: false, itemCount: 1, error: message };
+    return {
+      url,
+      targetKey,
+      strategy: strategies[0] || "technical",
+      ok: false,
+      itemCount: 1,
+      error: message,
+    };
   }
 }
 capturePage.maxRetries = 2;
@@ -1102,11 +1133,10 @@ export async function serviceCheckupWorkflow(input: ServiceCheckupWorkflowInput)
   }
   const pageCaptureEnabled = captureRequirements.renderedStrategies.length > 0 || captureRequirements.includeTechnical;
   const pageCaptureCount = pageCaptureEnabled
-    ? captureRequirements.renderedStrategies.length > 0
-      ? selectedPages.length
-      : Math.min(selectedPages.length, 1)
+    ? (selectedPages.length * captureRequirements.renderedStrategies.length)
+      + (captureRequirements.includeTechnical ? Math.min(selectedPages.length, 1) : 0)
     : 0;
-  const lighthouseCaptureCount = captureRequirements.lighthouseStrategies.length > 0 ? 1 : 0;
+  const lighthouseCaptureCount = captureRequirements.lighthouseStrategies.length;
   const captureTotal = pageCaptureCount + lighthouseCaptureCount;
   const total = Math.max(captureTotal, recheckPlan?.targetCount ?? 0);
   const pageUrls = selectedPages.map(page => page.url);
@@ -1151,32 +1181,36 @@ export async function serviceCheckupWorkflow(input: ServiceCheckupWorkflowInput)
   });
 
   const captures: CaptureResult[] = resumeCheckpoint && resumeRank >= SERVICE_CHECKUP_PHASE_RANK.checking
-    ? selectedPages.map(page => ({
-      url: page.url,
-      ok: !resumeCheckpoint.failedPages.some(failed => failed.url === page.url),
-      itemCount: 0,
-      error: resumeCheckpoint.failedPages.find(failed => failed.url === page.url)?.error,
-    }))
+    ? resumeCheckpoint.captured.map(result => ({ ...result, itemCount: 0 }))
     : (resumeCheckpoint?.captured || []).map(result => ({ ...result, itemCount: 0 }));
-  const captureUrls = captureRequirements.renderedStrategies.length > 0
-    ? pageUrls
-    : captureRequirements.includeTechnical
-      ? pageUrls.slice(0, 1)
-      : [];
-  const remainingUrls = serviceCheckupRemainingCaptureUrls(
-    resumeCheckpoint?.phase ?? null,
-    captureUrls,
-    captures,
-  );
-  for (let index = 0; index < remainingUrls.length; index += 2) {
-    const batch = remainingUrls.slice(index, index + 2);
+  const captureTargets = [
+    ...captureRequirements.renderedStrategies.flatMap(strategy => pageUrls.map(url => ({
+      url,
+      strategy,
+      includeTechnical: false,
+      targetKey: `rendered:${strategy}:${url}`,
+    }))),
+    ...(captureRequirements.includeTechnical && pageUrls[0] ? [{
+      url: pageUrls[0],
+      strategy: "technical" as const,
+      includeTechnical: true,
+      targetKey: `technical:${pageUrls[0]}`,
+    }] : []),
+  ];
+  const completedCaptureKeys = new Set(captures.map(result => result.targetKey));
+  const remainingTargets = resumeCheckpoint && resumeRank >= SERVICE_CHECKUP_PHASE_RANK.checking
+    ? []
+    : captureTargets.filter(target => !completedCaptureKeys.has(target.targetKey));
+  for (let index = 0; index < remainingTargets.length; index += 2) {
+    const batch = remainingTargets.slice(index, index + 2);
     const batchResults = await Promise.all(
-      batch.map(url => capturePage(
+      batch.map(target => capturePage(
         input,
         snapshotId,
-        url,
-        captureRequirements.includeTechnical && pageUrls.indexOf(url) === 0,
-        captureRequirements.renderedStrategies,
+        target.url,
+        target.includeTechnical,
+        target.strategy === "technical" ? [] : [target.strategy],
+        target.targetKey,
       )),
     );
     captures.push(...batchResults);
@@ -1184,31 +1218,48 @@ export async function serviceCheckupWorkflow(input: ServiceCheckupWorkflowInput)
       state: "capturing",
       eventKind: "workflow.capture_progress",
       eventKey: `workflow.capture_progress.${captures.length}`,
-      message: `${captures.length} of ${selectedPages.length} page targets captured.`,
+      message: `${captures.length} of ${captureTargets.length} independently retryable capture targets completed.`,
       completed: captures.length,
       total,
       checkpoint: {
         phase: "capturing",
         pages: selectedPages,
         snapshotId,
-        captured: captures.map(result => ({ url: result.url, ok: result.ok })),
+        captured: captures.map(result => ({
+          url: result.url,
+          targetKey: result.targetKey,
+          strategy: result.strategy,
+          ok: result.ok,
+        })),
         captureRequirements: captureRequirements as unknown as Json,
       },
     });
   }
 
   const lighthouseRequired = captureRequirements.lighthouseStrategies.length > 0;
+  const lighthouseResults: LighthouseResult[] = !lighthouseRequired
+    ? []
+    : resumeCheckpoint && resumeRank >= SERVICE_CHECKUP_PHASE_RANK.checking
+      ? captureRequirements.lighthouseStrategies.map(() => ({
+        ok: resumeCheckpoint.lighthouseAvailable === true,
+        itemCount: 0,
+        ...(resumeCheckpoint.lighthouseAvailable === true ? {} : { error: "Lighthouse was unavailable before recovery." }),
+      }))
+      : await Promise.all(captureRequirements.lighthouseStrategies.map(strategy =>
+        captureLighthouse(input, snapshotId, pageUrls[0], [strategy])
+      ));
   const lighthouse: LighthouseResult = !lighthouseRequired
     ? { ok: true, itemCount: 0 }
-    : resumeCheckpoint && resumeRank >= SERVICE_CHECKUP_PHASE_RANK.checking
-    ? {
-      ok: resumeCheckpoint.lighthouseAvailable === true,
-      itemCount: 0,
-      ...(resumeCheckpoint.lighthouseAvailable === true ? {} : { error: "Lighthouse was unavailable before recovery." }),
-    }
-    : await captureLighthouse(input, snapshotId, pageUrls[0], captureRequirements.lighthouseStrategies);
+    : {
+      ok: lighthouseResults.every(result => result.ok),
+      itemCount: lighthouseResults.reduce((totalItems, result) => totalItems + result.itemCount, 0),
+      ...(lighthouseResults.some(result => result.error)
+        ? { error: lighthouseResults.flatMap(result => result.error ? [result.error] : []).join("; ") }
+        : {}),
+    };
   const completed = total;
-  const successfulTargets = captures.filter(result => result.ok).length + (lighthouseRequired && lighthouse.ok ? 1 : 0);
+  const successfulTargets = captures.filter(result => result.ok).length
+    + lighthouseResults.filter(result => result.ok).length;
   const coverage = captureTotal ? successfulTargets / captureTotal : 0;
   const failedPages = captures.filter(result => !result.ok);
   const partial = failedPages.length > 0 || lighthouseRequired && !lighthouse.ok;
@@ -1293,7 +1344,12 @@ export async function serviceCheckupWorkflow(input: ServiceCheckupWorkflowInput)
           phase: "checking",
           pages: selectedPages,
           snapshotId,
-          captured: captures.map(result => ({ url: result.url, ok: result.ok })),
+          captured: captures.map(result => ({
+            url: result.url,
+            targetKey: result.targetKey,
+            strategy: result.strategy,
+            ok: result.ok,
+          })),
           failedPages: failedPages.map(result => ({ url: result.url, error: result.error })),
           lighthouseAvailable: lighthouse.ok,
           coverage,
@@ -1376,7 +1432,12 @@ export async function serviceCheckupWorkflow(input: ServiceCheckupWorkflowInput)
         phase: "checking",
         pages: selectedPages,
         snapshotId,
-        captured: captures.map(result => ({ url: result.url, ok: result.ok })),
+        captured: captures.map(result => ({
+          url: result.url,
+          targetKey: result.targetKey,
+          strategy: result.strategy,
+          ok: result.ok,
+        })),
         failedPages: failedPages.map(result => ({ url: result.url, error: result.error })),
         lighthouseAvailable: lighthouse.ok,
         coverage,

@@ -6,6 +6,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { openAIError, responseText } from "@/lib/openaiServer";
 import { resolvePortalRequestAccess } from "@/lib/portalRequestAccess";
 import { createSupabasePrivilegedServerClient } from "@/lib/supabase/privileged";
+import { getPortalActorContext } from "@/lib/portalIntelligenceRepository";
+import type { Json } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -39,6 +41,40 @@ function cleanMessages(value: unknown) {
   });
 }
 
+function cleanKey(value: unknown, fallback: string) {
+  if (typeof value !== "string") return fallback;
+  const clean = value.trim().replace(/[^a-zA-Z0-9._:-]+/g, "-").slice(0, 160);
+  return clean || fallback;
+}
+
+function streamChatResult(
+  reply: string,
+  actions: unknown[],
+  model: string,
+  turnId: string | null,
+) {
+  const encoder = new TextEncoder();
+  const chunks = reply.match(/.{1,80}(?:\s|$)|.{1,80}/gs) || [reply];
+  const body = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      controller.enqueue(encoder.encode(`event: start\ndata: ${JSON.stringify({ turnId, model })}\n\n`));
+      for (const chunk of chunks) {
+        controller.enqueue(encoder.encode(`event: delta\ndata: ${JSON.stringify({ delta: chunk })}\n\n`));
+        await new Promise(resolve => setTimeout(resolve, 4));
+      }
+      controller.enqueue(encoder.encode(`event: complete\ndata: ${JSON.stringify({ reply, actions, model, turnId })}\n\n`));
+      controller.close();
+    },
+  });
+  return new Response(body, {
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      "X-Accel-Buffering": "no",
+    },
+  });
+}
+
 function auditTrendSummary(drafts: ReturnType<typeof coercePersistedAuditDrafts>) {
   const byClient = new Map<string, typeof drafts>();
   drafts.forEach(draft => byClient.set(draft.run.clientId, [...(byClient.get(draft.run.clientId) || []), draft]));
@@ -55,12 +91,30 @@ function auditTrendSummary(drafts: ReturnType<typeof coercePersistedAuditDrafts>
   });
 }
 
+export async function GET(request: NextRequest) {
+  const authClient = await createSupabaseServerClient();
+  const actor = await getPortalActorContext(authClient);
+  if (!actor) return NextResponse.json({ error: "Sign in to load Snapshot chat history." }, { status: 401 });
+  const sessionId = request.nextUrl.searchParams.get("sessionId")?.trim().slice(0, 160);
+  let query = authClient
+    .from("portal_chat_turns")
+    .select("id, session_id, request_id, user_message, assistant_message, actions, model, input_tokens, output_tokens, latency_ms, status, created_at")
+    .eq("tenant_id", actor.tenantId)
+    .order("created_at", { ascending: true })
+    .limit(100);
+  if (sessionId) query = query.eq("session_id", sessionId);
+  const { data, error } = await query;
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ turns: data || [] });
+}
+
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Cross-origin requests are not allowed." }, { status: 403 });
   if (!withinRateLimit(request)) return NextResponse.json({ error: "Too many chat requests. Please wait a moment." }, { status: 429 });
   const authClient = await createSupabaseServerClient();
   const access = await resolvePortalRequestAccess(request, authClient);
   if (!access) return NextResponse.json({ error: "Sign in to use Snapshot chat." }, { status: 401 });
+  const actor = await getPortalActorContext(authClient);
   const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_CHAT_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "Snapshot chat is not configured." }, { status: 503 });
   const body = await request.json().catch(() => null);
@@ -70,6 +124,14 @@ export async function POST(request: NextRequest) {
     : typeof body?.clientName === "string" ? body.clientName.trim() : undefined;
   const messages = cleanMessages(body?.messages);
   if (!messages.length) return NextResponse.json({ error: "Add a message to continue." }, { status: 400 });
+  const latestUserMessage = [...messages].reverse().find(message => message.role === "user")?.content || "";
+  const fallbackRequestHash = createHash("sha256").update(`${actor?.userId || access.role}:${latestUserMessage}`).digest("hex");
+  const sessionId = cleanKey(body?.sessionId, `snapshot-${fallbackRequestHash.slice(0, 24)}`);
+  const requestId = cleanKey(body?.requestId, fallbackRequestHash.slice(0, 32));
+  const requestHash = createHash("sha256")
+    .update(`${actor?.tenantId || "development"}:${actor?.userId || access.role}:${sessionId}:${requestId}:${latestUserMessage}`)
+    .digest("hex");
+  const startedAt = Date.now();
   const allowedClientIds = new Set(clientsVisibleToRole(role, clientName).map(client => client.id));
   const allowedClients = clientsVisibleToRole(role, clientName);
   let audits: ReturnType<typeof coercePersistedAuditDrafts> = [];
@@ -190,7 +252,45 @@ export async function POST(request: NextRequest) {
       result.push({ action: "update_project", client, service: candidate.service, stage });
       return result;
     }, []);
-    return NextResponse.json({ reply: parsed.reply, actions, model: payload?.model || process.env.OPENAI_CHAT_MODEL || "gpt-5.6" });
+    const model = payload?.model || process.env.OPENAI_CHAT_MODEL || "gpt-5.6";
+    let turnId: string | null = null;
+    if (actor) {
+      const supabase = await createSupabasePrivilegedServerClient();
+      const { data: turn, error: persistError } = await supabase
+        .from("portal_chat_turns")
+        .upsert({
+          tenant_id: actor.tenantId,
+          client_id: actor.clientId,
+          user_id: actor.userId,
+          session_id: sessionId,
+          request_id: requestId,
+          request_hash: requestHash,
+          user_message: latestUserMessage,
+          assistant_message: parsed.reply,
+          actions: actions as unknown as Json,
+          tool_activity: actions.map(action => ({
+            action: action.action,
+            client: action.client,
+            authorization: "explicit_user_request",
+          })) as unknown as Json,
+          outcome: {
+            state: actions.length ? "returned_for_scoped_application" : "answered",
+            actionCount: actions.length,
+          },
+          model,
+          input_tokens: typeof payload?.usage?.input_tokens === "number" ? payload.usage.input_tokens : null,
+          output_tokens: typeof payload?.usage?.output_tokens === "number" ? payload.usage.output_tokens : null,
+          latency_ms: Math.max(0, Date.now() - startedAt),
+          status: "completed",
+          error: null,
+        }, { onConflict: "user_id,request_id" })
+        .select("id")
+        .single();
+      if (persistError) throw new Error(`Snapshot chat could not persist its durable turn: ${persistError.message}`);
+      turnId = turn.id;
+    }
+    if (body?.stream === true) return streamChatResult(parsed.reply, actions, model, turnId);
+    return NextResponse.json({ reply: parsed.reply, actions, model, turnId });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Snapshot chat could not answer right now." }, { status: 502 });
   }

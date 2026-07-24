@@ -1,8 +1,12 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import puppeteer, { type Browser } from "puppeteer-core";
 import { resolvePortalRequestAccess } from "@/lib/portalRequestAccess";
 import { ResourceBusyError, withExclusiveServerResource } from "@/lib/serverResourceGuard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabasePrivilegedServerClient } from "@/lib/supabase/privileged";
+import { getPortalActorContext } from "@/lib/portalIntelligenceRepository";
+import { PORTAL_UPLOAD_BUCKET } from "@/lib/portalWorkspacePersistence";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -22,8 +26,10 @@ async function launchBrowser(): Promise<Browser> {
 
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Cross-origin requests are not allowed." }, { status: 403 });
-  const access = await resolvePortalRequestAccess(request, await createSupabaseServerClient());
+  const authClient = await createSupabaseServerClient();
+  const access = await resolvePortalRequestAccess(request, authClient);
   if (!access) return NextResponse.json({ error: "Sign in to export a report." }, { status: 401 });
+  const actor = await getPortalActorContext(authClient);
   const body = await request.json().catch(() => null);
   const html = typeof body?.html === "string" ? body.html : "";
   const title = typeof body?.title === "string" ? body.title.slice(0, 160) : "Report";
@@ -62,7 +68,35 @@ export async function POST(request: NextRequest) {
             })
           : await page.pdf({ format: "A4", printBackground: true, preferCSSPageSize: false, margin: { top: "12mm", right: "10mm", bottom: "12mm", left: "10mm" } });
         const fileName = `${title.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "report"}.pdf`;
-        return new NextResponse(Buffer.from(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${fileName}"`, "Cache-Control": "no-store" } });
+        let objectPath: string | null = null;
+        if (actor) {
+          const requestedClientSlug = typeof body?.clientId === "string" ? body.clientId.trim() : "";
+          const supabase = await createSupabasePrivilegedServerClient();
+          let storageClientId = actor.clientId;
+          if (!storageClientId && requestedClientSlug) {
+            const { data: requestedClient, error: clientError } = await supabase
+              .from("clients")
+              .select("id")
+              .eq("tenant_id", actor.tenantId)
+              .eq("slug", requestedClientSlug)
+              .maybeSingle();
+            if (clientError) throw new Error(clientError.message);
+            storageClientId = requestedClient?.id || null;
+          }
+          objectPath = `${actor.tenantId}/${storageClientId || "studio"}/reports/${randomUUID()}-${fileName}`;
+          const { error: uploadError } = await supabase.storage
+            .from(PORTAL_UPLOAD_BUCKET)
+            .upload(objectPath, Buffer.from(pdf), { contentType: "application/pdf", upsert: false });
+          if (uploadError) throw new Error(`The report rendered but could not be stored durably: ${uploadError.message}`);
+        }
+        return new NextResponse(Buffer.from(pdf), {
+          headers: {
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename="${fileName}"`,
+            "Cache-Control": "no-store",
+            ...(objectPath ? { "X-Portal-Object-Path": objectPath } : {}),
+          },
+        });
       } finally {
         await browser.close().catch(() => undefined);
       }

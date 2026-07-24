@@ -61,6 +61,56 @@ import { normalizePortalProcessHandoff } from "@/lib/portalProcessHandoffs";
 import { applyTaskStatusLifecycle, initializeTaskLifecycle } from "@/lib/portalTaskLifecycle";
 import { DASHBOARD_USER_EMAIL_HEADER } from "@/lib/dashboardPersistence";
 
+type SnapshotChatPayload = {
+  reply?: string;
+  actions?: Array<{ action?: string; client?: string; service?: string; stage?: string; title?: string; note?: string; assignee?: string }>;
+  error?: string;
+  model?: string;
+  turnId?: string | null;
+};
+
+async function readSnapshotChatResponse(
+  response: Response,
+  onDelta: (reply: string) => void,
+): Promise<SnapshotChatPayload> {
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null) as SnapshotChatPayload | null;
+    throw new Error(typeof payload?.error === "string" ? payload.error : "Snapshot chat could not answer right now.");
+  }
+  if (!response.headers.get("content-type")?.includes("text/event-stream") || !response.body) {
+    return await response.json() as SnapshotChatPayload;
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let reply = "";
+  let completed: SnapshotChatPayload | null = null;
+  const consumeEvent = (block: string) => {
+    const event = block.split("\n").find(line => line.startsWith("event:"))?.slice(6).trim();
+    const data = block.split("\n").filter(line => line.startsWith("data:")).map(line => line.slice(5).trim()).join("\n");
+    if (!data) return;
+    const payload = JSON.parse(data) as SnapshotChatPayload & { delta?: string };
+    if (event === "delta" && typeof payload.delta === "string") {
+      reply += payload.delta;
+      onDelta(reply);
+    }
+    if (event === "complete") completed = payload;
+  };
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+    let boundary = buffer.indexOf("\n\n");
+    while (boundary >= 0) {
+      consumeEvent(buffer.slice(0, boundary));
+      buffer = buffer.slice(boundary + 2);
+      boundary = buffer.indexOf("\n\n");
+    }
+    if (done) break;
+  }
+  if (buffer.trim()) consumeEvent(buffer);
+  return completed || { reply };
+}
+
 export type TaskView = "board" | "calendar";
 export const NEW_TASK_DRAFT_ID = "__new_task_draft__";
 export type QuickActionIntent = "new_client" | "invite_user" | "new_message" | "new_audit";
@@ -1505,10 +1555,32 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
         void fetch("/api/ai/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role: s.role, clientName: s.clientName, messages: conversation, workspace: buildProgressChatContext(s) }),
+          body: JSON.stringify({
+            role: s.role,
+            clientName: s.clientName,
+            sessionId: nextSession.id,
+            requestId: assistantId,
+            stream: true,
+            messages: conversation,
+            workspace: buildProgressChatContext(s),
+          }),
         }).then(async response => {
-          const payload = await response.json().catch(() => null);
-          if (!response.ok || typeof payload?.reply !== "string") throw new Error(typeof payload?.error === "string" ? payload.error : "Snapshot chat could not answer right now.");
+          const payload = await readSnapshotChatResponse(response, streamedReply => {
+            setState(current => ({
+              ...current,
+              progressChatSessions: current.progressChatSessions.map(session => session.id === nextSession.id ? {
+                ...session,
+                updatedAt: new Date().toISOString(),
+                messages: session.messages.map(message => message.id === assistantId ? {
+                  ...message,
+                  text: streamedReply,
+                  pending: true,
+                  time: "Now",
+                } : message),
+              } : session),
+            }));
+          });
+          if (typeof payload?.reply !== "string") throw new Error("Snapshot chat could not answer right now.");
           const chatActions: Array<{ action?: string; client?: string; service?: string; stage?: string; title?: string; note?: string; assignee?: string }> = Array.isArray(payload?.actions) ? payload.actions : [];
           setState(current => {
             const projectOverrides = { ...current.projectOverrides };

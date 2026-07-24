@@ -1359,6 +1359,87 @@ export type Database = {
         }
         Relationships: []
       }
+      portal_chat_turns: {
+        Row: {
+          actions: Json
+          assistant_message: string
+          client_id: string | null
+          created_at: string
+          error: string | null
+          id: string
+          input_tokens: number | null
+          latency_ms: number
+          model: string | null
+          outcome: Json
+          output_tokens: number | null
+          request_hash: string
+          request_id: string
+          session_id: string
+          status: string
+          tenant_id: string
+          tool_activity: Json
+          user_id: string
+          user_message: string
+        }
+        Insert: {
+          actions?: Json
+          assistant_message?: string
+          client_id?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          input_tokens?: number | null
+          latency_ms: number
+          model?: string | null
+          outcome?: Json
+          output_tokens?: number | null
+          request_hash: string
+          request_id: string
+          session_id: string
+          status?: string
+          tenant_id: string
+          tool_activity?: Json
+          user_id: string
+          user_message: string
+        }
+        Update: {
+          actions?: Json
+          assistant_message?: string
+          client_id?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          input_tokens?: number | null
+          latency_ms?: number
+          model?: string | null
+          outcome?: Json
+          output_tokens?: number | null
+          request_hash?: string
+          request_id?: string
+          session_id?: string
+          status?: string
+          tenant_id?: string
+          tool_activity?: Json
+          user_id?: string
+          user_message?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_chat_turns_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_chat_turns_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "portal_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portal_tenant_memberships: {
         Row: {
           client_id: string | null
