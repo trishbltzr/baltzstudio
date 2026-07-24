@@ -91,13 +91,13 @@ Created: 2026-07-24
   - [x] Separate Production, Preview, and Development environment variables. (Required non-empty Supabase/OpenAI settings are configured per environment; the expiring local OIDC token was not copied.)
   - [x] Add Supabase public settings only as public variables. (`NEXT_PUBLIC_SUPABASE_URL` and the publishable key are the only browser-exposed Supabase values.)
   - [x] Keep Supabase secret keys, OpenAI credentials, SMTP credentials, OAuth secrets, and integration secrets server-only.
-  - [~] Configure the Vercel function region near the Supabase project. (`vercel.json` now targets Seoul `icn1`, matching Supabase `ap-northeast-2`; preview verification pending.)
+  - [x] Configure the Vercel function region near the Supabase project. (Preview `dpl_CaFdQPNdDLgL8YepSHb2bBNvTUEj` reports `icn1`, matching Supabase `ap-northeast-2` in Seoul.)
   - [ ] Enable spend alerts and a deliberate usage budget.
 
 - [ ] **9. Move the portal domain**
   - [ ] Add `app.baltz.studio` to the Vercel project before changing DNS.
   - [ ] Complete domain verification.
-  - [~] Deploy and verify using the generated Vercel production URL first. (Preview `dpl_7g8dTcJXykFfG6Q7w1GZK63BrvGv` is READY; login/auth/service-run/production-dev-login guards pass, with authenticated flows still pending.)
+  - [~] Deploy and verify using the generated Vercel production URL first. (Seoul preview `dpl_CaFdQPNdDLgL8YepSHb2bBNvTUEj` is READY; login/auth/service-run/production-dev-login guards pass, with authenticated flows still pending.)
   - [ ] Update Hostinger DNS only after the generated deployment passes.
   - [ ] Verify SSL, redirects, login, callbacks, API routes, streaming, uploads, and authenticated navigation on `app.baltz.studio`.
 
@@ -155,7 +155,7 @@ Created: 2026-07-24
 ## Cutover and Rollback
 
 - [ ] **16. Stage the release**
-  - [x] Deploy an approved preview build. (`dpl_7g8dTcJXykFfG6Q7w1GZK63BrvGv`, generated URL verified 2026-07-24.)
+  - [x] Deploy an approved preview build. (`dpl_CaFdQPNdDLgL8YepSHb2bBNvTUEj` in Seoul, generated URL verified 2026-07-24.)
   - [ ] Run anonymous, Admin, Manager, and Client acceptance checks.
   - [ ] Run one bounded audit, one chatbot conversation, one tool-backed chat action, one PDF export, and one file upload.
   - [ ] Confirm logs and persisted state for every flow.
