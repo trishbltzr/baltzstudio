@@ -7,12 +7,20 @@ import { openAIError, responseText } from "@/lib/openaiServer";
 import { resolvePortalRequestAccess } from "@/lib/portalRequestAccess";
 import { createSupabasePrivilegedServerClient } from "@/lib/supabase/privileged";
 import { getPortalActorContext } from "@/lib/portalIntelligenceRepository";
+import {
+  normalizePersistedPortalWorkspaceState,
+  PORTAL_WORKSPACE_ROW_ID,
+} from "@/lib/portalWorkspacePersistence";
 import type { Json } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
 const windows = new Map<string, { count: number; resetAt: number }>();
+
+type SnapshotAction =
+  | { action: "create_request"; client: string; title: string; note: string; assignee: "Trish Baltazar" | "Kier Mangibin" }
+  | { action: "update_project"; client: string; service: "cocoon" | "wiaw" | "iff"; stage: string };
 
 function sameOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
@@ -89,6 +97,110 @@ function auditTrendSummary(drafts: ReturnType<typeof coercePersistedAuditDrafts>
       trendEvidence: scored.length >= 2 ? `${scored.length} scored audit runs` : "Insufficient scored history for a reliable trend",
     };
   });
+}
+
+async function persistWorkspaceActions(
+  supabase: Awaited<ReturnType<typeof createSupabasePrivilegedServerClient>>,
+  actions: SnapshotAction[],
+  requestId: string,
+  actorRole: "admin" | "manager" | "client",
+) {
+  if (!actions.length) return [];
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { data, error } = await supabase
+      .from("portal_workspace_state")
+      .select("state, updated_at")
+      .eq("workspace_id", PORTAL_WORKSPACE_ROW_ID)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    const state = normalizePersistedPortalWorkspaceState(data?.state);
+    if (!state || !data?.updated_at) throw new Error("The shared portal workspace is not initialized.");
+
+    const next = structuredClone(state);
+    const applied: Array<Record<string, string>> = [];
+    for (const action of actions) {
+      if (action.action === "update_project") {
+        next.projectOverrides[action.client] = {
+          ...(next.projectOverrides[action.client] || {}),
+          name: action.service === "cocoon" ? "Cocoon Consult" : action.service === "wiaw" ? "Winged in a Week" : "In Full Flight",
+          service: action.service,
+          stage: action.stage,
+          progress: 0,
+        };
+        applied.push({ action: action.action, client: action.client });
+        continue;
+      }
+
+      const sourceId = `snapshot-${requestId}`;
+      const existingTask = (next.tasks as Array<Record<string, unknown>>)
+        .find(task => task.sourceId === sourceId);
+      if (existingTask) {
+        applied.push({
+          action: action.action,
+          client: action.client,
+          ticketId: String(existingTask.ticketId || existingTask.sourceId || sourceId),
+          taskId: String(existingTask.id || ""),
+        });
+        continue;
+      }
+
+      const ticketNumber = next.ticketSeq;
+      const ticketId = `BZ-${ticketNumber}`;
+      const threadId = `pc-action-${ticketNumber}`;
+      const maxTaskNumber = Math.max(
+        0,
+        ...(next.tasks as Array<Record<string, unknown>>).map(task =>
+          Number.parseInt(String(task.id || "").replace(/\D/g, ""), 10) || 0),
+      );
+      const taskId = `k${maxTaskNumber + 1}`;
+      const now = new Date().toISOString();
+      next.threads = [{
+        id: threadId,
+        name: action.title,
+        clientName: action.client,
+        unread: actorRole === "client" ? 1 : 0,
+        isTicket: true,
+        ticketId,
+        category: "Snapshot request",
+        status: "open",
+        assignee: action.assignee,
+        escalated: false,
+        tzLabel: "London",
+        tzOff: 1,
+        messages: [{ from: actorRole === "client" ? "client" : "studio", text: action.note, time: "Now", by: actorRole === "client" ? "Client" : "Studio" }],
+        updatedAt: now,
+      }, ...next.threads];
+      next.tasks = [{
+        id: taskId,
+        title: action.title,
+        description: action.note,
+        project: action.client,
+        assignee: action.assignee,
+        owner: "studio",
+        status: "todo",
+        priority: "med",
+        due: now,
+        source: "inbox",
+        sourceId,
+        ticketId,
+        milestone: "Snapshot request",
+      }, ...next.tasks];
+      next.ticketSeq += 1;
+      applied.push({ action: action.action, client: action.client, ticketId, threadId, taskId });
+    }
+
+    const updatedAt = new Date().toISOString();
+    const update = await supabase
+      .from("portal_workspace_state")
+      .update({ state: next as unknown as Json, updated_at: updatedAt })
+      .eq("workspace_id", PORTAL_WORKSPACE_ROW_ID)
+      .eq("updated_at", data.updated_at)
+      .select("workspace_id")
+      .maybeSingle();
+    if (update.error) throw new Error(update.error.message);
+    if (update.data) return applied;
+  }
+  throw new Error("The workspace changed while applying the Snapshot action. Please retry.");
 }
 
 export async function GET(request: NextRequest) {
@@ -242,9 +354,6 @@ export async function POST(request: NextRequest) {
     if (access.role === "client" && access.clientName) {
       allowedByName.set(access.clientName.trim().toLowerCase(), access.clientName);
     }
-    type SnapshotAction =
-      | { action: "create_request"; client: string; title: string; note: string; assignee: "Trish Baltazar" | "Kier Mangibin" }
-      | { action: "update_project"; client: string; service: "cocoon" | "wiaw" | "iff"; stage: string };
     const actions = !Array.isArray(parsed.actions) ? [] : parsed.actions.reduce<SnapshotAction[]>((result, item) => {
       if (!item || typeof item !== "object") return result;
       const candidate = item as { action?: unknown; client?: unknown; service?: unknown; stage?: unknown; title?: unknown; note?: unknown; assignee?: unknown };
@@ -263,8 +372,10 @@ export async function POST(request: NextRequest) {
     }, []);
     const model = payload?.model || process.env.OPENAI_CHAT_MODEL || "gpt-5.6";
     let turnId: string | null = null;
+    let actionApplications: Array<Record<string, string>> = [];
     if (actor) {
       const supabase = await createSupabasePrivilegedServerClient();
+      actionApplications = await persistWorkspaceActions(supabase, actions, requestId, access.role);
       const { data: turn, error: persistError } = await supabase
         .from("portal_chat_turns")
         .upsert({
@@ -283,8 +394,9 @@ export async function POST(request: NextRequest) {
             authorization: "explicit_user_request",
           })) as unknown as Json,
           outcome: {
-            state: actions.length ? "returned_for_scoped_application" : "answered",
+            state: actions.length ? "applied" : "answered",
             actionCount: actions.length,
+            applications: actionApplications,
           },
           model,
           input_tokens: typeof payload?.usage?.input_tokens === "number" ? payload.usage.input_tokens : null,
