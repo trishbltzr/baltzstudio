@@ -55,7 +55,7 @@ Created: 2026-07-24
   - [x] Verify inbound mail, outbound mail, password resets, invitations, and application notifications. (SMTP self-send, Supabase invitation, password reset, and the production `/api/invite-request` notification all arrived. The application-triggered message reached Inbox; its acceptance-only database row was removed.)
 
 - [~] **4. Use Hostinger email marketing intentionally**
-  - [~] Use Hostinger email marketing for public leads, newsletters, service education, and nurture campaigns. (It is not included with this plan: the available choices are the free 100-recipient/200-email monthly tier or a paid add-on. No purchase was made without approval.)
+  - [~] Use Hostinger email marketing for public leads, newsletters, service education, and nurture campaigns. (Owner decision on 2026-07-25: defer activation. It remains outside the current production scope until an audience, campaign owner, and send forecast are approved.)
   - [x] Keep portal transactional messages out of marketing lists. (Transactional SMTP and the future marketing-list path are explicitly separated in operations.)
   - [x] Maintain consent, unsubscribe, and suppression handling. (The activation contract requires consent source/time/version plus immutable unsubscribe, complaint, hard-bounce, and suppression handling.)
   - [x] Connect marketing forms to the selected CRM/list workflow without exposing Supabase secrets in the browser. (The Hostinger marketing app now submits inquiry forms through its server-side `/api/waitlist` adapter into the Supabase `cocoon_leads` queue using public project credentials. Production acceptance preserved `footer_connect` attribution and timestamped `direct_response` consent metadata; the acceptance-only row was deleted. No inquiry is enrolled in a marketing list.)
@@ -66,7 +66,7 @@ Created: 2026-07-24
   - [x] Confirm SSL renewal and HTTPS redirects for every marketing domain. (All eight retained hostnames have valid certificates and HTTP-to-HTTPS redirects; the earliest observed certificate expiry is 2026-09-08.)
   - [x] Keep daily backups enabled and perform at least one documented restore test. (Daily Hostinger backups are active. The 2026-07-24 16:00 file archive downloaded successfully, passed gzip/tar integrity and safe-path checks, and restored 66,288 entries across six shared-hosting domains into an isolated temporary directory without touching a live site.)
   - [x] Review malware scanning and access controls. (Hostinger dependency scanning found 14 findings on the rollback build; maintained portal and marketing sources were upgraded to Next.js 16.2.11, PostCSS 8.5.15, and Sharp 0.35.0. SSH remains inactive.)
-  - [~] Connect Google Analytics, Search Console, and relevant advertising pixels to the marketing site. (The portal has a configured read-only GA4 OAuth client, but connections are session-cookie scoped and production has no persisted integration/property record. The marketing source has no GA4 measurement ID, Search Console ownership, or approved advertising-pixel IDs; those account selections are required from the owner.)
+  - [~] Connect Google Analytics and Search Console to the marketing site; add advertising pixels only when approved. (Owner authorized GA4 and Search Console creation on 2026-07-25 and confirmed there are no advertising pixels. GA4 account/property details are complete and await owner acceptance of Google's Analytics Terms. A `baltz.studio` Search Console Domain property was created and its Hostinger TXT token is publicly visible through Cloudflare and Google resolvers; Google verification is pending cache refresh.)
   - [x] Keep marketing-site performance monitoring separate from portal monitoring. (Hostinger CDN/Page Speed is the public-site layer; Vercel Observability and durable workflow checks are the portal layer.)
 
 - [~] **6. Retire unused Hostinger application resources safely**
@@ -92,7 +92,7 @@ Created: 2026-07-24
   - [x] Add Supabase public settings only as public variables. (`NEXT_PUBLIC_SUPABASE_URL` and the publishable key are the only browser-exposed Supabase values.)
   - [x] Keep Supabase secret keys, OpenAI credentials, SMTP credentials, OAuth secrets, and integration secrets server-only.
   - [x] Configure the Vercel function region near the Supabase project. (Preview `dpl_CaFdQPNdDLgL8YepSHb2bBNvTUEj` reports `icn1`, matching Supabase `ap-northeast-2` in Seoul.)
-  - [~] Enable spend alerts and a deliberate usage budget. (The project is on Vercel Hobby with no payment method; Spend Management requires Pro, so activation needs an explicit billing upgrade.)
+  - [x] Set a deliberate Vercel cost-control policy. (Owner declined Pro on 2026-07-25. The portal remains on Hobby with no paid Spend Management ceiling; monthly manual function, workflow, sandbox, bandwidth, and build-usage review is the accepted control.)
 
 - [x] **9. Move the portal domain**
   - [x] Add `app.baltz.studio` to the Vercel project before changing DNS.
@@ -149,7 +149,7 @@ Created: 2026-07-24
   - [x] Verify conversations, audits, reports, workflow runs, evidence, approvals, tasks, notifications, and files survive deployments and retries. (Chat, applied Inbox/task action, PDF, upload, workflow run, snapshot, evidence, model/tokens/latency, and idempotent retry state were all queried from Supabase. Acceptance-only artifacts were removed after proof.)
   - [x] Confirm storage upload, download, replacement, and deletion policies. (`portal-uploads` is private with no direct browser policies; authenticated routes use privileged storage only after role/client checks. Upload, privileged download, and cleanup deletion passed; `upsert:false` prevents silent replacement.)
   - [x] Verify data retention and soft-deletion behavior. (Source metadata defaults to three years, evidence to two years, and chat content to one year. `20260724024500_enforce_chat_retention_and_client_archival.sql` rejects invalid retention and half-archived clients; the temporary archive/restore acceptance left no test rows.)
-  - [~] Confirm daily backups and perform a documented recovery exercise. (The non-destructive migration/archive/recovery exercise passed. A permission-restricted off-site logical export now contains all 34 public tables/2,027 rows, three Auth users, and the private Storage object; an independent verifier passed all 36 artifact hashes and record counts. Supabase Free still lacks managed daily backups, so this remains partial until Pro is approved or a reliable daily schedule is authorized.)
+  - [~] Confirm a recurring backup cadence and perform a documented recovery exercise. (The non-destructive migration/archive/recovery exercise passed. A permission-restricted off-site logical export contains all 34 public tables/2,027 rows, three Auth users, and the private Storage object; an independent verifier passed all 36 artifact hashes and record counts. Owner declined Pro and daily local automation on 2026-07-25 and is considering weekly automation; scheduling remains pending explicit approval.)
   - [x] Define the conditions that would require point-in-time recovery. (Broad destructive changes, cross-tenant mutation, non-deterministic corruption, or an RPO between daily backups require PITR; the maintenance-mode restore sequence is documented.)
 
 ## Cutover and Rollback
@@ -173,8 +173,8 @@ Created: 2026-07-24
   - [x] Document the exact application-first and DNS-fallback procedures in `docs/PRODUCTION_PLATFORM_OPERATIONS.md`.
 
 - [~] **19. Close the rollback window**
-  - [ ] Obtain explicit production acceptance.
-  - [~] Retain the Hostinger portal deployment for the agreed observation period. (A conservative 14-day window runs through 2026-08-07; the rollback hostname and deployment history remain intact during that window.)
+  - [x] Obtain explicit production acceptance. (Accepted by the owner on 2026-07-25.)
+  - [~] Retain the Hostinger portal deployment for the agreed observation period. (Owner reconfirmed retention on 2026-07-25. The conservative 14-day window runs through 2026-08-07; the rollback hostname and deployment history remain intact during that window.)
   - [x] Export and archive Hostinger deployment and MySQL artifacts. (A checksum manifest, verified 639 MB Hostinger file archive, `baltz_portal` SQL export, and verified complete Git source bundle are stored off-repository under `Documents/Baltz Studio Archives/hostinger-rollback-2026-07-24`; the live rollback Web App and its deployment history remain intact.)
   - [ ] Remove unused Hostinger application resources only after approval.
   - [x] Update architecture and operations documentation to show Vercel + Supabase as authoritative. (`docs/PRODUCTION_PLATFORM_OPERATIONS.md`.)
@@ -184,8 +184,8 @@ Created: 2026-07-24
 - [~] **20. Establish monthly controls**
   - [x] Record the actual Hostinger renewal date and post-promotion price. (The current term expires 2027-07-24. The read-only hPanel renewal quote for another 12 months showed PHP 479/month list, PHP 439/month after the displayed 8% discount, PHP 5,268 before tax, PHP 632.16 tax/fees, and PHP 5,900.16 total; no payment was submitted.)
   - [x] Use the Hostinger plan for public marketing sites, mailboxes, email marketing, CDN, SSL, and backups to avoid duplicating those costs. (Seven site slots plus the rollback hostname, one mailbox/five aliases, active CDN, SSL, and daily backups are now inventoried and assigned.)
-  - [~] Start Vercel on the appropriate commercial plan with spend alerts and a hard budget decision. (Currently Hobby; Pro and a payment method are required for Spend Management.)
-  - [~] Start or retain the appropriate Supabase production plan with cost controls. (Currently Free; Pro is required for leaked-password protection and production-grade PITR/backup controls.)
+  - [x] Start or retain the appropriate Vercel plan with an explicit cost-control decision. (Owner chose to retain Hobby and declined Pro on 2026-07-25. Paid Spend Management is therefore unavailable; monthly manual usage review is required.)
+  - [x] Start or retain the appropriate Supabase production plan with explicit recovery tradeoffs. (Owner chose to retain Free and declined Pro on 2026-07-25, accepting the absence of managed backups, leaked-password protection, and PITR for now. A verified off-site logical exporter exists; weekly scheduling is still awaiting approval.)
   - [x] Track OpenAI usage by feature and client. (`portal_chat_turns` stores tenant/client, model, input/output tokens, latency, status, tool activity, and outcome for monthly reconciliation.)
   - [x] Review Vercel function, workflow, sandbox, bandwidth, and build usage monthly. (`docs/PLATFORM_MONTHLY_OPERATIONS_CHECKLIST.md` is the recurring evidence log.)
   - [x] Consider a VPS worker only when measured browser-processing costs exceed the VPS cost plus its maintenance burden. (The gate requires three consecutive monthly reviews above the fully loaded VPS alternative.)
@@ -202,7 +202,7 @@ Created: 2026-07-24
 - [x] Long-running chatbot work becomes a durable workflow.
 - [x] Chromium, Lighthouse, website scanning, and PDF rendering complete without blocking the portal.
 - [x] Files and generated evidence persist in Supabase Storage.
-- [ ] Vercel and Supabase spend alerts are active.
+- [x] Vercel and Supabase cost controls match the owner-approved plans. (Both remain on free tiers; paid spend alerts are unavailable, so the accepted control is monthly manual usage review.)
 - [x] The rollback procedure has been rehearsed and documented.
 - [x] Production has no development-only login or debugging controls.
 

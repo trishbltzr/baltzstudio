@@ -30,7 +30,7 @@ the evidence reviewed; do not mark a line complete from memory.
   certificate warning.
 - [ ] Review CDN cache status, 4xx/5xx totals, and Page Speed separately from
   Vercel portal monitoring.
-- [ ] Confirm the latest daily backup and inspect restore history.
+- [ ] Confirm the latest Hostinger daily backup and inspect restore history.
 - [ ] Review malware and dependency findings; patch high or critical findings
   before the next release.
 - [ ] Review disk, inode, CPU, memory, database, and site-slot usage. Investigate

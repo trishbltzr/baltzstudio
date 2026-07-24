@@ -127,9 +127,11 @@ served the hostname with valid TLS.
   schema source; the logical export supplies public-table data, Auth user
   metadata, and Storage bytes. This interim control does not provide PITR or
   guaranteed managed daily backups.
-- Upgrade to Supabase Pro before commercial production. Pro supplies managed
-  daily backups; select PITR only when the required recovery point is shorter
-  than the daily-backup window.
+- Owner accepted commercial production on Supabase Free on 2026-07-25 and
+  declined Pro for now. This accepts the absence of managed daily backups and
+  PITR. Keep the verified off-site logical exporter available; recurring weekly
+  automation remains pending explicit approval. Revisit Pro when the recovery
+  point, client volume, or compliance obligation exceeds this accepted risk.
 
 Use PITR rather than an ordinary application rollback when any of these are
 confirmed:
@@ -187,6 +189,18 @@ approved audience and campaign. Activation must satisfy all of the following:
   purchase a paid tier only after the audience size and monthly send forecast
   exceed the free allowance.
 
+## Marketing analytics
+
+- The approved analytics scope is GA4 plus a Search Console Domain property for
+  `baltz.studio`; no advertising pixels are approved.
+- GA4 is configured as account `Baltz Studio`, property
+  `Baltz Studio Website`, Philippines reporting time, PHP currency, with lead
+  generation and web-traffic objectives. Optional Google account data-sharing
+  switches were disabled. The owner must personally accept Google's Analytics
+  Terms before the property and web stream can be finalized.
+- Search Console ownership uses a Hostinger apex TXT record with a 300-second
+  TTL. Keep that record in DNS after verification so ownership remains valid.
+
 ## Cost controls and upgrade gates
 
 - Hostinger Business remains valuable for the seven public/rollback sites,
@@ -197,10 +211,12 @@ approved audience and campaign. Activation must satisfy all of the following:
   discount; PHP 479/month list). Recheck the quote before renewal.
 - Hostinger email marketing is a separate free/paid product, not an included
   Business allowance.
-- Vercel currently uses Hobby. Spend Management requires Pro and a payment
-  method.
-- Supabase currently uses Free. Leaked-password protection and stronger
-  production recovery/PITR controls require Pro.
+- Vercel remains on Hobby by owner decision dated 2026-07-25. Spend Management
+  requires Pro and a payment method, so monthly manual usage review is the
+  accepted cost control.
+- Supabase remains on Free by owner decision dated 2026-07-25. The owner
+  accepted the absence of leaked-password protection, managed backups, and PITR
+  for now; weekly logical-export automation is still awaiting approval.
 - Do not purchase either upgrade without account-owner approval.
 - Review Vercel function/workflow/Sandbox usage, Supabase database/storage
   usage, and OpenAI usage by client each month.
@@ -212,9 +228,8 @@ approved audience and campaign. Activation must satisfy all of the following:
 
 ## Known follow-ups
 
-- Choose whether to upgrade Vercel and Supabase before enabling paid-plan
-  spend alerts, leaked-password protection, and production-grade managed
-  recovery/PITR.
+- Revisit Vercel Pro and Supabase Pro if measured usage, recovery objectives, or
+  compliance needs exceed the accepted free-tier controls.
 - Select and configure the Hostinger email-marketing tier only after an
   audience, campaign owner, and monthly send forecast are approved.
 - Keep the Hostinger rollback application until the observation window is
