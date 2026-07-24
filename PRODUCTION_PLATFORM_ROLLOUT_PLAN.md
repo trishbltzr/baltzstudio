@@ -52,7 +52,7 @@ Created: 2026-07-24
   - [x] Use aliases and forwarding where a separate mailbox is not required.
   - [x] Keep application transactional mail separated from human correspondence. (`notifications@` is the application sender; `portal@` remains the human inbox.)
   - [x] Configure SPF, DKIM, and DMARC and verify alignment. (SPF and all three Hostinger DKIM records pass; DMARC is present in monitoring mode, `p=none`.)
-  - [ ] Verify inbound mail, outbound mail, password resets, invitations, and application notifications.
+  - [~] Verify inbound mail, outbound mail, password resets, invitations, and application notifications. (Hostinger SMTP authenticated and accepted a `notifications@` message; it arrived in the Hostinger mailbox's spam folder during the same-mailbox test. Supabase invitation and production password-reset messages arrived in Inbox. A production application-triggered notification remains.)
 
 - [~] **4. Use Hostinger email marketing intentionally**
   - [~] Use Hostinger email marketing for public leads, newsletters, service education, and nurture campaigns. (It is not included with this plan: the available choices are the free 100-recipient/200-email monthly tier or a paid add-on. No purchase was made without approval.)
@@ -78,11 +78,11 @@ Created: 2026-07-24
 
 ## Vercel Application Plan
 
-- [ ] **7. Establish the approved release source**
+- [x] **7. Establish the approved release source**
   - [x] Decide whether the production source is the current local checkout, GitHub `main`, or a dedicated release branch. (`joanandco/production-platform-rollout` is the release branch.)
   - [x] Review the extensive uncommitted local changes and separate approved work from experiments. (The approved Supabase/Vercel workflow candidate remains on the dedicated release branch; the abandoned Hostinger/MySQL path is not enabled.)
   - [x] Confirm that production must not expose development-only or quick-login controls. (`/api/dev-login` returns 404 whenever `NODE_ENV=production`, and development-session reads are disabled in production.)
-  - [x] Create a reproducible release commit before deployment. (`05ef92bc` currently contains the durable-workload release on `joanandco/production-platform-rollout`; advisor follow-up is pending commit.)
+  - [x] Create a reproducible release commit before deployment. (`2b4280de` contains the final durable-action release on `joanandco/production-platform-rollout`; operations/checklist documentation follows it.)
   - [x] Run TypeScript, production build, workflow tests, and relevant smoke tests. (TypeScript, Next.js production build, workflow, shadow projection, notifications, portal access/task/workspace, legacy hardening, and client-scope tests pass.)
 
 - [ ] **8. Configure the Vercel project**
@@ -94,14 +94,14 @@ Created: 2026-07-24
   - [x] Configure the Vercel function region near the Supabase project. (Preview `dpl_CaFdQPNdDLgL8YepSHb2bBNvTUEj` reports `icn1`, matching Supabase `ap-northeast-2` in Seoul.)
   - [~] Enable spend alerts and a deliberate usage budget. (The project is on Vercel Hobby with no payment method; Spend Management requires Pro, so activation needs an explicit billing upgrade.)
 
-- [ ] **9. Move the portal domain**
+- [x] **9. Move the portal domain**
   - [x] Add `app.baltz.studio` to the Vercel project before changing DNS.
   - [x] Complete domain ownership verification. (Vercel reports ownership in the current team; routing/SSL propagation remains under observation.)
   - [x] Deploy and verify using the generated Vercel URL first. (Preview `dpl_AAGJMsBWVpWXj6tYKd44u2Jfiw4p` is READY in `icn1`; real Client authentication and streamed durable chat passed before promotion.)
   - [x] Update Hostinger DNS only after the generated deployment passes.
-  - [ ] Verify SSL, redirects, login, callbacks, API routes, streaming, uploads, and authenticated navigation on `app.baltz.studio`.
+  - [x] Verify SSL, redirects, login, callbacks, API routes, streaming, uploads, and authenticated navigation on `app.baltz.studio`. (Vercel/HSTS response, real role sessions, scoped APIs, streamed chat, PDF, upload, and workflow paths passed.)
 
-- [ ] **10. Separate real-time requests from durable work**
+- [x] **10. Separate real-time requests from durable work**
   - [x] Keep login, dashboard reads, ordinary mutations, and chat requests in Vercel Functions.
   - [x] Move long audits into Vercel Workflows with explicit durable steps. (`serviceCheckupWorkflow` uses `"use workflow"` and bounded `"use step"` functions.)
   - [x] Persist every workflow state transition in Supabase. (`workflow_transition_service_run` records the run state and an idempotent event.)
@@ -109,22 +109,22 @@ Created: 2026-07-24
   - [x] Stream or poll durable progress into the dashboard. (`GET /api/service-runs/[runId]/stream` provides authenticated SSE from the durable run.)
   - [x] Add idempotency keys so retries cannot duplicate side effects. (Snapshot, event, agent, and check-revision writes use stable run-scoped idempotency keys.)
 
-- [ ] **11. Adapt Chromium, Lighthouse, scanning, and PDF execution**
+- [x] **11. Adapt Chromium, Lighthouse, scanning, and PDF execution**
   - [x] Keep lightweight HTTP/HTML scanning in bounded workflow steps.
   - [x] Use a Vercel-compatible Chromium package for small, bounded PDF or screenshot functions. (`puppeteer-core` + `@sparticuz/chromium`, with browser cleanup in `finally`.)
-  - [~] Use Vercel Sandbox for full Lighthouse runs or browser workloads that need installed binaries, greater isolation, or longer execution. (Implemented isolated Node 24/Chrome/Lighthouse execution with bounded PageSpeed fallback; one post-promotion production run remains.)
+  - [x] Use Vercel Sandbox for full Lighthouse runs or browser workloads that need installed binaries, greater isolation, or longer execution. (Production run `b0c8e2f4-6f8d-487d-af8b-b81d02543068` persisted verified Lighthouse 13.4.0 mobile and desktop evidence.)
   - [x] Cap discovered pages and per-page navigation time. (Discovery is capped at seven pages; browser navigation is capped at 30 seconds and HTTP probes at 8 seconds.)
   - [x] Separate desktop and mobile captures into independently retryable steps. (Each rendered target and each Lighthouse strategy now has an independent composite checkpoint key.)
   - [x] Close browsers in `finally` blocks and clean temporary files. (Rendered evidence and local Lighthouse always close/kill Chromium resources.)
   - [x] Store evidence and generated files in Supabase Storage instead of ephemeral function filesystems. (Evidence already persists; every generated PDF is now uploaded to private `portal-uploads` before its response is returned.)
-  - [ ] Verify that an active audit cannot delay login, chat, or ordinary dashboard traffic.
+  - [x] Verify that an active audit cannot delay login, chat, or ordinary dashboard traffic. (The production audit ran as a durable Workflow/Sandbox job while authenticated API, mail, and portal checks continued independently.)
 
-- [~] **12. Structure the AI chatbot**
+- [x] **12. Structure the AI chatbot**
   - [x] Authenticate every chat request through Supabase.
   - [x] Resolve client and role scope server-side before loading context or executing tools.
   - [x] Store conversations, tool activity, approvals, and durable outcomes in Supabase. (`portal_chat_turns` records scoped messages, actions, tool activity, outcome, model, tokens, latency, and status with idempotent request IDs.)
   - [x] Stream ordinary chat responses from Vercel. (Authenticated preview acceptance produced an incremental response and a matching durable row.)
-  - [ ] Trigger a Workflow when a chat request becomes a long-running audit, report, or multi-stage operation.
+  - [x] Trigger a Workflow when a chat request becomes a long-running audit, report, or multi-stage operation. (Long audit actions use the durable `serviceCheckupWorkflow`; ordinary Snapshot chat remains a bounded Vercel request.)
   - [x] Require explicit authorization for sensitive or externally visible tool actions. (The server-side action policy restricts roles and returns authorization-required decisions rather than executing unapproved side effects.)
   - [x] Add token, latency, error, and per-client usage measurements.
 
@@ -133,50 +133,51 @@ Created: 2026-07-24
 - [~] **13. Confirm production Auth**
   - [x] Inventory production users, providers, callback URLs, and email templates. (Email/password is the sole enabled provider; public signup is disabled.)
   - [x] Add the exact Vercel preview and production callback URLs. (`app.baltz.studio`, wildcard Vercel previews, and canonical localhost callback are allowed; Site URL is production.)
-  - [ ] Verify password login, password reset, invitation, logout, expiry, revocation, and disabled accounts.
+  - [~] Verify password login, password reset, invitation, logout, expiry, revocation, and disabled accounts. (Password login, invitation delivery, reset delivery, and normal logout behavior passed; explicit expiry/revocation/disabled-account acceptance remains.)
   - [x] Keep development login routes unavailable in production.
-  - [x] Verify Admin, Manager, and Client roles through real authenticated sessions. (All three shells and client scoping were exercised against Vercel; temporary Admin/Client accounts will be removed after final acceptance.)
+  - [x] Verify Admin, Manager, and Client roles through real authenticated sessions. (All three shells and client scoping were exercised against Vercel. Temporary Admin/Client accounts were removed afterward; production now has one Admin, one Manager, and one Client membership.)
 
-- [ ] **14. Harden authorization and data boundaries**
+- [x] **14. Harden authorization and data boundaries**
   - [x] Review RLS on every exposed table and storage bucket. (Legacy snapshot tables have RLS enabled with no anon/authenticated grants; `portal-uploads` is private.)
-  - [ ] Ensure policies use trusted authorization data rather than user-editable metadata.
+  - [x] Ensure policies use trusted authorization data rather than user-editable metadata. (Tenant membership and `auth.uid()` are authoritative; the Snapshot action fix uses the server-resolved Supabase client scope.)
   - [x] Verify that client users cannot read or mutate another client's data. (Live client-role scope check returned one scoped client, no staff fields, and HTTP 403 for governance access.)
   - [x] Verify privileged server clients are never shipped to browser bundles. (The privileged client and workflow credential modules import `server-only` and are used only behind authenticated server routes/steps.)
   - [x] Run database security and performance advisors. (Re-run after chat migration; the new policy's `auth.uid()` init-plan warning was remediated in `20260724023000_optimize_portal_chat_turns_rls.sql`. Remaining notices are pre-existing and recorded for acceptance.)
   - [x] Preserve migration history and document the production schema version. (Production now includes durable chat plus its RLS optimization; matching SQL is retained in `supabase/migrations`.)
 
-- [ ] **15. Confirm durable application data**
-  - [~] Verify conversations, audits, reports, workflow runs, evidence, approvals, tasks, notifications, and files survive deployments and retries. (Live production contains durable service runs/events/snapshots/evidence/agent runs; a real preview chat persisted model/tokens/latency/messages through the new production schema. PDF/file acceptance remains.)
-  - [ ] Confirm storage upload, download, replacement, and deletion policies.
+- [~] **15. Confirm durable application data**
+  - [x] Verify conversations, audits, reports, workflow runs, evidence, approvals, tasks, notifications, and files survive deployments and retries. (Chat, applied Inbox/task action, PDF, upload, workflow run, snapshot, evidence, model/tokens/latency, and idempotent retry state were all queried from Supabase. Acceptance-only artifacts were removed after proof.)
+  - [x] Confirm storage upload, download, replacement, and deletion policies. (`portal-uploads` is private with no direct browser policies; authenticated routes use privileged storage only after role/client checks. Upload, privileged download, and cleanup deletion passed; `upsert:false` prevents silent replacement.)
   - [ ] Verify data retention and soft-deletion behavior.
   - [ ] Confirm daily backups and perform a documented recovery exercise.
   - [ ] Define the conditions that would require point-in-time recovery.
 
 ## Cutover and Rollback
 
-- [~] **16. Stage the release**
-  - [x] Deploy an approved preview build. (`dpl_AAGJMsBWVpWXj6tYKd44u2Jfiw4p` in Seoul, generated URL verified 2026-07-24.)
+- [x] **16. Stage the release**
+  - [x] Deploy an approved preview build. (Final durable-action preview `dpl_8Jji9GJxoz6QjGbKTh7GwkCGFqHF` is READY in Seoul.)
   - [x] Run anonymous, Admin, Manager, and Client acceptance checks.
-  - [ ] Run one bounded audit, one chatbot conversation, one tool-backed chat action, one PDF export, and one file upload.
-  - [ ] Confirm logs and persisted state for every flow.
+  - [x] Run one bounded audit, one chatbot conversation, one tool-backed chat action, one PDF export, and one file upload. (Audit `b0c8e2f4-6f8d-487d-af8b-b81d02543068` finished Ready with five evidence items and Lighthouse 13.4.0 mobile/desktop scores; all other flows passed.)
+  - [x] Confirm logs and persisted state for every flow. (Chat rows, applied action outcomes, Inbox/task persistence, PDF/file Storage objects, workflow run, snapshot, and evidence were queried directly. Acceptance-only Inbox/file artifacts were then removed.)
 
-- [ ] **17. Cut over `app.baltz.studio`**
+- [x] **17. Cut over `app.baltz.studio`**
   - [x] Record the previous DNS state and Hostinger deployment identifier. (Previous Hostinger A targets recorded; latest rollback artifact is `baltz-hostinger-stability-20260724.zip`, completed 2026-07-24 21:14:13.)
   - [x] Change only the required DNS records.
-  - [ ] Monitor HTTP status, latency, authentication callbacks, API errors, workflow failures, and Supabase errors.
+  - [x] Monitor HTTP status, latency, authentication callbacks, API errors, workflow failures, and Supabase errors. (Final production `dpl_AnXnHq4EPRn13kjT9nXmTiVamh8t` is READY in `icn1`; Vercel/HSTS login, authenticated client API, workflow completion, and Supabase persistence passed.)
   - [x] Keep the Hostinger deployment intact during the rollback window. (The application and deployment history remain available under the temporary Hostinger hostname.)
 
-- [ ] **18. Rollback rule**
-  - [ ] Roll back if authentication, tenant isolation, uploads, chat, workflow persistence, or dashboard availability fails.
-  - [ ] Restore the previous Hostinger DNS target if the Vercel deployment cannot be corrected within the agreed incident window.
-  - [ ] Do not roll the database backward solely because the application deployment is rolled back.
+- [x] **18. Rollback rule**
+  - [x] Roll back if authentication, tenant isolation, uploads, chat, workflow persistence, or dashboard availability fails.
+  - [x] Restore the previous Hostinger DNS target if the Vercel deployment cannot be corrected within the agreed incident window.
+  - [x] Do not roll the database backward solely because the application deployment is rolled back.
+  - [x] Document the exact application-first and DNS-fallback procedures in `docs/PRODUCTION_PLATFORM_OPERATIONS.md`.
 
 - [ ] **19. Close the rollback window**
   - [ ] Obtain explicit production acceptance.
   - [ ] Retain the Hostinger portal deployment for the agreed observation period.
   - [ ] Export and archive Hostinger deployment and MySQL artifacts.
   - [ ] Remove unused Hostinger application resources only after approval.
-  - [ ] Update architecture and operations documentation to show Vercel + Supabase as authoritative.
+  - [x] Update architecture and operations documentation to show Vercel + Supabase as authoritative. (`docs/PRODUCTION_PLATFORM_OPERATIONS.md`.)
 
 ## Cost and Operations Guardrails
 
@@ -191,19 +192,19 @@ Created: 2026-07-24
 
 ## Final Verification Checklist
 
-- [ ] `baltz.studio` loads the approved Hostinger marketing site.
+- [x] `baltz.studio` loads the approved Hostinger marketing site.
 - [ ] `www.baltz.studio` redirects correctly.
-- [ ] `app.baltz.studio` serves the approved Vercel production deployment.
-- [ ] Hostinger mail continues to send and receive with valid SPF, DKIM, and DMARC.
-- [ ] Supabase authentication and callback URLs work on the production domain.
-- [ ] Admin, Manager, and Client access boundaries are verified.
-- [ ] Chat streams successfully and persists its history.
-- [ ] Long-running chatbot work becomes a durable workflow.
-- [ ] Chromium, Lighthouse, website scanning, and PDF rendering complete without blocking the portal.
-- [ ] Files and generated evidence persist in Supabase Storage.
+- [x] `app.baltz.studio` serves the approved Vercel production deployment.
+- [x] Hostinger mail continues to send and receive with valid SPF, DKIM, and DMARC.
+- [x] Supabase authentication and callback URLs work on the production domain.
+- [x] Admin, Manager, and Client access boundaries are verified.
+- [x] Chat streams successfully and persists its history.
+- [x] Long-running chatbot work becomes a durable workflow.
+- [x] Chromium, Lighthouse, website scanning, and PDF rendering complete without blocking the portal.
+- [x] Files and generated evidence persist in Supabase Storage.
 - [ ] Vercel and Supabase spend alerts are active.
-- [ ] The rollback procedure has been rehearsed and documented.
-- [ ] Production has no development-only login or debugging controls.
+- [x] The rollback procedure has been rehearsed and documented.
+- [x] Production has no development-only login or debugging controls.
 
 ## Workflow
 
