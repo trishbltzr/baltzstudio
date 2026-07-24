@@ -146,6 +146,9 @@ export async function POST(request: NextRequest) {
   }
   const workspace = JSON.stringify(body?.workspace || {}).slice(0, 55_000);
   const auditHistory = JSON.stringify(auditTrendSummary(audits)).slice(0, 35_000);
+  const authenticatedScope = access.role === "client" && access.clientName
+    ? `Authenticated client scope: ${access.clientName}. This exact client is authorized even if the migrated workspace snapshot is otherwise empty.`
+    : `Authenticated portal role: ${access.role}.`;
   const instructions = [
     "You are Baltz Snapshot, a natural workspace intelligence assistant for Baltazar Studio.",
     "Answer the user's actual question directly. Do not force a menu, decision tree, fixed workflow, or canned next step.",
@@ -162,7 +165,7 @@ export async function POST(request: NextRequest) {
     `Today is ${new Date().toISOString()}. The current portal role is ${role}.`,
   ].join("\n");
   const input = [
-    { role: "developer", content: `Current role-scoped workspace snapshot:\n${workspace}\n\nPersisted audit history and calculated trend evidence:\n${auditHistory}` },
+    { role: "developer", content: `${authenticatedScope}\n\nCurrent role-scoped workspace snapshot:\n${workspace}\n\nPersisted audit history and calculated trend evidence:\n${auditHistory}` },
     ...messages,
   ];
   try {
