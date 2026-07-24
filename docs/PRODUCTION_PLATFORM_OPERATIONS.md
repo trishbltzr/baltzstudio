@@ -110,6 +110,23 @@ served the hostname with valid TLS.
   archival migration, rejected an invalid half-archived client, accepted a
   valid archive/restore cycle, removed the test record, and confirmed that no
   test or invalid-retention rows remained.
+- The 2026-07-25 off-site logical recovery export captured all 34 public
+  tables (2,027 rows), three Supabase Auth users, and the private Storage
+  object. `verify-production-recovery.mjs` independently passed 36 artifact
+  hashes plus all table, Auth, and Storage counts. The export directory is
+  owner-only (`0700`) and every artifact is `0600`.
+- On Supabase Free, run a fresh export before every destructive migration and
+  at least weekly:
+
+  ```sh
+  npm run backup:production -- --output "/absolute/new/backup-directory"
+  npm run verify:production-backup -- --input "/absolute/backup-directory"
+  ```
+
+  Keep each export outside the repository. The migration chain remains the
+  schema source; the logical export supplies public-table data, Auth user
+  metadata, and Storage bytes. This interim control does not provide PITR or
+  guaranteed managed daily backups.
 - Upgrade to Supabase Pro before commercial production. Pro supplies managed
   daily backups; select PITR only when the required recovery point is shorter
   than the daily-backup window.
@@ -143,6 +160,13 @@ The production application notification path was accepted through
 `POST /api/invite-request`: Vercel persisted the request, Hostinger SMTP sent it
 as `notifications@baltz.studio`, and the message arrived in the Hostinger
 Inbox. The acceptance-only database row was removed after verification.
+
+The Hostinger marketing forms submit through the server-side
+`POST /api/waitlist` adapter into Supabase `cocoon_leads`. The deployed
+environment contains only the public Supabase URL and publishable key. A
+production acceptance submission preserved the `footer_connect` source and
+timestamped `direct_response` consent metadata, then its test row was removed.
+These inquiries are a reply queue, not marketing-list subscriptions.
 
 ## Marketing email activation contract
 
