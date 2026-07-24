@@ -64,7 +64,7 @@ Created: 2026-07-24
 - [~] **5. Use included marketing performance and protection**
   - [x] Enable Hostinger CDN for Hostinger-hosted public sites only. (`baltz.studio` CDN is Active; its cache was flushed after the secured marketing redeploy. The Vercel portal is not routed through it.)
   - [x] Confirm SSL renewal and HTTPS redirects for every marketing domain. (All eight retained hostnames have valid certificates and HTTP-to-HTTPS redirects; the earliest observed certificate expiry is 2026-09-08.)
-  - [~] Keep daily backups enabled and perform at least one documented restore test. (Daily Hostinger backups are active and the 2026-07-24 16:00 restore point was prepared for download. An in-place restore was not run over a live/rollback site; the quarterly isolated restore drill is now an operating control.)
+  - [x] Keep daily backups enabled and perform at least one documented restore test. (Daily Hostinger backups are active. The 2026-07-24 16:00 file archive downloaded successfully, passed gzip/tar integrity and safe-path checks, and restored 66,288 entries across six shared-hosting domains into an isolated temporary directory without touching a live site.)
   - [x] Review malware scanning and access controls. (Hostinger dependency scanning found 14 findings on the rollback build; maintained portal and marketing sources were upgraded to Next.js 16.2.11, PostCSS 8.5.15, and Sharp 0.35.0. SSH remains inactive.)
   - [~] Connect Google Analytics, Search Console, and relevant advertising pixels to the marketing site. (No measurement/property IDs exist in the marketing source; account access and approved IDs are required from the owner.)
   - [x] Keep marketing-site performance monitoring separate from portal monitoring. (Hostinger CDN/Page Speed is the public-site layer; Vercel Observability and durable workflow checks are the portal layer.)
@@ -72,7 +72,7 @@ Created: 2026-07-24
 - [~] **6. Retire unused Hostinger application resources safely**
   - [x] Keep the existing Hostinger portal deployment as a rollback target until the Vercel cutover is accepted. (Detached only from `app.baltz.studio`; it remains HTTP 200 at `antiquewhite-spider-144713.hostingersite.com`.)
   - [x] Do not delete the Hostinger Node application, MySQL database, deployment files, or environment settings during initial cutover.
-  - [~] Export the Hostinger MySQL schema and any data before retirement. (Eight MySQL databases were inventoried, including the 1 MB abandoned `baltz_portal` database. A Hostinger file backup is prepared/downloaded separately; database export remains part of rollback-window closure.)
+  - [x] Export the Hostinger MySQL schema and any data before retirement. (Eight MySQL databases were inventoried. The abandoned 1 MB `baltz_portal` database was exported separately through phpMyAdmin because it post-dated the latest automated restore point; its SQL contains seven tables and no data-row inserts.)
   - [x] Archive the abandoned MySQL-consolidation work rather than allowing it to remain an ambiguous production path. (Moved outside active routes/source to `docs/archive/hostinger-mysql-prototype`; removed MySQL auth/runtime dependencies and environment flags.)
   - [ ] Remove the old Hostinger portal only after the rollback window closes and explicit approval is given.
 
@@ -82,7 +82,7 @@ Created: 2026-07-24
   - [x] Decide whether the production source is the current local checkout, GitHub `main`, or a dedicated release branch. (`joanandco/production-platform-rollout` is the release branch.)
   - [x] Review the extensive uncommitted local changes and separate approved work from experiments. (The approved Supabase/Vercel workflow candidate remains on the dedicated release branch; the abandoned Hostinger/MySQL path is not enabled.)
   - [x] Confirm that production must not expose development-only or quick-login controls. (`/api/dev-login` returns 404 whenever `NODE_ENV=production`, and development-session reads are disabled in production.)
-  - [x] Create a reproducible release commit before deployment. (`2b4280de` contains the final durable-action release on `joanandco/production-platform-rollout`; operations/checklist documentation follows it.)
+  - [x] Create a reproducible release commit before deployment. (`c97e1827` contains the hardened Next.js 16.2.11 production source, retention migration, and operations/checklist documentation on `joanandco/production-platform-rollout`.)
   - [x] Run TypeScript, production build, workflow tests, and relevant smoke tests. (TypeScript, Next.js production build, workflow, shadow projection, notifications, portal access/task/workspace, legacy hardening, and client-scope tests pass.)
 
 - [~] **8. Configure the Vercel project**
@@ -163,7 +163,7 @@ Created: 2026-07-24
 - [x] **17. Cut over `app.baltz.studio`**
   - [x] Record the previous DNS state and Hostinger deployment identifier. (Previous Hostinger A targets recorded; latest rollback artifact is `baltz-hostinger-stability-20260724.zip`, completed 2026-07-24 21:14:13.)
   - [x] Change only the required DNS records.
-  - [x] Monitor HTTP status, latency, authentication callbacks, API errors, workflow failures, and Supabase errors. (Final production `dpl_AnXnHq4EPRn13kjT9nXmTiVamh8t` is READY in `icn1`; Vercel/HSTS login, authenticated client API, workflow completion, and Supabase persistence passed.)
+  - [x] Monitor HTTP status, latency, authentication callbacks, API errors, workflow failures, and Supabase errors. (Final production `dpl_LLpBWF3L5CcJ7QjE6XokuDN52qQW` is READY from commit `c97e1827`, with Node.js 24 functions in `icn1`; Vercel/HSTS login and root checks pass, `/api/dev-login` returns 404, and no error/fatal runtime logs were present after release.)
   - [x] Keep the Hostinger deployment intact during the rollback window. (The application and deployment history remain available under the temporary Hostinger hostname.)
 
 - [x] **18. Rollback rule**
@@ -172,17 +172,17 @@ Created: 2026-07-24
   - [x] Do not roll the database backward solely because the application deployment is rolled back.
   - [x] Document the exact application-first and DNS-fallback procedures in `docs/PRODUCTION_PLATFORM_OPERATIONS.md`.
 
-- [ ] **19. Close the rollback window**
+- [~] **19. Close the rollback window**
   - [ ] Obtain explicit production acceptance.
-  - [ ] Retain the Hostinger portal deployment for the agreed observation period.
-  - [ ] Export and archive Hostinger deployment and MySQL artifacts.
+  - [~] Retain the Hostinger portal deployment for the agreed observation period. (A conservative 14-day window runs through 2026-08-07; the rollback hostname and deployment history remain intact during that window.)
+  - [x] Export and archive Hostinger deployment and MySQL artifacts. (A checksum manifest, verified 639 MB Hostinger file archive, `baltz_portal` SQL export, and verified complete Git source bundle are stored off-repository under `Documents/Baltz Studio Archives/hostinger-rollback-2026-07-24`; the live rollback Web App and its deployment history remain intact.)
   - [ ] Remove unused Hostinger application resources only after approval.
   - [x] Update architecture and operations documentation to show Vercel + Supabase as authoritative. (`docs/PRODUCTION_PLATFORM_OPERATIONS.md`.)
 
 ## Cost and Operations Guardrails
 
 - [~] **20. Establish monthly controls**
-  - [~] Record the actual Hostinger renewal date and post-promotion price. (Business plan expiry/renewal date is 2027-07-24; the future renewal price is not exposed in the current panel.)
+  - [x] Record the actual Hostinger renewal date and post-promotion price. (The current term expires 2027-07-24. The read-only hPanel renewal quote for another 12 months showed PHP 479/month list, PHP 439/month after the displayed 8% discount, PHP 5,268 before tax, PHP 632.16 tax/fees, and PHP 5,900.16 total; no payment was submitted.)
   - [x] Use the Hostinger plan for public marketing sites, mailboxes, email marketing, CDN, SSL, and backups to avoid duplicating those costs. (Seven site slots plus the rollback hostname, one mailbox/five aliases, active CDN, SSL, and daily backups are now inventoried and assigned.)
   - [~] Start Vercel on the appropriate commercial plan with spend alerts and a hard budget decision. (Currently Hobby; Pro and a payment method are required for Spend Management.)
   - [~] Start or retain the appropriate Supabase production plan with cost controls. (Currently Free; Pro is required for leaked-password protection and production-grade PITR/backup controls.)

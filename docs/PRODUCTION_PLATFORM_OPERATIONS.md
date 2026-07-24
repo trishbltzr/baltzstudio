@@ -21,6 +21,8 @@ portal release.
 - Stable Vercel alias: `https://baltazar-studio-dashboard.vercel.app`
 - Hostinger rollback application:
   `https://antiquewhite-spider-144713.hostingersite.com`
+- Minimum rollback observation window: through 2026-08-07 (14 days after
+  cutover verification). This date does not authorize deletion.
 - Latest recorded Hostinger deployment artifact:
   `baltz-hostinger-stability-20260724.zip`
 - Previous Hostinger `app` A targets: `147.79.120.253`, `77.37.76.229`
@@ -89,8 +91,15 @@ served the hostname with valid TLS.
 ## Backup and recovery policy
 
 - Hostinger creates daily website backups. The 2026-07-24 inventory showed a
-  current restore point at `2026-07-24 16:00`; a downloadable file archive was
-  prepared from that restore point without overwriting the live site.
+  current restore point at `2026-07-24 16:00`. Its 639 MB file archive passed
+  gzip/tar integrity and safe-path checks, then restored 66,288 entries across
+  six shared-hosting domains into an isolated temporary directory without
+  overwriting a live site.
+- The legacy `u625895629_baltz_portal` database was created after that restore
+  point, so it was exported separately through phpMyAdmin. The file backup,
+  SQL export, complete Git source bundle, checksums, and restore evidence are
+  stored outside the repositories in
+  `Documents/Baltz Studio Archives/hostinger-rollback-2026-07-24`.
 - Supabase is currently on Free. Supabase does not provide downloadable daily
   backups for Free projects, so the migration chain is the schema recovery
   source and an off-site logical export is required before any destructive
@@ -158,6 +167,10 @@ approved audience and campaign. Activation must satisfy all of the following:
 
 - Hostinger Business remains valuable for the seven public/rollback sites,
   one mailbox plus five aliases, DNS, SSL, and backups.
+- The current Hostinger term expires 2027-07-24. On 2026-07-25 hPanel quoted
+  another 12 months at PHP 5,268 before tax and PHP 5,900.16 including the
+  displayed PHP 632.16 tax/fees (PHP 439/month after the displayed 8%
+  discount; PHP 479/month list). Recheck the quote before renewal.
 - Hostinger email marketing is a separate free/paid product, not an included
   Business allowance.
 - Vercel currently uses Hobby. Spend Management requires Pro and a payment
