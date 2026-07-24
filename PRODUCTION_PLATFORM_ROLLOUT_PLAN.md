@@ -30,8 +30,8 @@ Created: 2026-07-24
 
 ## Hostinger Business Maximization
 
-- [x] **1. Preserve Hostinger as the public marketing platform**
-  - [x] Keep the root marketing site at `baltz.studio`. (HTTP 200 from Hostinger after the portal cutover.)
+- [~] **1. Preserve Hostinger as the public marketing platform**
+  - [~] Keep the root marketing site at `baltz.studio`. (The site initially returned HTTP 200 after the portal cutover. After the 2026-07-25 Search Console metadata deployment, Hostinger began returning HTTP 503 from the platform edge. The last known-good GA4 artifact was redeployed and the Web App was restarted, but the 503 persisted despite clean builds, `Running` status, 1% CPU, 576 MB memory, and zero runtime-log errors. Production hosting remains incident-blocked pending Hostinger support or an approved Vercel fallback.)
   - [x] Keep the marketing experience independent from portal deployments.
   - [x] Use Hostinger for additional public campaign, service, lead-generation, or client microsites where its included site allowance avoids another hosting bill. (Seven retained sites currently use the Business allowance.)
   - [x] Inventory every existing Hostinger website before removing or repurposing anything. (`baltz.studio`, three Media Morphosys properties, `trishabaltazar.com`, one Hostinger site, and the preserved portal rollback.)
@@ -66,7 +66,7 @@ Created: 2026-07-24
   - [x] Confirm SSL renewal and HTTPS redirects for every marketing domain. (All eight retained hostnames have valid certificates and HTTP-to-HTTPS redirects; the earliest observed certificate expiry is 2026-09-08.)
   - [x] Keep daily backups enabled and perform at least one documented restore test. (Daily Hostinger backups are active. The 2026-07-24 16:00 file archive downloaded successfully, passed gzip/tar integrity and safe-path checks, and restored 66,288 entries across six shared-hosting domains into an isolated temporary directory without touching a live site.)
   - [x] Review malware scanning and access controls. (Hostinger dependency scanning found 14 findings on the rollback build; maintained portal and marketing sources were upgraded to Next.js 16.2.11, PostCSS 8.5.15, and Sharp 0.35.0. SSH remains inactive.)
-  - [~] Connect Google Analytics and Search Console to the marketing site; add advertising pixels only when approved. (Owner authorized GA4 and Search Console creation on 2026-07-25 and confirmed there are no advertising pixels. GA4 account/property details are complete and await owner acceptance of Google's Analytics Terms. A `baltz.studio` Search Console Domain property was created and its Hostinger TXT token is publicly visible through Cloudflare and Google resolvers; Google verification is pending cache refresh.)
+  - [~] Connect Google Analytics and Search Console to the marketing site; add advertising pixels only when approved. (GA4 is active as account `Baltz Studio`, property `Baltz Studio Website`, web stream `15318027405`, measurement ID `G-56N71YXBBR`. The consent-aware implementation loads no Google tag before opt-in and has no advertising pixels; production deployment `baltz-studio-hostinger-ga4-20260725.zip` passed live before the later Hostinger outage. Search Console Domain property `baltz.studio` and URL-prefix property `https://baltz.studio/` were created. The apex TXT and server-rendered HTML token use `wHKeXPFcBXMSGgw9AeSDy3lwlyR-9103C0WKxM00eqs`; Google and Cloudflare resolvers see the TXT, but verification is blocked while Hostinger returns 503. Sitemap submission remains pending ownership verification.)
   - [x] Keep marketing-site performance monitoring separate from portal monitoring. (Hostinger CDN/Page Speed is the public-site layer; Vercel Observability and durable workflow checks are the portal layer.)
 
 - [~] **6. Retire unused Hostinger application resources safely**
@@ -192,7 +192,7 @@ Created: 2026-07-24
 
 ## Final Verification Checklist
 
-- [x] `baltz.studio` loads the approved Hostinger marketing site.
+- [~] `baltz.studio` loads the approved Hostinger marketing site. (HTTP 503 incident active as of 2026-07-25 00:55 PHT; known-good artifact redeployed and runtime restarted without recovery.)
 - [x] `www.baltz.studio` redirects correctly. (Hostinger returns 308 to `https://baltz.studio` after the secured marketing release and CDN flush.)
 - [x] `app.baltz.studio` serves the approved Vercel production deployment.
 - [x] Hostinger mail continues to send and receive with valid SPF, DKIM, and DMARC.

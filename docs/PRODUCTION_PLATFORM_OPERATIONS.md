@@ -1,6 +1,6 @@
 # Baltazar Studio Production Platform Operations
 
-Last verified: 2026-07-24
+Last verified: 2026-07-25
 
 ## Authoritative platform map
 
@@ -196,10 +196,43 @@ approved audience and campaign. Activation must satisfy all of the following:
 - GA4 is configured as account `Baltz Studio`, property
   `Baltz Studio Website`, Philippines reporting time, PHP currency, with lead
   generation and web-traffic objectives. Optional Google account data-sharing
-  switches were disabled. The owner must personally accept Google's Analytics
-  Terms before the property and web stream can be finalized.
+  switches were disabled. The owner accepted Google's Analytics Terms. Web
+  stream `15318027405` uses measurement ID `G-56N71YXBBR`.
+- Marketing commit `dca51de` added consent-aware GA4, `/privacy`, a footer
+  privacy link, and the corrected `https://baltz.studio` canonical. Before
+  consent, the live page loaded zero GA scripts and showed the consent banner;
+  after explicit opt-in, it loaded the correct Google tag. No advertising
+  pixels are present.
 - Search Console ownership uses a Hostinger apex TXT record with a 300-second
-  TTL. Keep that record in DNS after verification so ownership remains valid.
+  TTL. The Domain property is `baltz.studio`; a URL-prefix fallback for
+  `https://baltz.studio/` uses the same token in server-rendered metadata.
+  Google and Cloudflare public resolvers return the TXT token. Keep both the DNS
+  record and metadata after verification so ownership remains valid.
+- Search Console verification and sitemap submission remain pending because
+  Hostinger began returning HTTP 503 before Google could fetch the live tag.
+
+## Marketing-site incident: 2026-07-25
+
+- Deployment `baltz-studio-hostinger-search-console-20260725.zip` completed and
+  became Current. Its clean build produced all expected routes, and the
+  verification meta tag briefly returned from the live homepage.
+- After the Hostinger CDN cache was purged, the apex, `/privacy`, and
+  `/sitemap.xml` consistently returned Hostinger HTTP 503 responses. Requests
+  did not reach the application: hPanel showed the Web App as `Running`, 1% CPU,
+  576 MB memory, and zero runtime-log issues or errors.
+- The last known-good artifact
+  `baltz-studio-hostinger-ga4-20260725.zip` was redeployed and became Current.
+  The Web App was then restarted through hPanel. The 503 persisted.
+- Current marketing source keeps Search Console metadata in commit `d15790d`,
+  but production is intentionally rolled back to the GA4 archive while the
+  Hostinger runtime incident is unresolved.
+- Do not perform another blind redeploy. The next authorized action must be one
+  of:
+  1. open a Hostinger support incident with the timestamps, deployment names,
+     clean-build evidence, resource readings, restart result, and persistent
+     503 response; or
+  2. deploy the marketing site to Vercel and change only the apex/`www` web
+     records after preserving MX, SPF, DKIM, DMARC, and the Search Console TXT.
 
 ## Cost controls and upgrade gates
 

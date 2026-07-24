@@ -43,6 +43,11 @@ the evidence reviewed; do not mark a line complete from memory.
 - [ ] Send one application-triggered transactional test and confirm Inbox
   delivery plus SPF, DKIM, and DMARC alignment.
 - [ ] Review mailbox quota, spam placement, aliases, and SMTP failures.
+- [ ] Confirm GA4 receives consented traffic under `G-56N71YXBBR`, the site
+  loads no Google tag before consent, and no unapproved advertising pixel is
+  present.
+- [ ] Review Search Console ownership, sitemap status, indexing coverage, and
+  manual actions for `baltz.studio`.
 - [ ] If marketing is active, reconcile consent, unsubscribe, complaint,
   bounce, and suppression counts.
 - [ ] Reconcile campaign UTMs to analytics and CRM/list outcomes.
