@@ -78,6 +78,47 @@ served the hostname with valid TLS.
 - Chat turns retain messages, scoped actions, tool activity, outcomes, model,
   tokens, latency, and status.
 - Long audit state and evidence must be persisted before a workflow advances.
+- Client records are soft-deleted by setting both `status = 'archived'` and
+  `archived_at`. A database constraint rejects half-archived states, and a
+  client can be restored by returning both fields to the active state.
+- Client source metadata defaults to three years of retention, audit evidence
+  defaults to two years, and portal chat content defaults to one year. A
+  retention date does not authorize deletion by itself: a purge requires an
+  owner-approved maintenance change with a fresh backup or export.
+
+## Backup and recovery policy
+
+- Hostinger creates daily website backups. The 2026-07-24 inventory showed a
+  current restore point at `2026-07-24 16:00`; a downloadable file archive was
+  prepared from that restore point without overwriting the live site.
+- Supabase is currently on Free. Supabase does not provide downloadable daily
+  backups for Free projects, so the migration chain is the schema recovery
+  source and an off-site logical export is required before any destructive
+  database maintenance.
+- Database backups do not include Supabase Storage objects. Before a destructive
+  exercise, separately inventory and export private bucket objects.
+- The 2026-07-24 non-destructive recovery exercise applied the retention and
+  archival migration, rejected an invalid half-archived client, accepted a
+  valid archive/restore cycle, removed the test record, and confirmed that no
+  test or invalid-retention rows remained.
+- Upgrade to Supabase Pro before commercial production. Pro supplies managed
+  daily backups; select PITR only when the required recovery point is shorter
+  than the daily-backup window.
+
+Use PITR rather than an ordinary application rollback when any of these are
+confirmed:
+
+1. A destructive query or migration changed many tenant rows.
+2. Cross-tenant data was mutated or deleted.
+3. Data corruption cannot be repaired deterministically from durable events.
+4. The required recovery point is between daily backups.
+5. Incident review concludes that replaying writes would be less reliable than
+   restoring the database and reconciling the write gap.
+
+Do not start an in-place restore while the portal is accepting writes. Put the
+portal into maintenance mode, record the target time and expected data-loss
+window, export Storage separately, restore, run tenant-boundary checks, and
+only then reopen writes.
 
 ## Mail model
 
@@ -88,6 +129,30 @@ served the hostname with valid TLS.
 - SMTP: Hostinger, configured as server-only Vercel variables
 - Marketing campaigns must use a consent-aware marketing list and never the
   transactional mail path.
+
+The production application notification path was accepted through
+`POST /api/invite-request`: Vercel persisted the request, Hostinger SMTP sent it
+as `notifications@baltz.studio`, and the message arrived in the Hostinger
+Inbox. The acceptance-only database row was removed after verification.
+
+## Marketing email activation contract
+
+Hostinger Email Marketing remains deliberately unpurchased until there is an
+approved audience and campaign. Activation must satisfy all of the following:
+
+- Store consent source, consent time, privacy-copy version, and list purpose.
+- Keep an immutable suppression list for unsubscribes, complaints, and hard
+  bounces. Never re-import suppressed recipients.
+- Send portal invitations, resets, alerts, and receipts only through the
+  transactional SMTP path.
+- Submit public forms to a server-side CRM/list adapter. Browser code may send
+  form fields but must never receive Hostinger, Supabase service-role, or CRM
+  secrets.
+- Add `utm_source`, `utm_medium`, `utm_campaign`, and `utm_content` to campaign
+  links and reconcile those values in the marketing analytics layer.
+- Start with the free tier only for an internal or explicitly consented pilot;
+  purchase a paid tier only after the audience size and monthly send forecast
+  exceed the free allowance.
 
 ## Cost controls and upgrade gates
 
@@ -104,14 +169,16 @@ served the hostname with valid TLS.
   usage, and OpenAI usage by client each month.
 - Consider a VPS worker only after measured browser-workload cost exceeds the
   VPS price plus maintenance, patching, observability, and backup labor.
+- Use `docs/PLATFORM_MONTHLY_OPERATIONS_CHECKLIST.md` as the recurring evidence
+  log. Do not treat a green application dashboard as proof that backups, email,
+  DNS, or spend controls are healthy.
 
 ## Known follow-ups
 
-- Configure `www.baltz.studio` to issue a canonical redirect to the root
-  instead of serving a second 200 response.
-- Choose whether to upgrade Vercel and Supabase before enabling spend alerts,
-  leaked-password protection, and PITR.
-- Select and configure the Hostinger email-marketing tier only after audience,
-  consent, unsubscribe, suppression, and attribution requirements are defined.
+- Choose whether to upgrade Vercel and Supabase before enabling paid-plan
+  spend alerts, leaked-password protection, and production-grade managed
+  recovery/PITR.
+- Select and configure the Hostinger email-marketing tier only after an
+  audience, campaign owner, and monthly send forecast are approved.
 - Keep the Hostinger rollback application until the observation window is
   explicitly closed.

@@ -1374,6 +1374,7 @@ export type Database = {
           output_tokens: number | null
           request_hash: string
           request_id: string
+          retention_until: string
           session_id: string
           status: string
           tenant_id: string
@@ -1395,6 +1396,7 @@ export type Database = {
           output_tokens?: number | null
           request_hash: string
           request_id: string
+          retention_until?: string
           session_id: string
           status?: string
           tenant_id: string
@@ -1416,6 +1418,7 @@ export type Database = {
           output_tokens?: number | null
           request_hash?: string
           request_id?: string
+          retention_until?: string
           session_id?: string
           status?: string
           tenant_id?: string

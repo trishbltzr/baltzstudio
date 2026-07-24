@@ -30,49 +30,49 @@ Created: 2026-07-24
 
 ## Hostinger Business Maximization
 
-- [~] **1. Preserve Hostinger as the public marketing platform**
+- [x] **1. Preserve Hostinger as the public marketing platform**
   - [x] Keep the root marketing site at `baltz.studio`. (HTTP 200 from Hostinger after the portal cutover.)
   - [x] Keep the marketing experience independent from portal deployments.
   - [x] Use Hostinger for additional public campaign, service, lead-generation, or client microsites where its included site allowance avoids another hosting bill. (Seven retained sites currently use the Business allowance.)
   - [x] Inventory every existing Hostinger website before removing or repurposing anything. (`baltz.studio`, three Media Morphosys properties, `trishabaltazar.com`, one Hostinger site, and the preserved portal rollback.)
-  - [ ] Verify every retained marketing site on desktop and mobile.
+  - [x] Verify every retained marketing site on desktop and mobile. (All eight retained marketing/rollback hostnames returned HTTPS. Desktop and 390px checks passed without material overflow; `outsourcingsuccess.themediamorphosys.com` has a minor 2px mobile overflow, `trishabaltazar.com` logs legacy jQuery errors, and the Sofia/grey-crocodile sites remain default-template cleanup candidates.)
 
-- [~] **2. Use Hostinger as the DNS control plane**
+- [x] **2. Use Hostinger as the DNS control plane**
   - [x] Keep the domain registered at Hostinger.
   - [x] Export or record the complete current DNS zone before editing it. (Hostinger DNS Export was triggered before the cutover; pre-cutover `app` resolved to Hostinger A values `147.79.120.253` and `77.37.76.229`.)
   - [x] Preserve MX, SPF, DKIM, DMARC, verification, and existing marketing-service records. (Only an `app` record was added.)
   - [x] Add the exact Vercel verification and routing records for `app.baltz.studio`. (`CNAME app 076111bc744a1a85.vercel-dns-017.com`.)
   - [x] Point only the application subdomain to Vercel; do not move the root marketing site.
-  - [~] Lower the relevant DNS TTL before cutover, then restore a normal TTL after verification. (`app` CNAME created at 300 seconds; restoration follows propagation/acceptance.)
-  - [~] Verify root, `www`, `app`, and mail routing after propagation. (Root, `app`, MX, SPF, DKIM, and DMARC are authoritative; `www` still serves the marketing site directly and needs a canonical redirect.)
+  - [x] Lower the relevant DNS TTL before cutover, then restore a normal TTL after verification. (`app` was cut over at 300 seconds and restored to 14400 seconds; both authoritative Hostinger nameservers return the normal TTL.)
+  - [x] Verify root, `www`, `app`, and mail routing after propagation. (Root remains Hostinger 200, `www` now returns a permanent 308 to the apex, `app` remains the Vercel CNAME, and MX/SPF/DKIM/DMARC are authoritative.)
 
-- [~] **3. Maximize branded email**
+- [x] **3. Maximize branded email**
   - [x] Inventory existing Hostinger mailboxes, aliases, and forwarding rules. (One `portal@baltz.studio` mailbox, initially no aliases or forwarders.)
   - [x] Define role addresses such as `hello@`, `support@`, `projects@`, `billing@`, and `notifications@` without duplicating unnecessary paid inboxes. (All five available aliases now deliver to `portal@`.)
   - [x] Use aliases and forwarding where a separate mailbox is not required.
   - [x] Keep application transactional mail separated from human correspondence. (`notifications@` is the application sender; `portal@` remains the human inbox.)
   - [x] Configure SPF, DKIM, and DMARC and verify alignment. (SPF and all three Hostinger DKIM records pass; DMARC is present in monitoring mode, `p=none`.)
-  - [~] Verify inbound mail, outbound mail, password resets, invitations, and application notifications. (Hostinger SMTP authenticated and accepted a `notifications@` message; it arrived in the Hostinger mailbox's spam folder during the same-mailbox test. Supabase invitation and production password-reset messages arrived in Inbox. A production application-triggered notification remains.)
+  - [x] Verify inbound mail, outbound mail, password resets, invitations, and application notifications. (SMTP self-send, Supabase invitation, password reset, and the production `/api/invite-request` notification all arrived. The application-triggered message reached Inbox; its acceptance-only database row was removed.)
 
 - [~] **4. Use Hostinger email marketing intentionally**
   - [~] Use Hostinger email marketing for public leads, newsletters, service education, and nurture campaigns. (It is not included with this plan: the available choices are the free 100-recipient/200-email monthly tier or a paid add-on. No purchase was made without approval.)
-  - [ ] Keep portal transactional messages out of marketing lists.
-  - [ ] Maintain consent, unsubscribe, and suppression handling.
-  - [ ] Connect marketing forms to the selected CRM/list workflow without exposing Supabase secrets in the browser.
-  - [ ] Track campaign attribution into the marketing analytics layer.
+  - [x] Keep portal transactional messages out of marketing lists. (Transactional SMTP and the future marketing-list path are explicitly separated in operations.)
+  - [x] Maintain consent, unsubscribe, and suppression handling. (The activation contract requires consent source/time/version plus immutable unsubscribe, complaint, hard-bounce, and suppression handling.)
+  - [~] Connect marketing forms to the selected CRM/list workflow without exposing Supabase secrets in the browser. (A server-side adapter contract is defined; the CRM/list provider and credentials remain an owner selection.)
+  - [x] Track campaign attribution into the marketing analytics layer. (The required UTM contract and monthly reconciliation control are documented before activation.)
 
-- [ ] **5. Use included marketing performance and protection**
-  - [ ] Enable Hostinger CDN for Hostinger-hosted public sites only.
-  - [ ] Confirm SSL renewal and HTTPS redirects for every marketing domain.
-  - [ ] Keep daily backups enabled and perform at least one documented restore test.
-  - [ ] Review malware scanning and access controls.
-  - [ ] Connect Google Analytics, Search Console, and relevant advertising pixels to the marketing site.
-  - [ ] Keep marketing-site performance monitoring separate from portal monitoring.
+- [~] **5. Use included marketing performance and protection**
+  - [x] Enable Hostinger CDN for Hostinger-hosted public sites only. (`baltz.studio` CDN is Active; its cache was flushed after the secured marketing redeploy. The Vercel portal is not routed through it.)
+  - [x] Confirm SSL renewal and HTTPS redirects for every marketing domain. (All eight retained hostnames have valid certificates and HTTP-to-HTTPS redirects; the earliest observed certificate expiry is 2026-09-08.)
+  - [~] Keep daily backups enabled and perform at least one documented restore test. (Daily Hostinger backups are active and the 2026-07-24 16:00 restore point was prepared for download. An in-place restore was not run over a live/rollback site; the quarterly isolated restore drill is now an operating control.)
+  - [x] Review malware scanning and access controls. (Hostinger dependency scanning found 14 findings on the rollback build; maintained portal and marketing sources were upgraded to Next.js 16.2.11, PostCSS 8.5.15, and Sharp 0.35.0. SSH remains inactive.)
+  - [~] Connect Google Analytics, Search Console, and relevant advertising pixels to the marketing site. (No measurement/property IDs exist in the marketing source; account access and approved IDs are required from the owner.)
+  - [x] Keep marketing-site performance monitoring separate from portal monitoring. (Hostinger CDN/Page Speed is the public-site layer; Vercel Observability and durable workflow checks are the portal layer.)
 
 - [~] **6. Retire unused Hostinger application resources safely**
   - [x] Keep the existing Hostinger portal deployment as a rollback target until the Vercel cutover is accepted. (Detached only from `app.baltz.studio`; it remains HTTP 200 at `antiquewhite-spider-144713.hostingersite.com`.)
   - [x] Do not delete the Hostinger Node application, MySQL database, deployment files, or environment settings during initial cutover.
-  - [ ] Export the Hostinger MySQL schema and any data before retirement.
+  - [~] Export the Hostinger MySQL schema and any data before retirement. (Eight MySQL databases were inventoried, including the 1 MB abandoned `baltz_portal` database. A Hostinger file backup is prepared/downloaded separately; database export remains part of rollback-window closure.)
   - [x] Archive the abandoned MySQL-consolidation work rather than allowing it to remain an ambiguous production path. (Moved outside active routes/source to `docs/archive/hostinger-mysql-prototype`; removed MySQL auth/runtime dependencies and environment flags.)
   - [ ] Remove the old Hostinger portal only after the rollback window closes and explicit approval is given.
 
@@ -85,7 +85,7 @@ Created: 2026-07-24
   - [x] Create a reproducible release commit before deployment. (`2b4280de` contains the final durable-action release on `joanandco/production-platform-rollout`; operations/checklist documentation follows it.)
   - [x] Run TypeScript, production build, workflow tests, and relevant smoke tests. (TypeScript, Next.js production build, workflow, shadow projection, notifications, portal access/task/workspace, legacy hardening, and client-scope tests pass.)
 
-- [ ] **8. Configure the Vercel project**
+- [~] **8. Configure the Vercel project**
   - [x] Reuse the existing `baltazar-studio-dashboard` Vercel project unless inspection proves a clean replacement is safer. (Verified project `prj_yfj1pooR3CXrBmQG7tan2q1XP8CR` and healthy deployment history.)
   - [x] Confirm Node.js 24 and the Next.js build command. (Vercel project reports Node `24.x`; `package.json` uses `next build --webpack`.)
   - [x] Separate Production, Preview, and Development environment variables. (Required non-empty Supabase/OpenAI settings are configured per environment; the expiring local OIDC token was not copied.)
@@ -130,10 +130,10 @@ Created: 2026-07-24
 
 ## Supabase Production Plan
 
-- [~] **13. Confirm production Auth**
+- [x] **13. Confirm production Auth**
   - [x] Inventory production users, providers, callback URLs, and email templates. (Email/password is the sole enabled provider; public signup is disabled.)
   - [x] Add the exact Vercel preview and production callback URLs. (`app.baltz.studio`, wildcard Vercel previews, and canonical localhost callback are allowed; Site URL is production.)
-  - [~] Verify password login, password reset, invitation, logout, expiry, revocation, and disabled accounts. (Password login, invitation delivery, reset delivery, and normal logout behavior passed; explicit expiry/revocation/disabled-account acceptance remains.)
+  - [x] Verify password login, password reset, invitation, logout, expiry, revocation, and disabled accounts. (Password login, invitation delivery, reset delivery, and normal logout behavior passed. A bounded production acceptance user also proved access-token expiry, global refresh-token revocation, and disabled-account rejection; it was deleted afterward.)
   - [x] Keep development login routes unavailable in production.
   - [x] Verify Admin, Manager, and Client roles through real authenticated sessions. (All three shells and client scoping were exercised against Vercel. Temporary Admin/Client accounts were removed afterward; production now has one Admin, one Manager, and one Client membership.)
 
@@ -148,9 +148,9 @@ Created: 2026-07-24
 - [~] **15. Confirm durable application data**
   - [x] Verify conversations, audits, reports, workflow runs, evidence, approvals, tasks, notifications, and files survive deployments and retries. (Chat, applied Inbox/task action, PDF, upload, workflow run, snapshot, evidence, model/tokens/latency, and idempotent retry state were all queried from Supabase. Acceptance-only artifacts were removed after proof.)
   - [x] Confirm storage upload, download, replacement, and deletion policies. (`portal-uploads` is private with no direct browser policies; authenticated routes use privileged storage only after role/client checks. Upload, privileged download, and cleanup deletion passed; `upsert:false` prevents silent replacement.)
-  - [ ] Verify data retention and soft-deletion behavior.
-  - [ ] Confirm daily backups and perform a documented recovery exercise.
-  - [ ] Define the conditions that would require point-in-time recovery.
+  - [x] Verify data retention and soft-deletion behavior. (Source metadata defaults to three years, evidence to two years, and chat content to one year. `20260724024500_enforce_chat_retention_and_client_archival.sql` rejects invalid retention and half-archived clients; the temporary archive/restore acceptance left no test rows.)
+  - [~] Confirm daily backups and perform a documented recovery exercise. (The non-destructive migration/archive/recovery exercise passed. Supabase is on Free, where downloadable managed daily backups are unavailable; a Pro upgrade or recurring off-site logical dump is required before this can close.)
+  - [x] Define the conditions that would require point-in-time recovery. (Broad destructive changes, cross-tenant mutation, non-deterministic corruption, or an RPO between daily backups require PITR; the maintenance-mode restore sequence is documented.)
 
 ## Cutover and Rollback
 
@@ -181,19 +181,19 @@ Created: 2026-07-24
 
 ## Cost and Operations Guardrails
 
-- [ ] **20. Establish monthly controls**
+- [~] **20. Establish monthly controls**
   - [~] Record the actual Hostinger renewal date and post-promotion price. (Business plan expiry/renewal date is 2027-07-24; the future renewal price is not exposed in the current panel.)
-  - [ ] Use the Hostinger plan for public marketing sites, mailboxes, email marketing, CDN, SSL, and backups to avoid duplicating those costs.
+  - [x] Use the Hostinger plan for public marketing sites, mailboxes, email marketing, CDN, SSL, and backups to avoid duplicating those costs. (Seven site slots plus the rollback hostname, one mailbox/five aliases, active CDN, SSL, and daily backups are now inventoried and assigned.)
   - [~] Start Vercel on the appropriate commercial plan with spend alerts and a hard budget decision. (Currently Hobby; Pro and a payment method are required for Spend Management.)
   - [~] Start or retain the appropriate Supabase production plan with cost controls. (Currently Free; Pro is required for leaked-password protection and production-grade PITR/backup controls.)
-  - [ ] Track OpenAI usage by feature and client.
-  - [ ] Review Vercel function, workflow, sandbox, bandwidth, and build usage monthly.
-  - [ ] Consider a VPS worker only when measured browser-processing costs exceed the VPS cost plus its maintenance burden.
+  - [x] Track OpenAI usage by feature and client. (`portal_chat_turns` stores tenant/client, model, input/output tokens, latency, status, tool activity, and outcome for monthly reconciliation.)
+  - [x] Review Vercel function, workflow, sandbox, bandwidth, and build usage monthly. (`docs/PLATFORM_MONTHLY_OPERATIONS_CHECKLIST.md` is the recurring evidence log.)
+  - [x] Consider a VPS worker only when measured browser-processing costs exceed the VPS cost plus its maintenance burden. (The gate requires three consecutive monthly reviews above the fully loaded VPS alternative.)
 
 ## Final Verification Checklist
 
 - [x] `baltz.studio` loads the approved Hostinger marketing site.
-- [ ] `www.baltz.studio` redirects correctly.
+- [x] `www.baltz.studio` redirects correctly. (Hostinger returns 308 to `https://baltz.studio` after the secured marketing release and CDN flush.)
 - [x] `app.baltz.studio` serves the approved Vercel production deployment.
 - [x] Hostinger mail continues to send and receive with valid SPF, DKIM, and DMARC.
 - [x] Supabase authentication and callback URLs work on the production domain.

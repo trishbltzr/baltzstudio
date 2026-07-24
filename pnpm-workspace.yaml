@@ -3,6 +3,9 @@ allowBuilds:
   cbor-extract: true
   esbuild: true
   sharp: true
+overrides:
+  postcss: 8.5.15
+  sharp: 0.35.0
 minimumReleaseAgeExclude:
   - '@workflow/astro@4.0.12'
   - '@workflow/builders@4.1.2'
