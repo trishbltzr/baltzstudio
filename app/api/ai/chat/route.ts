@@ -233,6 +233,12 @@ export async function POST(request: NextRequest) {
     const parsed = JSON.parse(responseText(payload)) as { reply?: unknown; actions?: unknown };
     if (typeof parsed.reply !== "string") throw new Error("Snapshot chat returned an invalid response.");
     const allowedByName = new Map(allowedClients.map(client => [client.name.toLowerCase(), client.name]));
+    // Supabase-created clients may not exist in the migrated static catalog yet.
+    // The authenticated access context is authoritative for the current client,
+    // so add only that exact name instead of widening the action scope.
+    if (access.role === "client" && access.clientName) {
+      allowedByName.set(access.clientName.trim().toLowerCase(), access.clientName);
+    }
     type SnapshotAction =
       | { action: "create_request"; client: string; title: string; note: string; assignee: "Trish Baltazar" | "Kier Mangibin" }
       | { action: "update_project"; client: string; service: "cocoon" | "wiaw" | "iff"; stage: string };
