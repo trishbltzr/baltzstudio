@@ -98,11 +98,29 @@ const checkTone = (status: AuditCheckResult["status"]) => status === "pass"
 
 function PagesAudited({ pages, lighthouse }: { pages: string[]; lighthouse: LighthouseRun[] }) {
   const lighthouseUrls = new Set(lighthouse.map(run => run.testedUrl));
+  const visiblePages = pages.slice(0, 5);
+  const remainingPages = pages.slice(5);
+  const pageRow = (page: string, index: number) => <div key={page} style={css("display:flex;align-items:center;gap:0.6rem;padding:0.55rem 0.65rem;border-radius:0.7rem;background:var(--surface-alt)")}>
+    <span style={css("width:1.35rem;height:1.35rem;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:1px solid var(--border-soft);font-size:var(--text-2xs);color:var(--fg-muted);flex-shrink:0")}>{index + 1}</span>
+    <span title={page} style={css("min-width:0;flex:1;font-size:var(--text-xs);color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{page.replace(/^https?:\/\/(?:www\.)?/i, "")}</span>
+    {lighthouseUrls.has(page) && <span style={css("font-size:var(--text-2xs);font-weight:500;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:0.15rem 0.45rem;white-space:nowrap")}>Lighthouse tested</span>}
+  </div>;
   return (
     <section style={css("border:1px solid var(--border-soft);border-radius:16px;background:var(--surface);padding:1.05rem 1.15rem;content-visibility:auto;contain-intrinsic-size:auto 32rem")}>
       <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4)")}><div><div style={css("font-size:var(--text-lg);font-weight:500")}>Pages audited</div><div style={css("font-size:var(--text-xs);color:var(--fg-muted);margin-top:0.2rem")}>Every page used as evidence is listed here. Lighthouse performance was run on the marked page.</div></div><span style={css("font-size:var(--text-2xs);color:var(--fg-muted);white-space:nowrap")}>{pages.length} pages</span></div>
       <div style={css("display:flex;flex-direction:column;gap:0.42rem;margin-top:0.8rem")}>
-        {pages.map((page, index) => <div key={page} style={css("display:flex;align-items:center;gap:0.6rem;padding:0.55rem 0.65rem;border-radius:0.7rem;background:var(--surface-alt)")}><span style={css("width:1.35rem;height:1.35rem;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:1px solid var(--border-soft);font-size:var(--text-2xs);color:var(--fg-muted);flex-shrink:0")}>{index + 1}</span><span style={css("min-width:0;flex:1;font-size:var(--text-xs);color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{page}</span>{lighthouseUrls.has(page) && <span style={css("font-size:var(--text-2xs);font-weight:500;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:0.15rem 0.45rem;white-space:nowrap")}>Lighthouse tested</span>}</div>)}
+        {visiblePages.map(pageRow)}
+        {remainingPages.length > 0 && <details className="pt-audited-pages-disclosure">
+          <summary>
+            <span className="pt-audited-pages-disclosure-copy">
+              <span className="pt-audited-pages-disclosure-closed">Show {remainingPages.length} more pages</span>
+              <span className="pt-audited-pages-disclosure-open">Hide additional pages</span>
+              <span className="pt-audited-pages-disclosure-note">Complete evidence list</span>
+            </span>
+            <span className="pt-audited-pages-disclosure-icon" aria-hidden="true"><Icon name="chev" size={14} /></span>
+          </summary>
+          <div style={css("display:flex;flex-direction:column;gap:0.42rem;margin-top:0.42rem")}>{remainingPages.map((page, index) => pageRow(page, index + visiblePages.length))}</div>
+        </details>}
       </div>
     </section>
   );
@@ -132,7 +150,16 @@ function LighthouseReport({ runs }: { runs: LighthouseRun[] }) {
   );
 }
 
-function ChecklistScoreCard({ category }: { category: AuditScoreResult["categories"][number] }) {
+function nextCheckStatus(status: AuditCheckResult["status"]): AuditCheckResult["status"] {
+  if (status === "fail") return "pass";
+  if (status === "pass") return "unverified";
+  return "fail";
+}
+
+function ChecklistScoreCard({ category, onStatusChange }: {
+  category: AuditScoreResult["categories"][number];
+  onStatusChange?: (categoryKey: string, checkId: string, status: AuditCheckResult["status"]) => void;
+}) {
   const color = catColor(category.score);
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -171,7 +198,7 @@ function ChecklistScoreCard({ category }: { category: AuditScoreResult["categori
       {open && createPortal(<div role="dialog" aria-modal="true" aria-labelledby={`checklist-${category.key}-title`} onMouseDown={event => { if (event.target === event.currentTarget) setOpen(false); }} style={css("position:fixed;inset:0;z-index:140;background:rgba(35,25,18,.42);padding:var(--space-4);display:grid;place-items:center")}>
         <article style={css("width:min(46rem,100%);max-height:min(44rem,calc(100dvh - 2rem));display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius-panel);background:var(--surface);box-shadow:0 24px 70px rgba(35,24,22,.24);overflow:hidden")}>
           <header style={css("padding:0.9rem 1rem;border-bottom:1px solid var(--border-soft);display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4)")}><div><div style={css("display:flex;align-items:center;gap:var(--space-2)")}><span style={css("font-size:var(--text-lg);font-weight:500;color:" + color)}>{category.score}</span><h3 id={`checklist-${category.key}-title`} style={css("margin:0;font-size:var(--text-lg);font-weight:500")}>{category.label} checks</h3></div><div style={css("display:flex;gap:0.35rem;flex-wrap:wrap;margin-top:0.5rem")}>{counts.map(([count,label,tone,bg]) => <span key={label} style={css("font-size:var(--text-2xs);font-weight:500;color:" + tone + ";background:" + bg + ";border-radius:999px;padding:0.17rem 0.44rem")}>{count} {label}</span>)}</div></div><button ref={closeRef} type="button" aria-label={`Close ${category.label} checks`} onClick={() => setOpen(false)} className="pt-softbtn" style={css("width:2rem;height:2rem;border:1px solid var(--border);border-radius:50%;background:var(--surface);color:var(--fg-muted);display:grid;place-items:center;cursor:pointer;flex-shrink:0")}>×</button></header>
-          <div style={css("min-height:0;overflow-y:auto;display:flex;flex-direction:column")}>{category.checks.map(check => { const tone = checkTone(check.status); return <div key={check.id} style={css("display:grid;grid-template-columns:1.55rem minmax(0,1fr) auto;gap:0.6rem;align-items:start;padding:0.75rem 1rem;border-bottom:1px solid var(--border-soft)")}><span style={css("width:1.45rem;height:1.45rem;border-radius:50%;display:grid;place-items:center;background:" + tone.bg + ";color:" + tone.color + ";font-size:var(--text-2xs);font-weight:500")}>{tone.icon}</span><div style={css("min-width:0")}><div style={css("font-size:var(--text-xs);font-weight:500;line-height:1.4")}>{check.label}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.45;margin-top:0.22rem")}>{check.evidence}</div>{check.sourceUrl && <div title={check.sourceUrl} style={css("font-size:var(--text-2xs);color:var(--fg-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:0.18rem")}>{check.sourceUrl}</div>}</div><span style={css("font-size:var(--text-2xs);font-weight:500;color:" + tone.color + ";background:" + tone.bg + ";border-radius:999px;padding:0.16rem 0.42rem;white-space:nowrap")}>{tone.label}</span></div>; })}</div>
+          <div style={css("min-height:0;overflow-y:auto;display:flex;flex-direction:column")}>{category.checks.map(check => { const tone = checkTone(check.status); return <div key={check.id} style={css("display:grid;grid-template-columns:1.55rem minmax(0,1fr) auto;gap:0.6rem;align-items:start;padding:0.75rem 1rem;border-bottom:1px solid var(--border-soft)")}><span style={css("width:1.45rem;height:1.45rem;border-radius:50%;display:grid;place-items:center;background:" + tone.bg + ";color:" + tone.color + ";font-size:var(--text-2xs);font-weight:500")}>{tone.icon}</span><div style={css("min-width:0")}><div style={css("font-size:var(--text-xs);font-weight:500;line-height:1.4")}>{check.label}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.45;margin-top:0.22rem")}>{check.evidence}</div>{check.sourceUrl && <div title={check.sourceUrl} style={css("font-size:var(--text-2xs);color:var(--fg-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:0.18rem")}>{check.sourceUrl}</div>}</div><button type="button" disabled={!onStatusChange} aria-label={`${check.label}: ${tone.label}. Click to change status.`} title={onStatusChange ? "Click to change status" : tone.label} onClick={() => onStatusChange?.(category.key, check.id, nextCheckStatus(check.status))} className="pt-softbtn" style={css("border:0;font-family:inherit;font-size:var(--text-2xs);font-weight:500;color:" + tone.color + ";background:" + tone.bg + ";border-radius:999px;padding:0.22rem 0.5rem;white-space:nowrap;cursor:" + (onStatusChange ? "pointer" : "default"))}>{tone.label}</button></div>; })}</div>
         </article>
       </div>, document.body)}
     </section>
@@ -245,7 +272,7 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
         <div><div style={css("font-size:var(--text-xl);font-weight:500")}>Lighthouse technical report</div><div style={css("font-size:var(--text-xs);color:var(--fg-muted);margin-top:0.2rem")}>Independent technical measurements. These numbers do not affect the internal checklist score.</div></div>
         <LighthouseReport runs={scoreResult.lighthouse}/>
         <div style={css("display:flex;align-items:end;justify-content:space-between;gap:var(--space-4);margin-top:0.2rem")}><div><div style={css("font-size:var(--text-xl);font-weight:500")}>Original Audit Checklist results</div><div style={css("font-size:var(--text-xs);color:var(--fg-muted);margin-top:0.2rem")}>Every item from the reference checklist is shown below with its evidence and scoring status.</div></div></div>
-        <div style={css("display:grid;grid-template-columns:1fr;gap:var(--space-3)")}>{scoreResult.categories.map(category => <ChecklistScoreCard key={category.key} category={category}/>)}</div>
+        <div style={css("display:grid;grid-template-columns:1fr;gap:var(--space-3)")}>{scoreResult.categories.map(category => <ChecklistScoreCard key={category.key} category={category} onStatusChange={ctx.onAuditCheckStatusChange}/>)}</div>
       </div>
     );
   }
@@ -253,6 +280,13 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
   // action plan
   const planResult = isAiStageResult(ctx.aiResult) ? ctx.aiResult : null;
   const evidencePriorities = scoreResult ? auditPrioritiesFromEvidence(scoreResult.categories) : [];
+  const planPriorities = ctx.onAuditCheckStatusChange && scoreResult
+    ? evidencePriorities
+    : planResult?.recommendations.map(item => ({
+        title: item.title,
+        why: item.rationale,
+        action: item.action,
+      })) || evidencePriorities;
   const need = d.cats.filter(c => c.score < 65).sort((a, b) => a.score - b.score);
   const strong = d.cats.filter(c => c.score >= 65);
   const needShown = reveal === Number.POSITIVE_INFINITY ? need : need.slice(0, reveal);
@@ -263,7 +297,7 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
         <h3 style={css("margin:0.25rem 0 0;font-size:var(--text-xl);font-weight:500")}>Priority action plan</h3>
         <p style={css("margin:0.3rem 0 0;font-size:var(--text-xs);color:var(--fg-muted);line-height:1.5")}>Start here. These actions are ordered by impact so the team can move from findings to implementation.</p>
         <div style={css("display:flex;flex-direction:column;gap:0.6rem;margin-top:0.9rem")}>
-          {(scoreResult ? evidencePriorities : planResult?.recommendations.map(item => ({ title: item.title, why: item.rationale, action: item.action })) || []).map((priority, index) => <article key={priority.title} style={css("display:grid;grid-template-columns:1.65rem minmax(0,1fr);gap:0.65rem;border:1px solid var(--border-soft);border-radius:0.85rem;background:var(--surface);padding:0.75rem 0.8rem")}><span style={css("width:1.55rem;height:1.55rem;border-radius:50%;display:grid;place-items:center;background:" + accent + ";color:#fff;font-size:var(--text-2xs);font-weight:500")}>{index + 1}</span><div><div style={css("font-size:var(--text-sm);font-weight:500")}>{priority.title}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.45;margin-top:0.2rem")}>{priority.why}</div><div style={css("font-size:var(--text-2xs);line-height:1.45;margin-top:0.28rem")}><strong style={css("font-weight:500;color:" + accent)}>Action: </strong>{priority.action}</div></div></article>)}
+          {planPriorities.map((priority, index) => <article key={priority.title} style={css("display:grid;grid-template-columns:1.65rem minmax(0,1fr);gap:0.65rem;border:1px solid var(--border-soft);border-radius:0.85rem;background:var(--surface);padding:0.75rem 0.8rem")}><span style={css("width:1.55rem;height:1.55rem;border-radius:50%;display:grid;place-items:center;background:" + accent + ";color:#fff;font-size:var(--text-2xs);font-weight:500")}>{index + 1}</span><div><div style={css("font-size:var(--text-sm);font-weight:500")}>{priority.title}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.45;margin-top:0.2rem")}>{priority.why}</div><div style={css("font-size:var(--text-2xs);line-height:1.45;margin-top:0.28rem")}><strong style={css("font-weight:500;color:" + accent)}>Action: </strong>{priority.action}</div></div></article>)}
         </div>
       </section>
       <LighthouseRecommendations runs={scoreResult?.lighthouse || []} />

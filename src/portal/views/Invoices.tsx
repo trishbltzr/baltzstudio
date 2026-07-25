@@ -306,11 +306,10 @@ export function Invoices({ state, actions }: { state: PortalState; actions: Port
       {/* header */}
       <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap")}>
         <div style={{ minWidth: 0 }}>
-          <button type="button" onClick={() => { actions.patch({ invoiceClientName: null }); actions.setView("billing"); }} style={css("display:inline-flex;align-items:center;gap:0.3rem;padding:0;border:0;background:transparent;color:var(--accent);font-size:var(--text-2xs);font-weight:500;cursor:pointer")}><Icon name="chevleft" size={13} />Billing</button>
-          <h2 style={css("margin:0.35rem 0 0;font-size:var(--text-2xl);font-weight:500;line-height:1.15")}>New Invoice</h2>
-          <p style={css("margin:0.3rem 0 0;font-size:var(--text-sm);color:var(--fg-muted);line-height:1.5;max-width:38rem")}>Create the invoice before sending a payment reminder.</p>
+          <p style={css("margin:0;font-size:var(--text-sm);color:var(--fg-muted);line-height:1.5;max-width:38rem")}>Create, review, and send an invoice to the selected client.</p>
         </div>
         <div style={css("display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;flex-shrink:0")}>
+          <button type="button" onClick={() => { actions.patch({ invoiceClientName: null }); actions.setView("billing"); }} style={css(BTN_GHOST)}><Icon name="chevleft" size={14} />Back to billing</button>
           {!mobile && <button type="button" onClick={() => setShowPreview(v => !v)} style={css(BTN_GHOST)}><Icon name="eye" size={14} />{showPreview ? "Hide Preview" : "Show Preview"}</button>}
           <button type="button" onClick={() => doSave("Invoice saved as draft")} style={css(BTN_GHOST)}><Icon name="file" size={14} />Save as Draft</button>
           <button type="button" onClick={send} style={css(BTN_PRIMARY)}><Icon name="send" size={14} />Send Invoice</button>

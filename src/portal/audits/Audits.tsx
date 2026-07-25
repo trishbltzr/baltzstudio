@@ -22,7 +22,7 @@ import { AUDIT_PIPELINE, auditScoreToDocs } from "../discovery/auditPipeline";
 import type { CatBar } from "../components/AuditCharts";
 import { AuditCardScoreSkeleton } from "../components/AuditCardScoreSkeleton";
 import { StartOverDialog } from "../components/StartOverDialog";
-import { AUDIT_CHECKLIST, isAuditScoreResult } from "@/lib/auditChecklist";
+import { AUDIT_CHECKLIST, auditPrioritiesFromEvidence, isAuditScoreResult, projectedAuditScore, scoreChecks, specificAuditCourseOfAction, type AuditCheckResult } from "@/lib/auditChecklist";
 import type { GeneratedStageResult } from "@/lib/aiStageGeneration";
 import { DASHBOARD_USER_EMAIL_HEADER } from "@/lib/dashboardPersistence";
 import { createPortalProcessHandoff, portalProcessHandoffPages, portalProcessHandoffRecommendations, portalProcessHandoffSender, portalProcessHandoffUnresolvedItems, removePortalProcessHandoffs, savePortalProcessHandoff } from "@/lib/portalProcessHandoffs";
@@ -113,10 +113,11 @@ function latestCompletedRun(runs: AuditRun[]) {
     .sort((left, right) => auditRunDate(right).localeCompare(auditRunDate(left)))[0] || null;
 }
 
-async function fetchAuditDrafts(clientId: string | undefined, runId: string | undefined, userEmail: string) {
+async function fetchAuditDrafts(clientId: string | undefined, runId: string | undefined, userEmail: string, includeCreatorIqDemo = false) {
   const params = new URLSearchParams();
   if (clientId) params.set("clientId", clientId);
   if (runId) params.set("runId", runId);
+  if (includeCreatorIqDemo) params.set("includeDemo", "creator-iq");
   const query = params.size ? `?${params.toString()}` : "";
   const response = await fetch(`/api/portal-audit-runs${query}`, {
     cache: "no-store",
@@ -154,6 +155,7 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
   const [s, dispatch] = useReducer(reducer, init);
   const [drafts, setDrafts] = useState<PersistedAuditDraft[]>([]);
   const draftsRef = useRef<PersistedAuditDraft[]>([]);
+  const checkSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const allDraftsCacheRef = useRef<PersistedAuditDraft[] | null>(null);
   const draftsScopeRef = useRef<"all" | string>("all");
   const [draftsLoaded, setDraftsLoaded] = useState(false);
@@ -170,6 +172,9 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
   const capabilities = portalCapabilities(state);
   const canManageStudioWork = capabilities.canApproveStudioWork;
   const canOpenLabs = clientHasEngineAccess(state, "labs");
+  const creatorIqDemoMode = state.hydrated
+    && typeof window !== "undefined"
+    && new URLSearchParams(window.location.search).get("demo") === "creator-iq";
   useEffect(() => { setQuickKnow(s.clientId ? loadPersistedKnowledge(s.clientId) : { data: {}, sources: {} }); }, [s.clientId]);
   const allClients = useMemo(() => clientsVisibleToRole(state.role, state.clientName), [state.clientName, state.role]);
   const workingClients = useMemo(() => clientsForEngineWork(state.role, allClients), [allClients, state.role]);
@@ -185,6 +190,10 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
   const reportRun = reportRunId ? runs.find(item => item.id === reportRunId) || null : null;
   const reportDraft = reportRunId ? draftsByRunId.get(reportRunId) || null : null;
   const run = runs.find(item => item.id === s.buildId) || null;
+  const evidenceRun = durableWebsiteRuns.find(item => (
+    ["ready", "current", "partial"].includes(item.state)
+    && (item.clientId === client?.id || item.clientName.trim().toLowerCase() === client?.name.trim().toLowerCase())
+  ));
   const completedCount = useMemo(() => new Set(initiatedRuns.filter(item => assignedClientIds.has(item.clientId) && item.progress >= 100).map(item => item.clientId)).size, [assignedClientIds, initiatedRuns]);
   const inProgressCount = useMemo(() => new Set(initiatedRuns.filter(item => assignedClientIds.has(item.clientId) && item.progress < 100).map(item => item.clientId)).size, [assignedClientIds, initiatedRuns]);
   const auditGroups = useMemo(
@@ -245,7 +254,8 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
         const params = new URLSearchParams(window.location.search);
         const requestedClientId = params.get("auditReport") || undefined;
         const requestedRunId = params.get("auditReportRun") || undefined;
-        const nextDrafts = await fetchAuditDrafts(requestedClientId, requestedRunId, userEmail);
+        const includeCreatorIqDemo = params.get("demo") === "creator-iq";
+        const nextDrafts = await fetchAuditDrafts(requestedClientId, requestedRunId, userEmail, includeCreatorIqDemo);
 
         if (!cancelled) {
           draftsScopeRef.current = requestedRunId || requestedClientId || "all";
@@ -254,7 +264,7 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
         }
 
         if (requestedClientId) {
-          void fetchAuditDrafts(undefined, undefined, userEmail).then(allDrafts => {
+          void fetchAuditDrafts(undefined, undefined, userEmail, includeCreatorIqDemo).then(allDrafts => {
             allDraftsCacheRef.current = allDrafts;
           }).catch(error => {
             console.error("Unable to warm the audit index.", error);
@@ -547,7 +557,7 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
       setDrafts(allDraftsCacheRef.current);
     } else if (draftsScopeRef.current !== "all") {
       setDraftsLoaded(false);
-      void fetchAuditDrafts(undefined, undefined, userEmail).then(allDrafts => {
+      void fetchAuditDrafts(undefined, undefined, userEmail, creatorIqDemoMode).then(allDrafts => {
         draftsScopeRef.current = "all";
         allDraftsCacheRef.current = allDrafts;
         setDrafts(allDrafts);
@@ -706,6 +716,82 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
     }, 450);
   };
 
+  const updateReportCheckStatus = (categoryKey: string, checkId: string, status: AuditCheckResult["status"]) => {
+    const currentDraft = draftsRef.current.find(draft => draft.run.id === reportRunId) || reportDraft;
+    if (!canManageStudioWork || !currentDraft || !isAuditScoreResult(currentDraft.state.report)) return;
+    const now = new Date().toISOString();
+    const categories = currentDraft.state.report.categories.map(category => {
+      if (category.key !== categoryKey) return category;
+      const checks = category.checks.map(check => check.id === checkId ? { ...check, status } : check);
+      const tally = scoreChecks(checks);
+      const scoreFormula = tally.passed + tally.failed > 0
+        ? `${tally.passed} passed ÷ (${tally.passed} passed + ${tally.failed} failed) × 100 = ${tally.score}`
+        : "No internally verified pass/fail items yet";
+      const issues = category.issues.filter(issue => checks.some(check => check.status === "fail" && (check.id === issue.criterion || check.label === issue.criterion)));
+      const updatedCategory = {
+        ...category,
+        ...tally,
+        scoreFormula,
+        score: tally.score,
+        target: Math.max(tally.score, category.target),
+        checks,
+        issues,
+      };
+      return { ...updatedCategory, courseOfAction: specificAuditCourseOfAction(updatedCategory) };
+    });
+    const allChecks = categories.flatMap(category => category.checks);
+    const overallScore = scoreChecks(allChecks).score;
+    const verifiedChecks = allChecks.filter(check => check.status === "pass" || check.status === "fail").length;
+    const applicableChecks = allChecks.filter(check => check.status !== "not_applicable").length;
+    const evidenceCoverage = applicableChecks ? Math.round((verifiedChecks / applicableChecks) * 100) : 0;
+    const report = {
+      ...currentDraft.state.report,
+      overallScore,
+      targetScore: projectedAuditScore(categories, overallScore),
+      verifiedChecks,
+      applicableChecks,
+      evidenceCoverage,
+      confidence: evidenceCoverage >= currentDraft.state.report.coverageThreshold ? "reliable" as const : "provisional" as const,
+      categories,
+      priorities: auditPrioritiesFromEvidence(categories),
+    };
+    const guidedSession = currentDraft.state.guidedSession
+      ? { ...currentDraft.state.guidedSession, aiResults: { ...currentDraft.state.guidedSession.aiResults, report } }
+      : currentDraft.state.guidedSession;
+    const nextDraft: PersistedAuditDraft = {
+      ...currentDraft,
+      run: {
+        ...currentDraft.run,
+        score: overallScore,
+        internalScore: overallScore,
+        targetScore: report.targetScore,
+        updatedAt: now,
+      },
+      state: { ...currentDraft.state, report, guidedSession },
+      updatedAt: now,
+    };
+    draftsRef.current = [nextDraft, ...draftsRef.current.filter(draft => draft.run.id !== nextDraft.run.id)];
+    setDrafts(draftsRef.current);
+    const statusLabel = status === "pass" ? "Passed" : status === "fail" ? "Failed" : status === "unverified" ? "Unverified" : "N/A";
+    actions.showToast(`Check marked ${statusLabel}`);
+    checkSaveQueueRef.current = checkSaveQueueRef.current.catch(() => undefined).then(async () => {
+      const response = await fetch("/api/portal-audit-runs", {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          [DASHBOARD_USER_EMAIL_HEADER]: userEmail,
+        },
+        body: JSON.stringify({ draft: nextDraft }),
+      });
+      if (response.ok) return;
+      const payload = await response.json().catch(() => null);
+      throw new Error(typeof payload?.error === "string" ? payload.error : "Unable to save the check status.");
+    }).catch(error => {
+      console.error("Unable to persist the edited audit check.", error);
+      actions.showToast("The check changed here, but could not be saved");
+    });
+  };
+
   if (!client && state.auditType !== "website") {
     return <AuditTypeWorkspace type={state.auditType} state={state} actions={actions} />;
   }
@@ -721,6 +807,7 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
   }
 
   if (!client && reportClient) {
+    const reportExportProfile = normalizePortalAuditExportProfile(reportClient.name, actions.workspaceForClient(reportClient.name).auditExport);
     return (
       <div style={css("width:100%;padding:" + (mobile ? "1rem 0.75rem calc(6rem + env(safe-area-inset-bottom))" : "1.35rem 2rem 2.4rem"))}>
         <div style={css("width:min(68rem,100%);margin:0 auto") }>
@@ -743,9 +830,9 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
                   accent: "var(--cocoon)",
                   onAdvance: () => undefined,
                   onDownload: async () => {
-                    actions.showToast("Opening the print dialog…");
+                    actions.showToast("Preparing PDF…");
                     const ok = await printReportNode(document.querySelector("[data-audit-report-root]"), `${reportClient.name} · ${canManageStudioWork && reportProposalOpen ? "Action plan" : "Audit report"}`, normalizePortalAuditExportProfile(reportClient.name, actions.workspaceForClient(reportClient.name).auditExport));
-                    actions.showToast(ok ? "Choose Print or Save as PDF" : "The print dialog could not be opened");
+                    actions.showToast(ok ? "PDF downloaded" : "The PDF could not be created");
                   },
                   onShare: () => {
                     const approvalResults = reportDraft.state.guidedSession?.aiResults || (reportDraft.state.report ? { report: reportDraft.state.report } : {});
@@ -753,17 +840,18 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
                     actions.shareFinalOutput({ clientName: reportClient.name, title: "Website Audit · Final report", outputType: "audit", ...output });
                   },
                   onCopy: () => actions.showToast("Copied to clipboard"),
+                  onAuditCheckStatusChange: canManageStudioWork ? updateReportCheckStatus : undefined,
                 })}
                 <AuditReportFooter
-                  exportProfile={normalizePortalAuditExportProfile(reportClient.name, actions.workspaceForClient(reportClient.name).auditExport)}
+                  exportProfile={reportExportProfile}
                   canManageExport={canManageStudioWork}
                   onSaveExportProfile={update => actions.saveAuditExportProfile(reportClient.name, update)}
                   onPrint={async () => {
-                    actions.showToast("Opening the print dialog…");
+                    actions.showToast("Preparing PDF…");
                     const ok = await printReportNode(document.querySelector("[data-audit-report-root]"), `${reportClient.name} · ${canManageStudioWork && reportProposalOpen ? "Action plan" : "Audit report"}`, normalizePortalAuditExportProfile(reportClient.name, actions.workspaceForClient(reportClient.name).auditExport));
-                    actions.showToast(ok ? "Choose Print or Save as PDF" : "The print dialog could not be opened");
+                    actions.showToast(ok ? "PDF downloaded" : "The PDF could not be created");
                   }}
-                  cta={canOpenLabs ? { label: "Build the website plan", icon: "arrowright", onClick: () => openWebsiteBuilderFromAudit(reportClient, reportDraft.state.guidedSession, reportDraft.state.answers) } : undefined}
+                  cta={canOpenLabs ? { label: "Build the website plan", onClick: () => openWebsiteBuilderFromAudit(reportClient, reportDraft.state.guidedSession, reportDraft.state.answers) } : undefined}
                 />
               </div>
             ) : <AuditReportView
@@ -852,6 +940,7 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
           />}
           controlsBelow
           countLabel="client"
+          equalCardHeights
           cards={[...legacyAuditGroups.map(group => {
             const completedRun = latestCompletedRun(group.runs);
             const activeRun = group.runs.find(item => item.progress < 100 && item.progress > 0) || group.runs.find(item => item.progress < 100) || null;
@@ -864,15 +953,17 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
             const displayRun = activeRun || completedRun || group.runs[0];
             const latestComplete = !!completedRun && !activeRun;
             const hasScore = !!scoredRun;
-            const heroOverall = scoredRun?.internalScore ?? scoredRun?.score ?? 0;
-            const heroProjected = scoredRun
-              ? Math.min(100, Math.max(scoredRun.targetScore ?? heroOverall, heroOverall))
-              : 0;
-            const heroLabel = heroOverall < 50 ? "Needs attention" : heroOverall < 65 ? "Fair foundation" : heroOverall < 80 ? "Solid footing" : "Strong foundation";
-            const heroSummary = { overall: heroOverall, projected: heroProjected, uplift: heroProjected - heroOverall, label: heroLabel, cats: [] };
             const scoredReport = scoredRun
               ? drafts.find(draft => draft.run.id === scoredRun.id)?.state.report
               : undefined;
+            const heroOverall = scoredRun?.internalScore ?? scoredRun?.score ?? 0;
+            const heroProjected = scoredRun && isAuditScoreResult(scoredReport)
+              ? projectedAuditScore(scoredReport.categories, heroOverall)
+              : scoredRun
+                ? Math.min(100, Math.max(scoredRun.targetScore ?? heroOverall, heroOverall))
+              : 0;
+            const heroLabel = heroOverall < 50 ? "Needs attention" : heroOverall < 65 ? "Fair foundation" : heroOverall < 80 ? "Solid footing" : "Strong foundation";
+            const heroSummary = { overall: heroOverall, projected: heroProjected, uplift: heroProjected - heroOverall, label: heroLabel, cats: [] };
             const heroCats: CatBar[] = AUDIT_CHECKLIST.map(checklistCategory => {
               const scoredCategory = isAuditScoreResult(scoredReport)
                 ? scoredReport.categories.find(category => category.key === checklistCategory.key)
@@ -922,7 +1013,18 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
               secondaryIcon: "replay",
               onSecondary: () => requestStartOver(group.client.id),
             };
-          }), ...durableWebsiteRuns.map(durableCheckupCard)]}
+          }), ...durableWebsiteRuns.map(run => ({
+            ...durableCheckupCard(run),
+            showProgress: false,
+            showStage: false,
+            showMeta: false,
+            hero: <AuditCardScoreSkeleton
+              summary={{ overall: 0, projected: 0, uplift: 0, cats: [] }}
+              scored={false}
+              emptyLabels={AUDIT_CHECKLIST.map(category => category.label)}
+              unscoredBlank
+            />,
+          }))]}
         />
         <StartOverDialog
           open={!!resetAuditClientId}
@@ -962,6 +1064,7 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
         onOpenApprovals={() => actions.setView("review")}
         processClientId={client.id}
         processRunId={run?.id}
+        evidenceServiceRunId={evidenceRun?.id ?? null}
         processDueAt={run?.due}
         exportProfile={normalizePortalAuditExportProfile(client.name, actions.workspaceForClient(client.name).auditExport)}
         initialSession={run ? draftsByRunId.get(run.id)?.state.guidedSession : undefined}
@@ -977,8 +1080,6 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
           setQuickKnow(k => mergeKnow(k, delta));
         }}
         startLabel="Start audit intake →"
-        backLabel={state.role === "client" ? "← Back to dashboard" : "← All checkups"}
-        hideHeader={state.role === "client"}
         progressLabel="intake"
         demo={AUDIT_DEMO}
         completeTitle="Intake ready"
@@ -994,7 +1095,7 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
               const ok = await printReportNode(document.querySelector(`[data-pipeline-stage="${stageKey}"]`), `${client.name} · ${stageKey === "plan" ? "Action plan" : "Audit report"}`, normalizePortalAuditExportProfile(client.name, actions.workspaceForClient(client.name).auditExport));
               actions.showToast(ok ? "Choose Print or Save as PDF" : "The print dialog could not be opened");
             }}
-            cta={stageKey === "plan" && canOpenLabs ? { label: "Build the website plan", icon: "arrowright", onClick: () => openWebsiteBuilderFromAudit(client, draftsByRunId.get(run?.id || "")?.state.guidedSession, quickKnow.data) } : undefined}
+            cta={stageKey === "plan" && canOpenLabs ? { label: "Build the website plan", onClick: () => openWebsiteBuilderFromAudit(client, draftsByRunId.get(run?.id || "")?.state.guidedSession, quickKnow.data) } : undefined}
           />
         ) : null}
         pipeline={AUDIT_PIPELINE}

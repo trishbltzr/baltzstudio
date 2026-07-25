@@ -351,8 +351,6 @@ export function WebsiteBuilder({ state, actions }: { state: PortalState; actions
         initialSession={savedPayload?.session}
         onSessionChange={saveBuilderSession}
         startLabel="Start website intake →"
-        backLabel={state.role === "client" ? "← Back to dashboard" : "← All builders"}
-        hideHeader={state.role === "client"}
         progressLabel="intake"
         completeTitle="Intake complete"
         completeMsg="The approved pages, source material, copy direction, and build requirements are ready to map."

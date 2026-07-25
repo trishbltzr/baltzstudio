@@ -14,10 +14,9 @@ export interface Know { data: Ans; sources: Record<string, string>; notes?: Reco
 // "business name" in audits but "funnel name" in funnels, so prefilling it would
 // mislabel one flow.
 const PROFILE_EXTRA: Record<string, Ans> = {
-  "blue-ribbon": { nickname: "Ren", platform: "Webflow", persona: "Boutique event planners who need a premium, trustworthy first impression.", objective: "Book calls / applications", problem: "Enquiries stall because the site doesn’t convey the premium service." },
-  "feather-tail": { nickname: "Sam", platform: "Shopify", persona: "Pet-owning millennials buying considered, natural pet accessories.", objective: "Sell a product", awareness: "Solution-aware" },
-  "kaya-services": { nickname: "Aya", platform: "WordPress", persona: "Facilities managers sourcing reliable commercial services.", objective: "Generate leads" },
-  "the-winged-palette": { nickname: "Wren", platform: "Webflow", persona: "Art collectors and interior designers seeking original work." },
+  "feather-tail": { platform: "Shopify", persona: "Pet-owning millennials buying considered, natural pet accessories.", objective: "Capture in-market buyers", awareness: "Solution-aware" },
+  "kaya-services": { platform: "WordPress", persona: "Facilities managers sourcing reliable commercial services.", objective: "Create qualified demand" },
+  "the-winged-palette": { platform: "Webflow", persona: "Art collectors and interior designers seeking original work." },
 };
 
 // Session memory that audit/funnel answers feed into (kept in-module; would persist
@@ -30,11 +29,23 @@ function persisted(clientId: string): Know {
   try {
     const value = JSON.parse(window.localStorage.getItem(STORAGE_PREFIX + clientId) || "null");
     if (!value || typeof value !== "object" || Array.isArray(value)) return { data: {}, sources: {} };
-    return {
+    const persistedKnowledge: Know = {
       data: value.data && typeof value.data === "object" && !Array.isArray(value.data) ? value.data : {},
       sources: value.sources && typeof value.sources === "object" && !Array.isArray(value.sources) ? value.sources : {},
       notes: value.notes && typeof value.notes === "object" && !Array.isArray(value.notes) ? value.notes : {},
     };
+    if (persistedKnowledge.sources.nickname === "Client profile") {
+      delete persistedKnowledge.data.nickname;
+      delete persistedKnowledge.sources.nickname;
+    }
+    if (clientId === "blue-ribbon") {
+      ["nickname", "platform", "persona", "objective", "problem"].forEach(key => {
+        if (persistedKnowledge.sources[key] !== "Client profile") return;
+        delete persistedKnowledge.data[key];
+        delete persistedKnowledge.sources[key];
+      });
+    }
+    return persistedKnowledge;
   } catch { return { data: {}, sources: {} }; }
 }
 
@@ -91,6 +102,7 @@ export function fromClientMemory(clientId: string, clientName: string, workspace
     sources: { name: "Client workspace", brandName: "Client workspace" },
   };
   const primaryClient = workspace.collaborators.find(collaborator => !collaborator.studio);
+  if (primaryClient?.name) memory = mergeKnow(memory, { data: { nickname: primaryClient.name }, sources: { nickname: "Client workspace" } });
   if (primaryClient?.email) memory = mergeKnow(memory, { data: { clientEmail: primaryClient.email }, sources: { clientEmail: "Client workspace" } });
 
   const noteText = workspace.notes.map(note => note.text).join(". ").trim();
@@ -141,31 +153,32 @@ export function parseBrief(text: string): Know {
   const set = (k: string, v: string | string[]) => { data[k] = v; sources[k] = "Pasted brief"; };
   const has = (re: RegExp) => re.test(t);
 
-  if (has(/webinar/)) { set("objective", "Webinar registrations"); set("ftype", "Webinar → offer"); }
-  else if (has(/waitlist/)) set("objective", "Build a waitlist");
+  if (has(/webinar/)) { set("objective", "Educate the market"); set("ftype", "Live / education → talk to us"); }
+  else if (has(/waitlist/)) set("objective", "Build an engaged audience");
   else if (has(/\blaunch\b/)) set("objective", "Launch a product");
-  else if (has(/\b(sell|purchase|checkout|buy|store|e-?commerce)\b/)) { set("objective", "Sell a product"); set("ftype", "Sales page → checkout"); }
-  else if (has(/\b(book|call|consult|appointment|application|discovery)\b/)) { set("objective", "Book calls / applications"); set("ftype", "Application → call"); }
-  else if (has(/lead/)) set("objective", "Generate leads");
+  else if (has(/\b(sell|purchase|checkout|buy|store|e-?commerce)\b/)) { set("objective", "Capture in-market buyers"); set("ftype", "Free-to-paid product loop"); }
+  else if (has(/\b(book|call|consult|appointment|application|discovery)\b/)) { set("objective", "Generate qualified pipeline"); set("ftype", "POV → distribution → demo"); }
+  else if (has(/lead/)) set("objective", "Create qualified demand");
   if (!data.ftype) {
-    if (has(/vsl|video sales/)) set("ftype", "VSL → checkout");
-    else if (has(/tripwire|upsell/)) set("ftype", "Tripwire → upsell");
-    else if (has(/lead magnet|opt-?in|freebie|guide|checklist|ebook/)) set("ftype", "Lead magnet → nurture");
+    if (has(/vsl|video sales|webinar|demo/)) set("ftype", "Live / education → talk to us");
+    else if (has(/tripwire|upsell|free trial|freemium/)) set("ftype", "Free-to-paid product loop");
+    else if (has(/lead magnet|opt-?in|freebie|guide|checklist|ebook|content|blog|newsletter/)) set("ftype", "Content engine → high-intent CTA");
   }
 
-  if (has(/\bfree\b/)) set("price", "Free (lead gen)");
+  if (has(/\bfree\b/)) set("price", "Free — ungated value");
   else { const m = text.match(/\$\s?([\d,]+)/); if (m) { const n = parseInt(m[1].replace(/,/g, ""), 10); set("price", n < 100 ? "Under $100" : n <= 500 ? "$100–$500" : n <= 2000 ? "$500–$2k" : "$2k+"); } }
 
   const plat = ["Webflow", "ClickFunnels", "Kajabi", "GoHighLevel", "WordPress"].find(p => t.includes(p.toLowerCase()));
   if (plat) set("platform", plat); else if (has(/shopify/)) set("platform", "Custom");
 
   const traffic: string[] = [];
-  if (has(/meta|facebook|instagram ad/)) traffic.push("Paid ads (Meta)");
-  if (has(/google ad|ppc|adwords/)) traffic.push("Paid ads (Google)");
-  if (has(/email list|newsletter/)) traffic.push("Email list");
-  if (has(/organic social|tiktok|linkedin|social media/)) traffic.push("Organic social");
-  if (has(/\bseo\b|blog|content marketing/)) traffic.push("SEO / blog");
-  if (has(/affiliate|partner/)) traffic.push("Partners / affiliates");
+  if (has(/linkedin/)) traffic.push("LinkedIn");
+  if (has(/youtube/)) traffic.push("YouTube");
+  if (has(/podcast/)) traffic.push("Podcast");
+  if (has(/communit|forum|reddit|discord|slack|facebook group/)) traffic.push("Communities");
+  if (has(/email list|newsletter/)) traffic.push("Newsletter");
+  if (has(/\bseo\b|blog|content marketing|organic/)) traffic.push("SEO / content");
+  if (has(/meta|facebook ad|instagram ad|google ad|ppc|adwords|paid/)) traffic.push("Paid (amplify content)");
   if (traffic.length) set("traffic", traffic);
 
   if (has(/cold audience|unaware/)) set("awareness", "Unaware");

@@ -65,8 +65,40 @@ const RUN_STATE_LABEL: Record<string, string> = {
   partial: "Partial",
   blocked: "Blocked",
   failed: "Failed",
-  cancelled: "Cancelled",
+  cancelled: "Stopped",
 };
+
+function serviceLabel(run: OperationalRun) {
+  const name = run.serviceKind[0]?.toUpperCase() + run.serviceKind.slice(1);
+  return `${name} checkup`;
+}
+
+function runSummary(run: OperationalRun) {
+  if (run.state === "cancelled") {
+    return run.baselineState
+      ? "This follow-up check was stopped. Your previous audit is still available."
+      : "This check was stopped before any results were saved.";
+  }
+  if (run.state === "current") return "The checkup is complete and the approved results are current.";
+  if (run.state === "ready") return "The checkup finished and is ready for your review.";
+  if (run.state === "partial") return "The checkup finished with some evidence still needing review.";
+  if (["blocked", "failed"].includes(run.state)) return run.blocker || "The checkup stopped because it needs attention.";
+  if (run.state === "reviewing") return "The evidence is ready and the final results are being reviewed.";
+  return "The site is being checked now. You can safely leave this page and return later.";
+}
+
+function checkedLabel(run: OperationalRun) {
+  if (run.totalTargets <= 0) return "Preparing the checklist";
+  if (run.completedTargets <= 0) return "No items checked";
+  return `${run.completedTargets} of ${run.totalTargets} items checked`;
+}
+
+function evidenceLabel(run: OperationalRun) {
+  if (run.coverage == null) return "Not collected yet";
+  if (run.coverage >= 0.95) return "Evidence available";
+  if (run.coverage <= 0) return "No evidence saved";
+  return `${Math.round(run.coverage * 100)}% available`;
+}
 
 function formatTime(value: string | null) {
   if (!value) return "Not yet";
@@ -112,7 +144,16 @@ function freshnessLabel(value: string | null) {
 }
 
 function serviceRoute(run: OperationalRun) {
-  return `/dashboard?view=activity&serviceRunId=${run.id}`;
+  return `/dashboard?view=audits&serviceRunId=${run.id}&auditType=${run.serviceKind}`;
+}
+
+function nextStepLabel(run: OperationalRun) {
+  if (run.state === "cancelled" && run.baselineState) return "Nothing required";
+  if (run.state === "cancelled") return "Start a new checkup when ready";
+  if (run.state === "ready" || run.state === "partial") return "Review the results";
+  if (run.state === "blocked" || run.state === "failed") return "Resolve the issue";
+  if (run.state === "current") return "Nothing required";
+  return "Checkup is still running";
 }
 
 export function Activity({ state }: { state?: PortalState }) {
@@ -212,12 +253,22 @@ export function Activity({ state }: { state?: PortalState }) {
       const requestedRunId = typeof window === "undefined"
         ? null
         : new URLSearchParams(window.location.search).get("serviceRunId");
-      return [...operationalRuns]
-        .sort((left, right) => left.id === requestedRunId ? -1 : right.id === requestedRunId ? 1 : 0)
-        .slice(0, state?.role === "client" ? 12 : 20);
+      const sorted = [...operationalRuns].sort((left, right) => {
+        if (left.id === requestedRunId) return -1;
+        if (right.id === requestedRunId) return 1;
+        return new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime();
+      });
+      const latest = new Map<string, OperationalRun>();
+      for (const run of sorted) {
+        const key = `${run.clientId}:${run.serviceKind}`;
+        if (!latest.has(key)) latest.set(key, run);
+      }
+      return [...latest.values()].slice(0, state?.role === "client" ? 12 : 20);
     },
     [operationalRuns, state?.role],
   );
+  const featuredRun = visibleRuns[0];
+  const recentRuns = visibleRuns.slice(1);
 
   useEffect(() => {
     if (runLoadState !== "ready") return;
@@ -231,120 +282,124 @@ export function Activity({ state }: { state?: PortalState }) {
 
   return (
     <div style={css("display:flex;flex-direction:column;gap:0.85rem")}>
-      <section className="pt-panel" style={css("overflow:hidden")}>
-        <header style={css("padding:0.9rem 1rem;border-bottom:1px solid var(--border-soft);display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-3)")}>
-          <div>
-            <h3 style={css("margin:0;font-size:var(--text-lg);font-weight:500")}>{state?.role === "client" ? "Checkup progress" : "Live service runs"}</h3>
-            <p style={css("margin:.18rem 0 0;color:var(--fg-muted);font-size:var(--text-xs)")}>{state?.role === "client" ? "Safe progress and approved outcomes from your active services." : "What is running, why it ran, what it checks, and what needs review."}</p>
+      <section className="pt-panel pt-activity-status">
+        <header className="pt-activity-status-heading">
+          <div className="pt-activity-status-title">
+            <h3>Last checkup</h3>
+            {featuredRun && <span className={`pt-run-state is-${featuredRun.state}`}>{RUN_STATE_LABEL[featuredRun.state] ?? featuredRun.state}</span>}
           </div>
-          {runLoadState === "ready" && <span style={css("font-size:var(--text-xs);color:var(--fg-faint);white-space:nowrap")}>{visibleRuns.length} run{visibleRuns.length === 1 ? "" : "s"}</span>}
+          <a className="pt-activity-outline-button" href="/dashboard?view=audits">All checkups</a>
         </header>
         {runLoadState === "loading" && <div style={css("padding:1.2rem 1rem;color:var(--fg-muted);font-size:var(--text-sm)")}>Loading run activity…</div>}
         {runLoadState === "error" && <div style={css("padding:1.2rem 1rem;color:var(--danger);font-size:var(--text-sm)")}>Run activity could not be loaded. Existing workspace activity is still available below.</div>}
-        {runLoadState === "ready" && visibleRuns.length === 0 && <div style={css("padding:1.2rem 1rem;color:var(--fg-muted);font-size:var(--text-sm)")}>No durable service runs yet.</div>}
-        {runLoadState === "ready" && visibleRuns.length > 0 && (
-          <div className="pt-operational-run-grid">
-            {visibleRuns.map(run => {
-              const total = Math.max(0, run.totalTargets);
-              const complete = Math.max(0, Math.min(run.completedTargets, total));
-              const progress = total > 0 ? Math.round((complete / total) * 100) : ["current", "ready"].includes(run.state) ? 100 : 0;
-              const blocked = ["blocked", "failed", "partial"].includes(run.state);
-              const toolCount = Array.isArray(run.agent?.toolTrace) ? run.agent.toolTrace.length : 0;
-              const estimate = estimatedRemaining(run);
-              const resumable = ["blocked", "failed"].includes(run.state);
-              const selectedFullRefresh = FULL_REFRESH_TRIGGERS[fullRefreshTrigger[run.id] as keyof typeof FULL_REFRESH_TRIGGERS];
-              return (
-                <article key={run.id} data-service-run-id={run.id} className="pt-operational-run-card">
-                  <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-3)")}>
-                    <div style={css("min-width:0")}>
-                      <div style={css("font-size:var(--text-sm);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{run.clientName} · {run.serviceKind[0]?.toUpperCase() + run.serviceKind.slice(1)} Checkup</div>
-                      <div style={css("margin-top:.12rem;color:var(--fg-muted);font-size:var(--text-2xs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{run.runKind.replace(/_/g, " ")}{run.triggerKind ? ` · ${run.triggerKind.replace(/_/g, " ")}` : ""}</div>
-                    </div>
-                    <span className={`pt-run-state is-${run.state}`}>{RUN_STATE_LABEL[run.state] ?? run.state}</span>
+        {runLoadState === "ready" && !featuredRun && <div style={css("padding:1.2rem 1rem;color:var(--fg-muted);font-size:var(--text-sm)")}>No checkups yet.</div>}
+        {runLoadState === "ready" && featuredRun && (() => {
+          const run = featuredRun;
+          const total = Math.max(0, run.totalTargets);
+          const complete = Math.max(0, Math.min(run.completedTargets, total));
+          const progress = total > 0 ? Math.round((complete / total) * 100) : ["current", "ready"].includes(run.state) ? 100 : 0;
+          const blocked = ["blocked", "failed", "partial"].includes(run.state);
+          const estimate = estimatedRemaining(run);
+          const resumable = ["blocked", "failed"].includes(run.state);
+          const selectedFullRefresh = FULL_REFRESH_TRIGGERS[fullRefreshTrigger[run.id] as keyof typeof FULL_REFRESH_TRIGGERS];
+          return (
+            <article data-service-run-id={run.id} className="pt-activity-status-body">
+              <div className="pt-activity-status-column">
+                <p><span>Status:</span><strong>{RUN_STATE_LABEL[run.state] ?? run.state}</strong></p>
+                <p><span>Updated:</span><strong>{formatTime(run.updatedAt)}</strong></p>
+                <p><span>Client:</span><strong>{run.clientName}</strong></p>
+              </div>
+              <div className="pt-activity-status-column">
+                <p><span>Checkup:</span><strong>{serviceLabel(run)}</strong></p>
+                <p><span>Evidence:</span><strong>{evidenceLabel(run)}</strong></p>
+                <p><span>Items:</span><strong>{checkedLabel(run)}</strong></p>
+              </div>
+              <div className="pt-activity-status-column">
+                <p><span>Result:</span><strong>{runSummary(run)}</strong></p>
+                <p><span>Next step:</span><strong>{nextStepLabel(run)}</strong></p>
+                <a className="pt-activity-inline-link" href={serviceRoute(run)}>View checkup <Icon name="arrow" size={12} /></a>
+              </div>
+              {run.state !== "cancelled" && (
+                <div className="pt-activity-progress">
+                  <div><span>{checkedLabel(run)}</span><strong>{progress}%</strong></div>
+                  <span><i style={{ width: `${progress}%`, background: blocked ? "var(--warn)" : "var(--success)" }} /></span>
+                  {estimate && <small>About {estimate}</small>}
+                </div>
+              )}
+              {blocked && run.blocker && <div className="pt-operational-run-blocker"><Icon name="alert" size={13} /><span><strong>{run.blockerOwner ? `${run.blockerOwner}: ` : ""}</strong>{run.blocker}{run.recoveryAction ? ` — ${run.recoveryAction}` : ""}</span>{resumable && state?.role !== "client" && <button type="button" disabled={recoverBusy === run.id} onClick={() => void resumeRun(run)}>{recoverBusy === run.id ? "Resuming…" : "Resume checkup"}</button>}</div>}
+              <details className="pt-activity-more">
+                <summary>More details</summary>
+                <dl className="pt-operational-run-meta">
+                  <div><dt>Reason</dt><dd>{run.runKind.replace(/_/g, " ")}{run.triggerKind ? ` · ${run.triggerKind.replace(/_/g, " ")}` : ""}</dd></div>
+                  <div><dt>Time spent</dt><dd>{formatElapsed(run.startedAt, run.completedAt)}</dd></div>
+                  <div><dt>Previous result</dt><dd>{run.baselineState ? (RUN_STATE_LABEL[run.baselineState] ?? run.baselineState) : "None yet"}</dd></div>
+                  <div><dt>Evidence status</dt><dd>{freshnessLabel(run.evidenceFreshUntil)}</dd></div>
+                  <div><dt>Last follow-up</dt><dd>{run.lastTargetedRecheckAt ? `${formatTime(run.lastTargetedRecheckAt)} · ${RUN_STATE_LABEL[run.lastTargetedRecheckState || ""] ?? run.lastTargetedRecheckState}` : "Not run yet"}</dd></div>
+                  <div><dt>Next automatic check</dt><dd>{formatTime(run.nextSentinelAt)}</dd></div>
+                </dl>
+              </details>
+              {state?.role !== "client" && run.state !== "cancelled" && ["brand", "website", "seo"].includes(run.serviceKind) && (
+                <details className="pt-operational-run-actions pt-activity-controls">
+                  <summary>Checkup controls</summary>
+                  <div>
+                    <button type="button" disabled={!!recheckBusy} onClick={() => void requestRecheck(run, "failed")}>Recheck problems</button>
+                    <button type="button" disabled={!!recheckBusy} onClick={() => void requestRecheck(run, "unverified")}>Recheck items awaiting review</button>
+                    <button type="button" disabled={!!recheckBusy} onClick={() => void requestRecheck(run, "changed")}>Refresh changed pages</button>
                   </div>
-                  <div style={css("display:flex;flex-direction:column;gap:.35rem")}>
-                    <div style={css("display:flex;align-items:center;justify-content:space-between;gap:.6rem;font-size:var(--text-2xs);color:var(--fg-muted)")}>
-                      <span>{total > 0 ? `${complete}/${total} targets` : "Selecting targets"}</span>
-                      <span>{progress}%</span>
+                  <label>
+                    Full-refresh trigger
+                    <select value={fullRefreshTrigger[run.id] || ""} onChange={event => setFullRefreshTrigger(current => ({ ...current, [run.id]: event.target.value }))}>
+                      <option value="">Choose why…</option>
+                      {Object.entries(FULL_REFRESH_TRIGGERS).map(([value, detail]) => <option key={value} value={value}>{detail.label}</option>)}
+                    </select>
+                  </label>
+                  {selectedFullRefresh ? (
+                    <div className="pt-full-refresh-explanation" role="note">
+                      <strong>{selectedFullRefresh.label}</strong>
+                      <span>{selectedFullRefresh.explanation}</span>
                     </div>
-                    <div style={css("height:.32rem;border-radius:999px;background:var(--surface-alt);overflow:hidden")}><span style={{ display: "block", width: `${progress}%`, height: "100%", borderRadius: 999, background: blocked ? "var(--warn)" : "var(--success)" }} /></div>
-                    <div style={css("display:flex;align-items:center;justify-content:space-between;gap:.6rem;font-size:var(--text-2xs);color:var(--fg-faint)")}>
-                      <span>{formatElapsed(run.startedAt, run.completedAt)}</span>
-                      {estimate && <span>Est. {estimate}</span>}
-                    </div>
-                  </div>
-                  <dl className="pt-operational-run-meta">
-                    <div><dt>Baseline</dt><dd>{run.baselineState ? (RUN_STATE_LABEL[run.baselineState] ?? run.baselineState) : "Not published"}</dd></div>
-                    <div><dt>Evidence</dt><dd>{run.coverage == null ? "Pending" : `${Math.round(run.coverage * 100)}% coverage`}</dd></div>
-                    <div><dt>Freshness</dt><dd>{freshnessLabel(run.evidenceFreshUntil)}</dd></div>
-                    <div><dt>Last targeted check</dt><dd>{run.lastTargetedRecheckAt ? `${formatTime(run.lastTargetedRecheckAt)} · ${RUN_STATE_LABEL[run.lastTargetedRecheckState || ""] ?? run.lastTargetedRecheckState}` : "Not run yet"}</dd></div>
-                    <div><dt>Next sentinel</dt><dd>{formatTime(run.nextSentinelAt)}</dd></div>
-                    {state?.role !== "client" && <div><dt>Versions</dt><dd>Source v{run.sourceVersion ?? "—"} · Checklist v{run.checklistVersion ?? "—"}</dd></div>}
-                    {state?.role !== "client" && <div><dt>Agent</dt><dd>{run.agent ? `${run.agent.state} · ${toolCount} tool call${toolCount === 1 ? "" : "s"}` : "Not required yet"}</dd></div>}
-                  </dl>
-                  {blocked && run.blocker && <div className="pt-operational-run-blocker"><Icon name="alert" size={13} /><span><strong>{run.blockerOwner ? `${run.blockerOwner}: ` : ""}</strong>{run.blocker}{run.recoveryAction ? ` — ${run.recoveryAction}` : ""}</span>{resumable && state?.role !== "client" && <button type="button" disabled={recoverBusy === run.id} onClick={() => void resumeRun(run)}>{recoverBusy === run.id ? "Resuming…" : "Resume from checkpoint"}</button>}</div>}
-                  {state?.role !== "client" && ["brand", "website", "seo"].includes(run.serviceKind) && (
-                    <details className="pt-operational-run-actions">
-                      <summary>Maintenance actions</summary>
-                      <div>
-                        <button type="button" disabled={!!recheckBusy} onClick={() => void requestRecheck(run, "failed")}>Check failed items</button>
-                        <button type="button" disabled={!!recheckBusy} onClick={() => void requestRecheck(run, "unverified")}>Check unverified items</button>
-                        <button type="button" disabled={!!recheckBusy} onClick={() => void requestRecheck(run, "changed")}>Refresh changed evidence</button>
-                      </div>
-                      <label>
-                        Full-refresh trigger
-                        <select value={fullRefreshTrigger[run.id] || ""} onChange={event => setFullRefreshTrigger(current => ({ ...current, [run.id]: event.target.value }))}>
-                          <option value="">Choose why…</option>
-                          {Object.entries(FULL_REFRESH_TRIGGERS).map(([value, detail]) => (
-                            <option key={value} value={value}>{detail.label}</option>
-                          ))}
-                        </select>
-                      </label>
-                      {selectedFullRefresh ? (
-                        <div className="pt-full-refresh-explanation" role="note">
-                          <strong>{selectedFullRefresh.label}</strong>
-                          <span>{selectedFullRefresh.explanation}</span>
-                          <span>This will recollect the complete evidence scope; routine maintenance remains targeted.</span>
-                        </div>
-                      ) : (
-                        <p>Choose a documented trigger to see why a complete recollection is necessary.</p>
-                      )}
-                      <button type="button" disabled={!!recheckBusy || !selectedFullRefresh} onClick={() => void requestRecheck(run, "full")}>
-                        {selectedFullRefresh ? `Run full refresh · ${selectedFullRefresh.label}` : "Run full refresh"}
-                      </button>
-                    </details>
-                  )}
-                  <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);padding-top:.15rem")}>
-                    <span style={css("font-size:var(--text-2xs);color:var(--fg-faint)")}>Updated {formatTime(run.updatedAt)}</span>
-                    <a href={serviceRoute(run)} style={css("display:inline-flex;align-items:center;gap:.3rem;color:var(--accent);font-size:var(--text-xs);font-weight:500;text-decoration:none")}>Open <Icon name="arrow" size={12} /></a>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
+                  ) : <p>Choose why a complete recheck is needed.</p>}
+                  <button type="button" disabled={!!recheckBusy || !selectedFullRefresh} onClick={() => void requestRecheck(run, "full")}>Run complete recheck</button>
+                </details>
+              )}
+            </article>
+          );
+        })()}
       </section>
-      {state?.role !== "client" && <WorkflowGovernancePanel />}
-      <div style={css("display:flex;gap:0.4rem;flex-wrap:wrap")}>
-        {filters.map(([k, l]) => {
-          const on = filter === k;
-          return <button key={k} onClick={() => setFilter(k)} style={css("padding:0.3rem 0.75rem;border-radius:999px;border:1px solid " + (on ? "transparent" : "var(--border)") + ";cursor:pointer;font-size:var(--text-2xs);font-weight:500;" + (on ? "background:var(--fg);color:#fff" : "background:var(--surface);color:var(--fg-muted)"))}>{l}</button>;
-        })}
-      </div>
-      <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden")}>
-        {rows.map((a, i) => (
-          <div key={i} style={css("display:flex;align-items:center;gap:0.8rem;padding:0.8rem 1.1rem;border-bottom:1px solid var(--border-soft)")}>
-            <span style={css("width:1.9rem;height:1.9rem;border-radius:50%;background:color-mix(in srgb," + ACT_LANE[a.k] + " 14%,white 86%);color:" + ACT_LANE[a.k] + ";display:grid;place-items:center;flex-shrink:0")}><Icon name={ACT_ICON[a.k]} size={13} /></span>
-            <div style={css("flex:1;min-width:0;font-size:var(--text-base)")}><strong style={{ fontWeight: 500 }}>{a.who}</strong> <span style={{ color: "var(--fg-muted)" }}>{a.act}</span> <strong style={{ fontWeight: 500 }}>{a.obj}</strong></div>
-            <span style={css("font-size:var(--text-xs);color:var(--fg-faint);flex-shrink:0")}>{a.t}</span>
-          </div>
-        ))}
-        {rows.length === 0 && (
-          <div style={css("padding:2.5rem 1rem;text-align:center;color:var(--fg-muted);font-size:var(--text-base)")}>
-            No activity yet.
-          </div>
-        )}
-      </div>
+      {runLoadState === "ready" && recentRuns.length > 0 && (
+        <section className="pt-panel pt-activity-recent">
+          <header><h3>Recent checkups</h3><span>{recentRuns.length}</span></header>
+          {recentRuns.map(run => (
+            <a key={run.id} href={serviceRoute(run)}>
+              <div><strong>{run.clientName}</strong><span>{serviceLabel(run)} · {formatTime(run.updatedAt)}</span></div>
+              <span className={`pt-run-state is-${run.state}`}>{RUN_STATE_LABEL[run.state] ?? run.state}</span>
+            </a>
+          ))}
+        </section>
+      )}
+      {state?.role !== "client" && (
+        <details className="pt-activity-admin">
+          <summary><strong>Admin operations</strong><span>Release settings, system alerts, and technical performance</span></summary>
+          <WorkflowGovernancePanel />
+        </details>
+      )}
+      {rows.length > 0 && <>
+        <div style={css("display:flex;gap:0.4rem;flex-wrap:wrap")}>
+          {filters.map(([k, l]) => {
+            const on = filter === k;
+            return <button key={k} onClick={() => setFilter(k)} style={css("padding:0.3rem 0.75rem;border-radius:999px;border:1px solid " + (on ? "transparent" : "var(--border)") + ";cursor:pointer;font-size:var(--text-2xs);font-weight:500;" + (on ? "background:var(--fg);color:#fff" : "background:var(--surface);color:var(--fg-muted)"))}>{l}</button>;
+          })}
+        </div>
+        <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden")}>
+          {rows.map((a, i) => (
+            <div key={i} style={css("display:flex;align-items:center;gap:0.8rem;padding:0.8rem 1.1rem;border-bottom:1px solid var(--border-soft)")}>
+              <span style={css("width:1.9rem;height:1.9rem;border-radius:50%;background:color-mix(in srgb," + ACT_LANE[a.k] + " 14%,white 86%);color:" + ACT_LANE[a.k] + ";display:grid;place-items:center;flex-shrink:0")}><Icon name={ACT_ICON[a.k]} size={13} /></span>
+              <div style={css("flex:1;min-width:0;font-size:var(--text-base)")}><strong style={{ fontWeight: 500 }}>{a.who}</strong> <span style={{ color: "var(--fg-muted)" }}>{a.act}</span> <strong style={{ fontWeight: 500 }}>{a.obj}</strong></div>
+              <span style={css("font-size:var(--text-xs);color:var(--fg-faint);flex-shrink:0")}>{a.t}</span>
+            </div>
+          ))}
+        </div>
+      </>}
     </div>
   );
 }

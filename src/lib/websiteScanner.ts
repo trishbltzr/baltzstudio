@@ -28,6 +28,25 @@ function normalizeUrl(input: string) {
   return url;
 }
 
+function websiteEntryCandidates(input: string) {
+  const start = normalizeUrl(input);
+  const candidates = new Map<string, URL>();
+  const add = (url: URL) => candidates.set(url.href, url);
+  add(start);
+  const alternateHost = new URL(start);
+  alternateHost.hostname = start.hostname.startsWith("www.") ? start.hostname.slice(4) : `www.${start.hostname}`;
+  add(alternateHost);
+  if (start.protocol === "https:") {
+    const http = new URL(start);
+    http.protocol = "http:";
+    add(http);
+    const alternateHttp = new URL(alternateHost);
+    alternateHttp.protocol = "http:";
+    add(alternateHttp);
+  }
+  return [...candidates.values()];
+}
+
 export async function validatePublicWebsiteUrl(input: string) {
   const url = normalizeUrl(input);
   await assertPublicUrl(url);
@@ -98,8 +117,19 @@ function candidateLinks(html: string, base: URL) {
     .slice(0, 7);
 }
 
-export async function scanWebsite(input: string) {
-  const home = await fetchHtml(normalizeUrl(input));
+export async function scanWebsite(input: string, options: { maxPages?: number } = {}) {
+  const maxPages = Math.max(1, Math.min(20, Math.round(options.maxPages ?? 7)));
+  let home: Awaited<ReturnType<typeof fetchHtml>> | null = null;
+  let lastError: unknown = null;
+  for (const candidate of websiteEntryCandidates(input)) {
+    try {
+      home = await fetchHtml(candidate);
+      break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (!home) throw lastError instanceof Error ? lastError : new Error("The website could not be opened.");
   const pages = [{
     url: home.url.href,
     text: pageText(home.html),
@@ -107,7 +137,7 @@ export async function scanWebsite(input: string) {
     selectionRank: 0,
   }];
   for (const candidate of candidateLinks(home.html, home.url)) {
-    if (pages.length >= 7) break;
+    if (pages.length >= maxPages) break;
     try {
       const page = await fetchHtml(candidate.url);
       if (!pages.some(existing => existing.url === page.url.href)) {

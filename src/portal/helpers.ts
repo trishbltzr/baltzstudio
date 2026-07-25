@@ -166,7 +166,7 @@ export function clientJourneyMessaging(gate?: JourneyGate) {
 // Header crumb/title per (view, role).
 const HEAD: Record<string, Partial<Record<Role, [string, string]>>> = {
   progress: { admin: ["Studio", "Snapshot"], dev: ["Delivery", "Snapshot"], client: ["Your Project", "Snapshot"] },
-  clients: { admin: ["Studio", "Clients & Projects"], dev: ["Delivery", "My Clients"] },
+  clients: { admin: ["Studio", "Clients"], dev: ["Delivery", "My Clients"] },
   tasks: { admin: ["Studio", "All Tasks"], dev: ["Delivery", "My Tasks"], client: ["Your Project", "To-do's"] },
   inbox: { admin: ["Studio", "Inbox"], dev: ["Delivery", "Inbox"], client: ["Your Project", "Inbox"] },
   files: { admin: ["Studio", "Files & Assets"], dev: ["Delivery", "Files"], client: ["Your Project", "Shared Files"] },
@@ -182,7 +182,7 @@ const HEAD: Record<string, Partial<Record<Role, [string, string]>>> = {
   assistant: { client: ["Your Project", "In Full Flight"] },
   audits_new: { admin: ["Automation", "Checkups"], dev: ["Automation", "Checkups"] },
   funnels: { admin: ["Automation", "Labs"], dev: ["Automation", "Labs"], client: ["Your Project", "Labs"] },
-  activity: { admin: ["Studio", "Activity Log"], client: ["Your Project", "Activity Log"] },
+  activity: { admin: ["Studio", "Activity"], client: ["Your Project", "Activity"] },
   profile: { admin: ["Account", "Profile & Settings"], dev: ["Account", "Profile & Settings"], client: ["Account", "Profile & Settings"] },
   onboarding: { admin: ["Studio", "New Client"], dev: ["Delivery", "New Client"] },
 };

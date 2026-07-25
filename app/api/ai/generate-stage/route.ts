@@ -1,13 +1,15 @@
 import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { AI_STAGES, isAiStageResult, isGeneratedStageResult, type AiGenerationMode } from "@/lib/aiStageGeneration";
-import { ALL_AUDIT_CHECKS, AUDIT_CHECKLIST, auditPrioritiesFromEvidence, isAuditScoreResult, scoreChecks, specificAuditCourseOfAction, type AuditCheckResult, type AuditIssue, type AuditScoreResult, type LighthouseRun } from "@/lib/auditChecklist";
+import { ALL_AUDIT_CHECKS, AUDIT_CHECKLIST, auditPrioritiesFromEvidence, isAuditScoreResult, projectedAuditScore, scoreChecks, specificAuditCourseOfAction, type AuditCheckResult, type AuditIssue, type AuditScoreResult, type LighthouseRun } from "@/lib/auditChecklist";
 import { apiKeyForMode, createOpenAIResponseForMode, openAIError, responseText } from "@/lib/openaiServer";
-import { automatedAuditChecks, type WebsiteEvidenceBundle } from "@/lib/renderedWebsiteEvidence";
+import { automatedAuditChecks, collectWebsiteEvidence, type WebsiteEvidenceBundle } from "@/lib/renderedWebsiteEvidence";
 import { brandVisualsFromEvidence } from "@/lib/brandVisualEvidence";
 import { loadDurableGenerationEvidence } from "@/lib/durableGenerationEvidence";
 import { resolvePortalRequestAccess } from "@/lib/portalRequestAccess";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { scanWebsite } from "@/lib/websiteScanner";
+import { COPYWRITING_AGENT_ID, COPYWRITING_AGENT_VERSION, copywritingAgentInstructions } from "@/lib/copywritingAgent";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -54,6 +56,39 @@ const RESULT_SCHEMA = {
     },
   },
   required: ["title", "summary", "sections", "recommendations"],
+} as const;
+
+const FUNNEL_COPY_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    kind: { type: "string", const: "funnel_copy" },
+    agentId: { type: "string", const: COPYWRITING_AGENT_ID },
+    agentVersion: { type: "string", const: COPYWRITING_AGENT_VERSION },
+    title: { type: "string", minLength: 1, maxLength: 120 },
+    summary: { type: "string", minLength: 1, maxLength: 320 },
+    rewriteDepth: { type: "string", enum: ["Polish", "Improve", "Rebuild"] },
+    sections: {
+      type: "array",
+      minItems: 9,
+      maxItems: 9,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          role: { type: "string", enum: ["hero", "problem", "benefit", "solution", "differentiation", "proof", "objections", "faq", "cta"] },
+          eyebrow: { type: "string", maxLength: 70 },
+          heading: { type: "string", minLength: 1, maxLength: 100 },
+          body: { type: "string", minLength: 1, maxLength: 420 },
+          bullets: { type: "array", maxItems: 4, items: { type: "string", minLength: 1, maxLength: 180 } },
+          cta: { anyOf: [{ type: "string", minLength: 1, maxLength: 40 }, { type: "null" }] },
+          sourceStatus: { type: "string", enum: ["sourced", "positioning", "needs_approval"] },
+        },
+        required: ["role", "eyebrow", "heading", "body", "bullets", "cta", "sourceStatus"],
+      },
+    },
+  },
+  required: ["kind", "agentId", "agentVersion", "title", "summary", "rewriteDepth", "sections"],
 } as const;
 
 const AUDIT_SCORE_SCHEMA = {
@@ -157,7 +192,7 @@ function normalizeAuditAnalysis(raw: RawAuditAnalysis, pagesReviewed: string[], 
     title: raw.title,
     summary: raw.summary,
     overallScore: overall,
-    targetScore: Math.max(overall, Math.min(95, Math.round(categories.reduce((sum, category) => sum + category.target, 0) / categories.length))),
+    targetScore: projectedAuditScore(categories, overall),
     evidenceCoverage,
     verifiedChecks,
     applicableChecks,
@@ -172,8 +207,8 @@ function normalizeAuditAnalysis(raw: RawAuditAnalysis, pagesReviewed: string[], 
 
 const STAGE_BRIEFS: Record<AiGenerationMode, Record<string, string>> = {
   audit: {
-    report: "Create an evidence-conscious audit assessment. Identify strengths, friction, and risks across positioning, messaging, conversion, user experience, visual identity, and findability.",
-    plan: "Turn the audit context into a prioritized, practical improvement plan. Sequence quick wins before larger structural work and make every action specific enough to assign.",
+    report: "Create an evidence-conscious audit assessment. Identify only the most important strengths, friction, and risks across positioning, messaging, conversion, user experience, visual identity, and findability. Consolidate overlapping findings instead of listing every symptom.",
+    plan: "Turn the audit context into a short, prioritized improvement plan. Return exactly three non-overlapping recommendations. Sequence quick wins before structural work and make every action specific enough to assign.",
   },
   brand: {
     report: "Create a practical brand kit and consolidated guideline draft from the supplied evidence. Cover brand foundation, positioning, audience, voice, messaging, logo usage, typography, colour direction, imagery, and consistency. Label every material conclusion as Verified strength, Verified gap, Unverified, or Not applicable and name its supporting submitted answer, supplied asset, website, or social touchpoint. Recommendations may come only from Verified gaps. Unverified items must request missing evidence. Do not create a numeric brand score.",
@@ -189,7 +224,7 @@ const STAGE_BRIEFS: Record<AiGenerationMode, Record<string, string>> = {
   },
   funnel: {
     flow: "Design the conversion journey from traffic source to the primary outcome. Explain why each step exists and where drop-off risk should be reduced.",
-    copy: "Write page-ready sales copy for the buyer, not commentary about building the page. Lead with a specific offer-led promise, then develop the buyer's problem and stakes, desired outcome, product or service benefits, concrete offer details, buying process, proof, objection handling, pricing or value framing, FAQ, and repeated primary CTA. Use the client's exact offer, audience, problem, price, and action wherever supplied. Never sell the website, design, mobile responsiveness, tracking, or funnel mechanics to the end customer. Never invent testimonials, ratings, guarantees, prices, ingredients, certifications, results, or delivery claims; label missing evidence as an approval input.",
+    copy: "Write finished, page-ready sales copy for the buyer. Return exactly nine sections in this exact role order: hero, problem, benefit, solution, differentiation, proof, objections, faq, cta. The order is fixed. FAQs sit immediately before the final CTA. Lead with the audience's useful outcome, not the company description or process. The hero must contain one core promise, an H1 of roughly 6–12 words, a supporting body of roughly 12–28 words, and one CTA of roughly 2–5 words. Every later section must answer a distinct buyer question and advance the same action. Translate the supplied brief into customer-facing language; never paste internal notes, recommendations, or brief headings into visible copy. Use sentence case, correct grammar, concise sentences, precise nouns, and active verbs. Remove filler, clichés, empty superlatives, repeated promises, and AI-like summaries. Respect the selected rewriteDepth: Polish preserves most wording; Improve substantially strengthens hierarchy and persuasion; Rebuild rewrites from strategy while preserving approved facts and the fixed structure. Use the client's exact offer, audience, problem, proof, price, and action wherever supplied. Mark unsupported factual material needs_approval and ask for the missing evidence in plain language. Never invent testimonials, ratings, guarantees, prices, ingredients, certifications, results, delivery claims, or customer stories.",
     wireframe: "Create a polished, page-ready SALES PAGE structure, not a generic website outline. Sequence it as: focused navigation; offer-led hero with primary purchase CTA; verified proof strip; problem and stakes; buyer benefits; product or service details; how buying works; verified testimonial or explicit proof placeholder; offer stack; one evidence-backed price or price-to-approve state; objection-led FAQ; final purchase CTA; legal footer. Every section must answer a buyer question and move toward the same primary action. Omit internal build details such as integrations, analytics, responsive design, and tracking from customer-facing sections. Never invent proof, pricing, guarantees, results, or product claims.",
     brief: "Produce a build-ready development brief covering pages, content, integrations, measurement, QA, dependencies, and launch priorities. Give the final brief a distinctive, outcome-led title tailored to this funnel. Never use only 'Development plan', 'Build direction', the funnel name, or another generic repeated stage label as the title.",
   },
@@ -223,7 +258,7 @@ function cleanData(value: unknown): Record<string, string | string[]> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const clean: Record<string, string | string[]> = {};
   for (const [key, entry] of Object.entries(value as Record<string, unknown>).slice(0, 60)) {
-    if (typeof entry === "string") clean[key.slice(0, 80)] = entry.slice(0, 2_000);
+    if (typeof entry === "string") clean[key.slice(0, 80)] = entry.slice(0, key === "sourceMaterial" ? 12_000 : 2_000);
     else if (Array.isArray(entry)) clean[key.slice(0, 80)] = entry.filter((item): item is string => typeof item === "string").slice(0, 20).map(item => item.slice(0, 400));
   }
   return clean;
@@ -293,6 +328,17 @@ function requestedWebsiteScope(data: Record<string, string | string[]>) {
   });
 }
 
+async function collectLiveGenerationEvidence(data: Record<string, string | string[]>) {
+  const input = [data.url, data.domain, data.website]
+    .find(value => typeof value === "string" && value.trim());
+  if (typeof input !== "string" || !input.trim()) return null;
+  const pages = await scanWebsite(input, { maxPages: 10 });
+  const pageUrls = [...new Set(pages.map(page => page.url))].slice(0, 10);
+  if (!pageUrls.length) return null;
+  const websiteEvidence = await collectWebsiteEvidence(pageUrls, ["desktop", "mobile"]);
+  return { pagesReviewed: pageUrls, websiteEvidence };
+}
+
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Cross-origin requests are not allowed." }, { status: 403 });
   if (!withinRateLimit(request)) return NextResponse.json({ error: "Too many generation requests. Please wait a minute and try again." }, { status: 429 });
@@ -326,24 +372,23 @@ export async function POST(request: NextRequest) {
     ? JSON.stringify(body.priorResult).slice(0, 40_000)
     : "Not supplied";
   const isAuditReport = mode === "audit" && stageKey === "report";
+  const isFunnelCopy = mode === "funnel" && stageKey === "copy";
   let pagesReviewed: string[] = [];
   let lighthouse: LighthouseRun[] = [];
   let websiteEvidence: WebsiteEvidenceBundle = { rendered: [], technical: { https: false, httpRedirectsToHttps: null, hostRedirectConsistent: null, sitemapAvailable: false, robotsAvailable: false, notFoundHelpful: null, brokenLinksChecked: 0, brokenLinks: [] } };
   let durableEvidence: Awaited<ReturnType<typeof loadDurableGenerationEvidence>> | null = null;
   const evidenceServiceRunId = typeof body?.serviceRunId === "string" ? body.serviceRunId : "";
-  if (isAuditReport || (mode === "brand" || mode === "seo") && stageKey === "report") {
-    if (!evidenceServiceRunId) {
-      return NextResponse.json({
-        error: "Finish the durable Checkup first. Report generation now uses its saved evidence instead of re-crawling the site.",
-      }, { status: 409 });
-    }
+  const canUseDurableEvidence = isAuditReport || (mode === "brand" || mode === "seo") && stageKey === "report";
+  if (canUseDurableEvidence && evidenceServiceRunId) {
     try {
       durableEvidence = await loadDurableGenerationEvidence(evidenceServiceRunId);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Durable Checkup evidence could not be loaded.";
-      const status = /Sign in/.test(message) ? 401 : /still|no durable|valid/.test(message) ? 409 : 404;
-      return NextResponse.json({ error: message }, { status });
+      if (/Sign in/.test(message)) return NextResponse.json({ error: message }, { status: 401 });
+      durableEvidence = null;
     }
+  }
+  if (durableEvidence) {
     if (durableEvidence.snapshot.coverage < 0.7) {
       return NextResponse.json({
         error: `Evidence coverage is ${Math.round(durableEvidence.snapshot.coverage * 100)}%. Resolve the named blocker or review the partial Checkup before generating a report.`,
@@ -353,17 +398,24 @@ export async function POST(request: NextRequest) {
     websiteEvidence = durableEvidence.websiteEvidence;
     lighthouse = durableEvidence.lighthouse;
   }
+  if (canUseDurableEvidence && !durableEvidence) {
+    const liveEvidence = await collectLiveGenerationEvidence(data).catch(() => null);
+    if (liveEvidence) {
+      pagesReviewed = liveEvidence.pagesReviewed;
+      websiteEvidence = liveEvidence.websiteEvidence;
+    } else if (isAuditReport) {
+      return NextResponse.json({
+        error: "Add or confirm a public website URL so the report can collect current page evidence.",
+      }, { status: 422 });
+    }
+  }
   let sitemapUrls: string[] = [];
   if (mode === "website_builder" && stageKey === "direction") {
     if (evidenceServiceRunId) {
       try {
         durableEvidence = await loadDurableGenerationEvidence(evidenceServiceRunId);
         sitemapUrls = durableEvidence.pagesReviewed;
-      } catch (error) {
-        return NextResponse.json({
-          error: error instanceof Error ? error.message : "The approved Checkup evidence could not be loaded.",
-        }, { status: 409 });
-      }
+      } catch { durableEvidence = null; }
     }
     if (!requestedWebsiteScope(data).length && !sitemapUrls.length) return NextResponse.json({ error: "Confirm at least one page to design or attach an approved Checkup handoff before generating the build-ready brief." }, { status: 400 });
   }
@@ -376,6 +428,9 @@ export async function POST(request: NextRequest) {
     "Make the output client-ready, concrete, commercially useful, and concise. Distinguish evidence from inference.",
     ...(mode === "audit" ? [
       "The audit has already performed the review. Recommendations must prescribe concrete implementation changes based on the supplied audit evidence. Never recommend running or conducting another audit, review, assessment, analysis, or evaluation as the action.",
+      "Use plain language and short sentences. Write for a client, not an analyst. Avoid jargon, stacked clauses, inflated wording, and long lists.",
+      "Prioritize instead of cataloguing. Combine findings that share the same root cause, and do not repeat the same issue in multiple recommendations.",
+      "For an action plan, return exactly three recommendations. Each recommendation must contain one problem, one reason it matters, and one direct action.",
     ] : []),
     ...(mode === "brand" ? [
       "This is a brand audit and brand-system generation workflow. The report must produce usable brand-kit and guideline direction, not a website checklist or another request to audit the brand.",
@@ -399,13 +454,19 @@ export async function POST(request: NextRequest) {
       "Each stage must build on the supplied prior approved stages. Do not contradict or replace the approved objective, page order, primary action, offer, audience, or platform unless the discovery context explicitly changes it.",
       "Return only content relevant to the current panel. Flow defines the journey; Copy follows that flow; Wireframe arranges the approved flow and copy; Development plan turns all approved panels into implementation tasks, integrations, QA, and launch requirements.",
       "Read the Client workspace notes before drafting any copy. Use them for audience language, offer details, objections, brand voice, and constraints only where supported. Flag conflicts and missing proof rather than guessing.",
+      "Treat rewriteDepth as a binding instruction. If it is missing, use Improve for this draft and state that choice in the result.",
+      "The fixed customer-facing section order is Hero, Problem, Benefit, Solution, Differentiation, Proof, Objections, FAQ, CTA.",
+      "Copy must fit its intended component. Prefer a shorter, stronger line over reducing type size, clipping, or truncating the result.",
     ] : []),
+    ...(isFunnelCopy ? [copywritingAgentInstructions("funnel")] : []),
+    ...(mode === "website_builder" && stageKey === "direction" ? [copywritingAgentInstructions("website")] : []),
     STAGE_BRIEFS[mode][stageKey],
     ...(isAuditReport ? [
       "Evaluate the full supplied checklist. Do not invent scores; the application calculates every score from your pass/fail evaluations.",
       "Use pass only when the supplied page text, rendered browser evidence, automated technical evidence, or Lighthouse data positively support the criterion. Use fail only when they positively show a problem. Use unverified when public evidence is insufficient, and not_applicable for conditional features the site does not need.",
       "Return each checklist ID exactly once under its matching category. Evidence must be a short factual observation. Never invent traffic, backlinks, analytics, browser tests, or pages.",
       "Issues, fixes, course of action, and priorities must be traceable to verified failed checklist items. Do not create an issue or recommendation from an unverified or passed item.",
+      "For each category, consolidate overlapping failures into no more than three issues. Keep each finding, evidence statement, and fix to one short sentence.",
       `Checklist template:\n${AUDIT_CHECKLIST.map(group => `${group.key}:\n${group.checks.map(check => `${check.id} | ${check.label}`).join("\n")}`).join("\n\n")}`,
     ] : []),
   ].join("\n");
@@ -415,8 +476,8 @@ export async function POST(request: NextRequest) {
       model: process.env.OPENAI_MODEL || "gpt-5.6-luna",
       store: false,
       safety_identifier: safetyIdentifier,
-      reasoning: { effort: "low" },
-      max_output_tokens: isAuditReport ? 18_000 : 2_400,
+      reasoning: { effort: isFunnelCopy ? "medium" : "low" },
+      max_output_tokens: isAuditReport ? 18_000 : isFunnelCopy ? 5_000 : 2_400,
       instructions,
       input: `Person name: ${personName || "Not supplied"}\nBrand name: ${brandName}\nClient record: ${clientName}\nWorkflow: ${mode}\nStage: ${stageKey}\n\nClient workspace notes (read before discovery context):\n${Object.keys(clientNotes).length ? JSON.stringify(clientNotes, null, 2) : "No saved client notes."}\n\nDiscovery context:\n${JSON.stringify(data, null, 2)}\nPrior audit result:\n${priorResult}${sitemapUrls.length ? `\n\nApproved page inventory:\n${sitemapUrls.join("\n")}` : ""}${durableEvidence ? `\n\nDurable Checkup evidence (saved once; do not imply a new crawl):\n${JSON.stringify({
         run: durableEvidence.run,
@@ -428,8 +489,13 @@ export async function POST(request: NextRequest) {
         reviewedChecks: durableEvidence.reviewedChecks,
       }, null, 2).slice(0, 100_000)}` : ""}`,
       text: {
-        verbosity: "medium",
-        format: { type: "json_schema", name: isAuditReport ? "audit_score_result" : "ai_stage_result", strict: true, schema: isAuditReport ? AUDIT_SCORE_SCHEMA : RESULT_SCHEMA },
+        verbosity: isFunnelCopy ? "low" : "medium",
+        format: {
+          type: "json_schema",
+          name: isAuditReport ? "audit_score_result" : isFunnelCopy ? "funnel_copy_result" : "ai_stage_result",
+          strict: true,
+          schema: isAuditReport ? AUDIT_SCORE_SCHEMA : isFunnelCopy ? FUNNEL_COPY_SCHEMA : RESULT_SCHEMA,
+        },
       },
     });
     if (!openaiResponse.ok) {
@@ -439,6 +505,12 @@ export async function POST(request: NextRequest) {
     }
 
     const parsed = JSON.parse(responseText(payload));
+    if (isFunnelCopy && Array.isArray(parsed?.sections)) {
+      const expectedRoles = ["hero", "problem", "benefit", "solution", "differentiation", "proof", "objections", "faq", "cta"];
+      const byRole = new Map(parsed.sections.map((section: any) => [String(section?.role || ""), section]));
+      if (expectedRoles.every(role => byRole.has(role))) parsed.sections = expectedRoles.map(role => byRole.get(role));
+      parsed.rewriteDepth = ["Polish", "Improve", "Rebuild"].includes(data.rewriteDepth as string) ? data.rewriteDepth : "Improve";
+    }
     if (mode === "website_builder" && stageKey === "direction" && Array.isArray(parsed?.sections)) {
       const pageInventory = [...new Set(sitemapUrls)];
       const confirmedScope = requestedWebsiteScope(data);
@@ -460,7 +532,11 @@ export async function POST(request: NextRequest) {
       result.brandVisuals = brandVisualsFromEvidence(websiteEvidence);
     }
     if (!isGeneratedStageResult(result) || isAuditReport && !isAuditScoreResult(result)) throw new Error("The generated response did not match the expected format.");
-    return NextResponse.json({ result, model: payload?.model || process.env.OPENAI_MODEL || "gpt-5.6-luna" });
+    return NextResponse.json({
+      result,
+      model: payload?.model || process.env.OPENAI_MODEL || "gpt-5.6-luna",
+      ...((isFunnelCopy || mode === "website_builder") ? { agent: { id: COPYWRITING_AGENT_ID, version: COPYWRITING_AGENT_VERSION } } : {}),
+    });
   } catch (error) {
     console.error("Unable to generate stage.", error instanceof Error ? error.message : error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to generate this stage." }, { status: 502 });

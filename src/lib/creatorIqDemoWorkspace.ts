@@ -1,5 +1,6 @@
-import { AUDIT_CHECKLIST, scoreChecks, type AuditScoreCategory, type AuditScoreResult } from "./auditChecklist";
+import type { AuditScoreResult } from "./auditChecklist";
 import type { AiStageResult } from "./aiStageGeneration";
+import creatorIqActualAuditSnapshot from "../data/creatorIqActualAuditSnapshot.json";
 import type { GuidedAuditSession, PersistedAuditDraft } from "./portalAuditPersistence";
 import { emptyPortalServiceLifecycle, type PortalClientWorkspace } from "./portalWorkspacePersistence";
 import { createPortalProcessHandoff, portalProcessHandoffRecommendations } from "./portalProcessHandoffs";
@@ -7,22 +8,28 @@ import { syncPortalProcessRun } from "./portalProcessRuns";
 
 export const CREATOR_IQ_CLIENT_ID = "creator-iq";
 export const CREATOR_IQ_CLIENT_NAME = "CreatorIQ";
-const UPDATED_AT = "2026-07-21T16:00:00.000Z";
+const UPDATED_AT = "2026-07-25T10:00:00.000Z";
 
 export const CREATOR_IQ_FUNNEL_DEMO_DATA = {
+  nickname: "Trish",
+  rewriteDepth: "Improve",
+  brandName: "CreatorIQ",
+  sourceMaterial: "CreatorIQ helps enterprise marketing teams discover creators, manage campaigns, govern brand safety, measure performance, and handle payments through one connected platform. The primary conversion goal is a qualified demo request.",
   name: "CreatorIQ Enterprise Demo Funnel",
-  objective: "Book calls / applications",
-  ftype: "Application → call",
+  objective: "Generate qualified pipeline",
+  ftype: "POV → distribution → demo",
+  pov: "Creator marketing only scales when discovery, governance, and measurement live in one connected system.",
   offer: "An enterprise creator marketing platform for discovery, management, campaign execution, measurement, governance, and payments.",
+  ungated: "Benchmarks, governance frameworks, and creator-marketing playbooks published openly — no email wall.",
   persona: "Marketing leaders at global enterprises, agencies, and direct-to-consumer brands running scaled creator or influencer marketing programs.",
   problem: "Fragmented tools, manual workflows, limited creator intelligence, governance risks, and difficulty measuring creator marketing ROI at scale.",
   action: "Request a demo",
   pages: ["Sales page", "Application form", "Booking / calendar", "Thank-you"],
   price: "Custom / quote",
   proof: ["Testimonials", "Case studies"],
-  traffic: ["Organic social", "SEO / blog", "Partners / affiliates"],
-  emails: "Welcome + delivery",
-  payment: "None (lead gen)",
+  traffic: ["LinkedIn", "SEO / content", "Communities"],
+  emails: "Content nurture (educate, don’t pitch)",
+  payment: "None (audience-building)",
   awareness: "Solution-aware",
   platform: "Custom / other",
   domain: "www.creatoriq.com",
@@ -310,66 +317,10 @@ export function createCreatorIqDemoWorkspace(): PortalClientWorkspace {
 };
 }
 
-function createCreatorIqAuditScore(): AuditScoreResult {
-  const failedIds = new Set(["content-04", "design-28", "navigation-17", "accessibility-02", "mobile-03", "seo-11", "seo-18", "seo-20"]);
-  const categories: AuditScoreCategory[] = AUDIT_CHECKLIST.map((group, groupIndex) => {
-    const checks = group.checks.map((check, index) => {
-      const status = failedIds.has(check.id) ? "fail" as const : index % 13 === 12 ? "unverified" as const : "pass" as const;
-      return {
-        id: check.id,
-        label: check.label,
-        status,
-        evidence: status === "fail" ? "The rendered CreatorIQ page shows a material improvement opportunity for this criterion." : status === "pass" ? "Verified in the rendered CreatorIQ website sample." : "The available public-page sample does not prove this criterion.",
-        sourceUrl: "https://www.creatoriq.com/",
-      };
-    });
-    const tally = scoreChecks(checks);
-    const issues = checks.filter(check => check.status === "fail").map(check => ({ criterion: check.id, severity: groupIndex < 2 ? "high" as const : "medium" as const, finding: check.evidence, evidence: check.evidence, sourceUrl: check.sourceUrl, fix: `Resolve “${check.label.toLowerCase()}” in the next focused website iteration.` }));
-    return { key: group.key, label: group.label, ...tally, scoreFormula: `${tally.passed} passed ÷ (${tally.passed} passed + ${tally.failed} failed) × 100 = ${tally.score}`, target: Math.min(95, Math.max(tally.score, tally.score + 6)), checks, courseOfAction: issues.length ? issues.map(issue => issue.fix).join(" ") : "Preserve the verified strengths and review unverified checks when private analytics or account access is available.", issues, strengths: checks.filter(check => check.status === "pass").slice(0, 3).map(check => check.label) };
-  });
-  const allChecks = categories.flatMap(category => category.checks);
-  const overall = scoreChecks(allChecks).score;
-  const verifiedChecks = allChecks.filter(check => check.status === "pass" || check.status === "fail").length;
-  const applicableChecks = allChecks.length;
-  const evidenceCoverage = Math.round(verifiedChecks / applicableChecks * 100);
-  return {
-    kind: "audit_score",
-    title: "CreatorIQ website audit",
-    summary: "CreatorIQ presents a credible enterprise platform with strong visual consistency. The highest-value improvements are a simpler decision path, tighter proof placement, accessible conversion controls, and cleaner technical hygiene.",
-    overallScore: overall,
-    targetScore: 94,
-    evidenceCoverage,
-    verifiedChecks,
-    applicableChecks,
-    coverageThreshold: 75,
-    confidence: evidenceCoverage >= 75 ? "reliable" : "provisional",
-    pagesReviewed: ["https://www.creatoriq.com/", "https://www.creatoriq.com/platform", "https://www.creatoriq.com/solutions", "https://www.creatoriq.com/customers", "https://www.creatoriq.com/resources", "https://www.creatoriq.com/book-demo"],
-    lighthouse: [],
-    categories,
-    priorities: [
-      { title: "Clarify the primary demo path", why: "Dense capability content can compete with the conversion action.", action: "Use one outcome-led CTA hierarchy from hero through proof and final decision sections." },
-      { title: "Strengthen proof near decisions", why: "Enterprise buyers need evidence before committing to a demo.", action: "Place approved customer, governance, and measurement proof beside high-intent content." },
-      { title: "Resolve accessibility and technical gaps", why: "Conversion and search performance depend on reliable implementation details.", action: "Prioritize contrast, tap targets, broken links, sitemap coverage, and analytics verification." },
-    ],
-  };
-}
-
 export function createCreatorIqWebsiteAuditDraft(): PersistedAuditDraft {
-  const report = createCreatorIqAuditScore();
-  const plan: AiStageResult = {
-    title: "CreatorIQ website action plan",
-    summary: "Sequence the verified conversion, proof, accessibility, and technical fixes before expanding the website scope.",
-    sections: [
-      { heading: "Priority 1 — Conversion path", body: "Make Request a demo the unmistakable action across high-intent pages.", bullets: ["Standardize CTA hierarchy", "Reduce competing choices", "Set clear post-submit expectations"] },
-      { heading: "Priority 2 — Enterprise proof", body: "Move approved customer and measurement evidence closer to key decisions.", bullets: ["Create reusable proof modules", "Match proof to solution claims"] },
-      { heading: "Priority 3 — Accessibility", body: "Correct contrast, focus, and mobile interaction issues in shared components.", bullets: ["Audit shared controls", "Verify keyboard and touch behavior"] },
-      { heading: "Priority 4 — Technical hygiene", body: "Resolve broken URLs, sitemap gaps, and measurement verification.", bullets: ["Fix or redirect broken links", "Validate analytics and sitemap coverage"] },
-    ],
-    recommendations: [
-      { title: "Start with shared components", rationale: "One fix improves every page using the component.", action: "Correct CTA, proof, accessibility, and metadata patterns in the design system first." },
-      { title: "Rerun after launch", rationale: "The improvements need evidence.", action: "Repeat the audit and compare the verified score, coverage, and conversion signals." },
-    ],
-  };
+  const report = creatorIqActualAuditSnapshot.report as AuditScoreResult;
+  const plan = creatorIqActualAuditSnapshot.plan as AiStageResult;
+  const capturedAt = creatorIqActualAuditSnapshot.capturedAt;
   const guidedSession: GuidedAuditSession = {
     entered: true,
     introReveal: 2,
@@ -384,8 +335,8 @@ export function createCreatorIqWebsiteAuditDraft(): PersistedAuditDraft {
     aiResults: { report, plan },
   };
   return {
-    run: { id: "audit-creator-iq-demo", clientId: CREATOR_IQ_CLIENT_ID, clientName: CREATOR_IQ_CLIENT_NAME, owner: "Unassigned", subtitle: "Cocoon Consult", runLabel: "Baseline audit", runType: "baseline", sequence: 1, statusLabel: "Report ready", statusTone: "success", stage: "Audit · Delivered", progress: 100, score: report.overallScore, internalScore: report.overallScore, targetScore: report.targetScore, due: "Jul 21", createdAt: UPDATED_AT, completedAt: UPDATED_AT, updatedAt: UPDATED_AT },
+    run: { id: "audit-creator-iq-demo", clientId: CREATOR_IQ_CLIENT_ID, clientName: CREATOR_IQ_CLIENT_NAME, owner: "Trish Baltazar", subtitle: "Cocoon Consult", runLabel: "Actual result · Interview demo", runType: "baseline", sequence: 1, statusLabel: "Report ready", statusTone: "success", stage: "Audit · Delivered", progress: 100, score: report.overallScore, internalScore: report.overallScore, targetScore: report.targetScore, due: "Jul 25", createdAt: capturedAt, completedAt: capturedAt, updatedAt: capturedAt },
     state: { clientId: CREATOR_IQ_CLIENT_ID, buildId: "audit-creator-iq-demo", idx: 0, answers: guidedSession.data, unsure: {}, confirmed: {}, signed: {}, notes: {}, genDone: { report: true, plan: true }, report, guidedSession },
-    updatedAt: UPDATED_AT,
+    updatedAt: capturedAt,
   };
 }

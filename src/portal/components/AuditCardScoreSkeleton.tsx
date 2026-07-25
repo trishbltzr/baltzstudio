@@ -1,5 +1,6 @@
 "use client";
 
+import { useId, useState } from "react";
 import { css } from "../helpers";
 import { CategoryBars, type CatBar } from "./AuditCharts";
 
@@ -19,6 +20,7 @@ interface AuditCardScoreSkeletonProps {
   unscoredProgress?: number;
   unscoredDetail?: string;
   unscoredStatus?: string;
+  unscoredBlank?: boolean;
   showCategories?: boolean;
 }
 
@@ -31,8 +33,11 @@ export function AuditCardScoreSkeleton({
   unscoredProgress = 0,
   unscoredDetail = "Not scored yet",
   unscoredStatus = "Pending",
+  unscoredBlank = false,
   showCategories = true,
 }: AuditCardScoreSkeletonProps) {
+  const [infoOpen, setInfoOpen] = useState(false);
+  const tooltipId = useId();
   const bars: CatBar[] = cats?.length
     ? cats
     : scored
@@ -50,13 +55,18 @@ export function AuditCardScoreSkeleton({
     const active = unscoredProgress > 0;
     const tone = active ? "var(--accent)" : "var(--fg-faint)";
     return (
-      <div className="pt-audit-card-score" data-score-state="empty" style={css("border:1px solid var(--border-soft);border-radius:0.9rem;background:var(--surface);padding:0.85rem 0.9rem;display:flex;flex-direction:column;gap:0.65rem")}>
+      <div className="pt-audit-card-score" data-score-state="empty" aria-label={unscoredBlank ? "Audit scores are not available yet" : undefined} style={css("border:1px solid var(--border-soft);border-radius:0.9rem;background:var(--surface);padding:0.85rem 0.9rem;display:flex;flex-direction:column;gap:0.65rem")}>
         <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-3)")}>
-          <div style={css("min-width:0")}>
-            <div style={css("font-size:var(--text-sm);font-weight:500;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{stage}</div>
-            {statusText && <div style={css("margin-top:0.14rem;display:inline-flex;align-items:center;gap:0.32rem;font-size:var(--text-2xs);color:var(--fg-muted)")}><span aria-hidden="true" style={css("width:0.4rem;height:0.4rem;border-radius:50%;background:" + tone)} />{statusText}</div>}
-          </div>
-          <span style={css("font-size:var(--text-2xl);font-weight:500;line-height:1;font-variant-numeric:tabular-nums;flex-shrink:0;color:" + tone)}>{active ? unscoredProgress + "%" : "—"}</span>
+          {unscoredBlank ? <>
+            <span aria-hidden="true" style={css("width:7.4rem;height:1rem;border-radius:999px;background:var(--surface-alt)")} />
+            <span aria-hidden="true" style={css("width:2.2rem;height:1.35rem;border-radius:0.35rem;background:var(--surface-alt)")} />
+          </> : <>
+            <div style={css("min-width:0")}>
+              <div style={css("font-size:var(--text-sm);font-weight:500;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{stage}</div>
+              {statusText && <div style={css("margin-top:0.14rem;display:inline-flex;align-items:center;gap:0.32rem;font-size:var(--text-2xs);color:var(--fg-muted)")}><span aria-hidden="true" style={css("width:0.4rem;height:0.4rem;border-radius:50%;background:" + tone)} />{statusText}</div>}
+            </div>
+            <span style={css("font-size:var(--text-2xl);font-weight:500;line-height:1;font-variant-numeric:tabular-nums;flex-shrink:0;color:" + tone)}>{active ? unscoredProgress + "%" : "—"}</span>
+          </>}
         </div>
         <div style={css("height:0.4rem;border-radius:999px;background:var(--surface-alt);overflow:hidden")}>
           {active && <div style={css("height:100%;width:" + Math.max(3, unscoredProgress) + "%;border-radius:999px;background:var(--accent)")} />}
@@ -78,6 +88,24 @@ export function AuditCardScoreSkeleton({
             <span style={css("display:inline-flex;align-items:baseline;gap:0.28rem;color:var(--fg-muted)")}>
               {scored ? <><span className="pt-audit-score-arrow">↗</span><strong className="pt-audit-score-number" style={css("font-weight:500;color:var(--success);font-variant-numeric:tabular-nums")}>{summary.projected}</strong></> : <span style={css("font-size:var(--text-sm)")}>{unscoredDetail}</span>}
             </span>
+            {scored && <span className="pt-score-info">
+              <button
+                type="button"
+                className="pt-score-info-button"
+                aria-label="Explain the projected score"
+                aria-describedby={tooltipId}
+                aria-expanded={infoOpen}
+                onClick={() => setInfoOpen(open => !open)}
+                onKeyDown={event => {
+                  if (event.key === "Escape") setInfoOpen(false);
+                }}
+              >
+                i
+              </button>
+              <span id={tooltipId} role="tooltip" className="pt-score-info-tooltip" data-open={infoOpen ? "true" : "false"}>
+                The second number is the estimated score after the recommended improvements are completed.
+              </span>
+            </span>}
           </div>
         </div>
         <span style={css("font-size:var(--text-lg);font-weight:500;color:" + (scored || unscoredProgress ? "var(--success)" : "var(--fg-faint)") + ";line-height:1;white-space:nowrap")}>{scored ? `+${summary.uplift}` : unscoredStatus}</span>

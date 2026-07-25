@@ -65,6 +65,7 @@ export function QuickStart({ mode, accent, known, questionLabels, onApply, onCon
   const [ga4Configured, setGa4Configured] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState("");
+  const [canContinueManually, setCanContinueManually] = useState(false);
   const [scanStep, setScanStep] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
   const previousClient = useRef(clientName);
@@ -100,6 +101,7 @@ export function QuickStart({ mode, accent, known, questionLabels, onApply, onCon
       setFiles([]);
       setBrief("");
       setScanError("");
+      setCanContinueManually(false);
     }
   }, [clientName, currentUrl, known.data.url, mode]);
 
@@ -138,6 +140,7 @@ export function QuickStart({ mode, accent, known, questionLabels, onApply, onCon
     if (mode === "funnel" && !link.trim() && !brief.trim() && !files.length) { setScanError("Add a funnel URL, upload working copy, or paste a brief."); return; }
     setScanning(true);
     setScanError("");
+    setCanContinueManually(false);
     try {
       const requestUrl = mode === "brand" && link.trim() ? websiteUrlFromDomain(link) : link.trim();
       const guidelineFiles = mode === "brand" || mode === "funnel" || mode === "website_builder" ? await Promise.all(files.slice(0, mode === "brand" ? 1 : 3).map(async file => {
@@ -159,7 +162,10 @@ export function QuickStart({ mode, accent, known, questionLabels, onApply, onCon
         body: JSON.stringify({ mode, url: requestUrl, brief: [brief, ga4Brief].filter(Boolean).join("\n\n"), socialLinks: socialLinks.split(/\n|,/).map(value => value.trim()).filter(Boolean), guidelineFiles, clientName, known: relevantKnown }),
       });
       const payload = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(typeof payload?.error === "string" ? payload.error : "The source review could not analyze these materials.");
+      if (!response.ok) {
+        if (mode === "brand" && payload?.canContinueManually === true) setCanContinueManually(true);
+        throw new Error(typeof payload?.error === "string" ? payload.error : "The source review could not analyze these materials.");
+      }
       if (!payload?.result?.data || !payload?.result?.sources) throw new Error("The source review returned an incomplete prefill.");
       let delta = payload.result as Know;
       if (files.length) delta = mergeKnow(delta, fromFiles(mode === "brand" || mode === "audit" ? "brand" : "working", files.length));
@@ -178,6 +184,7 @@ export function QuickStart({ mode, accent, known, questionLabels, onApply, onCon
       showToast?.(pages
         ? `We found ${n} answer${n === 1 ? "" : "s"} across ${pages} page${pages === 1 ? "" : "s"} — review starts now`
         : `We found ${n} answer${n === 1 ? "" : "s"} in the supplied material — review starts now`);
+      if (typeof payload.warning === "string") showToast?.(payload.warning);
       onContinue?.();
     } catch (error) {
       setScanError(error instanceof Error ? error.message : "Unable to analyze these sources.");
@@ -207,7 +214,7 @@ export function QuickStart({ mode, accent, known, questionLabels, onApply, onCon
         <label style={css("display:flex;flex-direction:column;gap:0.32rem;font-size:var(--text-sm);font-weight:500;color:var(--fg-muted)")}>
           {mode === "website_builder" ? "Existing website URL (optional)" : mode === "brand" ? "Domain (optional when guidelines are uploaded)" : mode === "seo" || mode === "audit" ? "Website URL" : "Link to an existing funnel (optional)"}
           <div style={css("display:flex;gap:0.4rem")}>
-            <input value={link} onChange={e => setLink(e.target.value)} placeholder={mode === "funnel" ? "get.brand.com/offer" : "brand.com"} className="pt-input" style={css(INPUT)} />
+            <input value={link} onChange={e => { setLink(e.target.value); setCanContinueManually(false); setScanError(""); }} placeholder={mode === "funnel" ? "get.brand.com/offer" : "brand.com"} className="pt-input" style={css(INPUT)} />
           </div>
         </label>
 
@@ -238,6 +245,11 @@ export function QuickStart({ mode, accent, known, questionLabels, onApply, onCon
           <Icon name="sparkle" size={15} />{scanning ? (mode === "website_builder" ? "Reading sources…" : "Reviewing sources…") : mode === "brand" ? "Review brand sources" : mode === "audit" ? "Review website" : mode === "seo" ? "Review SEO sources" : "Review sources"}
         </button>
         {onContinue && !scanning && hasPreviousScan && <button type="button" onClick={onContinue} className="pt-softbtn" style={css("display:inline-flex;align-items:center;justify-content:center;min-height:2.35rem;padding:0 .95rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-sm);font-weight:500;cursor:pointer")}>Use previous scan</button>}
+        {onContinue && !scanning && canContinueManually && <button type="button" onClick={() => {
+          const suppliedUrl = websiteUrlFromDomain(link);
+          onApply({ data: { url: suppliedUrl }, sources: { url: "Client supplied" } }, { replaceSourceReview: sourceChanged });
+          onContinue();
+        }} className="pt-softbtn" style={css("display:inline-flex;align-items:center;justify-content:center;min-height:2.35rem;padding:0 .95rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-sm);font-weight:500;cursor:pointer")}>Continue manually</button>}
       </div>
       <p aria-live="polite" style={css("margin:0.55rem 0 0;font-size:var(--text-xs);line-height:1.45;color:var(--fg-muted)")}>{scanning ? activeScanSteps[scanStep] + "…" : mode === "website_builder" ? "Next: confirm the pages and build requirements." : "Next: review each answer."}</p>
     </div>

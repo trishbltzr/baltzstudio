@@ -797,8 +797,6 @@ export function Funnels({ state, actions, userEmail }: { state: PortalState; act
         prefillSources={funnelKnow.sources}
         prefillNotes={funnelKnow.notes}
         quickStartMode="funnel"
-        backLabel={state.role === "client" ? "← Back to dashboard" : "← All funnels"}
-        hideHeader={state.role === "client"}
         onIngest={delta => {
           rememberKnowledge(client.id, delta);
           setQuickKnow(k => mergeKnow(k, delta));
@@ -902,7 +900,7 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImp
               <textarea
                 readOnly
                 value={handover}
-                style={css("width:100%;min-height:" + (mobile ? "11rem" : "13rem") + ";box-sizing:border-box;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface);color:var(--fg);font-family:'Courier New',monospace;font-size:var(--text-xs);line-height:1.45;padding:0.8rem;resize:vertical;outline:none")}
+                style={css("width:100%;min-height:" + (mobile ? "11rem" : "13rem") + ";box-sizing:border-box;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface);color:var(--fg);font-family:inherit;font-size:var(--text-xs);line-height:1.45;padding:0.8rem;resize:vertical;outline:none")}
               />
             </div>
           )}

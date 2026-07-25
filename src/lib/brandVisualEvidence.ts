@@ -41,6 +41,12 @@ export function brandVisualsFromEvidence(evidence: WebsiteEvidenceBundle): Brand
   const sourceUrl = sourcePages[0]?.url || null;
   const displayFont = sourcePages[0]?.visualIdentity.headingFonts[0] || rankedFonts("headingFonts")[0] || null;
   const bodyFont = sourcePages[0]?.visualIdentity.bodyFonts[0] || rankedFonts("bodyFonts")[0] || null;
+  const selectedFamilies = new Set([displayFont, bodyFont].filter((font): font is string => !!font).map(font => font.toLowerCase()));
+  const fontFaces = sourcePages
+    .flatMap(page => page.visualIdentity.fontFaces || [])
+    .filter((face, index, faces) => selectedFamilies.has(face.family.toLowerCase())
+      && faces.findIndex(candidate => `${candidate.family}|${candidate.sourceUrl}|${candidate.weight}|${candidate.style}` === `${face.family}|${face.sourceUrl}|${face.weight}|${face.style}`) === index)
+    .slice(0, 12);
   const logoUrl = sourcePages.map(page => page.visualIdentity.logoUrl).find(Boolean) || null;
-  return { status: verifiedColors.length || displayFont || bodyFont ? "verified" : "unverified", sourceUrl, colors: verifiedColors, displayFont, bodyFont, logoUrl };
+  return { status: verifiedColors.length || displayFont || bodyFont ? "verified" : "unverified", sourceUrl, colors: verifiedColors, displayFont, bodyFont, fontFaces, logoUrl };
 }

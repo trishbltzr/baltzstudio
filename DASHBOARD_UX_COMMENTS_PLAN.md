@@ -1976,6 +1976,61 @@ Target: `/dashboard` client/admin milestone and notification surfaces in `/Users
   - [x] Clarify Website-only messaging, visual consistency, and site-positioning prompts; keep Brand focused on the full brand system and SEO evidence-first without a repeated questionnaire.
   - [x] Verify reset behavior, questionnaire separation, type checks, engine smoke coverage, and the production build.
 
+## Active Batch: Website Report and Review Action Polish
+
+Source: five browser comments captured July 25, 2026.
+
+Target: Website Checkup report and Studio Review queue on `http://localhost:3412/dashboard`.
+
+- [~] **50. Redesign the collapsed audited-pages control**
+  - [x] Replace the browser-default disclosure marker with a deliberate full-width control.
+  - [x] Keep the remaining-page count and expanded state clear.
+  - [ ] Verify the interaction in the Blue Ribbon Website Checkup report.
+
+- [~] **51. Correct the Website plan CTA width**
+  - [x] Keep Build the website plan content-sized instead of stretching across the footer column.
+  - [x] Preserve a balanced right-aligned footer layout.
+  - [ ] Verify the report footer at desktop and constrained widths.
+
+- [~] **52. Equalize Review & send padding**
+  - [x] Give each Review & send action equal left and right padding.
+  - [x] Keep the arrow separated without affecting the button’s visual centering.
+  - [ ] Verify both visible CreatorIQ review actions.
+
+- [~] **53. Remove the CreatorIQ interview banner**
+  - [x] Remove the dedicated interview-demo section from the Website Checkup index.
+  - [x] Keep the real CreatorIQ report accessible through its normal audit card.
+  - [ ] Verify the demo query no longer adds the banner.
+
+- [~] **54. Complete focused regression verification**
+  - [ ] Confirm both target routes load without runtime errors. Authenticated browser verification is pending because the current dashboard session redirected to login.
+  - [x] Run TypeScript, diff check, and the production build.
+
+## Active Batch: Audit Index Score Clarity and Card Parity
+
+Source: three browser comments captured July 26, 2026.
+
+Target: Website and SEO Checkup indexes on `http://localhost:3412/dashboard`.
+
+- [x] **55. Correct the Website projected score and uplift**
+  - [x] Read the projected score from the saved audit result before any cached run summary.
+  - [x] Keep the displayed uplift derived from the same current and projected values.
+  - [x] Verify the Blue Ribbon card no longer contradicts its category targets: the saved result now renders `73 → 79`, `+6`.
+
+- [x] **56. Equalize complete and incomplete Website card geometry**
+  - [x] Give durable in-progress cards the same reserved score-panel area as scored cards.
+  - [x] Keep unavailable score and category values visually blank.
+  - [x] Verify paired cards align at the header, body, and footer: both measured `340px` tall with the footer at the same vertical position.
+
+- [x] **57. Explain the projected score in Website and SEO cards**
+  - [x] Add an accessible info control beside the current-to-projected score.
+  - [x] Explain on hover, keyboard focus, and click that the second value is the estimated post-recommendation score.
+  - [x] Keep the control compact within the shared score card.
+
+- [x] **58. Complete focused regression verification**
+  - [x] Run TypeScript, diff check, and the production build.
+  - [x] Verify the Website and SEO index routes in the live authenticated browser; retain the existing single-column container fallback for constrained widths.
+
 ### Verification Checklist
 
 - [x] `tsc --noEmit` passes.

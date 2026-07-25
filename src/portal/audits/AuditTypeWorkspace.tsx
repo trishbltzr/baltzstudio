@@ -33,6 +33,42 @@ function brandAuditRecord(session: GuidedAuditSession): PortalBrandAuditRecord {
   return { status, progress, session, updatedAt: new Date().toISOString() };
 }
 
+function persistedAuditClientName(audit: PortalBrandAuditRecord, fallback = "") {
+  const data = audit.session.data;
+  const named = [data.name, data.brandName, data.nickname]
+    .find(value => typeof value === "string" && value.trim());
+  if (typeof named === "string") return named.trim();
+  if (typeof data.url === "string" && data.url.trim()) {
+    try {
+      return new URL(/^https?:\/\//i.test(data.url) ? data.url : `https://${data.url}`).hostname.replace(/^www\./, "");
+    } catch { /* use fallback */ }
+  }
+  return fallback;
+}
+
+function persistedAuditClient(id: string, audit: PortalBrandAuditRecord): StudioClient {
+  const name = persistedAuditClientName(audit, id);
+  const website = typeof audit.session.data.url === "string" ? audit.session.data.url : "";
+  return {
+    ...UNASSIGNED_WORK_CLIENT,
+    id,
+    name,
+    lead: {
+      ...UNASSIGNED_WORK_CLIENT.lead,
+      businessName: name,
+      website,
+      capturedAt: audit.updatedAt,
+    },
+    audit: {
+      ...UNASSIGNED_WORK_CLIENT.audit,
+      id: `audit-${id}`,
+      statusLabel: audit.status === "complete" ? "Completed" : audit.status === "plan_ready" ? "Ready for approval" : audit.status === "report_ready" ? "In review" : "In progress",
+      statusTone: audit.status === "complete" ? "success" : audit.status === "report_ready" || audit.status === "plan_ready" ? "warn" : "muted",
+      progress: audit.progress,
+    },
+  };
+}
+
 async function brandSystemUpdate(data: Ans, aiResults: Record<string, GeneratedStageResult>) {
   const report = isAiStageResult(aiResults.report) ? aiResults.report : null;
   let visuals: BrandVisualEvidence | undefined = report?.brandVisuals;
@@ -61,6 +97,18 @@ async function brandSystemUpdate(data: Ans, aiResults: Record<string, GeneratedS
   };
 }
 
+function verifiedVisualSystemUpdate(visual: BrandVisualEvidence) {
+  const fonts: [string, string, string][] = [];
+  if (visual.displayFont) fonts.push([visual.displayFont, "Display / Headings", `'${visual.displayFont}',system-ui,sans-serif`]);
+  if (visual.bodyFont && visual.bodyFont !== visual.displayFont) fonts.push([visual.bodyFont, "Body / UI", `'${visual.bodyFont}',system-ui,sans-serif`]);
+  return {
+    colors: visual.colors.map(color => [color.role, color.hex] as [string, string]),
+    fonts,
+    logoUrl: visual.logoUrl || undefined,
+    sourceUrl: visual.sourceUrl || undefined,
+  };
+}
+
 export function AuditTypeWorkspace({ type, state, actions }: { type: Extract<AuditType, "brand" | "seo">; state: PortalState; actions: PortalActions }) {
   if (type === "seo") return <SeoAuditWorkspace state={state} actions={actions}/>;
   return <BrandAuditWorkspace state={state} actions={actions} />;
@@ -74,15 +122,50 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
   const [typeKnow, setTypeKnow] = useState<Know>({ data: {}, sources: {} });
   const syncingCompletedAudits = useRef(new Set<string>());
   const availableClients = useMemo(() => clientsVisibleToRole(state.role, state.clientName), [state.clientName, state.role]);
+  const persistedAuditClients = useMemo(() => {
+    if (state.role === "client") return [];
+    const fixedIds = new Set(availableClients.map(client => client.id));
+    return Object.entries(state.clientWorkspaces)
+      .filter(([id, workspace]) => id !== UNASSIGNED_WORK_CLIENT.id && !fixedIds.has(id) && !!workspace.brandAudit)
+      .map(([id, workspace]) => persistedAuditClient(id, workspace.brandAudit!));
+  }, [availableClients, state.clientWorkspaces, state.role]);
+  const auditClients = useMemo(() => [...availableClients, ...persistedAuditClients], [availableClients, persistedAuditClients]);
   const durableBrandRuns = useDurableCheckupRuns("brand", state.role, state.clientName);
+  const routedClientResolved = useRef(false);
   useEffect(() => {
-    if (selectedClient && !availableClients.some(client => client.id === selectedClient.id)) setSelectedClient(null);
-  }, [availableClients, selectedClient]);
+    if (selectedClient && !auditClients.some(client => client.id === selectedClient.id)) setSelectedClient(null);
+  }, [auditClients, selectedClient]);
   useEffect(() => {
     if (state.role === "client" && !selectedClient && availableClients[0]) setSelectedClient(availableClients[0]);
   }, [availableClients, selectedClient, state.role]);
   useEffect(() => {
-    availableClients.forEach(client => {
+    if (routedClientResolved.current || typeof window === "undefined" || !auditClients.length) return;
+    routedClientResolved.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const requestedReport = params.get("auditReport")?.trim().toLowerCase();
+    const requestedRun = params.get("auditReportRun")?.trim().toLowerCase();
+    if (!requestedReport && !requestedRun) return;
+    const routedClient = auditClients.find(client => (
+      client.id.toLowerCase() === requestedReport
+      || client.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") === requestedReport
+      || requestedRun?.includes(client.id.toLowerCase())
+    ));
+    if (routedClient) {
+      setTypeKnow({ data: {}, sources: {} });
+      setUnassignedDraftOpen(false);
+      setSelectedClient(routedClient);
+    }
+  }, [auditClients]);
+  useEffect(() => {
+    const unassignedAudit = state.clientWorkspaces[UNASSIGNED_WORK_CLIENT.id]?.brandAudit;
+    if (!unassignedAudit) return;
+    const promotedName = persistedAuditClientName(unassignedAudit);
+    if (!promotedName || promotedName === UNASSIGNED_WORK_CLIENT.name) return;
+    actions.saveClientBrandAudit(promotedName, unassignedAudit);
+    actions.saveClientBrandAudit(UNASSIGNED_WORK_CLIENT.name, null);
+  }, [actions, state.clientWorkspaces]);
+  useEffect(() => {
+    auditClients.forEach(client => {
       const workspace = state.clientWorkspaces[client.id];
       const audit = workspace?.brandAudit;
       if (!audit || audit.status === "intake" || syncingCompletedAudits.current.has(client.id)) return;
@@ -102,7 +185,7 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
         .then(update => actions.updateClientBrandSystem(client.name, update))
         .catch(() => syncingCompletedAudits.current.delete(client.id));
     });
-  }, [actions, availableClients, state.clientWorkspaces]);
+  }, [actions, auditClients, state.clientWorkspaces]);
   const strategyPipeline = useMemo(() => createStrategyAuditPipeline("brand"), []);
   const openAudit = (client: StudioClient) => {
     setTypeKnow({ data: {}, sources: {} });
@@ -124,6 +207,8 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
     setSelectedClient(null);
   };
   const openUnassignedAudit = () => {
+    window.localStorage.removeItem("guided-audit:brand-audit-unassigned");
+    actions.saveClientBrandAudit(UNASSIGNED_WORK_CLIENT.name, null);
     setTypeKnow({ data: {}, sources: {} });
     setSelectedClient(null);
     setUnassignedDraftOpen(true);
@@ -135,7 +220,7 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
     else openAudit(target);
   };
 
-  const initiatedAuditClients = useMemo(() => availableClients.filter(client => !!state.clientWorkspaces[client.id]?.brandAudit), [availableClients, state.clientWorkspaces]);
+  const initiatedAuditClients = useMemo(() => auditClients.filter(client => !!state.clientWorkspaces[client.id]?.brandAudit), [auditClients, state.clientWorkspaces]);
   const completedAuditCount = initiatedAuditClients.filter(client => state.clientWorkspaces[client.id]?.brandAudit?.status === "complete").length;
   const intakeAuditCount = initiatedAuditClients.filter(client => state.clientWorkspaces[client.id]?.brandAudit?.status === "intake").length;
   const cards = useMemo(() => initiatedAuditClients.map(client => {
@@ -173,7 +258,17 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
       showStage: false,
       showMeta: false,
       hero: <>
-        <BrandAuditCardPreview status={audit?.status || "not_started"} websiteUrl={websiteUrl} colors={colors} fonts={fonts} tones={tones} />
+        <BrandAuditCardPreview
+          status={audit?.status || "not_started"}
+          websiteUrl={websiteUrl}
+          colors={colors}
+          fonts={fonts}
+          tones={tones}
+          onVisualsResolved={visual => actions.updateClientBrandSystem(client.name, {
+            ...verifiedVisualSystemUpdate(visual),
+            toneTraits: tones,
+          })}
+        />
       </>,
       primaryLabel: "Open audit",
       onPrimary: () => openAudit(client),
@@ -193,6 +288,7 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
     const auditWorkClient = auditClient || UNASSIGNED_WORK_CLIENT;
     const auditLabel = auditWorkClient.name;
     const auditSessionKey = auditClient ? `brand-audit-${auditClient.id}` : "brand-audit-unassigned";
+    const durableRun = auditClient ? durableBrandRuns.find(run => run.clientId === auditClient.id || run.clientName.trim().toLowerCase() === auditClient.name.trim().toLowerCase()) : undefined;
     const openWebsiteBuilderFromBrand = () => {
       const session = state.clientWorkspaces[auditWorkClient.id]?.brandAudit?.session;
       const handoff = createPortalProcessHandoff(session?.processRun, session?.data || {}, {
@@ -235,14 +331,18 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
           onOpenApprovals={() => actions.setView("review")}
           processClientId={auditWorkClient.id}
           processRunId={auditSessionKey}
+          evidenceServiceRunId={durableRun?.id ?? null}
           exportProfile={auditClient ? normalizePortalAuditExportProfile(auditClient.name, actions.workspaceForClient(auditClient.name).auditExport) : undefined}
           initialSession={state.clientWorkspaces[auditWorkClient.id]?.brandAudit?.session}
-          onSessionChange={session => actions.saveClientBrandAudit(auditWorkClient.name, brandAuditRecord(session))}
+          onSessionChange={session => {
+            const record = brandAuditRecord(session);
+            const saveName = auditClient?.name || persistedAuditClientName(record) || auditWorkClient.name;
+            actions.saveClientBrandAudit(saveName, record);
+            if (!auditClient && saveName !== UNASSIGNED_WORK_CLIENT.name) actions.saveClientBrandAudit(UNASSIGNED_WORK_CLIENT.name, null);
+          }}
           onStartOverRequest={() => setResetClient(auditWorkClient)}
           onIngest={(delta, options) => setTypeKnow(current => options?.replaceSourceReview ? delta : mergeKnow(current, delta))}
           startLabel="Start audit intake →"
-          backLabel="← All checkups"
-          hideHeader={state.role === "client"}
           progressLabel="intake"
           demo={AUDIT_TYPE_DEMO}
           completeTitle="Intake ready"
@@ -252,7 +352,7 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
             exportProfile={normalizePortalAuditExportProfile(auditClient.name, actions.workspaceForClient(auditClient.name).auditExport)}
             canManageExport={state.role !== "client"}
             onSaveExportProfile={update => actions.saveAuditExportProfile(auditClient.name, update)}
-            cta={stageKey === "plan" ? { label: "Plan in Website Builder", icon: "arrowright", onClick: openWebsiteBuilderFromBrand } : undefined}
+            cta={stageKey === "plan" ? { label: "Plan in Website Builder", onClick: openWebsiteBuilderFromBrand } : undefined}
           /> : null}
           pipeline={strategyPipeline}
           onPipelineComplete={async (data, aiResults) => {

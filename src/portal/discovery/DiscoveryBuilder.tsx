@@ -41,6 +41,7 @@ export interface StageRenderCtx {
   onDownload: () => void;
   onShare: () => void;
   onCopy: () => void;
+  onAuditCheckStatusChange?: (categoryKey: string, checkId: string, status: "pass" | "fail" | "unverified" | "not_applicable") => void;
   afterActions?: ReactNode;
 }
 export interface ProposalRenderCtx {
@@ -157,6 +158,12 @@ const FUNNEL_GENERATION_COPY: Record<string, { heading: string; description: str
   brief: { heading: "Building your development plan", description: "We are translating the approved flow, copy, and wireframe into an implementation-ready plan.", final: ["Checking dependencies, owners, and launch requirements", "Preparing the development plan for review"] },
 };
 
+const FUNNEL_REWRITE_DEPTH_DESCRIPTION: Record<string, string> = {
+  Polish: "Keep the message and most wording. Correct clarity, grammar, capitalization, concision, and fit.",
+  Improve: "Keep the approved facts and intent. Strengthen the audience focus, benefit hierarchy, flow, and persuasion.",
+  Rebuild: "Keep the approved facts and fixed structure. Rewrite the messaging and visual treatment from the strategy upward.",
+};
+
 function readGuidedSession(sessionKey: string | undefined, serverSession: GuidedAuditSession | undefined) {
   if (typeof window === "undefined" || !sessionKey) return serverSession;
   try {
@@ -214,13 +221,11 @@ function reducer(s: DState, a: Act): DState {
 // ── component ─────────────────────────────────────────────────────────────────
 export function DiscoveryBuilder({
   accent, title, clientName, intro, wizard, stages, introSteps, startLabel = "Start discovery →",
-  backLabel = "← All funnels",
-  hideHeader = false,
   completeTitle = "Discovery complete", completeMsg, completeCta = "See the result →", progressLabel = "discovery",
   completeExtra, stageExtra, demo, demoAction = "complete", onExit, onComplete, mobile, pipeline, showToast,
   prefill, prefillSources, prefillNotes, quickStartMode, onIngest, onPipelineComplete,
   sessionKey, initialSession, onSessionChange, generationMode, quickStartClientId, onImportTasks, onShareFinal, onStartOverRequest,
-  processId, processClientId, processRunId, processDueAt, processSourceHandoffId, accessState, onOpenApprovals, exportProfile,
+  processId, processClientId, processRunId, processDueAt, processSourceHandoffId, evidenceServiceRunId, accessState, onOpenApprovals, exportProfile,
 }: {
   accent: string;
   title: string;
@@ -230,8 +235,6 @@ export function DiscoveryBuilder({
   stages: DiscoveryStage[];
   introSteps: DiscoveryIntroStep[];
   startLabel?: string;
-  backLabel?: string;
-  hideHeader?: boolean;
   completeTitle?: string;
   completeMsg: string;
   completeCta?: string;
@@ -264,6 +267,7 @@ export function DiscoveryBuilder({
   processRunId?: string;
   processDueAt?: string;
   processSourceHandoffId?: string;
+  evidenceServiceRunId?: string | null;
   accessState?: PortalAccessState;
   onOpenApprovals?: () => void;
   exportProfile?: PortalAuditExportProfile | null;
@@ -289,6 +293,7 @@ export function DiscoveryBuilder({
   const [generationTick, setGenerationTick] = useState(0);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [draftSourceLabel, setDraftSourceLabel] = useState("");
+  useEffect(() => setGenerationError(null), [clientName, evidenceServiceRunId]);
   const isAiSuggestion = (k: string) => /^(Website scan|Source inference|Source review|AI inference|AI Jumpstart)/.test(prefillSources?.[k] || "");
   const isKnown = (k: string) => { const v = prefill?.[k]; return v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0) && !isAiSuggestion(k); };
   const questionLabels = useMemo(() => Object.fromEntries(wizard.flatMap(topic => topic.qs.map(question => [question.key, question.label]))), [wizard]);
@@ -296,7 +301,9 @@ export function DiscoveryBuilder({
   const flat = useMemo(() => askWizard.flatMap(t => t.qs.map(q => ({ ...q, topic: t.title, topicId: t.id, icon: t.icon }))), [askWizard]);
   // Everything we know = latest prefill (incl. mid-flow ingests) + the gaps answered.
   const collected = useMemo(() => ({ ...(prefill || {}), ...s.data }), [prefill, s.data]);
-  const personName = typeof collected.nickname === "string" ? collected.nickname.trim() : "";
+  const personNameSource = prefillSources?.nickname || "";
+  const personNameVerified = /^(Website scan|Source inference|Source review|AI inference|AI Jumpstart|Client workspace|Client notes|Client-confirmed)/.test(personNameSource);
+  const personName = typeof collected.nickname === "string" && personNameVerified ? collected.nickname.trim() : "";
   const brandName = typeof collected.brandName === "string"
     ? collected.brandName.trim()
     : quickStartMode === "audit" && typeof collected.name === "string"
@@ -317,6 +324,12 @@ export function DiscoveryBuilder({
   }));
   const shareFinal = async () => {
     const finalStageKey = stages[stages.length - 1]?.key;
+    const generatedStageKeys = stages.slice(1).map(stage => stage.key);
+    const hasCompleteOutput = generatedStageKeys.every(stageKey => isGeneratedStageResult(aiResults[stageKey]));
+    if (generatingStage || !hasCompleteOutput || !finalStageKey || !s.approved[finalStageKey]) {
+      toast("Finish and approve every audit stage before sharing it with the client.");
+      return;
+    }
     if (!onShareFinal) {
       toast("Share link copied — send it to your client");
       if (finalStageKey) setReviewState(finalStageKey, "shared");
@@ -546,7 +559,7 @@ export function DiscoveryBuilder({
         priorities: aiResults.report.priorities,
       } : undefined;
       const priorStageContext = effectiveGenerationMode === "audit" ? auditReportContext : effectiveGenerationMode === "funnel" || effectiveGenerationMode === "brand" || effectiveGenerationMode === "seo" || effectiveGenerationMode === "website_builder" ? aiResults : undefined;
-      const serviceRunId = new URLSearchParams(window.location.search).get("serviceRunId") || undefined;
+      const serviceRunId = evidenceServiceRunId || undefined;
       const response = await fetch("/api/ai/generate-stage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -706,6 +719,12 @@ export function DiscoveryBuilder({
         : <>{introLeft}{pipeline?.introPreview && <div style={css("padding:0 1.3rem 1.4rem")}>{pipeline.introPreview(mobile)}</div>}</>}
     </div>
   );
+  const funnelIntakeSummary = quickStartMode === "funnel" ? [
+    { label: "Your name", value: typeof collected.nickname === "string" && collected.nickname.trim() ? collected.nickname : "Not supplied" },
+    { label: "Change level", value: typeof collected.rewriteDepth === "string" && collected.rewriteDepth.trim() ? collected.rewriteDepth : "Improve" },
+    { label: "Brand name", value: typeof collected.brandName === "string" && collected.brandName.trim() ? collected.brandName : "Not supplied" },
+    { label: "Source", value: typeof collected.sourceMaterial === "string" && collected.sourceMaterial.trim() ? "Brief or copy received" : draftSourceLabel || "No source supplied" },
+  ] : [];
 
   // ── chat ──
   const chat = (
@@ -784,8 +803,13 @@ export function DiscoveryBuilder({
               </div>
 
               {cur.kind === "single" && (
-                <div style={css("display:flex;flex-wrap:wrap;gap:0.4rem")}>
-                  {cur.opts!.map(o => <button key={o} type="button" onClick={() => dispatch({ t: "single", k: cur.key, v: o })} style={css(optBtn(s.data[cur.key] === o))}>{s.data[cur.key] === o ? "✓ " : ""}{o}</button>)}
+                <div style={css(cur.key === "rewriteDepth" ? "display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:.55rem" : "display:flex;flex-wrap:wrap;gap:0.4rem")}>
+                  {cur.opts!.map(o => cur.key === "rewriteDepth"
+                    ? <button key={o} type="button" onClick={() => dispatch({ t: "single", k: cur.key, v: o })} aria-pressed={s.data[cur.key] === o} style={css("min-height:6rem;border:1px solid " + (s.data[cur.key] === o ? accent : "var(--border-soft)") + ";border-radius:var(--radius);background:" + (s.data[cur.key] === o ? "color-mix(in srgb," + accent + " 9%,white 91%)" : "var(--surface)") + ";padding:.75rem;text-align:left;cursor:pointer;font-family:inherit;color:var(--fg)")}>
+                        <span style={css("display:block;font-size:var(--text-base);font-weight:500;color:" + (s.data[cur.key] === o ? accent : "var(--fg)"))}>{s.data[cur.key] === o ? "✓ " : ""}{o}</span>
+                        <span style={css("display:block;margin-top:.3rem;font-size:var(--text-2xs);line-height:1.45;color:var(--fg-muted)")}>{FUNNEL_REWRITE_DEPTH_DESCRIPTION[o]}</span>
+                      </button>
+                    : <button key={o} type="button" onClick={() => dispatch({ t: "single", k: cur.key, v: o })} style={css(optBtn(s.data[cur.key] === o))}>{s.data[cur.key] === o ? "✓ " : ""}{o}</button>)}
                 </div>
               )}
               {cur.kind === "multi" && (() => {
@@ -830,6 +854,15 @@ export function DiscoveryBuilder({
             <div style={css("flex-shrink:0;border:1px solid color-mix(in srgb," + accent + " 24%,var(--border-soft) 76%);border-radius:var(--radius-panel);background:color-mix(in srgb," + accent + " 8%,white 92%);padding:1.1rem 1.25rem;text-align:center;animation:cocoonFade .3s ease both")}>
               <div style={css("font-size:var(--text-lg);font-weight:500")}>{completeTitle}</div>
               <p style={css("margin:0.35rem auto 0.85rem;font-size:var(--text-base);color:var(--fg-muted);line-height:1.5;max-width:30rem")}>{(pipeline?.beginMsg && pipeline.beginMsg(collected)) || completeMsg}</p>
+              {funnelIntakeSummary.length > 0 && (
+                <div aria-label="Funnel intake summary" style={css("max-width:34rem;margin:0 auto .9rem;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface);padding:.75rem;text-align:left")}>
+                  <div style={css("font-size:var(--text-xs);font-weight:500")}>Confirm your starting point</div>
+                  <div style={css("display:grid;grid-template-columns:repeat(" + (mobile ? "1" : "2") + ",minmax(0,1fr));gap:.45rem;margin-top:.6rem")}>
+                    {funnelIntakeSummary.map(item => <div key={item.label} style={css("min-width:0;border:1px solid var(--border-soft);border-radius:10px;padding:.55rem .65rem")}><div style={css("font-size:var(--text-label);letter-spacing:.06em;text-transform:uppercase;color:var(--fg-faint)")}>{item.label}</div><div style={css("margin-top:.2rem;font-size:var(--text-sm);font-weight:500;overflow-wrap:anywhere")}>{item.value}</div></div>)}
+                  </div>
+                  <div style={css("margin-top:.6rem;font-size:var(--text-2xs);line-height:1.45;color:var(--fg-muted)")}>Fixed structure: Hero → Problem → Benefit → Solution → Differentiation → Proof → Objections → FAQs → CTA.</div>
+                </div>
+              )}
               <button type="button" onClick={() => (pipeline ? beginBuild() : onComplete(collected))} className="pt-op" style={css("border:none;border-radius:var(--radius-pill);background:" + accent + ";color:#fff;padding:0.6rem 1.3rem;font-size:var(--text-base);font-weight:500;cursor:pointer;font-family:inherit")}>{pipeline ? (canEnterPipeline ? pipeline.beginLabel : "Submit intake →") : completeCta}</button>
             </div>
             {completeExtra}
@@ -847,6 +880,13 @@ export function DiscoveryBuilder({
     drafting: isGenerating,
   });
   const reviewMeta = aiReviewMeta(reviewState);
+  const reviewLabel = reviewState === "draft"
+    ? "AI generating"
+    : reviewState === "needs_review"
+      ? "AI draft · Review"
+      : reviewState === "approved"
+        ? "Human approved"
+        : reviewMeta.label;
   const reviewColor = reviewMeta.tone === "success" ? "var(--success)" : reviewMeta.tone === "accent" ? accent : reviewMeta.tone === "warn" ? "var(--warn)" : "var(--fg-muted)";
   const reviewBackground = reviewMeta.tone === "success" ? "var(--success-soft)" : reviewMeta.tone === "accent" ? "color-mix(in srgb," + accent + " 14%,white 86%)" : reviewMeta.tone === "warn" ? "var(--warn-soft)" : "var(--surface-alt)";
   const stagePanel = pipeline && curStage && (
@@ -857,7 +897,7 @@ export function DiscoveryBuilder({
           <div style={css("font-size:var(--text-lg);font-weight:500")}>{currentStageAccess === "hidden" ? "Studio review" : curStage.label}</div>
           <div style={css("margin-top:0.08rem;font-size:var(--text-2xs);color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{personName ? `For ${personName} · ` : ""}{brandName}</div>
         </div>
-        <span style={css("font-size:var(--text-2xs);font-weight:500;padding:0.2rem 0.6rem;border-radius:999px;background:" + reviewBackground + ";color:" + reviewColor)}>{reviewMeta.label}</span>
+        <span style={css("font-size:var(--text-2xs);font-weight:500;padding:0.2rem 0.6rem;border-radius:999px;background:" + reviewBackground + ";color:" + reviewColor)}>{reviewLabel}</span>
       </div>
 
       {restrictedStage ? (
@@ -867,7 +907,7 @@ export function DiscoveryBuilder({
           <p style={css("margin:.35rem auto 0;max-width:29rem;font-size:var(--text-xs);line-height:1.5;color:var(--fg-muted)")}>{currentStageAccess === "hidden" ? "Internal evidence, scoring, corrections, and publishing controls stay with the studio. You’ll receive the reviewed client-safe output in Approvals." : "You can track progress here. The reviewed deliverable will appear in Approvals after the studio shares it."}</p>
           {onOpenApprovals && <button type="button" onClick={onOpenApprovals} className="pt-softbtn" style={css("margin-top:.85rem;height:2.2rem;padding:0 .9rem;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;cursor:pointer")}>Open Approvals</button>}
         </div>
-      ) : !genDone ? (
+      ) : !genDone || isGenerating ? (
         <div style={css("padding:2.4rem 1.5rem;text-align:center")}>
           {!isGenerating && <p style={css("margin:0 auto 0.95rem;font-size:var(--text-md);color:var(--fg-muted);line-height:1.55;max-width:30rem")}>{pipeline.genPrompt(curKey)}</p>}
           {isGenerating && guidedGeneration ? (
@@ -911,7 +951,7 @@ export function DiscoveryBuilder({
             onShare: () => toast("Share link copied — send it to your client"),
             onCopy: () => toast("Copied to clipboard"),
           })}
-          {genDone && !stageApproved && canOperateStage && (
+          {genDone && !isGenerating && !stageApproved && canOperateStage && (
             <div style={css("margin-top:1.15rem;padding-top:1rem;border-top:1px solid var(--border-soft);display:flex;align-items:center;justify-content:flex-end;gap:0.6rem")}>
               <button type="button" onClick={requestChanges} className="pt-softbtn" style={css("border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);padding:0.5rem 1rem;font-size:var(--text-sm);cursor:pointer;font-family:inherit")}>Request changes</button>
               <button type="button" onClick={approveStage} className="pt-op" style={css("border:none;border-radius:var(--radius-pill);background:var(--success);color:#fff;padding:0.5rem 1.15rem;font-size:var(--text-base);font-weight:500;cursor:pointer;font-family:inherit")}>{pipeline.approveLabel(curKey, isLast)}</button>
@@ -943,11 +983,7 @@ export function DiscoveryBuilder({
   }
 
   return (
-    <div style={css("width:100%;max-width:60rem;margin:0 auto;display:flex;flex-direction:column;gap:0.85rem;box-sizing:border-box;animation:cocoonFade .2s ease both")}>
-      {!hideHeader && <div style={css("display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap")}>
-        <button type="button" onClick={onExit} className="pt-softbtn" style={css("border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);padding:0.4rem 0.8rem;font-size:var(--text-xs);cursor:pointer;font-family:inherit")}>{backLabel}</button>
-        <div style={{ minWidth: 0 }}><span style={css("font-size:var(--text-lg);font-weight:500")}>{title}</span><span style={css("font-size:var(--text-base);color:var(--fg-muted)")}> · {displayClientName}</span></div>
-      </div>}
+    <div aria-label={`${title} for ${displayClientName}`} style={css("width:100%;max-width:60rem;margin:0 auto;display:flex;flex-direction:column;gap:0.85rem;box-sizing:border-box;animation:cocoonFade .2s ease both")}>
       <div className="pt-guided-workspace" style={css(mobile ? "display:flex;flex-direction:column;gap:0.85rem" : "display:grid;grid-template-columns:17rem minmax(0,1fr);gap:0.85rem;align-items:start")}>
         <div className="pt-guided-rail">{rail}</div>
         <div style={css("width:100%;min-width:0")}>{main}</div>

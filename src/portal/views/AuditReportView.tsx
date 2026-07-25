@@ -674,7 +674,7 @@ export function AuditReportView({
             </div>
             <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:oklch(0.985 0.012 22);padding:" + (mobile ? "0.9rem" : "1rem 1.1rem") + ";box-shadow:inset 0 0 0 1px oklch(0.88 0.04 20 / 0.3)")}>
               <div style={css("font-size:var(--text-sm);color:var(--fg-muted);line-height:1.5")}>{report.sprintIntro}</div>
-              {canOpenLabs && <button onClick={() => { onBack(); actions.setView("funnels"); }} className="pt-op" style={css("margin-top:0.8rem;width:100%;height:2.2rem;border-radius:var(--radius-pill);border:none;background:var(--fg);color:#fff;font-size:var(--text-sm);font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:0.4rem")}>Build a plan <Icon name="arrow" size={13} /></button>}
+              {canOpenLabs && <button onClick={() => { onBack(); actions.setView("funnels"); }} className="pt-op" style={css("margin-top:0.8rem;width:100%;height:2.2rem;border-radius:var(--radius-pill);border:none;background:var(--fg);color:#fff;font-size:var(--text-sm);font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:0.4rem")}>Create plan in Labs <Icon name="arrow" size={13} /></button>}
             </div>
           </div>
 

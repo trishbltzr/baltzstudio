@@ -269,7 +269,7 @@
   position: absolute;
   top: 1.9rem;
   right: 2rem;
-  color: oklch(0.82 0.09 30 / 0.5);
+  color: oklch(0.82 0.09 30 / 0.72);
   animation: floaty 6s ease-in-out infinite;
 }
 
@@ -446,6 +446,112 @@
 .login-form {
   display: grid;
   gap: 0.95rem;
+}
+
+.login-development-logins {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface-alt) 76%, white 24%);
+}
+
+.login-development-logins-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.login-development-logins-header > div {
+  min-width: 0;
+  display: grid;
+  gap: 0.08rem;
+}
+
+.login-development-logins-header strong {
+  color: var(--fg);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.login-development-logins-header > div > span {
+  color: var(--fg-faint);
+  font-size: 0.66rem;
+}
+
+.login-development-badge {
+  flex-shrink: 0;
+  padding: 0.12rem 0.42rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.62rem;
+  font-weight: 500;
+}
+
+.login-development-login-list {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.login-development-login {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 6.6rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0.58rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.65rem;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.login-development-login:hover,
+.login-development-login:focus-visible {
+  border-color: var(--accent-dim);
+  background: color-mix(in srgb, var(--accent-soft) 38%, var(--surface) 62%);
+  outline: none;
+}
+
+.login-development-login-role {
+  color: var(--fg);
+  font-size: 0.68rem;
+  font-weight: 500;
+}
+
+.login-development-login-credentials {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.login-development-login-credentials > span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: 0.66rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.login-development-login-credentials code {
+  flex-shrink: 0;
+  padding: 0.08rem 0.3rem;
+  border-radius: 0.35rem;
+  background: var(--surface-alt);
+  color: var(--fg-muted);
+  font-size: 0.62rem;
 }
 
 .login-remembered-profile {

@@ -9,6 +9,14 @@ export interface ObservedWebsiteColor {
   contexts: string[];
 }
 
+export interface ObservedWebsiteFontFace {
+  family: string;
+  sourceUrl: string;
+  format: string | null;
+  weight: string;
+  style: string;
+}
+
 export interface RenderedPageEvidence {
   strategy: "mobile" | "desktop";
   url: string;
@@ -18,7 +26,7 @@ export interface RenderedPageEvidence {
   lang: string;
   viewport: { width: number; height: number; horizontalOverflow: boolean; documentHeight: number };
   typography: { bodyFontSize: number; minTextSize: number; fontFamilies: string[]; uppercaseRatio: number; headingLevels: number[]; headingStyleCount: number };
-  visualIdentity: { colors: ObservedWebsiteColor[]; headingFonts: string[]; bodyFonts: string[]; logoUrl: string };
+  visualIdentity: { colors: ObservedWebsiteColor[]; headingFonts: string[]; bodyFonts: string[]; fontFaces: ObservedWebsiteFontFace[]; logoUrl: string };
   navigation: { visible: boolean; nearTop: boolean; linkCount: number; hasAbout: boolean; hasContact: boolean; hasSupport: boolean; hasHomeLogo: boolean; hasCurrentPage: boolean };
   footer: { visible: boolean; linkCount: number; socialLinkCount: number };
   controls: { count: number; undersized: number; medianHeight: number; distinctStyles: number; semanticRatio: number; linkDistinctRatio: number; disabledCount: number; explainedDisabledCount: number };
@@ -47,7 +55,15 @@ export interface WebsiteEvidenceBundle {
 async function inspectPage(page: Page, url: string, strategy: "mobile" | "desktop"): Promise<RenderedPageEvidence> {
   const mobile = strategy === "mobile";
   await page.setViewport({ width: mobile ? 390 : 1440, height: mobile ? 844 : 900, isMobile: mobile, hasTouch: mobile, deviceScaleFactor: mobile ? 2 : 1 });
-  await page.goto(url, { waitUntil: "networkidle2", timeout: 30_000 });
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
+  await page.waitForNetworkIdle({ idleTime: 600, timeout: 8_000 }).catch(() => undefined);
+  await page.evaluate(async () => {
+    if (!document.fonts?.ready) return;
+    await Promise.race([
+      document.fonts.ready,
+      new Promise(resolve => window.setTimeout(resolve, 4_000)),
+    ]);
+  });
   await page.evaluate("globalThis.__name = globalThis.__name || ((target) => target)");
   return page.evaluate((strategyValue) => {
     const visible = (element: Element) => {
@@ -64,7 +80,14 @@ async function inspectPage(page: Page, url: string, strategy: "mobile" | "deskto
     const elements = <T extends Element>(selector: string) => Array.from(document.querySelectorAll<T>(selector)).filter(visible);
     const textNodes = elements<HTMLElement>("p,li,label,a,button,input,textarea,select,h1,h2,h3,h4,h5,h6").filter(element => clean(element.innerText || element.getAttribute("value")).length > 0);
     const fontSizes = textNodes.map(element => parseFloat(getComputedStyle(element).fontSize)).filter(Number.isFinite);
-    const fontName = (element: Element) => getComputedStyle(element).fontFamily.split(",")[0].replace(/["']/g, "").trim();
+    const genericFonts = new Set(["serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui", "ui-serif", "ui-sans-serif", "ui-monospace"]);
+    const fontName = (element: Element) => {
+      const names = getComputedStyle(element).fontFamily
+        .split(",")
+        .map(name => name.replace(/["']/g, "").trim())
+        .filter(Boolean);
+      return names.find(name => !genericFonts.has(name.toLowerCase())) || names[0] || "";
+    };
     const rankFonts = (items: Element[]) => {
       const counts = new Map<string, number>();
       items.map(fontName).filter(Boolean).forEach(font => counts.set(font, (counts.get(font) || 0) + 1));
@@ -75,6 +98,14 @@ async function inspectPage(page: Page, url: string, strategy: "mobile" | "deskto
     const bodyText = elements<HTMLElement>("p,li,label,a,button,input,textarea,select").filter(element => clean(element.innerText || element.getAttribute("value")).length > 0);
     const headingStyles = new Set(headings.map(element => { const style = getComputedStyle(element); return `${element.tagName}:${style.fontSize}:${style.fontWeight}:${style.fontFamily}`; }));
     const toHex = (value: string) => {
+      const normalized = value.trim();
+      if (/^#[0-9a-f]{3}$/i.test(normalized)) {
+        return `#${normalized.slice(1).split("").map(channel => channel.repeat(2)).join("")}`.toUpperCase();
+      }
+      if (/^#[0-9a-f]{6}$/i.test(normalized)) return normalized.toUpperCase();
+      if (/^#[0-9a-f]{8}$/i.test(normalized)) {
+        return normalized.slice(7, 9).toUpperCase() === "00" ? "" : normalized.slice(0, 7).toUpperCase();
+      }
       const numbers = value.match(/[\d.]+/g)?.map(Number) || [];
       if (numbers.length < 3 || numbers.length > 3 && numbers[3] === 0) return "";
       return `#${numbers.slice(0, 3).map(channel => Math.max(0, Math.min(255, Math.round(channel))).toString(16).padStart(2, "0")).join("")}`.toUpperCase();
@@ -88,11 +119,41 @@ async function inspectPage(page: Page, url: string, strategy: "mobile" | "deskto
       current.contexts.add(context);
       observedColors.set(hex, current);
     };
-    elements<HTMLElement>("body,header,nav,main,section,article,footer,h1,h2,h3,h4,h5,h6,p,a,button,[role=button]").slice(0, 1_200).forEach(element => {
+    elements<HTMLElement>("body,header,nav,main,section,article,footer,h1,h2,h3,h4,h5,h6,p,a,button,[role=button],[style],svg,path").slice(0, 1_500).forEach(element => {
       const style = getComputedStyle(element);
       recordColor(style.color, "text");
       recordColor(style.backgroundColor, "background", 3);
       if (style.borderTopStyle !== "none" && parseFloat(style.borderTopWidth) > 0) recordColor(style.borderTopColor, "border");
+      recordColor(style.fill, "fill");
+      recordColor(style.stroke, "stroke");
+    });
+    const rootStyle = getComputedStyle(document.documentElement);
+    Array.from(rootStyle)
+      .filter(property => property.startsWith("--") && /(?:color|brand|primary|secondary|accent|background|foreground|surface|ink|text)/i.test(property))
+      .slice(0, 180)
+      .forEach(property => recordColor(rootStyle.getPropertyValue(property), "design token", 2));
+    const fontFaces: ObservedWebsiteFontFace[] = [];
+    const seenFontFaces = new Set<string>();
+    Array.from(document.styleSheets).forEach(sheet => {
+      let rules: CSSRuleList;
+      try { rules = sheet.cssRules; } catch { return; }
+      Array.from(rules).forEach(rule => {
+        if (rule.type !== CSSRule.FONT_FACE_RULE) return;
+        const style = (rule as CSSFontFaceRule).style;
+        const family = clean(style.getPropertyValue("font-family")).replace(/^["']|["']$/g, "");
+        const src = clean(style.getPropertyValue("src"));
+        const match = src.match(/url\(\s*(['"]?)([^'")]+)\1\s*\)(?:\s*format\(\s*(['"]?)([^'")]+)\3\s*\))?/i);
+        if (!family || !match?.[2]) return;
+        let sourceUrl = "";
+        try { sourceUrl = new URL(match[2], sheet.href || location.href).href; } catch { return; }
+        if (!/^https?:/i.test(sourceUrl)) return;
+        const weight = clean(style.getPropertyValue("font-weight")) || "400";
+        const fontStyle = clean(style.getPropertyValue("font-style")) || "normal";
+        const key = `${family}|${sourceUrl}|${weight}|${fontStyle}`;
+        if (seenFontFaces.has(key)) return;
+        seenFontFaces.add(key);
+        fontFaces.push({ family, sourceUrl, format: clean(match[4]) || null, weight, style: fontStyle });
+      });
     });
     const logoCandidate = elements<HTMLImageElement>("header img,nav img,[class*=logo] img,img[class*=logo]")
       .find(image => /logo|brand/i.test(`${image.alt} ${image.className} ${image.src}`))
@@ -158,6 +219,7 @@ async function inspectPage(page: Page, url: string, strategy: "mobile" | "deskto
         colors: [...observedColors].sort((left, right) => right[1].count - left[1].count).slice(0, 18).map(([hex, value]) => ({ hex, count: value.count, contexts: [...value.contexts] })),
         headingFonts: rankFonts(headings),
         bodyFonts: rankFonts(bodyText),
+        fontFaces: fontFaces.slice(0, 24),
         logoUrl: clean(logoCandidate?.currentSrc || logoCandidate?.src),
       },
       navigation: {

@@ -14,6 +14,12 @@ const JOURNEY_STEPS = [
 // login path in the interface.
 const GOOGLE_SIGN_IN_VISIBLE = false;
 
+const DEVELOPMENT_LOGIN_OPTIONS = process.env.NODE_ENV === "production" ? [] : [
+  { label: "Admin", email: "trisha@baltazarstudio.co", password: "studio123" },
+  { label: "Manager", email: "kier@baltazarstudio.co", password: "member123" },
+  { label: "CreatorIQ client", email: "creator-iq@client.baltazarstudio.co", password: "client123" },
+] as const;
+
 export function LoginPage({
   onLogin,
   rememberedProfile = null,
@@ -202,7 +208,7 @@ export function LoginPage({
         <aside className="login-journey-panel" aria-label="Baltazar Studio Portal Overview">
           <div className="login-journey-orb" aria-hidden="true" />
           <div className="login-journey-feather" aria-hidden="true">
-            <Feather size={80} strokeWidth={1.1} />
+            <Feather size={80} strokeWidth={1.75} />
           </div>
 
           <div className="login-studio-chip">
@@ -437,6 +443,39 @@ export function LoginPage({
               </>
             ) : null}
           </form>
+
+          {!isForgotMode && DEVELOPMENT_LOGIN_OPTIONS.length > 0 ? (
+            <section className="login-development-logins" aria-labelledby="local-development-logins-title">
+              <div className="login-development-logins-header">
+                <div>
+                  <strong id="local-development-logins-title">Local development logins</strong>
+                  <span>Choose an account to fill the form.</span>
+                </div>
+                <span className="login-development-badge">Local only</span>
+              </div>
+              <div className="login-development-login-list">
+                {DEVELOPMENT_LOGIN_OPTIONS.map(option => (
+                  <button
+                    key={option.email}
+                    type="button"
+                    className="login-development-login"
+                    onClick={() => {
+                      if (rememberedProfile) onForgetProfile();
+                      setEmail(option.email);
+                      setPassword(option.password);
+                      setMessage(null);
+                    }}
+                  >
+                    <span className="login-development-login-role">{option.label}</span>
+                    <span className="login-development-login-credentials">
+                      <span>{option.email}</span>
+                      <code>{option.password}</code>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           {!isForgotMode ? (
             <p className="login-request-row">

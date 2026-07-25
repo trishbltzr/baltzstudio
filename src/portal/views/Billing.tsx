@@ -43,7 +43,7 @@ export function Billing({ state, actions }: { state: PortalState; actions: Porta
     { label: "Overdue", value: "£0", sub: "None — all on time", subColor: "var(--success)" },
   ];
 
-  const prepareEmail = (client: string) => {
+  const openInvoiceCreator = (client: string) => {
     actions.patch({ invoiceClientName: client });
     actions.setView("invoices");
   };
@@ -86,7 +86,7 @@ export function Billing({ state, actions }: { state: PortalState; actions: Porta
                 <span style={css("justify-self:end;display:flex;align-items:center;gap:0.4rem")}>
                   <span style={css(statusPill(p.stKind))}>{p.stLabel}</span>
                   {(p.status === "manual_review" || p.status === "failed") && <button onClick={() => actions.openClientDetail(p.client)} className="pt-op" style={css("font-size:var(--text-2xs);font-weight:500;padding:0.2rem 0.55rem;border-radius:var(--radius-pill);border:none;background:var(--fg);color:#fff;cursor:pointer;white-space:nowrap")}>Review</button>}
-                  {p.status !== "confirmed" && <button onClick={() => prepareEmail(p.client)} className="pt-iconbtn" style={css("font-size:var(--text-2xs);font-weight:500;padding:0.2rem 0.55rem;border-radius:var(--radius-pill);border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);cursor:pointer;white-space:nowrap")}>Prepare email</button>}
+                  {p.status !== "confirmed" && <button onClick={() => openInvoiceCreator(p.client)} className="pt-iconbtn" style={css("font-size:var(--text-2xs);font-weight:500;padding:0.2rem 0.55rem;border-radius:var(--radius-pill);border:1px solid var(--border);background:var(--surface);color:var(--fg-muted);cursor:pointer;white-space:nowrap")}>Create invoice</button>}
                 </span>
               </div>
             ))}

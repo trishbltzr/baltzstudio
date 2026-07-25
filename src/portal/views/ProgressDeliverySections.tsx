@@ -235,7 +235,7 @@ export function ManagerProgressBody({ state, actions, hideStats = false }: { sta
         <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);overflow:hidden")}>
           <div style={css("padding:0.9rem 1.1rem;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between")}>
             <h3 style={css("margin:0;font-size:var(--text-lg);font-weight:500")}>My Tasks — Due Soon</h3>
-            <button onClick={() => actions.setView("tasks")} style={css("font-size:var(--text-xs);color:var(--accent);background:none;border:none;cursor:pointer;font-weight:500;display:flex;align-items:center;gap:var(--space-1)")}>Board <Icon name="arrow" size={13} /></button>
+            <button onClick={() => actions.setView("tasks")} style={css("font-size:var(--text-xs);color:var(--accent);background:none;border:none;cursor:pointer;font-weight:500;display:flex;align-items:center;gap:var(--space-1)")}>Open task board <Icon name="arrow" size={13} /></button>
           </div>
           {myDue.map(t => (
             <div key={t.id} onClick={() => actions.advanceTask(t.id)} className="pt-row" style={css("display:flex;align-items:center;gap:0.65rem;padding:0.7rem 1.1rem;border-bottom:1px solid var(--border-soft);cursor:pointer")}>
@@ -273,7 +273,7 @@ export function ManagerProgressBody({ state, actions, hideStats = false }: { sta
           <div style={css("position:relative;overflow:hidden;border-radius:var(--radius-panel);background:oklch(0.985 0.012 22);padding:1rem 1.1rem;box-shadow:inset 0 0 0 1px oklch(0.88 0.04 20 / 0.32)")}>
             <div style={css("display:flex;align-items:center;gap:0.45rem;color:var(--accent);margin-bottom:0.35rem")}><Icon name="clock" size={16} /><span style={css("font-weight:500;font-size:var(--text-md)")}>Awaiting Client</span></div>
             <p style={css("margin:0 0 0.75rem;font-size:var(--text-sm);color:var(--fg-muted);line-height:1.45")}>2 approvals are sitting with clients. Nudge them or escalate to keep delivery on schedule.</p>
-            <button onClick={() => actions.setView("review")} style={css("width:100%;height:2rem;border-radius:var(--radius-pill);border:none;background:var(--accent);color:#fff;font-weight:500;font-size:var(--text-sm);cursor:pointer")}>Open Review Prep</button>
+            <button onClick={() => actions.setView("review")} style={css("width:100%;height:2rem;border-radius:var(--radius-pill);border:none;background:var(--accent);color:#fff;font-weight:500;font-size:var(--text-sm);cursor:pointer")}>Open approvals</button>
           </div>
         </div>
       </div>

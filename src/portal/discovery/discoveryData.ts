@@ -3,44 +3,48 @@ import { processPipelineStages } from "../processDefinitions";
 
 // ── Funnel discovery (ported from the Funnel Builder handoff) ──────────────────
 export const FUNNEL_WIZARD: DiscoveryTopic[] = [
-  { id: "you", num: "01", title: "About you", icon: "users", qs: [
+  { id: "you", num: "01", title: "Copy starting point", icon: "users", qs: [
     { key: "nickname", label: "What should we call you?", hint: "Your first name or nickname — we’ll use it throughout.", kind: "text", ph: "Name or nickname" },
+    { key: "sourceMaterial", label: "Paste the brief or copy you want us to work from", hint: "Share the strongest available source. We’ll organize and improve it without inventing unsupported claims.", kind: "textarea", ph: "Paste your brief, existing copy, or both…" },
+    { key: "rewriteDepth", label: "Based on the content you provided, how much change would you like to see in the copy and wireframe?", hint: "The section order stays fixed. This controls how much we change inside it.", kind: "single", opts: ["Polish", "Improve", "Rebuild"] },
     { key: "brandName", label: "What’s your brand or business called?", hint: "We’ll keep your name and your brand separate throughout the plan.", kind: "text", ph: "Brand or business name" },
     { key: "clientEmail", label: "Best email for updates", hint: "Where we’ll send the drafts and the final brief.", kind: "text", ph: "you@company.com" },
   ] },
-  { id: "goal", num: "02", title: "Goal & funnel type", icon: "target", qs: [
-    { key: "name", label: "Funnel name", hint: "How we’ll refer to it internally.", kind: "text", ph: "e.g. Free Audit → Consult" },
-    { key: "objective", label: "Primary objective", hint: "The single outcome that defines success.", kind: "single", opts: ["Generate leads", "Sell a product", "Book calls / applications", "Webinar registrations", "Build a waitlist", "Launch a product"] },
-    { key: "ftype", label: "Funnel type", hint: "The shape of the journey.", kind: "single", opts: ["Lead magnet → nurture", "Sales page → checkout", "VSL → checkout", "Webinar → offer", "Application → call", "Tripwire → upsell"] },
-    { key: "action", label: "Primary conversion action", hint: "The one thing a visitor should do.", kind: "text", ph: "e.g. Book a free strategy call" },
+  { id: "goal", num: "02", title: "Goal & journey", icon: "target", qs: [
+    { key: "name", label: "Funnel name", hint: "How we’ll refer to it internally.", kind: "text", ph: "e.g. Natural pet care → community" },
+    { key: "objective", label: "Primary objective", hint: "The single outcome that defines success — demand created, not contacts captured.", kind: "single", opts: ["Create qualified demand", "Educate the market", "Build an engaged audience", "Generate qualified pipeline", "Capture in-market buyers", "Launch a product"] },
+    { key: "ftype", label: "Journey shape", hint: "How demand is created, then captured.", kind: "single", opts: ["Content engine → high-intent CTA", "POV → distribution → demo", "Newsletter / community → conversion", "Free-to-paid product loop", "Live / education → talk to us"] },
+    { key: "pov", label: "What’s the one idea your content will be known for?", hint: "Your category thesis — the belief you’ll repeat everywhere, so the market starts to want what you offer.", kind: "text", ph: "e.g. Natural pet care is preventative, not reactive." },
+    { key: "action", label: "Primary conversion action", hint: "One high-intent action for the ~5% ready to buy now — not an email opt-in.", kind: "text", ph: "e.g. Talk to us · See it live · Start free" },
   ] },
-  { id: "offer", num: "03", title: "The offer", icon: "wallet", qs: [
-    { key: "offer", label: "What are you offering?", kind: "textarea", ph: "Describe the product, service or lead magnet…" },
-    { key: "price", label: "Price point", kind: "single", opts: ["Free (lead gen)", "Under $100", "$100–$500", "$500–$2k", "$2k+", "Custom / quote"] },
-    { key: "ladder", label: "Offer ladder", hint: "Select everything in play.", kind: "multi", opts: ["Front-end offer", "Order bump", "Upsell (OTO)", "Downsell", "Cross-sell"] },
-    { key: "proof", label: "Risk reversal & proof", hint: "What lowers the buyer’s risk.", kind: "multi", opts: ["Money-back guarantee", "Testimonials", "Case studies", "Scarcity / deadline", "Bonus stack"] },
+  { id: "offer", num: "03", title: "Offer & ungated value", icon: "wallet", qs: [
+    { key: "offer", label: "What are you offering?", kind: "textarea", ph: "Describe the product or service you ultimately sell…" },
+    { key: "ungated", label: "What will you give away free — no email wall?", hint: "The value that earns trust before you ask for anything. Gating is optional and off by default.", kind: "textarea", ph: "Guides, tools, teardowns, videos…" },
+    { key: "price", label: "Price point", kind: "single", opts: ["Free — ungated value", "Under $100", "$100–$500", "$500–$2k", "$2k+", "Custom / quote"] },
+    { key: "ladder", label: "Value ladder", hint: "How value builds over time.", kind: "multi", opts: ["Free value / content", "Front-end offer", "Upsell / expansion", "Referral / advocacy"] },
+    { key: "proof", label: "Proof & credibility", hint: "What earns the buyer’s trust.", kind: "multi", opts: ["Testimonials", "Case studies", "Point-of-view credibility", "Community / social proof", "Money-back guarantee"] },
   ] },
-  { id: "audience", num: "04", title: "Audience & traffic", icon: "users", qs: [
+  { id: "audience", num: "04", title: "Audience & distribution", icon: "users", qs: [
     { key: "persona", label: "Who is the ideal customer?", kind: "textarea", ph: "Role, situation, desire, what keeps them up at night…" },
-    { key: "problem", label: "Core problem you solve", kind: "text", ph: "The pain that pulls them in" },
-    { key: "traffic", label: "Traffic sources", hint: "Where visitors come from.", kind: "multi", opts: ["Paid ads (Meta)", "Paid ads (Google)", "Email list", "Organic social", "SEO / blog", "Partners / affiliates"] },
-    { key: "awareness", label: "Awareness level", hint: "How much they already know.", kind: "single", opts: ["Unaware", "Problem-aware", "Solution-aware", "Product-aware", "Most aware"] },
+    { key: "problem", label: "Core problem you educate them on", kind: "text", ph: "The problem your content keeps teaching" },
+    { key: "traffic", label: "Distribution", hint: "Where your audience already spends time — we show up there. Paid just amplifies what’s working.", kind: "multi", opts: ["LinkedIn", "YouTube", "Podcast", "Communities", "Newsletter", "SEO / content", "Paid (amplify content)"] },
+    { key: "awareness", label: "Awareness level", hint: "How much they already know — we build content for each rung.", kind: "single", opts: ["Unaware", "Problem-aware", "Solution-aware", "Product-aware", "Most aware"] },
   ] },
   { id: "pages", num: "05", title: "Funnel flow", icon: "funnel", qs: [
     { key: "pages", label: "Pages in this funnel", hint: "Pick every step. Order is handled for you.", kind: "multi", opts: ["Opt-in / landing", "Sales page", "VSL page", "Application form", "Booking / calendar", "Checkout", "Order bump", "Upsell (OTO)", "Downsell", "Thank-you"] },
-    { key: "emails", label: "Email follow-up", hint: "What happens after they convert.", kind: "single", opts: ["None", "Welcome + delivery", "Nurture sequence (3–5)", "Full launch sequence"] },
+    { key: "emails", label: "Follow-up & nurture", hint: "How you stay useful after they engage — nurture by value, not by pitching.", kind: "single", opts: ["None", "Value newsletter", "Content nurture (educate, don’t pitch)", "In-market signal → sales reaches out"] },
   ] },
   { id: "assets", num: "06", title: "Brand & assets", icon: "palette", qs: [
     { key: "brand", label: "Brand system", hint: "Where the look comes from.", kind: "single", opts: ["Use existing Brand System", "Client will provide", "Studio to create"] },
     { key: "copy", label: "Who writes the copy?", kind: "single", opts: ["Studio drafts", "Client provides", "Collaborative"] },
-    { key: "need", label: "Assets we’ll collect", hint: "Each becomes a folder on the funnel.", kind: "multi", opts: ["Logo & brand kit", "Product photos", "Headshots / team", "Video (VSL)", "Testimonials", "Lead magnet file", "Legal / policy pages"] },
+    { key: "need", label: "Assets we’ll collect", hint: "Each becomes a folder on the funnel.", kind: "multi", opts: ["Logo & brand kit", "Product photos", "Headshots / team", "POV / thesis doc", "Video / content clips", "Testimonials", "Ungated resources", "Legal / policy pages"] },
   ] },
-  { id: "tech", num: "07", title: "Tech & integrations", icon: "settings", qs: [
+  { id: "tech", num: "07", title: "Tech & measurement", icon: "settings", qs: [
     { key: "platform", label: "Build platform", kind: "single", opts: ["Webflow", "ClickFunnels", "Kajabi", "GoHighLevel", "WordPress", "Custom"] },
     { key: "domain", label: "Domain", kind: "text", ph: "e.g. get.brand.com" },
     { key: "email", label: "Email / CRM", kind: "single", opts: ["Not set up yet", "Mailchimp", "ConvertKit", "ActiveCampaign", "HubSpot", "GoHighLevel"] },
-    { key: "payment", label: "Payments", kind: "single", opts: ["None (lead gen)", "Stripe", "PayPal", "Platform native"] },
-    { key: "tracking", label: "Tracking & pixels", hint: "What we’ll wire up for measurement.", kind: "multi", opts: ["Google Analytics", "Meta Pixel", "Google Ads", "TikTok Pixel", "Conversion API"] },
+    { key: "payment", label: "Payments", kind: "single", opts: ["None (audience-building)", "Stripe", "PayPal", "Platform native"] },
+    { key: "tracking", label: "Measurement", hint: "What tells us demand is growing — not just form fills.", kind: "multi", opts: ["Engaged & returning audience", "Branded search", "Content engagement → retargeting", "Qualified pipeline", "Google Analytics", "Meta Pixel"] },
   ] },
 ];
 

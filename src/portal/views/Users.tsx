@@ -204,7 +204,7 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
             <div style={css("font-size:var(--text-md);font-weight:500;color:var(--fg)")}>All users</div>
             <div style={css("margin-top:0.12rem;font-size:var(--text-xs);color:var(--fg-muted)")}>Everyone with portal access or a pending invite.</div>
           </div>
-          <span style={css("font-family:'Courier New',ui-monospace,monospace;font-size:var(--text-2xs);font-weight:500;padding:0.2rem 0.55rem;border-radius:var(--radius-pill);background:var(--surface-alt);color:var(--fg-muted)")}>{directoryUsers.length} users</span>
+          <span style={css("font-size:var(--text-2xs);font-weight:500;padding:0.2rem 0.55rem;border-radius:var(--radius-pill);background:var(--surface-alt);color:var(--fg-muted)")}>{directoryUsers.length} users</span>
         </div>
         {!state.isMobile && (
           <div style={{ display: "grid", gridTemplateColumns: directoryCols, alignItems: "center", gap: "0.75rem", padding: "0.55rem 1rem", borderBottom: "1px solid var(--border-soft)", fontSize: "0.62rem", fontWeight: 500, color: "var(--fg-faint)" }}>
@@ -229,12 +229,12 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
                 {!state.isMobile && <span style={css("font-size:var(--text-2xs);color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{user.workspace}</span>}
                 {state.isMobile ? (
                   <div style={css("display:flex;flex-direction:column;align-items:flex-end;gap:0.35rem")}>
-                    <span style={css("font-family:'Courier New',ui-monospace,monospace;font-size:var(--text-2xs);font-weight:500;padding:0.18rem 0.5rem;border-radius:var(--radius-pill);background:color-mix(in srgb," + statusColor + " 12%,white 88%);color:" + statusColor)}>{user.status}</span>
+                    <span style={css("font-size:var(--text-2xs);font-weight:500;padding:0.18rem 0.5rem;border-radius:var(--radius-pill);background:color-mix(in srgb," + statusColor + " 12%,white 88%);color:" + statusColor)}>{user.status}</span>
                     {user.status === "Active" && <button type="button" disabled={Boolean(resettingEmail)} onClick={() => void sendPasswordReset(user.email)} className="pt-iconbtn" style={css("height:1.8rem;padding:0 0.6rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-2xs);font-weight:500;cursor:pointer;opacity:" + (resetting ? ".6" : "1"))}>{resetting ? "Sending…" : "Send reset"}</button>}
                   </div>
                 ) : (
                   <>
-                    <span style={css("justify-self:end;font-family:'Courier New',ui-monospace,monospace;font-size:var(--text-2xs);font-weight:500;padding:0.18rem 0.5rem;border-radius:var(--radius-pill);background:color-mix(in srgb," + statusColor + " 12%,white 88%);color:" + statusColor)}>{user.status}</span>
+                    <span style={css("justify-self:end;font-size:var(--text-2xs);font-weight:500;padding:0.18rem 0.5rem;border-radius:var(--radius-pill);background:color-mix(in srgb," + statusColor + " 12%,white 88%);color:" + statusColor)}>{user.status}</span>
                     {user.status === "Active" ? (
                       <button type="button" disabled={Boolean(resettingEmail)} onClick={() => void sendPasswordReset(user.email)} className="pt-iconbtn" style={css("justify-self:end;height:1.9rem;padding:0 0.65rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-2xs);font-weight:500;white-space:nowrap;cursor:pointer;opacity:" + (resetting ? ".6" : "1"))}>{resetting ? "Sending…" : "Send reset"}</button>
                     ) : <span style={css("justify-self:end;color:var(--fg-faint)")}>—</span>}

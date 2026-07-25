@@ -76,7 +76,11 @@ function QueueRow({ item, onOpen, last }: { item: StudioReviewQueueItem; onOpen:
       <span style={css("display:flex;align-items:center;gap:.45rem;min-width:0;flex-wrap:wrap")}><strong style={css("font-size:var(--text-base);font-weight:500")}>{item.title}</strong><span style={css("flex-shrink:0;padding:.12rem .45rem;border-radius:999px;background:" + tone.soft + ";color:" + tone.color + ";font-size:var(--text-2xs);font-weight:500;white-space:nowrap")}>{item.statusLabel}</span></span>
       <span style={css("display:block;margin-top:.16rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--text-xs);color:var(--fg-muted)")}><strong style={css("color:var(--fg);font-weight:500")}>{item.clientName}</strong> · {item.detail}</span>
     </span>
-    <span style={css("flex-shrink:0;display:inline-flex;align-items:center;gap:.35rem;font-size:var(--text-xs);font-weight:500;padding:.42rem .8rem;border-radius:999px;white-space:nowrap;" + (primary ? "background:var(--accent);color:#fff" : "background:var(--surface);color:var(--fg);border:1px solid var(--border)"))}>{primary ? "Review & send" : item.actionLabel}<Icon name="arrowright" size={11}/></span>
+    <span style={css("flex-shrink:0;display:inline-flex;align-items:center;gap:.35rem;font-size:var(--text-xs);font-weight:500;padding:.42rem .85rem;border-radius:999px;white-space:nowrap;" + (primary ? "background:var(--accent);color:#fff" : "background:var(--surface);color:var(--fg);border:1px solid var(--border)"))}>
+      <span aria-hidden="true" style={css("width:11px;height:11px;flex-shrink:0")} />
+      <span>{primary ? "Review & send" : item.actionLabel}</span>
+      <Icon name="arrowright" size={11}/>
+    </span>
   </button>;
 }
 

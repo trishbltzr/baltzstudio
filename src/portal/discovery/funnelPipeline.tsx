@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { css } from "../helpers";
 import { Icon } from "../icons";
 import type { Ans, Pipeline, StageRenderCtx, ProposalRenderCtx } from "./DiscoveryBuilder";
-import { isAiStageResult } from "@/lib/aiStageGeneration";
+import { isAiStageResult, isFunnelCopyResult, type FunnelCopyResult, type FunnelCopySection } from "@/lib/aiStageGeneration";
 import { BuilderTaskPanel } from "../builders/BuilderTaskPanel";
 import type { TaskImportDraft } from "../types";
 
@@ -64,7 +64,7 @@ const PAGE_STAGE: Record<string, { label: string; title: string; tag: string }> 
   "Checkout": { label: "CHECKOUT", title: "Take the payment", tag: "purchased" },
   "Thank-you": { label: "THANK-YOU", title: "Confirm & deliver", tag: "converted" },
 };
-const NEED_FOLDER: Record<string, string> = { "Logo & brand kit": "01 · Brand kit", "Product photos": "02 · Photography", "Headshots / team": "03 · Headshots", "Video (VSL)": "04 · Video", "Testimonials": "05 · Testimonials", "Lead magnet file": "06 · Lead magnet", "Legal / policy pages": "07 · Legal" };
+const NEED_FOLDER: Record<string, string> = { "Logo & brand kit": "01 · Brand kit", "Product photos": "02 · Photography", "Headshots / team": "03 · Headshots", "POV / thesis doc": "04 · Point of view", "Video / content clips": "05 · Content", "Testimonials": "06 · Testimonials", "Ungated resources": "07 · Resources", "Legal / policy pages": "08 · Legal" };
 
 export interface FunnelDocs {
   name: string; objective: string; ftype: string;
@@ -100,17 +100,20 @@ export function funnelTaskDrafts(docs: FunnelDocs, clientName: string): TaskImpo
 export function buildFunnelDocs(data: Ans): FunnelDocs {
   const d = data || {};
   const g = <T,>(k: string, def: T): T => { const v = d[k]; return (v === undefined || v === "" || (Array.isArray(v) && !v.length)) ? def : (v as T); };
-  const name = g<string>("name", "Your funnel"), objective = g<string>("objective", "generate leads"), ftype = g<string>("ftype", "Lead magnet → nurture");
+  const name = g<string>("name", "Your funnel"), objective = g<string>("objective", "create qualified demand"), ftype = g<string>("ftype", "Content engine → high-intent CTA");
+  const brandName = g<string>("brandName", name);
+  const rewriteDepth = g<string>("rewriteDepth", "Improve");
+  const pov = g<string>("pov", ""), ungated = g<string>("ungated", "");
   const action = g<string>("action", "take the next step"), offer = g<string>("offer", "your offer"), persona = g<string>("persona", "your ideal customer");
   const problem = g<string>("problem", ""), price = g<string>("price", ""), proof = g<string[]>("proof", []);
   const traffic = g<string[]>("traffic", []), awareness = g<string>("awareness", ""), pagesSel = g<string[]>("pages", []), emails = g<string>("emails", "None");
   const need = g<string[]>("need", []);
-  const platform = g<string>("platform", "Webflow"), domain = g<string>("domain", ""), email = g<string>("email", "Not set up yet"), payment = g<string>("payment", "None (lead gen)"), tracking = g<string[]>("tracking", []);
+  const platform = g<string>("platform", "Webflow"), domain = g<string>("domain", ""), email = g<string>("email", "Not set up yet"), payment = g<string>("payment", "None (audience-building)"), tracking = g<string[]>("tracking", []);
 
   const offerName = offer.replace(/^\d+\s*(?:lb\.?|kg|oz\.?)\s*(?:bags?|packs?)?\s+of\s+/i, "").replace(/[.]$/, "");
   const isFeedOffer = /feed|poultry|livestock/i.test(`${offer} ${problem}`);
   const salesCta = isFeedOffer ? "Shop Feed" : /cart|checkout|buy|purchase|order/i.test(action) ? `Shop ${cap(offerName)}` : cap(action);
-  const salesPrice = price && price !== "Free (lead gen)" && !/^(under|from|starting|budget|range)/i.test(price.trim()) ? price : "Final price to approve";
+  const salesPrice = price && price !== "Free — ungated value" && !/^(under|from|starting|budget|range)/i.test(price.trim()) ? price : "Final price to approve";
   const copy = {
     headline: isFeedOffer
       ? `Feed with confidence. Choose dependable ${offerName}.`
@@ -153,13 +156,16 @@ export function buildFunnelDocs(data: Ans): FunnelDocs {
     { phase: "03", title: "Launch", owner: "Studio", tasks: ["QA every funnel step", "Publish to " + (domain || "domain"), "Handoff & training"] },
   ];
   const brief = [
-    { label: "Funnel", value: name }, { label: "Objective", value: cap(objective) }, { label: "Type", value: ftype },
-    { label: "Primary action", value: cap(action) }, { label: "Audience", value: cap(persona) },
-    { label: "Traffic", value: traffic.length ? traffic.join(", ") : "—" },
+    { label: "Brand", value: brandName }, { label: "Funnel", value: name }, { label: "Rewrite depth", value: rewriteDepth },
+    { label: "Objective", value: cap(objective) }, { label: "Journey", value: ftype },
+    { label: "Point of view", value: pov || "—" },
+    { label: "Ungated value", value: ungated || "—" },
+    { label: "High-intent action", value: cap(action) }, { label: "Audience", value: cap(persona) },
+    { label: "Distribution", value: traffic.length ? traffic.join(", ") : "—" },
     { label: "Pages", value: flowPages.join("  →  ") },
-    { label: "Email", value: hasEmail ? emails : "None" },
+    { label: "Nurture", value: hasEmail ? emails : "None" },
     { label: "Platform", value: platform + (domain ? "  ·  " + domain : "") },
-    { label: "Payments", value: payment }, { label: "Tracking", value: tracking.length ? tracking.join(", ") : "—" },
+    { label: "Payments", value: payment }, { label: "Measurement", value: tracking.length ? tracking.join(", ") : "—" },
   ];
 
   // funnel diagram rows
@@ -243,7 +249,7 @@ export function buildFunnelDocs(data: Ans): FunnelDocs {
     { label: "Build platform", value: platform || "To confirm" },
     { label: "Domain", value: domain || "To confirm" },
     { label: "Email / CRM", value: (email && email !== "Not set up yet") ? email : "To set up" },
-    { label: "Payments", value: (payment && payment !== "None (lead gen)") ? payment : "Not required" },
+    { label: "Payments", value: (payment && payment !== "None (audience-building)") ? payment : "Not required" },
     { label: "Tracking", value: trkL.length ? trkL.join(", ") : "GA + Meta Pixel (recommended)" },
   ];
 
@@ -446,6 +452,109 @@ function salesPageRecommendations(docs: FunnelDocs): FunnelDocs["recommendations
 
 type PromotionCopy = { eyebrow: string; heading: string; body: string; cta: string };
 
+const COPY_ROLE_LABEL: Record<FunnelCopySection["role"], string> = {
+  hero: "Hero",
+  problem: "Problem",
+  benefit: "Benefit",
+  solution: "Solution",
+  differentiation: "Differentiation",
+  proof: "Proof",
+  objections: "Objections",
+  faq: "FAQs",
+  cta: "CTA",
+};
+
+function CopyDraftDocument({ result, brandName, mobile }: { result: FunnelCopyResult; brandName: string; mobile: boolean }) {
+  return (
+    <article data-funnel-copy-source="ai-result" style={css("max-width:48rem;margin:0 auto;display:flex;flex-direction:column;gap:var(--space-3)")}>
+      <header style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);padding:" + (mobile ? "1.15rem" : "1.45rem 1.6rem"))}>
+        <div style={css("display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap")}>
+          <div>
+            <div style={css("font-size:var(--text-label);letter-spacing:.08em;text-transform:uppercase;color:" + ACCENT)}>Copy draft</div>
+            <h2 style={css("margin:.35rem 0 0;font-size:var(--text-2xl);line-height:1.2;font-weight:500;text-wrap:balance")}>{result.title}</h2>
+          </div>
+          <span style={css("border:1px solid color-mix(in srgb,var(--accent) 24%,var(--border) 76%);border-radius:999px;background:var(--accent-soft);color:var(--accent);padding:.3rem .7rem;font-size:var(--text-xs);font-weight:500")}>{result.rewriteDepth}</span>
+        </div>
+        <p style={css("margin:.65rem 0 0;max-width:42rem;font-size:var(--text-sm);line-height:1.55;color:var(--fg-muted)")}>{result.summary}</p>
+        <div style={css("margin-top:.6rem;font-size:var(--text-2xs);color:var(--fg-faint)")}>Prepared for {brandName} · Fixed customer journey · Agent {result.agentVersion}</div>
+      </header>
+      {result.sections.map(section => (
+        <section key={section.role} data-copy-role={section.role} style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);padding:" + (mobile ? "1.05rem" : "1.25rem 1.4rem"))}>
+          <div style={css("display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap")}>
+            <span style={css("font-size:var(--text-label);letter-spacing:.08em;text-transform:uppercase;color:" + ACCENT)}>{COPY_ROLE_LABEL[section.role]}</span>
+            <span style={css("font-size:var(--text-2xs);color:" + (section.sourceStatus === "needs_approval" ? "var(--warning)" : "var(--fg-faint)"))}>{section.sourceStatus === "needs_approval" ? "Needs approval" : section.sourceStatus === "sourced" ? "Source-backed" : "Positioning"}</span>
+          </div>
+          {section.eyebrow && <div style={css("margin-top:.65rem;font-size:var(--text-label);letter-spacing:.08em;text-transform:uppercase;color:var(--fg-faint)")}>{section.eyebrow}</div>}
+          <h3 style={css("margin:.3rem 0 0;font-size:" + (section.role === "hero" ? "var(--text-3xl)" : "var(--text-xl)") + ";line-height:1.2;font-weight:500;text-wrap:balance")}>{section.heading}</h3>
+          <p style={css("margin:.55rem 0 0;max-width:42rem;font-size:var(--text-base);line-height:1.55;color:var(--fg-muted)")}>{section.body}</p>
+          {section.bullets.length > 0 && (
+            <ul style={css("margin:.75rem 0 0;padding-left:1.15rem;display:grid;gap:.35rem")}>
+              {section.bullets.map(bullet => <li key={bullet} style={css("font-size:var(--text-sm);line-height:1.5;color:var(--fg-muted)")}>{bullet}</li>)}
+            </ul>
+          )}
+          {section.cta && <span style={css("display:inline-flex;margin-top:.85rem;border-radius:999px;background:" + ACCENT + ";color:#fff;padding:.5rem .9rem;font-size:var(--text-sm);font-weight:500")}>{section.cta}</span>}
+        </section>
+      ))}
+    </article>
+  );
+}
+
+function CanonicalWireframeDoc({ result, brandName, mobile }: { result: FunnelCopyResult; brandName: string; mobile: boolean }) {
+  const sectionFor = (role: FunnelCopySection["role"]) => result.sections.find(section => section.role === role)!;
+  const hero = sectionFor("hero");
+  const finalCta = sectionFor("cta");
+  const polished = result.rewriteDepth === "Polish";
+  const rebuilt = result.rewriteDepth === "Rebuild";
+  return (
+    <div data-wireframe-copy-source="ai-result" data-rewrite-depth={result.rewriteDepth} style={css("width:100%;border:1px solid var(--border);border-radius:20px;overflow:hidden;background:var(--surface);box-shadow:0 18px 50px color-mix(in srgb,var(--fg) 7%,transparent)")}>
+      <nav style={css("display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.8rem " + (mobile ? ".9rem" : "1.35rem") + ";border-bottom:1px solid var(--border-soft)")}>
+        <strong style={css("min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--text-md);font-weight:500")}>{brandName}</strong>
+        <span style={css("flex-shrink:0;border-radius:999px;background:" + ACCENT + ";color:#fff;padding:.42rem .8rem;font-size:var(--text-xs);font-weight:500")}>{hero.cta || finalCta.cta || "Get started"}</span>
+      </nav>
+      {result.sections.map(section => {
+        const isHero = section.role === "hero";
+        const isFinal = section.role === "cta";
+        const isEmphasis = section.role === "benefit" || section.role === "proof";
+        const sectionBackground = isFinal
+          ? "var(--accent)"
+          : polished
+            ? "var(--surface)"
+            : rebuilt && isHero
+              ? "var(--fg)"
+              : isEmphasis
+                ? "var(--surface-alt)"
+                : "var(--surface)";
+        const lightOnDark = isFinal || rebuilt && isHero;
+        return (
+          <section
+            key={section.role}
+            data-wireframe-section={section.role}
+            style={css(
+              "padding:" + (isHero ? (mobile ? "2.2rem 1.1rem" : "3.8rem 2.6rem") : mobile ? "1.35rem 1.1rem" : "2rem 2.2rem")
+              + ";border-bottom:" + (isFinal ? "0" : "1px solid var(--border-soft)")
+              + ";text-align:" + (isHero || isFinal ? rebuilt && !mobile ? "left" : "center" : "left")
+              + ";background:" + sectionBackground
+              + ";color:" + (lightOnDark ? "#fff" : "var(--fg)")
+            )}
+          >
+            <div style={css("max-width:" + (isHero ? "46rem" : "42rem") + ";margin:0 auto")}>
+              <div style={css("font-size:var(--text-label);letter-spacing:.09em;text-transform:uppercase;color:" + (lightOnDark ? "rgba(255,255,255,.72)" : ACCENT))}>{section.eyebrow || COPY_ROLE_LABEL[section.role]}</div>
+              <h3 style={css("margin:.45rem 0 0;font-size:" + (isHero ? (mobile ? "var(--text-3xl)" : "2.55rem") : isFinal ? "var(--text-2xl)" : "var(--text-xl)") + ";line-height:1.12;font-weight:500;letter-spacing:-.015em;text-wrap:balance")}>{section.heading}</h3>
+              <p style={css("margin:.65rem " + (rebuilt && isHero && !mobile ? "0" : "auto") + " 0;max-width:38rem;font-size:" + (isHero ? "var(--text-md)" : "var(--text-sm)") + ";line-height:1.55;color:" + (lightOnDark ? "rgba(255,255,255,.82)" : "var(--fg-muted)") + ";text-wrap:pretty")}>{section.body}</p>
+              {section.bullets.length > 0 && (
+                <div style={css("display:grid;grid-template-columns:" + (mobile || polished || section.bullets.length < 3 ? "1fr" : rebuilt ? "repeat(2,minmax(0,1fr))" : "repeat(3,minmax(0,1fr))") + ";gap:.65rem;margin-top:1rem;text-align:left")}>
+                  {section.bullets.map(bullet => <div key={bullet} style={css("border:1px solid " + (lightOnDark ? "rgba(255,255,255,.22)" : "var(--border-soft)") + ";border-radius:" + (rebuilt ? "18px 8px 18px 8px" : "12px") + ";padding:.75rem .8rem;background:" + (lightOnDark ? "rgba(255,255,255,.08)" : "var(--surface)") + ";font-size:var(--text-xs);line-height:1.45")}>{bullet}</div>)}
+                </div>
+              )}
+              {section.cta && <span style={css("display:inline-flex;margin-top:1rem;border-radius:999px;background:" + (lightOnDark ? "#fff" : ACCENT) + ";color:" + (lightOnDark ? ACCENT : "#fff") + ";padding:.58rem 1rem;font-size:var(--text-sm);font-weight:500")}>{section.cta}</span>}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 function PromotionBanner({ promotion, variant, mobile, position }: { promotion: PromotionCopy; variant: number; mobile: boolean; position: "promoTop" | "promoMid" }) {
   const dark = variant === 1;
   const filled = variant === 0;
@@ -645,6 +754,9 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
   }
 
   if (stageKey === "copy") {
+    if (isFunnelCopyResult(ctx.aiResult)) {
+      return <CopyDraftDocument result={ctx.aiResult} brandName={briefValue(d, "Brand", d.name)} mobile={ctx.mobile} />;
+    }
     const row = (n: number, num: string, label: string, body: ReactNode) => sec(reveal, n) && (
       <div style={css("display:grid;grid-template-columns:6rem 1fr;gap:1.4rem;padding:1.25rem 0;border-top:1px solid var(--border-soft)")}>
         <div><div style={css("font-size:var(--text-xs);font-weight:500;color:" + ACCENT)}>{num}</div><div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint);margin-top:0.2rem")}>{label}</div></div>
@@ -684,10 +796,16 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
   }
 
   if (stageKey === "wireframe") {
-    return sec(reveal, 1) ? <WireframeDoc bp={bp} docs={d} mobile={ctx.mobile} /> : <div style={css("padding:var(--space-8);text-align:center;color:var(--fg-faint);font-size:var(--text-base)")}>Drafting the wireframe…</div>;
+    const approvedCopy = isFunnelCopyResult(ctx.aiResults.copy) ? ctx.aiResults.copy : null;
+    return sec(reveal, 1)
+      ? approvedCopy
+        ? <CanonicalWireframeDoc result={approvedCopy} brandName={briefValue(d, "Brand", d.name)} mobile={ctx.mobile} />
+        : <WireframeDoc bp={bp} docs={d} mobile={ctx.mobile} />
+      : <div style={css("padding:var(--space-8);text-align:center;color:var(--fg-faint);font-size:var(--text-base)")}>Drafting the wireframe…</div>;
   }
 
   // brief — combined one-page development plan
+  const developmentPlan = isAiStageResult(ctx.aiResult) ? ctx.aiResult : null;
   return (
     <div data-report-plan-body style={css("max-width:46rem;margin:0 auto;background:var(--surface);border:1px solid var(--border-soft);border-radius:12px;padding:" + (ctx.mobile ? "1.4rem" : "1.9rem 2.2rem 2.2rem") + ";display:flex;flex-direction:column;gap:var(--space-6);overflow:hidden")}>
       {sec(reveal, 1) && (
@@ -700,7 +818,21 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
           </div>
         </div>
       )}
-      {sec(reveal, 1) && recommendations.length > 0 && (
+      {sec(reveal, 1) && developmentPlan && (
+        <div data-report-section="generated-development-plan" style={css("border-top:1px solid var(--border-soft);padding-top:1.3rem")}>
+          <div style={css("font-size:var(--text-sm);line-height:1.55;color:var(--fg-muted);max-width:42rem")}>{developmentPlan.summary}</div>
+          <div style={css("display:grid;gap:.65rem;margin-top:.9rem")}>
+            {developmentPlan.sections.map(section => (
+              <section key={section.heading} style={css("border:1px solid var(--border-soft);border-radius:var(--radius);padding:.85rem .95rem;background:var(--surface-alt)")}>
+                <h3 style={css("margin:0;font-size:var(--text-base);line-height:1.3;font-weight:500")}>{section.heading}</h3>
+                <p style={css("margin:.35rem 0 0;font-size:var(--text-sm);line-height:1.5;color:var(--fg-muted)")}>{section.body}</p>
+                <ul style={css("margin:.55rem 0 0;padding-left:1.1rem;display:grid;gap:.25rem")}>{section.bullets.map(bullet => <li key={bullet} style={css("font-size:var(--text-xs);line-height:1.45;color:var(--fg-muted)")}>{bullet}</li>)}</ul>
+              </section>
+            ))}
+          </div>
+        </div>
+      )}
+      {sec(reveal, 1) && !developmentPlan && recommendations.length > 0 && (
         <div data-report-section="recommendations" style={css("border-top:1px solid var(--border-soft);padding-top:1.3rem")}>
           <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:" + ACCENT)}>Our recommendations</div>
           <div style={css("font-size:var(--text-sm);color:var(--fg-faint);margin-top:0.3rem")}>What we’d do with this funnel — and why — drawn from your answers.</div>
@@ -717,7 +849,11 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
       {sec(reveal, 2) && (
         <div data-report-section="wireframe" style={css("border-top:1px solid var(--border-soft);padding-top:1.3rem")}>
           <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:" + ACCENT)}>01 · Final Design</div>
-          <div style={css("margin-top:0.85rem")}><WireframeDoc bp={bp} docs={d} mobile={ctx.mobile} compact /></div>
+          <div style={css("margin-top:0.85rem")}>
+            {isFunnelCopyResult(ctx.aiResults.copy)
+              ? <CanonicalWireframeDoc result={ctx.aiResults.copy} brandName={briefValue(d, "Brand", d.name)} mobile={ctx.mobile} />
+              : <WireframeDoc bp={bp} docs={d} mobile={ctx.mobile} compact />}
+          </div>
         </div>
       )}
       {sec(reveal, 3) && (

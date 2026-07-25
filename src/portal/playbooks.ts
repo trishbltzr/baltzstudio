@@ -435,10 +435,12 @@ We turn an approved offer and conversion strategy into the complete funnel journ
 7. **Admin** — Import approved tasks and move implementation through the client-visible design, build, and launch approval gates.
 
 ## What we do
-- Clarify the campaign objective, audience, awareness level, problem, offer, proof, primary action, traffic source, and final conversion goal.
-- Map the complete customer journey from entry point through landing, nurture, sales, application or booking, payment, confirmation, and follow-up as required.
-- Define the page sequence, email sequence, decision points, and the purpose of every funnel step.
-- Write or refine conversion copy, including headlines, calls to action, benefits, proof, offer details, objections, pricing, FAQs, and supporting sections.
+- Anchor the funnel in a category point of view — the belief the brand will be known for — and the problem to educate the market on.
+- Create demand before capturing it: plan ungated, value-first content and the distribution channels the audience already uses; paid amplifies what works rather than driving cold traffic to a form.
+- Design a low-friction, high-intent conversion for the roughly 5% who are in-market now, instead of gating value behind an email opt-in.
+- Nurture by usefulness — value newsletters and educational content, plus acting on in-market signals — not a drip sequence built to sell.
+- Write educational, point-of-view-led copy that earns trust; make the primary call to action high-intent (talk to us, see it live, start free), not a hard sell to cold audiences.
+- Map the journey across the awareness ladder (unaware → problem-aware → solution-aware → in-market → customer), with content built for each rung, and measure demand created and qualified pipeline rather than raw form fills.
 - Establish one of five wireframe design directions — Conversion Stack, Split Hero, Editorial Story, Modular Bento, or Immersive Visual — so the approved strategy translates into a coherent responsive experience.
 - Map the full page anatomy: navigation, hero, trust proof, problem and stakes, benefits, audience fit, solution or features, process, proof, offer, integrations when relevant, pricing or value, FAQ, final call to action, and footer or legal needs.
 - Plan the platform, domain, CRM or email connection, forms, calendar, payments, tracking, assets, and launch dependencies.

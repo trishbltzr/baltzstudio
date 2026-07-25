@@ -95,7 +95,7 @@ export function useDurableCheckupRuns(kind: DurableCheckupKind, role: string, cl
       .then(payload => {
         const latestByClient = new Map<string, DurableServiceRun>();
         for (const run of Array.isArray(payload.runs) ? payload.runs : []) {
-          if (run.serviceKind !== kind || run.sourceKind === "demo") continue;
+          if (run.serviceKind !== kind || run.sourceKind === "demo" || run.state === "cancelled") continue;
           if (!latestByClient.has(run.clientId)) latestByClient.set(run.clientId, run);
         }
         setRuns([...latestByClient.values()]);

@@ -168,5 +168,28 @@ export async function printReportNode(node: Element | null | undefined, title: s
   if (typeof window === "undefined" || !node) return false;
   const html = reportDocumentHtml(node, title, exportProfile);
   if (!html) return false;
-  return printReportHtml(html, title);
+  try {
+    const response = await fetch("/api/reports/pdf", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ html, title }),
+    });
+    if (!response.ok) return false;
+    const blob = await response.blob();
+    if (blob.type !== "application/pdf" || blob.size < 1_000) return false;
+    const disposition = response.headers.get("content-disposition") || "";
+    const fileName = disposition.match(/filename="([^"]+)"/i)?.[1] || `${title.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "report"}.pdf`;
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.style.display = "none";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    return true;
+  } catch {
+    return false;
+  }
 }

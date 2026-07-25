@@ -18,9 +18,6 @@ const ROLE_SWITCH_OPTIONS: Array<{ id: "admin" | "dev" | "client"; label: string
 function TopBarComponent({ state, actions, onCollapse }: { state: TopBarShellState; actions: PortalActions; onCollapse: () => void }) {
   const { role, view, isMobile, notifOpen } = state;
   const [, title] = headFor(view, role);
-  const taskViewLabel = view === "tasks"
-    ? ({ board: "Board", calendar: "Calendar" }[state.taskView] || "Board")
-    : "";
   const notificationSummary = portalNotificationSummary(state);
   const visibleNotificationItems = notificationSummary.items.slice(0, 5);
   const remainingNotificationCount = Math.max(0, notificationSummary.count - visibleNotificationItems.length);
@@ -30,13 +27,11 @@ function TopBarComponent({ state, actions, onCollapse }: { state: TopBarShellSta
   const quickActions = quickActionsForState(state);
   const showQuickCreate = !isMobile && !state.previewFrom && quickActions.length > 0;
   const quickActionLabel = "New";
-  const compactTaskHeader = !isMobile && view === "tasks";
-  const desktopHeaderHeight = compactTaskHeader ? "2.3rem" : "3rem";
+  const desktopHeaderHeight = "3rem";
   const titleFontSize = isMobile ? "1.28rem" : "1.24rem";
   const usesReplacementSidebar = !isMobile && state.guidedSidebarActive;
   const leadingControlSize = "2.05rem";
-  const guidedInfo = !isMobile && (view === "funnels" || view === "audits_new") ? state.guidedTopBarInfo : null;
-  const showRoleSwitcher = state.canSwitchRoles && !isMobile && !guidedInfo;
+  const showRoleSwitcher = state.canSwitchRoles && !isMobile;
   const openNotification = (item: (typeof visibleNotificationItems)[number]) => {
     actions.markNotificationRead(item.id);
     if (item.deepLink.serviceRunId) {
@@ -47,26 +42,6 @@ function TopBarComponent({ state, actions, onCollapse }: { state: TopBarShellSta
     if (item.deepLink.threadId) actions.patch({ selectedThreadId: item.deepLink.threadId });
     actions.setView(item.deepLink.view);
   };
-
-  if (guidedInfo) {
-    return (
-      <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.9rem;flex-wrap:wrap;min-height:" + desktopHeaderHeight + ";padding:0.16rem 0.2rem 0.16rem 0")}>
-        <div style={css("min-width:0;display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap")}>
-          <span style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint)")}>Client information</span>
-          <span style={css("width:1px;height:0.8rem;background:color-mix(in srgb,var(--border) 72%,transparent 28%)")} />
-        </div>
-        <div style={css("flex:1;min-width:18rem;display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);flex-wrap:wrap")}>
-          <div style={css("display:flex;align-items:center;gap:0.55rem;min-width:0")}>
-            <span style={css("width:1.1rem;height:1.1rem;border-radius:50%;background:" + guidedInfo.dotBackground + ";flex-shrink:0")} />
-            <span style={css("font-size:var(--text-xs);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{guidedInfo.primary}</span>
-            <span style={css("width:1px;height:0.78rem;background:var(--border)")} />
-            <span style={css("font-size:var(--text-2xs);color:var(--fg-muted);white-space:nowrap")}>{guidedInfo.secondary}</span>
-          </div>
-          <span style={css("display:inline-flex;align-items:center;gap:0.35rem;font-size:var(--text-2xs);color:var(--success);font-weight:500;flex-shrink:0")}><span style={css("width:0.38rem;height:0.38rem;border-radius:50%;background:var(--success)")} />{guidedInfo.savedLabel}</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div style={css("display:flex;flex-direction:column;gap:0;min-height:" + (isMobile ? "auto" : desktopHeaderHeight))}>
@@ -93,22 +68,7 @@ function TopBarComponent({ state, actions, onCollapse }: { state: TopBarShellSta
           </button>
         )}
         <div style={{ minWidth: 0 }}>
-          {compactTaskHeader ? (
-            <div style={css("display:inline-flex;align-items:center;gap:0.38rem;min-height:" + desktopHeaderHeight + ";font-size:var(--text-base);font-weight:500;line-height:1;color:var(--fg-muted)")}>
-              <button
-                type="button"
-                onClick={() => actions.patch({ taskView: "board", taskFilter: { owner: "all", priority: "all" }, boardSelect: false, selTasks: [], taskModal: null })}
-                className="pt-softbtn"
-                style={css("border:none;background:transparent;padding:0;color:var(--fg);font-size:var(--text-base);font-weight:500;cursor:pointer")}
-              >
-                {title}
-              </button>
-              <span style={css("display:grid;place-items:center;color:var(--fg-faint)")}><Icon name="chevright" size={12} /></span>
-              <span style={css("font-size:var(--text-xs);color:var(--fg-muted)")}>{taskViewLabel}</span>
-            </div>
-          ) : (
-            <h1 style={css("margin:" + (isMobile ? "0" : "0.04rem 0 0") + ";font-size:" + titleFontSize + ";font-weight:500;line-height:1.06;letter-spacing:-0.01em")}>{title}</h1>
-          )}
+          <h1 style={css("margin:" + (isMobile ? "0" : "0.04rem 0 0") + ";font-size:" + titleFontSize + ";font-weight:500;line-height:1.06;letter-spacing:-0.01em")}>{title}</h1>
         </div>
         </div>
 
@@ -177,7 +137,7 @@ function TopBarComponent({ state, actions, onCollapse }: { state: TopBarShellSta
                     )}
                   </div>
                   <div style={css("margin-top:0.75rem;padding-top:0.65rem;border-top:1px solid var(--border-soft);font-size:var(--text-2xs);color:var(--fg-faint);line-height:1.4")}>
-                    Activity Log keeps the detailed edit history.
+                    Activity keeps the detailed edit history.
                   </div>
                 </div>
               </div>

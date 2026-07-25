@@ -40,7 +40,25 @@ function compactText(value: string, maxWords = 24, maxCharacters = 160) {
   return `${kept.join(" ").replace(/[,:;.!?–—-]+$/, "")}…`;
 }
 function cleanPriorityTitle(value: string) {
-  return value.replace(/^priority\s*\d*\s*[—–:-]\s*/i, "").trim() || value;
+  return value
+    .replace(/^priority\s*\d*\s*[—–:.)-]\s*/i, "")
+    .replace(/^\d+\s*[.)—–:-]\s*/, "")
+    .trim() || value;
+}
+
+function auditPreviewFontCss(visual: BrandVisualEvidence) {
+  const relevant = new Set([visual.displayFont, visual.bodyFont].filter((font): font is string => !!font).map(font => font.toLowerCase()));
+  return (visual.fontFaces || []).flatMap(face => {
+    if (!relevant.has(face.family.toLowerCase())) return [];
+    let sourceUrl: URL;
+    try { sourceUrl = new URL(face.sourceUrl); } catch { return []; }
+    if (!["http:", "https:"].includes(sourceUrl.protocol)) return [];
+    const family = face.family.replace(/["'\\{};]/g, "").trim();
+    const weight = /^\d{3}$/.test(face.weight) ? face.weight : "400";
+    const style = /^(normal|italic|oblique)$/i.test(face.style) ? face.style.toLowerCase() : "normal";
+    const format = face.format?.replace(/[^a-z0-9-]/gi, "") || "";
+    return `@font-face{font-family:"Audit Preview ${family}";src:url("${sourceUrl.href}")${format ? ` format("${format}")` : ""};font-weight:${weight};font-style:${style};font-display:swap;}`;
+  }).join("");
 }
 
 function KitCard({ icon, label, accent, children }: { icon: string; label: string; accent: string; children: ReactNode }): ReactNode {
@@ -52,6 +70,12 @@ function KitCard({ icon, label, accent, children }: { icon: string; label: strin
     {children}
   </section>;
 }
+function VisualEvidenceLoading({ label, accent }: { label: string; accent: string }): ReactNode {
+  return <div style={css("display:flex;align-items:center;gap:0.55rem;min-height:2rem;font-size:var(--text-2xs);color:var(--fg-muted)")}>
+    <span className="pt-spin" aria-hidden="true" style={css("--accent:" + accent)} />
+    <span>{label}</span>
+  </div>;
+}
 function Chips({ items, accent, muted }: { items: string[]; accent: string; muted?: boolean }): ReactNode {
   if (!items.length) return <span style={css("font-size:var(--text-xs);color:var(--fg-faint)")}>Not specified in intake</span>;
   return <div style={css("display:flex;flex-wrap:wrap;gap:0.4rem")}>{items.map(item => <span key={item} style={css("font-size:var(--text-2xs);font-weight:500;padding:0.28rem 0.6rem;border-radius:999px;border:1px solid " + (muted ? "var(--border-soft)" : "color-mix(in srgb," + accent + " 30%,var(--border-soft))") + ";background:" + (muted ? "var(--surface-alt)" : "color-mix(in srgb," + accent + " 8%,var(--surface))") + ";color:" + (muted ? "var(--fg-muted)" : accent))}>{item}</span>)}</div>;
@@ -62,21 +86,39 @@ function BrandKitReport({ docs, result, accent, mobile }: { docs: Ans; result: A
   const websiteUrl = asText(docs.url);
   const emptyVisual: BrandVisualEvidence = { status: "unverified", sourceUrl: null, colors: [], displayFont: null, bodyFont: null, logoUrl: null };
   const [visual, setVisual] = useState<BrandVisualEvidence>(result.brandVisuals || emptyVisual);
+  const [visualLoading, setVisualLoading] = useState(Boolean(websiteUrl && (!result.brandVisuals || !result.brandVisuals.fontFaces?.length)));
   useEffect(() => {
-    if (result.brandVisuals?.status === "verified") {
+    if (result.brandVisuals?.status === "verified" && (!websiteUrl || result.brandVisuals.fontFaces?.length)) {
       setVisual(result.brandVisuals);
+      setVisualLoading(false);
       return;
     }
     setVisual(result.brandVisuals || emptyVisual);
-    if (!websiteUrl) return;
+    if (!websiteUrl) {
+      setVisualLoading(false);
+      return;
+    }
     const controller = new AbortController();
+    let active = true;
+    setVisualLoading(true);
     fetch(`/api/brand/visuals?url=${encodeURIComponent(websiteUrl)}`, { signal: controller.signal })
       .then(response => response.ok ? response.json() : null)
-      .then(payload => { if (payload?.result?.status) setVisual(payload.result); })
-      .catch(() => undefined);
-    return () => controller.abort();
+      .then(payload => { if (active && payload?.result?.status) setVisual(payload.result); })
+      .catch(() => undefined)
+      .finally(() => { if (active) setVisualLoading(false); });
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [result.brandVisuals, websiteUrl]);
   const palette = visual.colors;
+  const previewFontCss = auditPreviewFontCss(visual);
+  const displayPreviewFont = visual.displayFont && visual.fontFaces?.some(face => face.family.toLowerCase() === visual.displayFont?.toLowerCase())
+    ? `Audit Preview ${visual.displayFont}`
+    : null;
+  const bodyPreviewFont = visual.bodyFont && visual.fontFaces?.some(face => face.family.toLowerCase() === visual.bodyFont?.toLowerCase())
+    ? `Audit Preview ${visual.bodyFont}`
+    : null;
   const voice = asList(docs.voice);
   const feel = asList(docs.visualFeel);
   const touchpoints = asList(docs.touchpoints);
@@ -91,6 +133,7 @@ function BrandKitReport({ docs, result, accent, mobile }: { docs: Ans; result: A
     ["Promise", asText(docs.promise)],
   ];
   return <div style={css("display:flex;flex-direction:column;gap:var(--space-4)")}>
+    {previewFontCss && <style>{previewFontCss}</style>}
     {/* Audit header */}
     <section style={css("border:1px solid color-mix(in srgb," + accent + " 22%,var(--border-soft) 78%);border-radius:1rem;background:color-mix(in srgb," + accent + " 5%,var(--surface) 95%);padding:1.15rem 1.2rem")}>
       {visual.logoUrl && <div style={css("display:flex;align-items:center;min-height:2.75rem;margin-bottom:0.8rem")}><img src={visual.logoUrl} alt={`${brand} logo`} style={css("display:block;max-width:min(10rem,55%);max-height:2.75rem;width:auto;height:auto;object-fit:contain;object-position:left center")} /></div>}
@@ -99,7 +142,7 @@ function BrandKitReport({ docs, result, accent, mobile }: { docs: Ans; result: A
       <p style={css("margin:0.4rem 0 0;font-size:var(--text-sm);line-height:1.55;color:var(--fg-muted);max-width:48rem")}>{conciseSummary(result.summary)}</p>
       <div style={css("display:grid;grid-template-columns:repeat(" + (mobile ? "2" : "4") + ",minmax(0,1fr));gap:0.55rem;margin-top:1rem")}>{heroStats.map(([label, value]) => <div key={label} style={css("border:1px solid var(--border-soft);border-radius:0.8rem;background:var(--surface);padding:0.65rem 0.75rem")}>
         <div style={css("font-size:var(--text-2xs);color:var(--fg-faint)")}>{label}</div>
-        <div style={css("font-size:var(--text-2xl);font-weight:500;line-height:1.05;margin-top:0.15rem;color:" + (value ? accent : "var(--fg-faint)") + ";font-variant-numeric:tabular-nums")}>{value || "—"}</div>
+        <div style={css("min-height:1.45rem;display:flex;align-items:center;font-size:var(--text-2xl);font-weight:500;line-height:1.05;margin-top:0.15rem;color:" + (value ? accent : "var(--fg-faint)") + ";font-variant-numeric:tabular-nums")}>{visualLoading && !value && (label === "Palette" || label === "Typefaces") ? <span className="pt-spin" aria-label={`Loading ${label.toLowerCase()}`} style={css("--accent:" + accent)} /> : value || "—"}</div>
       </div>)}</div>
     </section>
 
@@ -109,7 +152,7 @@ function BrandKitReport({ docs, result, accent, mobile }: { docs: Ans; result: A
         <div style={css("width:min(4.25rem,100%);aspect-ratio:1;border-radius:50%;background:" + sw.hex + ";border:1px solid color-mix(in srgb," + readable(sw.hex) + " 18%,var(--border-soft));box-shadow:0 4px 12px color-mix(in srgb,var(--fg) 8%,transparent)")} />
         <span style={css("margin-top:.45rem;font-size:var(--text-2xs);font-weight:500;color:var(--fg)")}>{sw.role}</span>
         <span className="pt-badge" style={css("margin-top:.12rem;font-size:var(--text-label);color:var(--fg-muted);text-transform:uppercase;letter-spacing:.02em")}>{sw.hex}</span>
-      </div>)}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-faint)")}>Observed from computed live-site styles · {visual.sourceUrl || asText(docs.url)}</div></> : <div style={css("border:1px dashed var(--border);border-radius:.75rem;padding:.8rem;font-size:var(--text-2xs);color:var(--fg-muted)")}>Unverified — regenerate this report with a public website or supplied brand guidelines. No colours were invented.</div>}
+      </div>)}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-faint)")}>Observed from computed live-site styles · {visual.sourceUrl || asText(docs.url)}</div></> : <div style={css("border:1px dashed var(--border);border-radius:.75rem;padding:.8rem")}>{visualLoading ? <VisualEvidenceLoading label="Reading colours from the live website…" accent={accent} /> : <span style={css("font-size:var(--text-2xs);color:var(--fg-muted)")}>Unverified — regenerate this report with a public website or supplied brand guidelines. No colours were invented.</span>}</div>}
     </KitCard>
 
     <div style={twoCol}>
@@ -117,20 +160,20 @@ function BrandKitReport({ docs, result, accent, mobile }: { docs: Ans; result: A
       <KitCard icon="type" label="Typography" accent={accent}>
         {visual.displayFont || visual.bodyFont ? <div style={css("display:flex;flex-direction:column;gap:0.6rem")}>
           <div style={css("padding:0.7rem 0.85rem;border:1px solid var(--border-soft);border-radius:0.7rem;background:var(--surface-alt)")}>
-            <div style={css("font-family:'" + (visual.displayFont || visual.bodyFont) + "',sans-serif;font-size:var(--text-4xl);line-height:1;color:var(--fg)")}>Aa</div>
+            <div style={css("font-family:'" + (displayPreviewFont || bodyPreviewFont || "inherit") + "',sans-serif;font-size:var(--text-4xl);line-height:1;color:var(--fg)")}>Aa</div>
             <div style={css("margin-top:0.35rem;font-size:var(--text-2xs)")}><strong style={css("font-weight:500")}>{visual.displayFont || visual.bodyFont}</strong> <span style={css("color:var(--fg-faint)")}>· Display & headlines</span></div>
           </div>
           <div style={css("padding:0.7rem 0.85rem;border:1px solid var(--border-soft);border-radius:0.7rem;background:var(--surface-alt)")}>
-            <div style={css("font-family:'" + (visual.bodyFont || visual.displayFont) + "',sans-serif;font-size:var(--text-lg);line-height:1.4;color:var(--fg)")}>The quick brown fox jumps.</div>
+            <div style={css("font-family:'" + (bodyPreviewFont || displayPreviewFont || "inherit") + "',sans-serif;font-size:var(--text-lg);line-height:1.4;color:var(--fg)")}>The quick brown fox jumps.</div>
             <div style={css("margin-top:0.35rem;font-size:var(--text-2xs)")}><strong style={css("font-weight:500")}>{visual.bodyFont || visual.displayFont}</strong> <span style={css("color:var(--fg-faint)")}>· Body & UI</span></div>
           </div>
-        </div> : <div style={css("border:1px dashed var(--border);border-radius:.75rem;padding:.8rem;font-size:var(--text-2xs);color:var(--fg-muted)")}>Unverified — no live or supplied typography evidence was available. No typeface was seeded.</div>}
+        </div> : <div style={css("border:1px dashed var(--border);border-radius:.75rem;padding:.8rem")}>{visualLoading ? <VisualEvidenceLoading label="Loading the website’s font files…" accent={accent} /> : <span style={css("font-size:var(--text-2xs);color:var(--fg-muted)")}>Unverified — no live or supplied typography evidence was available. No typeface was seeded.</span>}</div>}
       </KitCard>
 
       {/* Logo & lockup */}
       <KitCard icon="grid" label="Logo & lockup" accent={accent}>
-        {visual.logoUrl ? <div style={css("min-height:6.4rem;border:1px solid var(--border-soft);border-radius:.75rem;background:var(--surface-alt);display:grid;place-items:center;padding:var(--space-4)")}><img src={visual.logoUrl} alt={`${brand} logo observed on the website`} style={css("display:block;max-width:min(15rem,80%);max-height:4rem;width:auto;height:auto")} /></div> : <div style={css("border:1px dashed var(--border);border-radius:.75rem;padding:.8rem;font-size:var(--text-2xs);color:var(--fg-muted)")}>Unverified — no usable logo file was observed or supplied. No substitute monogram was generated.</div>}
-        <div style={css("font-size:var(--text-2xs);line-height:1.5;color:var(--fg-muted)")}>{visual.logoUrl ? `Observed on ${visual.sourceUrl || asText(docs.url)}. Clear-space and minimum-size rules still require supplied guidelines.` : "Upload the approved logo suite to document lockups, clear space, and minimum-size rules."}</div>
+        {visual.logoUrl ? <div style={css("min-height:6.4rem;border:1px solid var(--border-soft);border-radius:.75rem;background:var(--surface-alt);display:grid;place-items:center;padding:var(--space-4)")}><img src={visual.logoUrl} alt={`${brand} logo observed on the website`} style={css("display:block;max-width:min(15rem,80%);max-height:4rem;width:auto;height:auto")} /></div> : <div style={css("border:1px dashed var(--border);border-radius:.75rem;padding:.8rem")}>{visualLoading ? <VisualEvidenceLoading label="Finding the website logo…" accent={accent} /> : <span style={css("font-size:var(--text-2xs);color:var(--fg-muted)")}>Unverified — no usable logo file was observed or supplied. No substitute monogram was generated.</span>}</div>}
+        {!visualLoading && <div style={css("font-size:var(--text-2xs);line-height:1.5;color:var(--fg-muted)")}>{visual.logoUrl ? `Observed on ${visual.sourceUrl || asText(docs.url)}. Clear-space and minimum-size rules still require supplied guidelines.` : "Upload the approved logo suite to document lockups, clear space, and minimum-size rules."}</div>}
       </KitCard>
     </div>
 
@@ -230,10 +273,10 @@ function BrandActionPlan({ result, accent, mobile, onDownload }: { result: AiSta
     {roadmap.length > 0 && <section style={css("border:1px solid var(--border-soft);border-radius:1rem;background:var(--surface);padding:1rem 1.1rem") }>
       <div style={css("font-size:var(--text-label);text-transform:uppercase;letter-spacing:.04em;color:" + accent)}>Priority roadmap</div>
       <h4 style={css("margin:0.2rem 0 0;font-size:var(--text-lg);font-weight:500")}>What to focus on next</h4>
-      <div style={css("display:flex;flex-direction:column;gap:0.7rem;margin-top:0.8rem") }>{roadmap.map((section, index) => <article key={`${section.heading}-${index}`} style={css("position:relative;overflow:hidden;padding:0.9rem;border:1px solid var(--border-soft);border-radius:0.85rem;background:var(--surface-alt)")}>
-        <div style={css("position:absolute;inset:0 auto 0 0;width:3px;background:" + accent)} />
-        <div style={css("display:flex;align-items:flex-start;gap:0.65rem")}><span style={css("flex:0 0 auto;width:1.65rem;height:1.65rem;border-radius:50%;display:grid;place-items:center;background:" + accent + ";color:#fff;font-size:var(--text-2xs);font-weight:600")}>{index + 1}</span><div style={css("min-width:0")}><h5 style={css("margin:0;font-size:var(--text-sm);font-weight:600;line-height:1.35")}>{cleanPriorityTitle(section.heading)}</h5><p style={css("margin:0.32rem 0 0;font-size:var(--text-2xs);line-height:1.45;color:var(--fg-muted)")}>{compactText(section.body, 22, 145)}</p></div></div>
-        {section.bullets.length > 0 && <div style={css("display:flex;flex-direction:column;gap:0.3rem;margin:0.65rem 0 0 2.3rem")}>{section.bullets.slice(0, 2).map(bullet => <div key={bullet} style={css("display:grid;grid-template-columns:0.4rem minmax(0,1fr);gap:0.4rem;align-items:start;font-size:var(--text-2xs);line-height:1.4;color:var(--fg)")}><span style={css("width:0.32rem;height:0.32rem;border-radius:50%;background:" + accent + ";margin-top:0.32rem")} /><span>{compactText(bullet, 14, 100)}</span></div>)}</div>}
+      <div style={css("display:flex;flex-direction:column;gap:0.7rem;margin-top:0.8rem") }>{roadmap.map(section => <article key={section.heading} style={css("padding:0.9rem;border:1px solid var(--border-soft);border-radius:0.85rem;background:var(--surface-alt)")}>
+        <h5 style={css("margin:0;font-size:var(--text-sm);font-weight:500;line-height:1.35")}>{cleanPriorityTitle(section.heading)}</h5>
+        <p style={css("margin:0.32rem 0 0;font-size:var(--text-2xs);line-height:1.45;color:var(--fg-muted)")}>{compactText(section.body, 22, 145)}</p>
+        {section.bullets.length > 0 && <div style={css("display:flex;flex-direction:column;gap:0.3rem;margin-top:0.65rem")}>{section.bullets.slice(0, 2).map(bullet => <div key={bullet} style={css("display:grid;grid-template-columns:0.4rem minmax(0,1fr);gap:0.4rem;align-items:start;font-size:var(--text-2xs);line-height:1.4;color:var(--fg)")}><span style={css("width:0.32rem;height:0.32rem;border-radius:50%;background:" + accent + ";margin-top:0.32rem")} /><span>{compactText(bullet, 14, 100)}</span></div>)}</div>}
       </article>)}</div>
     </section>}
 
@@ -257,7 +300,7 @@ function renderStage(type: StrategyAuditType, ctx: StageRenderCtx): ReactNode {
     <PdfBar onDownload={ctx.onDownload} />
     <section style={css("border:1px solid color-mix(in srgb," + ctx.accent + " 22%,var(--border-soft) 78%);border-radius:1rem;background:color-mix(in srgb," + ctx.accent + " 5%,var(--surface) 95%);padding:1.15rem 1.2rem") }><div style={css("font-size:var(--text-label);text-transform:uppercase;letter-spacing:.04em;color:" + ctx.accent)}>SEO audit</div><h3 style={css("margin:0.25rem 0 0;font-size:var(--text-xl);font-weight:500")}>{title}</h3><p style={css("margin:0.4rem 0 0;font-size:var(--text-sm);line-height:1.55;color:var(--fg-muted)")}>{result.summary}</p></section>
     {result.sections.map(section => <section key={section.heading} style={css("border:1px solid var(--border-soft);border-radius:1rem;background:var(--surface);padding:1rem 1.1rem") }><h4 style={css("margin:0;font-size:var(--text-lg);font-weight:500")}>{section.heading}</h4><p style={css("margin:0.38rem 0 0;font-size:var(--text-xs);line-height:1.55;color:var(--fg-muted)")}>{section.body}</p><ul style={css("margin:0.65rem 0 0;padding-left:1.1rem;display:flex;flex-direction:column;gap:0.35rem")}>{section.bullets.map(bullet => <li key={bullet} style={css("font-size:var(--text-xs);line-height:1.5;color:var(--fg)")}>{bullet}</li>)}</ul></section>)}
-    {result.recommendations.length > 0 && <section style={css("border:1px solid var(--border-soft);border-radius:1rem;background:var(--surface);padding:1rem 1.1rem") }><h4 style={css("margin:0;font-size:var(--text-lg);font-weight:500")}>Improvement insights</h4><div style={css("display:flex;flex-direction:column;gap:0.6rem;margin-top:0.75rem")}>{result.recommendations.map((item, index) => <article key={item.title} style={css("display:grid;grid-template-columns:1.55rem minmax(0,1fr);gap:0.65rem;padding:0.7rem;border:1px solid var(--border-soft);border-radius:0.8rem;background:var(--surface-alt)")}><span style={css("width:1.45rem;height:1.45rem;border-radius:50%;display:grid;place-items:center;background:" + ctx.accent + ";color:#fff;font-size:var(--text-2xs);font-weight:500")}>{index + 1}</span><div><div style={css("font-size:var(--text-sm);font-weight:500")}>{item.title}</div><div style={css("font-size:var(--text-2xs);line-height:1.45;color:var(--fg-muted);margin-top:0.2rem")}>{item.rationale}</div><div style={css("font-size:var(--text-2xs);line-height:1.45;margin-top:0.25rem")}><strong style={css("font-weight:500;color:" + ctx.accent)}>Action: </strong>{item.action}</div></div></article>)}</div></section>}
+    {result.recommendations.length > 0 && <section style={css("border:1px solid var(--border-soft);border-radius:1rem;background:var(--surface);padding:1rem 1.1rem") }><h4 style={css("margin:0;font-size:var(--text-lg);font-weight:500")}>Improvement insights</h4><div style={css("display:flex;flex-direction:column;gap:0.6rem;margin-top:0.75rem")}>{result.recommendations.map(item => <article key={item.title} style={css("padding:0.7rem;border:1px solid var(--border-soft);border-radius:0.8rem;background:var(--surface-alt)")}><div style={css("font-size:var(--text-sm);font-weight:500")}>{item.title}</div><div style={css("font-size:var(--text-2xs);line-height:1.45;color:var(--fg-muted);margin-top:0.2rem")}>{item.rationale}</div><div style={css("font-size:var(--text-2xs);line-height:1.45;margin-top:0.25rem")}><strong style={css("font-weight:500;color:" + ctx.accent)}>Action: </strong>{item.action}</div></article>)}</div></section>}
   </div>;
 }
 

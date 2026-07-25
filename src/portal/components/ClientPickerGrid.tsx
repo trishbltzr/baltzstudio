@@ -58,7 +58,17 @@ export interface ClientCardData {
 // Full client-discovery grid: filter toolbar + count + responsive card grid.
 // Renders as a plain block so it drops into the padded shell (Audit) or a
 // full-bleed wrapper (funnel builder) alike.
-export function ClientPickerGrid({ cards, countLabel = "client", compact = false }: { cards: ClientCardData[]; countLabel?: string; compact?: boolean }) {
+export function ClientPickerGrid({
+  cards,
+  countLabel = "client",
+  compact = false,
+  equalCardHeights = false,
+}: {
+  cards: ClientCardData[];
+  countLabel?: string;
+  compact?: boolean;
+  equalCardHeights?: boolean;
+}) {
   const density = cards.length <= 1 ? "single" : cards.length === 2 ? "pair" : "many";
   return (
     <div className="pt-client-picker-shell" data-card-density={density} style={css("display:flex;flex-direction:column;gap:" + (compact ? "0.75rem" : "1.1rem"))}>
@@ -68,14 +78,14 @@ export function ClientPickerGrid({ cards, countLabel = "client", compact = false
         </span>
         <span style={css("margin-left:auto;font-size:var(--text-xs);color:var(--fg-faint)")}>{cards.length} {countLabel}{cards.length === 1 ? "" : "s"}</span>
       </div>
-      <div className="pt-client-picker-grid" data-card-density={density} style={css("display:grid;gap:" + (compact ? "0.85rem" : "1rem") + ";align-items:" + (compact ? "stretch" : "start"))}>
-        {cards.map(c => <ClientCard key={c.id} c={c} compact={compact} />)}
+      <div className="pt-client-picker-grid" data-card-density={density} style={css("display:grid;gap:" + (compact ? "0.85rem" : "1rem") + ";align-items:" + (compact || equalCardHeights ? "stretch" : "start"))}>
+        {cards.map(c => <ClientCard key={c.id} c={c} compact={compact} stretch={equalCardHeights} />)}
       </div>
     </div>
   );
 }
 
-function ClientCard({ c, compact }: { c: ClientCardData; compact: boolean }) {
+function ClientCard({ c, compact, stretch }: { c: ClientCardData; compact: boolean; stretch: boolean }) {
   const t = TONE[c.statusTone];
   const [activeDetailId, setActiveDetailId] = useState<string | null>(null);
   const [statsExpanded, setStatsExpanded] = useState(false);
@@ -90,7 +100,7 @@ function ClientCard({ c, compact }: { c: ClientCardData; compact: boolean }) {
   const cardTone = c.statusTone === "success" ? "var(--success)" : c.statusTone === "warn" ? "var(--warn)" : c.statusTone === "danger" ? "var(--danger)" : "var(--accent)";
   const heroOnlyBody = !!c.hero && !showMeta && stats.length === 0 && !c.details;
   return (
-    <div className="pt-card client-card pt-engine-card" style={css("border:1px solid color-mix(in srgb,var(--border-soft) 82%," + cardTone + " 18%);border-radius:" + (compact ? "1.02rem" : "var(--radius-panel)") + ";background:" + (compact ? "linear-gradient(180deg,color-mix(in srgb," + cardTone + " 5%,white 95%) 0%,var(--surface) 30%,var(--surface) 100%)" : "linear-gradient(180deg,color-mix(in srgb," + cardTone + " 4%,var(--surface) 96%) 0%,var(--surface) 32%)") + ";overflow:hidden;display:flex;flex-direction:column;height:" + (compact ? "100%" : "auto") + ";min-height:" + (compact ? "13.7rem" : "0"))}>
+    <div className="pt-card client-card pt-engine-card" style={css("border:1px solid color-mix(in srgb,var(--border-soft) 82%," + cardTone + " 18%);border-radius:" + (compact ? "1.02rem" : "var(--radius-panel)") + ";background:" + (compact ? "linear-gradient(180deg,color-mix(in srgb," + cardTone + " 5%,white 95%) 0%,var(--surface) 30%,var(--surface) 100%)" : "linear-gradient(180deg,color-mix(in srgb," + cardTone + " 4%,var(--surface) 96%) 0%,var(--surface) 32%)") + ";overflow:hidden;display:flex;flex-direction:column;height:" + (compact || stretch ? "100%" : "auto") + ";min-height:" + (compact ? "13.7rem" : "0"))}>
       <div aria-hidden="true" style={css("height:0.24rem;background:linear-gradient(90deg," + cardTone + " 0%,color-mix(in srgb," + cardTone + " 72%,var(--surface) 28%) 72%,color-mix(in srgb," + cardTone + " 20%,var(--surface) 80%) 100%);flex-shrink:0")} />
       <div className="pt-engine-card-body" style={css("padding:" + (compact
         ? `0.86rem 0.88rem ${heroOnlyBody ? "0" : "0.94rem"}`

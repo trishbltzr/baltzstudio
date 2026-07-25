@@ -68,8 +68,27 @@ export async function GET(request: Request) {
   const shouldIncludeCreatorIq = access.role === "client"
     ? access.clientId === CREATOR_IQ_CLIENT_ID
     : clientId === CREATOR_IQ_CLIENT_ID || explicitDemo || runId === "audit-creator-iq-demo";
-  if (shouldIncludeCreatorIq && !drafts.some(draft => draft.run.clientId === CREATOR_IQ_CLIENT_ID)) {
-    drafts.unshift(createCreatorIqWebsiteAuditDraft());
+  if (shouldIncludeCreatorIq) {
+    const actualDemo = createCreatorIqWebsiteAuditDraft();
+    if (explicitDemo || runId === actualDemo.run.id) {
+      const savedExact = drafts.find(draft => draft.run.id === actualDemo.run.id);
+      const keepHumanEdits = savedExact
+        ? Date.parse(savedExact.updatedAt || "") > Date.parse(actualDemo.updatedAt || "")
+        : false;
+      const staleDemoIndexes = drafts
+        .map((draft, index) => draft.run.clientId === CREATOR_IQ_CLIENT_ID && (!keepHumanEdits || draft.run.id !== actualDemo.run.id) ? index : -1)
+        .filter(index => index >= 0)
+        .reverse();
+      staleDemoIndexes.forEach(index => drafts.splice(index, 1));
+      if (keepHumanEdits && savedExact) {
+        const savedIndex = drafts.findIndex(draft => draft.run.id === savedExact.run.id);
+        if (savedIndex > 0) drafts.unshift(...drafts.splice(savedIndex, 1));
+      } else {
+        drafts.unshift(actualDemo);
+      }
+    } else if (!drafts.some(draft => draft.run.clientId === CREATOR_IQ_CLIENT_ID)) {
+      drafts.unshift(actualDemo);
+    }
   }
 
   return NextResponse.json({

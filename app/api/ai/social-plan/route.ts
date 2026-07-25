@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { openAIError, responseText, socialMediaApiKey } from "@/lib/openaiServer";
 import { resolvePortalRequestAccess } from "@/lib/portalRequestAccess";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { COPYWRITING_AGENT_ID, COPYWRITING_AGENT_VERSION, copywritingAgentInstructions } from "@/lib/copywritingAgent";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
   const schema = action === "analyze" ? ANALYSIS_SCHEMA : PLAN_SCHEMA;
   const instructions = action === "analyze"
     ? "Analyze the supplied real brand source. Return concise, distinct voice traits and usable social content pillars. Do not invent performance claims or facts not present in the source."
-    : `Create exactly ${count} distinct, client-ready social post ideas grounded in the supplied source, voice, and pillars. Vary angles and calls to action. Hashtags must begin with #. Do not invent testimonials, metrics, awards, or product facts.`;
+    : `Create exactly ${count} distinct, client-ready social post ideas grounded in the supplied source, voice, and pillars. Vary angles and calls to action. Hashtags must begin with #. Do not invent testimonials, metrics, awards, or product facts.\n${copywritingAgentInstructions("social")}`;
 
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -102,7 +103,10 @@ export async function POST(request: NextRequest) {
     if (action === "plan" && (!Array.isArray(result?.ideas) || result.ideas.length !== count)) {
       return NextResponse.json({ error: `The plan returned ${result?.ideas?.length || 0} of ${count} requested posts. Please try again.` }, { status: 502 });
     }
-    return NextResponse.json({ result });
+    return NextResponse.json({
+      result,
+      ...(action === "plan" ? { agent: { id: COPYWRITING_AGENT_ID, version: COPYWRITING_AGENT_VERSION } } : {}),
+    });
   } catch (error) {
     console.error("Unable to generate social media content.", error instanceof Error ? error.message : error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to generate social media content." }, { status: 502 });

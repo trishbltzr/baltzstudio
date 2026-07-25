@@ -14,6 +14,7 @@ export function GuidedIntakeSelector({
   controlsBelow = false,
   cards,
   countLabel,
+  equalCardHeights = false,
 }: {
   eyebrow: string;
   eyebrowColor: string;
@@ -24,6 +25,7 @@ export function GuidedIntakeSelector({
   controlsBelow?: boolean;
   cards: ClientCardData[];
   countLabel?: string;
+  equalCardHeights?: boolean;
 }) {
   return (
     <div className="pt-engine-index-shell" style={css("display:flex;flex-direction:column;gap:var(--space-4)")}>
@@ -40,7 +42,7 @@ export function GuidedIntakeSelector({
         </div>}
       </div>
 
-      <ClientPickerGrid cards={cards} countLabel={countLabel} />
+      <ClientPickerGrid cards={cards} countLabel={countLabel} equalCardHeights={equalCardHeights} />
     </div>
   );
 }

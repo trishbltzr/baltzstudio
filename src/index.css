@@ -22,3 +22,11 @@
 @import "./styles/agent-queue.css";
 @import "./styles/assignment-calendar.css";
 @import "./styles/portal.css";
+.pt-preview-more {
+  cursor: help;
+}
+
+.pt-preview-more:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

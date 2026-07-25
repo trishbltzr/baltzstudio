@@ -239,12 +239,29 @@ export async function POST(request: NextRequest) {
   if (mode === "funnel" && !link.trim() && !brief.trim() && !guidelineFiles.length) return NextResponse.json({ error: "Add a funnel URL, upload working copy, or paste a brief." }, { status: 400 });
 
   try {
-    const pages = link.trim() ? await scanWebsite(link) : [];
+    let websiteScanError = "";
+    let pages: Awaited<ReturnType<typeof scanWebsite>> = [];
+    if (link.trim()) {
+      try {
+        pages = await scanWebsite(link);
+      } catch (error) {
+        if (mode !== "brand") throw error;
+        websiteScanError = error instanceof Error ? error.message : "The website could not be opened.";
+      }
+    }
     const sitemapUrls = mode === "website_builder" && link.trim() ? await discoverSitemapUrls(link).catch(() => []) : [];
-    if (link.trim() && !pages.length) throw new Error("The website loaded, but there was not enough readable content to analyze.");
     const canonicalUrl = pages[0]?.url;
     const socialResults = mode === "brand" ? await Promise.allSettled(socialLinks.map((value: string) => scanWebsite(value))) : [];
     const allPages = [...pages, ...socialResults.flatMap(result => result.status === "fulfilled" ? result.value.slice(0, 2) : [])].filter((page, index, items) => items.findIndex(item => item.url === page.url) === index);
+    if (mode === "brand" && !allPages.length && !guidelineFiles.length) {
+      return NextResponse.json({
+        error: websiteScanError
+          ? "We couldn't open this website after trying secure, www, and redirect variants. Add guidelines or a public social profile, or continue with manual intake."
+          : "We couldn't read enough public source material. Add guidelines or another public source, or continue with manual intake.",
+        canContinueManually: true,
+      }, { status: 422 });
+    }
+    if (link.trim() && !pages.length && mode !== "brand") throw new Error("The website loaded, but there was not enough readable content to analyze.");
     const known = cleanKnown(body?.known);
     const source = `${allPages.map(page => `<site_page url="${page.url}">\n${page.text}\n</site_page>`).join("\n\n")}\n\n${sitemapUrls.length ? `<sitemap_urls>\n${sitemapUrls.join("\n")}\n</sitemap_urls>` : ""}`.slice(0, 65_000);
     const instructions = [
@@ -256,6 +273,7 @@ export async function POST(request: NextRequest) {
       "For every multiple-choice or multi-select field, choose the closest valid option even when the match is imperfect; the client will review it afterward.",
       "For free-text strategy fields, provide the most useful concise proposed answer supported by the website. Use null only for truly personal or private facts that cannot responsibly be inferred.",
       "Never infer a person's name, email, private analytics, budget, or internal business priority from weak evidence; mark those needs_confirmation.",
+      "For nickname, use a person's name only when the supplied source explicitly identifies that person as the founder, owner, director, or manager, or when the client workspace supplies the primary contact. Customer testimonials, authors, and generic team references do not qualify. Otherwise return null.",
       "Use the exact allowed option wording when an answer maps to a multiple-choice field.",
       mode === "brand" ? "The selected workspace label is organizational context only, never brand evidence. Derive the brand identity and every brand fact from the currently supplied domain, guidelines, and public social sources. If the domain conflicts with the workspace label, follow the domain." : "Use the selected client record only as context; source claims from the supplied materials.",
       mode === "audit" ? "Act like a capable strategist reviewing the supplied pages: answer the Audit intake as fully as the evidence permits, not merely as a technical crawler." : mode === "brand" ? "Act like a brand strategist. Treat guideline files as the strongest source, then use the website and public social evidence. Separate established rules from inference." : mode === "seo" ? "Act like an SEO strategist. Use public website and supplied GA4 context only. Never invent rankings, backlinks, Search Console queries, traffic, or conversions." : mode === "website_builder" ? "Act like a website planning strategist. Use any supplied website, sitemap, uploaded brief, uploaded copy, and pasted notes together. Extract the requested pages into pagesToDesign and create one matching pageBriefs line per page with its purpose, key message, and primary action. Treat the requested page list as the proposed design scope; do not automatically treat every current URL as a page to rebuild. Leave private approvals, ownership, budget, and timing for confirmation." : "Use the website, uploaded working copy, and pasted brief together. When working-copy files are attached, also return landingPageCopy: reorganize and lightly edit that supplied wording into a concise, ready-to-paste landing page. Preserve the client’s claims and voice, do not invent proof, and name the source file. When no working-copy file is attached, return landingPageCopy as null.",
@@ -306,6 +324,7 @@ export async function POST(request: NextRequest) {
       result,
       summary: typeof parsed?.summary === "string" ? parsed.summary : "Sources analyzed.",
       pagesScanned: allPages.map(page => page.url),
+      warning: websiteScanError ? "The website was unavailable, so the review used the other supplied brand sources." : undefined,
       model: payload?.model || process.env.OPENAI_MODEL || "gpt-5.6-luna",
     });
   } catch (error) {

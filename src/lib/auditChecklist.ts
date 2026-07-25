@@ -308,6 +308,23 @@ export function scoreChecks(checks: AuditCheckResult[]) {
   return { passed, failed, unverified, notApplicable, score: scored ? Math.round((passed / scored) * 100) : 0 };
 }
 
+export function projectedAuditScore(
+  categories: Array<Pick<AuditScoreCategory, "target" | "passed" | "failed">>,
+  overallScore: number,
+) {
+  const weighted = categories.reduce((result, category) => {
+    const verifiedChecks = category.passed + category.failed;
+    return {
+      total: result.total + (category.target * verifiedChecks),
+      verifiedChecks: result.verifiedChecks + verifiedChecks,
+    };
+  }, { total: 0, verifiedChecks: 0 });
+  const projected = weighted.verifiedChecks
+    ? Math.round(weighted.total / weighted.verifiedChecks)
+    : overallScore;
+  return Math.max(overallScore, Math.min(95, projected));
+}
+
 export function isAuditScoreResult(value: unknown): value is AuditScoreResult {
   if (!value || typeof value !== "object") return false;
   const result = value as Partial<AuditScoreResult>;

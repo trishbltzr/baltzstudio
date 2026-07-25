@@ -5,7 +5,7 @@ import { css, headFor } from "../helpers";
 import type { Role, View } from "../types";
 
 const LABELS: Partial<Record<View, string>> = {
-  audits_new: "Checkups", escalations: "Escalations", activity: "Activity Log", team: "Users",
+  audits_new: "Checkups", escalations: "Escalations", activity: "Activity", team: "Users",
   playbooks: "Playbooks", billing: "Billing · Wise", review: "Approvals", milestones: "Journey",
   audit: "Checkup", files: "Shared Files", assistant: "In Full Flight",
   profile: "Profile & Settings", settings: "Settings", onboarding: "New Client",

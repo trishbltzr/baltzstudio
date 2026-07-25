@@ -108,7 +108,7 @@ export function Onboarding({ state, actions }: { state: PortalState; actions: Po
             </p>
             {created.dispatchError && <p role="alert" style={css("margin:.55rem 0 0;color:var(--warn);font-size:var(--text-xs)")}>The record is safe, but dispatch needs recovery: {created.dispatchError}</p>}
             <div style={css("display:flex;gap:.55rem;flex-wrap:wrap;margin-top:1rem")}>
-              <button type="button" className="pt-op" style={css(PRIMARY_BUTTON_STYLE)} onClick={() => actions.setView("activity")}>Monitor baseline</button>
+              <button type="button" className="pt-op" style={css(PRIMARY_BUTTON_STYLE)} onClick={() => actions.setView("activity")}>View checkup activity</button>
               <button type="button" className="pt-softbtn" style={css(SOFT_BUTTON_STYLE)} onClick={() => actions.setView("clients")}>View clients</button>
               <button
                 type="button"

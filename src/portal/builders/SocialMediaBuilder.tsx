@@ -523,7 +523,6 @@ export function SocialMediaBuilder({ state, actions }: { state: PortalState; act
     monthId={activeMonth.monthId}
     months={savedMonths[activeMonth.client.id] || []}
     mobile={state.isMobile}
-    hideIdentity={state.role === "client"}
     actions={actions}
     onSelectMonth={monthId => setActiveMonth(current => current ? { ...current, monthId } : current)}
     onCreateMonth={() => createMonth(activeMonth.client)}
@@ -550,7 +549,7 @@ export function SocialMediaBuilder({ state, actions }: { state: PortalState; act
   </div>;
 }
 
-function SocialWorkspace({ client, monthId, months, mobile, hideIdentity, actions, onSelectMonth, onCreateMonth, onExit }: { client: StudioClient; monthId: string; months: SocialMonthRecord[]; mobile: boolean; hideIdentity: boolean; actions: PortalActions; onSelectMonth: (monthId: string) => void; onCreateMonth: () => void; onExit: () => void }) {
+function SocialWorkspace({ client, monthId, months, mobile, actions, onSelectMonth, onCreateMonth, onExit }: { client: StudioClient; monthId: string; months: SocialMonthRecord[]; mobile: boolean; actions: PortalActions; onSelectMonth: (monthId: string) => void; onCreateMonth: () => void; onExit: () => void }) {
   const [project, setProject] = useState<SocialProject>(blankProject);
   const [loaded, setLoaded] = useState(false);
   const [aiBusy, setAiBusy] = useState<"analyze" | "plan" | null>(null);
@@ -655,8 +654,7 @@ function SocialWorkspace({ client, monthId, months, mobile, hideIdentity, action
   return <div style={css("width:100%;padding:" + (mobile ? ".9rem .75rem 1.4rem" : "1.4rem 2rem 2rem") + ";box-sizing:border-box") }>
     <div style={css("width:100%;max-width:60rem;margin:0 auto;display:flex;flex-direction:column;gap:.85rem;box-sizing:border-box") }>
       <header style={css("display:flex;align-items:center;gap:.65rem;flex-wrap:wrap") }>
-        {!hideIdentity && <button type="button" onClick={onExit} className="pt-softbtn" style={css(buttonSoft + ";min-height:2rem")}>← All builders</button>}
-        {!hideIdentity && <div style={{ minWidth: 0 }}><strong style={css("font-size:var(--text-lg);font-weight:500")}>{client.name}</strong><span style={css("font-size:var(--text-sm);color:var(--fg-muted)")}> · {formatMonthKey(monthKey)}</span></div>}
+        <button type="button" onClick={onExit} className="pt-softbtn" style={css(buttonSoft + ";min-height:2rem")}>All calendars</button>
         <select aria-label="Switch monthly content plan" value={monthId} onChange={event => onSelectMonth(event.target.value)} style={css("min-height:2rem;padding:0 1.8rem 0 .68rem;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--fg-muted);font:inherit;font-size:var(--text-2xs);cursor:pointer")}>{sortSocialMonths(months).map(month => <option key={month.id} value={month.id}>{formatMonthKey(month.monthKey)}</option>)}</select>
         <button type="button" onClick={onCreateMonth} className="pt-softbtn" style={css(buttonSoft + ";min-height:2rem")}><Icon name="plus" size={12}/> New month</button>
         <button type="button" onClick={restart} className="pt-softbtn" style={css(buttonSoft + ";min-height:2rem;margin-left:auto")}>↻ Start over</button>
@@ -665,7 +663,7 @@ function SocialWorkspace({ client, monthId, months, mobile, hideIdentity, action
       <div style={css("display:grid;grid-template-columns:" + (mobile ? "1fr" : "14rem minmax(0,1fr)") + ";gap:.85rem;align-items:start") }>
         <aside style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:linear-gradient(180deg,var(--surface),color-mix(in srgb,var(--surface-alt) 78%,white 22%));padding:.9rem .7rem .7rem;" + (mobile ? "overflow-x:auto" : "position:sticky;top:.5rem"))}>
           <div style={css("padding:0 .4rem .8rem;min-width:" + (mobile ? "38rem" : "0")) }>
-            <div style={css("display:flex;align-items:center;gap:.55rem") }><span style={css("width:1.7rem;height:1.7rem;border-radius:8px;background:var(--accent);color:#fff;display:grid;place-items:center;flex-shrink:0") }><Icon name="layers" size={14}/></span><div><div style={css("font-size:var(--text-lg);font-weight:500;line-height:1.1")}>Content pipeline</div><div style={css("font-size:var(--text-2xs);color:var(--fg-faint);margin-top:.1rem")}>{STAGES.length} stages to schedule</div></div></div>
+            <div style={css("display:flex;align-items:center;gap:.55rem") }><span style={css("width:1.7rem;height:1.7rem;border-radius:8px;background:var(--accent);color:#fff;display:grid;place-items:center;flex-shrink:0") }><Icon name="layers" size={14}/></span><div><div style={css("font-size:var(--text-lg);font-weight:500;line-height:1.1")}>Content pipeline</div><div style={css("font-size:var(--text-2xs);color:var(--fg-faint);margin-top:.1rem")}>{client.name} · {STAGES.length} stages</div></div></div>
             <div style={css("display:flex;align-items:center;gap:.55rem;margin-top:.75rem") }><div style={css("flex:1;height:.35rem;border-radius:999px;background:var(--border-soft);overflow:hidden") }><div style={css("height:100%;border-radius:999px;background:var(--success);width:" + Math.max(2, doneCount / STAGES.length * 100) + "%;transition:width .35s ease")}/></div><span style={css("font-size:var(--text-2xs);font-weight:500;color:var(--fg-muted)")}>{doneCount}/{STAGES.length}</span></div>
           </div>
           <div style={css("display:flex;flex-direction:" + (mobile ? "row" : "column") + ";" + (mobile ? "gap:.4rem;" : "") + "min-width:" + (mobile ? "38rem" : "0"))}>
