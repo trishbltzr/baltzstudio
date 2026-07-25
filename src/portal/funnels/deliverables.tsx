@@ -8,37 +8,37 @@ type Get = (id: string, fb?: string) => string;
 
 // Derive every display string the deliverables need from the intake answers.
 export function derive(get: Get) {
-  const primaryAction = get("primaryAction", "Book a call");
+  const primaryAction = get("primaryAction", "Talk to us / book a call");
   const goalMap: Record<string, string> = {
-    "Give email for the freebie": "New lead captured", "Book a call": "Booked strategy call",
-    "Register for a webinar": "Webinar registration", "Start a free trial": "Free trial started", "Buy a low-ticket offer": "Low-ticket sale",
+    "Talk to us / book a call": "Qualified conversation", "See it live / demo": "Demo requested",
+    "Start free": "Free start", "Read the resource": "Engaged reader", "Join the community": "New subscriber",
   };
-  const traffic = get("traffic", "Paid + organic traffic");
+  const traffic = get("traffic", "Owned + earned distribution");
   const promise = get("promise", "The transformation you promise.");
   const audience = get("audience", "Your ideal customer.");
-  const cta = primaryAction === "Book a call" ? "Book my free call" : primaryAction === "Register for a webinar" ? "Save my seat" : "Get the free guide";
+  const cta = primaryAction.startsWith("Talk to us") ? "Talk to us" : primaryAction.startsWith("See it live") ? "See it live" : primaryAction === "Start free" ? "Start free" : primaryAction === "Join the community" ? "Join us" : "Get the resource";
   return {
-    flowTraffic: traffic, flowAfter: get("afterOptin", "Show a booking calendar"), flowGoal: goalMap[primaryAction] || "New booked call",
-    flowThankLine: "Confirm the opt-in and set expectations for what's next.", flowUpsellLine: get("upsellOffer", "A one-click add-on that lifts order value."),
+    flowTraffic: traffic, flowAfter: get("afterOptin", "Point to more useful content"), flowGoal: goalMap[primaryAction] || "Qualified conversation",
+    flowThankLine: "Point to the next useful thing and set expectations.", flowUpsellLine: get("upsellOffer", "A next-step offer that grows the relationship."),
     personaSummary: audience, personaPains: get("pains", "Their biggest frustrations."), personaDesires: get("desires", "What they want instead."),
     personaObjections: get("objections", "Why they hesitate."), personaAwareness: get("awareness", "Feel the problem"),
     personaHook: "Speak to the pain first, then hold up the promise: " + promise,
-    copyMetaTitle: get("company", "Your Studio") + " — " + get("leadMagnet", "Free guide"), copyMetaDesc: promise,
-    copyHeadline: promise, copySubhead: "Get " + get("leadMagnet", "the free guide").toLowerCase() + " — built for " + audience.toLowerCase(),
-    copyCta: cta, copyFormNote: "Email field + " + cta + " button.", copyPrivacy: "No spam. Unsubscribe anytime.",
+    copyMetaTitle: get("company", "Your Studio") + " — " + get("leadMagnet", "Free resource"), copyMetaDesc: promise,
+    copyHeadline: promise, copySubhead: "Built for " + audience.toLowerCase() + " — start with " + get("leadMagnet", "the free resource").toLowerCase() + ".",
+    copyCta: cta, copyFormNote: "One high-intent CTA — minimal friction, no long form.", copyPrivacy: "No spam. Unsubscribe anytime.",
     copyGuarantee: get("guarantee", "Risk-free — cancel anytime."), copyProof: get("proof", "Real results from real clients."),
-    copyThankHead: "You're in — check your inbox", copyThankBody: "Your " + get("leadMagnet", "guide").toLowerCase() + " is on its way. While you're here…",
-    copyUpsellHead: get("upsellOffer", "One-time offer"), copyUpsellBody: "Add it now for " + get("upsellPrice", "a special one-time price") + " — only on this page.",
-    copyUpsellCta: "Yes, add it — " + get("upsellPrice", "one-time"),
+    copyThankHead: "You're in — here's what's next", copyThankBody: "More useful things while you're here…",
+    copyUpsellHead: get("upsellOffer", "Next-step offer"), copyUpsellBody: "Add the next step for " + get("upsellPrice", "a fair price") + " when you're ready.",
+    copyUpsellCta: "Add it — " + get("upsellPrice", "next step"),
     devPages: [
-      { name: "Opt-in landing page", desc: "hero, benefits, how-it-works, proof, FAQ, CTA" },
-      { name: "Thank-you + one-time offer", desc: "confirmation + upsell" },
+      { name: "Content / landing page", desc: "hero, point of view, benefits, proof, FAQ, high-intent CTA" },
+      { name: "Thank-you + next value", desc: "confirmation + next-step offer" },
       { name: "Booking / calendar page", desc: get("calendar", "Calendly") + " embed" },
     ],
-    devIntegrations: get("esp", "Kit (ConvertKit)") + " (leads) · " + get("calendar", "Calendly") + " (booking)",
+    devIntegrations: get("esp", "Kit (ConvertKit)") + " (audience) · " + get("calendar", "Calendly") + " (booking)",
     devTech: "Next.js on " + get("domain", "your domain") + ", static-hosted, analytics + pixel wired.",
     tlDeadline: get("deadline", "2–4 weeks"), tlBudget: get("budget", "$5k–$10k"),
-    fpGoal: promise, fpUpsell: get("upsellOffer", "A one-time offer to maximise order value."),
+    fpGoal: promise, fpUpsell: get("upsellOffer", "A next-step offer that grows the relationship."),
   };
 }
 
@@ -59,9 +59,9 @@ export function DelivBody({ id, get }: { id: string; get: Get }) {
       <div style={css("display:flex;flex-direction:column;align-items:center;gap:0.4rem")}>
         {flowRow("100%", "oklch(0.82 0.08 27)", "1 · TRAFFIC", d.flowTraffic, "cold audience")}
         {arrow}
-        {flowRow("87%", "oklch(0.78 0.10 25)", "2 · OPT-IN PAGE", "Capture the email", "visitor → lead")}
+        {flowRow("87%", "oklch(0.78 0.10 25)", "2 · LANDING PAGE", "Deliver the value", "visitor → audience")}
         {arrow}
-        {flowRow("74%", "oklch(0.74 0.11 23)", "3 · LEAD MAGNET + NURTURE", "Deliver value, warm them up", "subscribed")}
+        {flowRow("74%", "oklch(0.74 0.11 23)", "3 · VALUE + NURTURE", "Keep delivering value", "engaged")}
         {arrow}
         {flowRow("61%", "oklch(0.70 0.12 22)", "4 · BOOKING / CALL", d.flowAfter, "high intent")}
         {arrow}
@@ -76,7 +76,7 @@ export function DelivBody({ id, get }: { id: string; get: Get }) {
           </div>
           <div style={css("font-size:var(--text-sm);font-weight:600;color:var(--fg);margin-bottom:0.5rem")}>Thank-you page + one-time offer</div>
           <div style={css("font-size:var(--text-xs);color:var(--fg-muted);line-height:1.5;margin-bottom:0.22rem")}><span style={css("color:var(--fg);font-weight:600")}>Thank-you.</span> {d.flowThankLine}</div>
-          <div style={css("font-size:var(--text-xs);color:var(--fg-muted);line-height:1.5")}><span style={css("color:var(--fg);font-weight:600")}>One-time offer.</span> {d.flowUpsellLine}</div>
+          <div style={css("font-size:var(--text-xs);color:var(--fg-muted);line-height:1.5")}><span style={css("color:var(--fg);font-weight:600")}>Next step.</span> {d.flowUpsellLine}</div>
         </div>
       </div>
     );
@@ -92,7 +92,7 @@ export function DelivBody({ id, get }: { id: string; get: Get }) {
     return (
       <div>
         <div style={css("margin-bottom:1.1rem")}>
-          <div style={css("font-size:var(--text-xl);font-weight:500;line-height:1.3")}>Your ideal lead</div>
+          <div style={css("font-size:var(--text-xl);font-weight:500;line-height:1.3")}>Your ideal fit</div>
           <div style={css("font-size:var(--text-xs);color:var(--fg-muted);line-height:1.5;margin-top:0.2rem")}>{d.personaSummary}</div>
         </div>
         <div style={css("display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border-soft);border:1px solid var(--border-soft);border-radius:12px;overflow:hidden")}>
@@ -144,7 +144,7 @@ export function DelivBody({ id, get }: { id: string; get: Get }) {
     const cap = "text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint);margin-bottom:0.5rem";
     return (
       <div>
-        <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint);margin-bottom:0.9rem")}>Opt-in page — your copy poured into the layout</div>
+        <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--fg-faint);margin-bottom:0.9rem")}>Landing page — your copy poured into the layout</div>
         <div style={css("border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface);width:100%")}>
           <div style={css("display:flex;align-items:center;justify-content:space-between;padding:0.7rem 1.1rem;border-bottom:1px solid var(--border-soft)")}><div style={css("width:4.5rem;height:0.85rem;background:var(--border);border-radius:4px")} /><span style={css("padding:0.3rem 0.75rem;background:var(--accent-soft);color:var(--accent);border-radius:6px;font-size:var(--text-2xs);font-weight:600;white-space:nowrap")}>{d.copyCta}</span></div>
           <div style={css("padding:1.7rem 1.4rem;text-align:center;background:var(--surface-alt)")}>
@@ -215,13 +215,13 @@ export function DelivBody({ id, get }: { id: string; get: Get }) {
   return (
     <div style={css("border:1px solid var(--border-soft);border-radius:12px;padding:1.5rem 1.7rem;background:var(--surface)")}>
       {row("Summary", <><b style={css("font-weight:500")}>Goal:</b> {d.fpGoal} <br /><b style={css("font-weight:500")}>Primary metric:</b> {d.flowGoal.toLowerCase()} from your funnel.</>)}
-      {row("1 · Funnel flow", <>{d.flowTraffic} → Opt-in landing → {d.flowAfter} → 3-email nurture → <b style={css("font-weight:500")}>{d.flowGoal}</b> <span style={css("color:var(--fg-muted)")}>→ upsell (OTO)</span></>)}
+      {row("1 · Funnel flow", <>{d.flowTraffic} → Landing → {d.flowAfter} → value nurture → <b style={css("font-weight:500")}>{d.flowGoal}</b> <span style={css("color:var(--fg-muted)")}>→ expansion</span></>)}
       {row("2 · Persona", <>{d.personaSummary}<br /><span style={css("color:var(--fg-muted)")}>Pains:</span> {d.personaPains} <span style={css("color:var(--fg-muted)")}>· Wants:</span> {d.personaDesires}</>)}
       {row("3 · Copy", <><b style={css("font-weight:500")}>“{d.copyHeadline}”</b><br />{d.copySubhead}<br /><span style={css("color:var(--fg-muted)")}>CTA:</span> {d.copyCta} <span style={css("color:var(--fg-muted)")}>· Proof:</span> {d.copyProof}</>)}
       {row("4 · Build", <><span style={css("color:var(--fg-muted)")}>Pages:</span> {d.devPages.map(p => p.name).join(" · ")}<br /><span style={css("color:var(--fg-muted)")}>Stack:</span> {d.devIntegrations}. {d.devTech}</>)}
       {row("5 · Timeline & budget", <>Design (wk 1) → Build (wk 2–3) → Launch (wk 4). <span style={css("color:var(--fg-muted)")}>Live:</span> {d.tlDeadline} <span style={css("color:var(--fg-muted)")}>· Budget:</span> {d.tlBudget}</>)}
       <div>
-        <div style={css(eyebrow)}>6 · Upsell — maximise order value</div>
+        <div style={css(eyebrow)}>6 · Expansion — grow the relationship</div>
         <div style={css("font-size:var(--text-xs);line-height:1.6")}>{d.fpUpsell}</div>
       </div>
     </div>

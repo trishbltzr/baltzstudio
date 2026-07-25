@@ -56,10 +56,10 @@ function parseUploadedLandingCopy(value: Ans[string]): UploadedLandingCopy | und
 const PAGE_ORDER = ["Opt-in / landing", "VSL page", "Sales page", "Application form", "Booking / calendar", "Checkout", "Order bump", "Upsell (OTO)", "Downsell", "Thank-you"];
 const PAGE_ICON: Record<string, string> = { "Opt-in / landing": "inbox", "VSL page": "eye", "Sales page": "file", "Application form": "checklist", "Booking / calendar": "history", "Checkout": "wallet", "Order bump": "plus", "Upsell (OTO)": "chart", "Downsell": "chev", "Thank-you": "check" };
 const PAGE_STAGE: Record<string, { label: string; title: string; tag: string }> = {
-  "Opt-in / landing": { label: "OPT-IN PAGE", title: "Capture the email", tag: "visitor → lead" },
-  "VSL page": { label: "VSL PAGE", title: "Show the pitch", tag: "watched" },
+  "Opt-in / landing": { label: "LANDING PAGE", title: "Deliver the value", tag: "visitor → audience" },
+  "VSL page": { label: "VSL PAGE", title: "Show it in action", tag: "watched" },
   "Sales page": { label: "SALES PAGE", title: "Make the offer", tag: "considering" },
-  "Application form": { label: "APPLICATION", title: "Qualify the lead", tag: "qualified" },
+  "Application form": { label: "APPLICATION", title: "Qualify the fit", tag: "qualified" },
   "Booking / calendar": { label: "BOOKING / CALL", title: "Show a booking calendar", tag: "high intent" },
   "Checkout": { label: "CHECKOUT", title: "Take the payment", tag: "purchased" },
   "Thank-you": { label: "THANK-YOU", title: "Confirm & deliver", tag: "converted" },
@@ -171,10 +171,10 @@ export function buildFunnelDocs(data: Ans): FunnelDocs {
   // funnel diagram rows
   const coreOrder = ["Opt-in / landing", "VSL page", "Sales page", "Application form", "Booking / calendar", "Checkout", "Thank-you"];
   let corePages = flowPages.filter(p => coreOrder.includes(p)); if (!corePages.length) corePages = ["Opt-in / landing"];
-  const trafficLabel = traffic.length ? traffic.slice(0, 2).join(", ") : "Meta ads, Email list";
+  const trafficLabel = traffic.length ? traffic.slice(0, 2).join(", ") : "LinkedIn, Newsletter";
   const awMap: Record<string, string> = { "Unaware": "cold audience", "Problem-aware": "cold audience", "Solution-aware": "warm audience", "Product-aware": "warm audience", "Most aware": "hot audience" };
   const funnel: { label: string; title: string; tag: string; goal?: boolean }[] = [{ label: "TRAFFIC", title: trafficLabel, tag: awMap[awareness] || "cold audience" }];
-  corePages.forEach(p => { const st = PAGE_STAGE[p]; if (st) { funnel.push({ label: st.label, title: st.title, tag: st.tag }); if (p === "Opt-in / landing" && hasEmail) funnel.push({ label: "LEAD MAGNET + NURTURE", title: "Deliver value, warm them up", tag: "subscribed" }); } });
+  corePages.forEach(p => { const st = PAGE_STAGE[p]; if (st) { funnel.push({ label: st.label, title: st.title, tag: st.tag }); if (p === "Opt-in / landing" && hasEmail) funnel.push({ label: "VALUE + NURTURE", title: "Keep delivering value", tag: "engaged" }); } });
   const goalTitle = (action && action.toLowerCase() !== "take the next step") ? cap(action) : "Booked strategy call";
   funnel.push({ label: "GOAL", title: goalTitle, tag: "", goal: true });
   const fnN = funnel.length;
