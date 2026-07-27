@@ -3,6 +3,7 @@ import {
   PORTAL_WORKSPACE_FALLBACK_CLIENT_ID,
   PORTAL_WORKSPACE_FALLBACK_RUN_ID,
   PORTAL_WORKSPACE_ROW_ID,
+  mergePersistedPortalWorkspaceStateForClient,
   normalizePersistedPortalWorkspaceState,
   projectPersistedPortalWorkspaceStateForClient,
   type PersistedPortalWorkspaceState,
@@ -11,6 +12,10 @@ import { resolvePortalRequestAccess, type PortalRequestAccess } from "@/lib/port
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabasePrivilegedServerClient } from "@/lib/supabase/privileged";
 import type { Json } from "@/lib/supabase/types";
+import {
+  CREATOR_IQ_CLIENT_ID,
+  refreshCreatorIqClientWorkspace,
+} from "@/lib/creatorIqClientWorkspace";
 
 function isMissingWorkspaceTable(error: { code?: string; message?: string } | null) {
   return error?.code === "42P01" || /portal_workspace_state/i.test(error?.message || "");
@@ -22,9 +27,21 @@ function workspaceResponse(
   storage: "portal_workspace_state" | "portal_audit_runs",
   access: PortalRequestAccess,
 ) {
-  const projectedState = state && access.role === "client"
-    ? projectPersistedPortalWorkspaceStateForClient(state, access.clientId, access.clientName ?? undefined)
+  const refreshedState = state
+    ? (() => {
+      const { creatoriq: _legacyCreatorIq, ...clientWorkspaces } = state.clientWorkspaces;
+      return {
+        ...state,
+        clientWorkspaces: {
+          ...clientWorkspaces,
+          [CREATOR_IQ_CLIENT_ID]: refreshCreatorIqClientWorkspace(state.clientWorkspaces[CREATOR_IQ_CLIENT_ID]),
+        },
+      };
+    })()
     : state;
+  const projectedState = refreshedState && access.role === "client"
+    ? projectPersistedPortalWorkspaceStateForClient(refreshedState, access.clientId, access.clientName ?? undefined)
+    : refreshedState;
   return NextResponse.json({
     state: projectedState,
     updatedAt,
@@ -142,4 +159,55 @@ export async function PUT(request: Request) {
   }
 
   return NextResponse.json({ ok: true, updatedAt, storage: "portal_audit_runs" });
+}
+
+export async function PATCH(request: Request) {
+  const authClient = await createSupabaseServerClient();
+  const access = await resolvePortalRequestAccess(request, authClient);
+  if (!access) return NextResponse.json({ error: "Sign in to update the portal workspace." }, { status: 401 });
+  if (access.role !== "client") {
+    return NextResponse.json({ error: "Staff accounts save the complete workspace snapshot." }, { status: 403 });
+  }
+
+  const body = await request.json().catch(() => null);
+  const incoming = normalizePersistedPortalWorkspaceState(body?.state ?? body);
+  if (!incoming) {
+    return NextResponse.json({ error: "Expected a valid client workspace update." }, { status: 400 });
+  }
+
+  const supabase = await createSupabasePrivilegedServerClient();
+  const { data, error: readError } = await supabase
+    .from("portal_workspace_state")
+    .select("state")
+    .eq("workspace_id", PORTAL_WORKSPACE_ROW_ID)
+    .maybeSingle();
+
+  if (readError) {
+    return NextResponse.json({ error: readError.message }, { status: 500 });
+  }
+  const current = normalizePersistedPortalWorkspaceState(data?.state);
+  if (!current) {
+    return NextResponse.json({ error: "The shared portal workspace is not initialized." }, { status: 409 });
+  }
+
+  const updatedAt = new Date().toISOString();
+  const nextState = mergePersistedPortalWorkspaceStateForClient(
+    current,
+    incoming,
+    access.clientId,
+    access.clientName ?? undefined,
+  );
+  const { error: writeError } = await supabase
+    .from("portal_workspace_state")
+    .upsert({
+      workspace_id: PORTAL_WORKSPACE_ROW_ID,
+      state: nextState as unknown as Json,
+      updated_at: updatedAt,
+    }, { onConflict: "workspace_id" });
+
+  if (writeError) {
+    return NextResponse.json({ error: writeError.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true, updatedAt, storage: "portal_workspace_state" });
 }

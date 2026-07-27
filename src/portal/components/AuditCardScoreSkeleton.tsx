@@ -45,6 +45,7 @@ export function AuditCardScoreSkeleton({
           score: 0,
           color: "var(--fg-faint)",
         }));
+  const hasProjectedChange = scored && summary.projected > summary.overall && summary.uplift > 0;
 
   if (!scored) {
     const parts = (unscoredDetail || "In progress").split(" · ");
@@ -82,10 +83,11 @@ export function AuditCardScoreSkeleton({
         <div style={css("min-width:0")}>
           <div style={css("display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap")}>
             <span className="pt-audit-score-number" style={css("font-weight:500;color:" + (scored || unscoredProgress ? "var(--fg)" : "var(--fg-faint)") + ";font-variant-numeric:tabular-nums")}>{scored ? summary.overall : unscoredProgress ? `${unscoredProgress}%` : "—"}</span>
-            <span style={css("display:inline-flex;align-items:center;gap:0.28rem;color:var(--fg-muted)")}>
-              {scored ? <><span className="pt-audit-score-arrow">↗</span><strong className="pt-audit-score-number" style={css("font-weight:500;color:var(--success);font-variant-numeric:tabular-nums")}>{summary.projected}</strong></> : <span style={css("font-size:var(--text-sm)")}>{unscoredDetail}</span>}
-            </span>
-            {scored && <span className="pt-score-info">
+            {hasProjectedChange && <span style={css("display:inline-flex;align-items:center;gap:0.28rem;color:var(--fg-muted)")}>
+              <span className="pt-audit-score-arrow">↗</span><strong className="pt-audit-score-number" style={css("font-weight:500;color:var(--success);font-variant-numeric:tabular-nums")}>{summary.projected}</strong>
+            </span>}
+            {!scored && <span style={css("font-size:var(--text-sm);color:var(--fg-muted)")}>{unscoredDetail}</span>}
+            {hasProjectedChange && <span className="pt-score-info">
               <button
                 type="button"
                 className="pt-score-info-button"
@@ -105,12 +107,12 @@ export function AuditCardScoreSkeleton({
             </span>}
           </div>
         </div>
-        <span style={css("font-size:var(--text-lg);font-weight:500;color:" + (scored || unscoredProgress ? "var(--success)" : "var(--fg-faint)") + ";line-height:1;white-space:nowrap")}>{scored ? `+${summary.uplift}` : unscoredStatus}</span>
+        {(hasProjectedChange || !scored) && <span style={css("font-size:var(--text-lg);font-weight:500;color:" + (scored || unscoredProgress ? "var(--success)" : "var(--fg-faint)") + ";line-height:1;white-space:nowrap")}>{scored ? `+${summary.uplift}` : unscoredStatus}</span>}
       </div>
       <div style={css("position:relative;height:0.38rem;border-radius:999px;background:oklch(0.92 0.006 50)")}>
         {scored && <div style={css("height:100%;width:" + Math.max(2, summary.overall) + "%;border-radius:999px;background:var(--success)")} />}
         {!scored && unscoredProgress > 0 && <div style={css("height:100%;width:" + unscoredProgress + "%;border-radius:999px;background:var(--success)")} />}
-        {scored && <span style={css("position:absolute;top:-0.16rem;bottom:-0.16rem;left:" + summary.projected + "%;width:2px;border-radius:999px;background:color-mix(in srgb,var(--fg-muted) 65%,transparent 35%)")} />}
+        {hasProjectedChange && <span style={css("position:absolute;top:-0.16rem;bottom:-0.16rem;left:" + summary.projected + "%;width:2px;border-radius:999px;background:color-mix(in srgb,var(--fg-muted) 65%,transparent 35%)")} />}
       </div>
       {showCategories && <div className="pt-audit-card-score-categories" style={css("border-top:1px solid var(--border-soft);padding-top:0.55rem")}>
         <CategoryBars compact cats={bars} empty={!scored} layout="grid" />

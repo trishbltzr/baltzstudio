@@ -9,7 +9,7 @@ import { syncPortalProcessRun } from "./portalProcessRuns";
 // Portal authorization and persisted work both use the stable client slug.
 export const CREATOR_IQ_CLIENT_ID = "creator-iq";
 export const CREATOR_IQ_CLIENT_NAME = "CreatorIQ";
-const UPDATED_AT = "2026-07-25T10:00:00.000Z";
+const UPDATED_AT = "2026-07-27T09:00:00.000Z";
 
 export const CREATOR_IQ_FUNNEL_DATA = {
   nickname: "Trish",
@@ -189,16 +189,16 @@ const websiteBuilderSession: GuidedAuditSession = {
 };
 
 const seoRows = [
-  ["https://www.creatoriq.com/", 200, "CreatorIQ | Creator Marketing Platform", "CreatorIQ helps enterprise teams scale creator marketing.", "Powering creator-led growth", 1240, 0, 218, "Organization, WebSite"],
-  ["https://www.creatoriq.com/platform", 200, "CreatorIQ Platform", "Discover the intelligence and workflows behind CreatorIQ.", "One platform for creator marketing", 980, 1, 94, "SoftwareApplication"],
-  ["https://www.creatoriq.com/solutions", 200, "CreatorIQ Solutions", "Explore creator marketing solutions for enterprise teams.", "Solutions for every creator program", 720, 1, 81, "ItemList"],
-  ["https://www.creatoriq.com/customers", 200, "CreatorIQ Customers", "See how leading brands scale creator marketing.", "Customer stories", 640, 1, 76, "CollectionPage"],
-  ["https://www.creatoriq.com/resources", 200, "Creator Marketing Resources", "Research, guides, and insights for creator marketing leaders.", "Creator marketing resources", 860, 1, 112, "CollectionPage"],
-  ["https://www.creatoriq.com/blog", 200, "CreatorIQ Blog", "The latest creator economy research and platform insights.", "Creator marketing insights", 540, 1, 148, "Blog"],
-  ["https://www.creatoriq.com/about", 200, "About CreatorIQ", "Learn about CreatorIQ and its mission.", "About CreatorIQ", 420, 1, 62, "Organization"],
-  ["https://www.creatoriq.com/book-demo", 200, "Request a CreatorIQ Demo", "See how CreatorIQ can support your creator program.", "Request a demo", 260, 1, 134, "WebPage"],
-  ["https://www.creatoriq.com/old-platform", 301, "", "", "", 0, 2, 12, ""],
-  ["https://www.creatoriq.com/resources/legacy-report", 404, "", "", "", 0, 3, 4, ""],
+  ["https://www.creatoriq.com/", 200, "CreatorIQ | Creator Marketing at Scale", "CreatorIQ powers the world’s leading brands with AI-driven intelligence and unified workflows to scale creator-led growth—safely, seamlessly, and at scale.", "The operating system for creator-led growth.", 1221, 0, 0, "VideoObject, MediaObject, Organization, ContactPoint"],
+  ["https://www.creatoriq.com/influencer-marketing-solution", 200, "CreatorIQ | All-in-One Influencer Marketing Platform", "Tap into the power of the creator economy and scale your influencer marketing programs with the most advanced proprietary insights in the industry, so you can turn your most loyal advocates into your most influential brand partners.", "Grow with Creators, Scale with CreatorIQ", 1035, 1, 0, "VideoObject, MediaObject"],
+  ["https://www.creatoriq.com/influencer-marketing-solution/creator-search", 200, "Discover & Evaluate Creators | CreatorIQ", "Find and secure the right creators to represent your brand with our expansive, data-driven database.", "Creator Discovery Discover the Next Big Thing", 861, 2, 0, "VideoObject, MediaObject"],
+  ["https://www.creatoriq.com/influencer-marketing-solution/influencer-campaign-management", 200, "Execute & Manage Activations | CreatorIQ", "Advance your influencer campaign approach with outcome-driven planning, forecasting, and measurement, all while maintaining control over every aspect.", "Campaign Management Made Simple", 809, 2, 0, "VideoObject, MediaObject"],
+  ["https://www.creatoriq.com/influencer-marketing-solution/influencer-reporting-and-insights", 200, "Report on Program Performance | CreatorIQ", "Gain a complete view of campaign performance and prove ROI of your influencer marketing efforts with realtime, automated performance data", "Measurement & Reporting Measure Creator Marketing ROI", 939, 2, 0, "VideoObject, MediaObject"],
+  ["https://www.creatoriq.com/brand-safety", 200, "CreatorIQ SafeIQ | Brand Safety", "SafeIQ is CreatorIQ’s AI-native brand safety and suitability solution, built to help businesses increase oversight, maximize rewards, and minimize risk in creator partnerships.", "SafeIQ AI Brand Safety Designed for Precision", 990, 1, 0, ""],
+  ["https://www.creatoriq.com/trust", 200, "Trust at CreatorIQ", "We empower over 1,200 global brands with the industry’s highest standards of security, privacy, reliability, and compliance, allowing you to build, grow, and scale your creator programs with confidence and peace of mind.", "", 1088, 1, 0, ""],
+  ["https://www.creatoriq.com/creator-marketing-services", 200, "Strategic Services | CreatorIQ", "Unlock the full potential of your creator marketing program with CreatorIQ’s Strategic Intelligence team.", "Professional Services", 732, 1, 0, ""],
+  ["https://www.creatoriq.com/about", 200, "About Us | CreatorIQ", "About CreatorIQ and our leadership team.", "About CreatorIQ", 546, 1, 0, ""],
+  ["https://www.creatoriq.com/book-demo", 200, "CreatorIQ | Request a Demo", "Request a demo of CreatorIQ, the leading influencer marketing software powering impactful creator campaigns for the most innovative and iconic brands.", "Request a demo", 675, 1, 0, ""],
 ].map(([url, statusCode, title, description, h1, words, depth, inlinks, schema]) => ({
   url, statusCode, contentType: "text/html", indexability: Number(statusCode) === 200 ? "Indexable" : "Non-Indexable", title, description, h1,
   canonical: String(url), depth, inlinks, words,
@@ -269,6 +269,16 @@ export function createCreatorIqClientWorkspace(): PortalClientWorkspace {
     updatedAt: UPDATED_AT,
     sourceHandoffId: websiteHandoff?.id,
   });
+  const seoAuditProcessRun = syncPortalProcessRun(undefined, {
+    processId: "seo-audit",
+    runId: "creator-iq-seo-checkup",
+    clientId: CREATOR_IQ_CLIENT_ID,
+    clientName: CREATOR_IQ_CLIENT_NAME,
+    currentStageId: "plan",
+    approvedStageIds: ["crawl", "audit", "search", "report", "plan"],
+    complete: true,
+    updatedAt: UPDATED_AT,
+  });
   return {
     auditTrail: [],
     approvals: [{
@@ -311,7 +321,7 @@ export function createCreatorIqClientWorkspace(): PortalClientWorkspace {
     engineWork: {
       websiteAudit: { status: "complete", progress: 100, updatedAt: UPDATED_AT, processRun: websiteAuditProcessRun, payload: { source: "captured-website-evidence" } },
       websiteBuilder: { status: "complete", progress: 100, updatedAt: UPDATED_AT, processRun: websiteBuilderProcessRun, payload: { session: { ...websiteBuilderSession, processRun: websiteBuilderProcessRun }, data: websiteBuilderSession.data, aiResults: websiteBuilderSession.aiResults } },
-      seoAudit: { status: "ready", progress: 88, updatedAt: UPDATED_AT, payload: { project: { rows: seoRows, sourceType: "Sitemap crawl", sourceName: "https://www.creatoriq.com/sitemap.xml", importedAt: UPDATED_AT, readiness: {} } } },
+      seoAudit: { status: "complete", progress: 100, updatedAt: UPDATED_AT, processRun: seoAuditProcessRun, payload: { project: { rows: seoRows, sourceType: "Sitemap crawl", sourceName: "https://www.creatoriq.com/sitemap.xml", importedAt: UPDATED_AT, readiness: {}, captureVersion: "creator-iq-public-2026-07-27" } } },
       socialBuilder: { status: "in_progress", progress: 75, updatedAt: UPDATED_AT, payload: { months: [{ id: "2026-07", monthKey: "2026-07", createdAt: UPDATED_AT, updatedAt: UPDATED_AT, project: { entered: true, sent: false, stage: "calendar", source: "brand", sourceText: "CreatorIQ verified brand system and enterprise platform narrative.", analyzed: true, voice: ["Authoritative", "Direct", "Premium", "Grounded"], pillars: ["Creator intelligence", "Campaign operations", "Measurement", "Brand safety"], channels: ["ig", "li"], weeks: 4, cadence: { ig: 1, tt: 0, li: 1, fb: 0, x: 0, pin: 0, yt: 0 }, posts: socialPosts, selectedPostId: socialPosts[0]?.id || null, savedAt: UPDATED_AT } }] } },
   },
   handoffs: websiteHandoff ? [websiteHandoff] : [],
@@ -339,5 +349,49 @@ export function createCreatorIqWebsiteAuditDraft(): PersistedAuditDraft {
     run: { id: "creator-iq-website-checkup", clientId: CREATOR_IQ_CLIENT_ID, clientName: CREATOR_IQ_CLIENT_NAME, owner: "Trish Baltazar", subtitle: "Cocoon Consult", runLabel: "Captured website audit", runType: "baseline", sequence: 1, statusLabel: "Report ready", statusTone: "success", stage: "Audit · Delivered", progress: 100, score: report.overallScore, internalScore: report.overallScore, targetScore: report.targetScore, due: "Jul 25", createdAt: capturedAt, completedAt: capturedAt, updatedAt: capturedAt },
     state: { clientId: CREATOR_IQ_CLIENT_ID, buildId: "creator-iq-website-checkup", idx: 0, answers: guidedSession.data, unsure: {}, confirmed: {}, signed: {}, notes: {}, genDone: { report: true, plan: true }, report, guidedSession },
     updatedAt: capturedAt,
+  };
+}
+
+function newerRecord<T extends { updatedAt: string }>(seed: T | null | undefined, existing: T | null | undefined) {
+  if (!seed) return existing ?? null;
+  if (!existing) return seed;
+  return Date.parse(existing.updatedAt || "") > Date.parse(seed.updatedAt || "") ? existing : seed;
+}
+
+export function refreshCreatorIqClientWorkspace(existing?: PortalClientWorkspace | null): PortalClientWorkspace {
+  const seed = createCreatorIqClientWorkspace();
+  if (!existing) return seed;
+  const approvals = [...new Map([...existing.approvals, ...seed.approvals].map(approval => [approval.id, approval])).values()];
+  const notes = [...new Map([...existing.notes, ...seed.notes].map(note => [note.id, note])).values()];
+  const handoffs = [...new Map([...existing.handoffs, ...seed.handoffs].map(handoff => [handoff.id, handoff])).values()];
+  const engineWork = { ...existing.engineWork };
+
+  (Object.entries(seed.engineWork) as Array<[keyof typeof seed.engineWork, NonNullable<(typeof seed.engineWork)[keyof typeof seed.engineWork]>]>)
+    .forEach(([key, record]) => {
+      const current = existing.engineWork[key];
+      const seedCaptureVersion = (record.payload as { project?: { captureVersion?: string } } | undefined)?.project?.captureVersion;
+      const currentCaptureVersion = (current?.payload as { project?: { captureVersion?: string } } | undefined)?.project?.captureVersion;
+      const selected = !current
+        || (!!seedCaptureVersion && seedCaptureVersion !== currentCaptureVersion)
+        || Date.parse(record.updatedAt) >= Date.parse(current.updatedAt || "")
+        ? record
+        : current;
+      engineWork[key] = selected.processRun?.status === "complete"
+        ? { ...selected, status: "complete", progress: 100 }
+        : selected;
+    });
+
+  return {
+    ...seed,
+    ...existing,
+    approvals,
+    notes,
+    handoffs,
+    brandSystem: newerRecord(seed.brandSystem, existing.brandSystem),
+    brandAudit: newerRecord(seed.brandAudit, existing.brandAudit),
+    auditExport: !existing.auditExport || (seed.auditExport && Date.parse(seed.auditExport.savedAt) >= Date.parse(existing.auditExport.savedAt || ""))
+      ? seed.auditExport
+      : existing.auditExport,
+    engineWork,
   };
 }

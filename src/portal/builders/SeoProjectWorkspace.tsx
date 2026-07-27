@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
-import type { StudioClient } from "../clients";
+import { UNASSIGNED_WORK_CLIENT, type StudioClient } from "../clients";
 import { GuidedIntakeSelector } from "../components/GuidedIntakeSelector";
 import { EngineIndexControls } from "../components/EngineIndexControls";
 import { EngineIndexOverview } from "../components/EngineIndexOverview";
@@ -10,7 +10,7 @@ import { css } from "../helpers";
 import { Icon } from "../icons";
 import { printReportNode } from "../printReport";
 import { AuditReportFooter } from "../components/AuditReportFooter";
-import { getProcessDefinition, processClientStages } from "../processDefinitions";
+import { processClientStages } from "../processDefinitions";
 import type { PortalActions, PortalState } from "../store";
 import type { TaskImportDraft } from "../types";
 import { CategoryBars, type CatBar } from "../components/AuditCharts";
@@ -19,7 +19,7 @@ import { GuidedLoadingState } from "../components/GuidedLoadingState";
 import { StartOverDialog } from "../components/StartOverDialog";
 import { syncPortalProcessRun } from "@/lib/portalProcessRuns";
 import { processStageAccess } from "../access";
-import { normalizePortalAuditExportProfile } from "@/lib/portalWorkspacePersistence";
+import { normalizePortalAuditExportProfile, portalWorkspaceClientRefs } from "@/lib/portalWorkspacePersistence";
 import { durableCheckupCard, useDurableCheckupRuns } from "../audits/durableCheckupRuns";
 import { usePortalStudioClients } from "../usePortalStudioClients";
 
@@ -128,21 +128,6 @@ const SECTIONS: Array<{ id: SeoSection; label: string; icon: string; group: stri
   { id: "architecture", label: "Proposed IA", icon: "layers", group: "PLAN" },
   { id: "roadmap", label: "Roadmap", icon: "timeline", group: "DELIVER" },
 ];
-
-const SEO_PROCESS = getProcessDefinition("seo-audit");
-const SEO_STAGE_SECTIONS: Record<string, SeoSection[]> = {
-  crawl: ["sources"],
-  audit: ["overview"],
-  search: ["keywords"],
-  report: ["audit-report"],
-  plan: ["metadata", "architecture", "roadmap"],
-};
-
-const AUDIT_STAGES: Array<{ id: string; label: string; sections: SeoSection[] }> = SEO_PROCESS.stages.map(stage => ({
-  id: stage.id,
-  label: stage.label,
-  sections: SEO_STAGE_SECTIONS[stage.id] || [],
-}));
 
 const CLIENT_SEO_STAGE_SECTIONS: Record<string, SeoSection[]> = {
   crawl: ["sources"],
@@ -549,8 +534,27 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
   const [resetClient, setResetClient] = useState<StudioClient | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const { clients: availableClients } = usePortalStudioClients();
+  const persistedClients = useMemo(() => {
+    const availableIds = new Set(availableClients.map(client => client.id));
+    return portalWorkspaceClientRefs(state.clientWorkspaces)
+      .filter(client => !availableIds.has(client.id) && !!state.clientWorkspaces[client.id]?.engineWork.seoAudit)
+      .map(client => ({
+        ...UNASSIGNED_WORK_CLIENT,
+        id: client.id,
+        name: client.name,
+        lead: {
+          ...UNASSIGNED_WORK_CLIENT.lead,
+          businessName: client.name,
+        },
+        audit: {
+          ...UNASSIGNED_WORK_CLIENT.audit,
+          id: `audit-${client.id}`,
+        },
+      }));
+  }, [availableClients, state.clientWorkspaces]);
+  const auditClients = useMemo(() => [...availableClients, ...persistedClients], [availableClients, persistedClients]);
   const durableSeoRuns = useDurableCheckupRuns("seo", state.role, state.clientName);
-  const workingClients = useMemo(() => clientsForEngineWork(state.role, availableClients), [availableClients, state.role]);
+  const workingClients = useMemo(() => clientsForEngineWork(state.role, auditClients), [auditClients, state.role]);
   const persistSeoProject = (clientId: string, project: SavedSeoProject) => {
     window.localStorage.setItem(`baltazar:seo-project:${clientId}`, JSON.stringify(project));
     actions.update(current => {
@@ -574,6 +578,66 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
         }),
       };
     });
+  };
+  const goToSection = (nextSection: SeoSection) => {
+    setActiveSection(nextSection);
+    if (!selectedClient) return;
+    const project = savedProjects[selectedClient.id]
+      || (state.clientWorkspaces[selectedClient.id]?.engineWork.seoAudit?.payload as { project?: SavedSeoProject } | undefined)?.project;
+    if (!project?.rows.length) return;
+    const stage = CLIENT_AUDIT_STAGES.find(item => item.sections.includes(nextSection)) || CLIENT_AUDIT_STAGES[0];
+    const stageIndex = Math.max(0, CLIENT_AUDIT_STAGES.findIndex(item => item.id === stage.id));
+    actions.update(current => {
+      const existing = current.clientWorkspaces[selectedClient.id]?.engineWork.seoAudit;
+      return {
+        clientWorkspaces: saveEngineWork(current.clientWorkspaces, selectedClient.id, "seoAudit", {
+          ...existing,
+          status: stage.id === "plan" ? "in_progress" : "ready",
+          progress: stage.id === "crawl" ? 33 : stage.id === "report" ? 67 : 92,
+          updatedAt: new Date().toISOString(),
+          processRun: syncPortalProcessRun(existing?.processRun, {
+            processId: "seo-audit",
+            runId: existing?.processRun?.id || `seo-audit-${selectedClient.id}`,
+            clientId: selectedClient.id,
+            clientName: selectedClient.name,
+            currentStageId: stage.id,
+            approvedStageIds: CLIENT_AUDIT_STAGES.slice(0, stageIndex).map(item => item.id),
+            updatedAt: new Date().toISOString(),
+          }),
+          payload: { project },
+        }),
+      };
+    });
+  };
+  const completeSeoAudit = () => {
+    if (!selectedClient) return;
+    const project = savedProjects[selectedClient.id]
+      || (state.clientWorkspaces[selectedClient.id]?.engineWork.seoAudit?.payload as { project?: SavedSeoProject } | undefined)?.project;
+    if (!project?.rows.length) return;
+    const updatedAt = new Date().toISOString();
+    actions.update(current => {
+      const existing = current.clientWorkspaces[selectedClient.id]?.engineWork.seoAudit;
+      return {
+        clientWorkspaces: saveEngineWork(current.clientWorkspaces, selectedClient.id, "seoAudit", {
+          ...existing,
+          status: "complete",
+          progress: 100,
+          updatedAt,
+          processRun: syncPortalProcessRun(existing?.processRun, {
+            processId: "seo-audit",
+            runId: existing?.processRun?.id || `seo-audit-${selectedClient.id}`,
+            clientId: selectedClient.id,
+            clientName: selectedClient.name,
+            currentStageId: "plan",
+            approvedStageIds: CLIENT_AUDIT_STAGES.map(item => item.id),
+            complete: true,
+            updatedAt,
+          }),
+          payload: { project },
+        }),
+      };
+    });
+    actions.showToast(`${selectedClient.name} SEO checkup marked complete`);
   };
 
   useEffect(() => {
@@ -748,22 +812,25 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
     const target = startClientForEngine(state.role, availableClients);
     if (target) openClient(target);
   };
-  const stages = state.role === "client" ? CLIENT_AUDIT_STAGES : AUDIT_STAGES;
-  const createdCount = availableClients.filter(client => savedProjects[client.id]?.rows?.length).length;
-  const cards = useMemo(() => availableClients.filter(client => savedProjects[client.id]?.rows?.length).map(client => {
+  // Keep the same client-facing three-stage journey used by Brand and Website.
+  // The SEO-specific evidence views remain available as tabs inside each stage.
+  const stages = CLIENT_AUDIT_STAGES;
+  const createdCount = workingClients.filter(client => savedProjects[client.id]?.rows?.length).length;
+  const cards = useMemo(() => workingClients.filter(client => savedProjects[client.id]?.rows?.length).map(client => {
     const project = savedProjects[client.id];
     const projectRows = project?.rows || [];
     const cardStats = seoStatsFor(projectRows);
     const scored = projectRows.length > 0;
+    const complete = state.clientWorkspaces[client.id]?.engineWork.seoAudit?.status === "complete";
     const cardScore = seoAuditCardScore(cardStats, projectRows);
     return {
       id: `seo-${client.id}`,
       name: client.name,
       subtitle: "",
-      statusLabel: scored ? "Crawl ready" : "Not started",
+      statusLabel: complete ? "Completed" : scored ? "In review" : "Not started",
       statusTone: scored ? "success" as const : "muted" as const,
-      stage: scored ? "Audit findings" : "Crawl & inventory",
-      progress: scored ? 67 : 0,
+      stage: complete ? "Action plan ready" : scored ? "Audit report" : "Audit intake",
+      progress: complete ? 100 : scored ? 67 : 0,
       owner: client.owner,
       due: scored ? "Updated " + new Date(project.importedAt).toLocaleDateString() : "—",
       headerAction: scored ? { label: `Refresh SEO crawl for ${client.name}`, icon: "replay", onClick: () => openClient(client) } : undefined,
@@ -780,7 +847,7 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
       secondaryIcon: "replay",
       onSecondary: () => setResetClient(client),
     };
-  }), [availableClients, savedProjects]);
+  }), [savedProjects, state.clientWorkspaces, workingClients]);
   const durableSeoNames = new Set(durableSeoRuns.map(run => run.clientName.trim().toLowerCase()));
   const visibleCards = [
     ...cards.filter(card => !durableSeoNames.has(card.name.trim().toLowerCase())),
@@ -819,7 +886,12 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
 
   const activeStage = stages.find(stage => stage.sections.includes(activeSection)) || stages[0];
   const activeStageIndex = stages.findIndex(stage => stage.id === activeStage.id);
-  const completedStages = !rows.length ? 0 : Math.min(stages.length, Math.max(2, activeStageIndex + 1));
+  const seoWork = state.clientWorkspaces[selectedClient.id]?.engineWork.seoAudit;
+  const completedStages = seoWork?.status === "complete"
+    ? stages.length
+    : !rows.length
+      ? 0
+      : Math.max(1, activeStageIndex);
   const clientReport = state.role === "client";
   const approvedStageIds = state.clientWorkspaces[selectedClient.id]?.engineWork.seoAudit?.processRun?.stages.filter(stage => stage.status === "complete").map(stage => stage.stageId) || [];
   const activeAccess = processStageAccess(state, "seo-audit", activeStage.id, approvedStageIds.includes(activeStage.id));
@@ -837,7 +909,7 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
             const active = activeStage.id === stage.id;
             const stageAccess = processStageAccess(state, "seo-audit", stage.id, approvedStageIds.includes(stage.id));
             const disabled = (!rows.length && stage.id !== "crawl") || stageAccess === "locked" || stageAccess === "hidden";
-            const done = rows.length > 0 && index < activeStageIndex;
+            const done = rows.length > 0 && index < completedStages;
             const dot = done || active
               ? "background:var(--success);border:1.5px solid var(--success);color:#fff"
               : disabled
@@ -845,7 +917,7 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
                 : "background:var(--surface);border:1.5px solid var(--border);color:var(--fg-muted)";
             const stageLabel = stageAccess === "hidden" ? "Studio review" : stage.label;
             const destination = clientReport && stage.id === "report" ? "audit-report" : stage.sections[0];
-            return <button key={stage.id} type="button" disabled={disabled} onClick={() => setActiveSection(destination)} style={css("width:calc(100% - 1rem);margin:0 .5rem;display:flex;align-items:center;gap:.65rem;min-height:2.35rem;padding:.3rem .6rem;border:none;border-radius:999px;text-align:left;cursor:" + (disabled ? "default" : "pointer") + ";background:" + (active ? "color-mix(in srgb,var(--success) 9%,white 91%)" : "transparent") + ";opacity:" + (disabled ? ".58" : "1"))}><span style={css("width:1.2rem;height:1.2rem;border-radius:50%;display:grid;place-items:center;flex-shrink:0;font-size:var(--text-2xs);font-weight:500;" + dot)}>{done ? <Icon name="checkmark" size={9}/> : index + 1}</span><span style={css("min-width:0;font-size:var(--text-base);font-weight:" + (active || done ? "500" : "400") + ";color:" + (active ? "var(--success)" : disabled ? "var(--fg-muted)" : "var(--fg)") + ";white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2")}>{stageLabel}</span></button>;
+            return <button key={stage.id} type="button" disabled={disabled} onClick={() => goToSection(destination)} style={css("width:calc(100% - 1rem);margin:0 .5rem;display:flex;align-items:center;gap:.65rem;min-height:2.35rem;padding:.3rem .6rem;border:none;border-radius:999px;text-align:left;cursor:" + (disabled ? "default" : "pointer") + ";background:" + (active ? "color-mix(in srgb,var(--success) 9%,white 91%)" : "transparent") + ";opacity:" + (disabled ? ".58" : "1"))}><span style={css("width:1.2rem;height:1.2rem;border-radius:50%;display:grid;place-items:center;flex-shrink:0;font-size:var(--text-2xs);font-weight:500;" + dot)}>{done ? <Icon name="checkmark" size={9}/> : index + 1}</span><span style={css("min-width:0;font-size:var(--text-base);font-weight:" + (active || done ? "500" : "400") + ";color:" + (active ? "var(--success)" : disabled ? "var(--fg-muted)" : "var(--fg)") + ";white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2")}>{stageLabel}</span></button>;
           })}
         </nav>
         <div style={css("padding:.75rem 1rem .85rem;border-top:1px solid var(--border-soft)") }><div style={css("display:flex;align-items:center;justify-content:space-between;gap:.65rem;margin-bottom:.5rem") }><span style={css("font-size:var(--text-xs);font-weight:500;color:" + (completedStages ? "var(--success)" : "var(--fg-muted)"))}>{completedStages} of {stages.length} ready</span><span style={css("font-size:var(--text-2xs);color:var(--fg-faint)")}>{Math.round(completedStages / stages.length * 100)}%</span></div><div style={css("height:4px;border-radius:999px;background:var(--bg);overflow:hidden") }><div style={css("height:100%;border-radius:999px;background:var(--success);width:" + Math.max(completedStages / stages.length * 100, 2) + "%")}/></div></div>
@@ -854,14 +926,17 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
       <main style={css("min-width:0;flex:1;display:flex;flex-direction:column;gap:.85rem") }>
         <WorkspaceHeader section={displaySection} client={selectedClient} mobile={state.isMobile} />
         {restrictedStage ? <Panel style="padding:1.2rem"><div role="note" style={css("display:flex;flex-direction:column;align-items:flex-start;gap:.65rem") }><span style={css("width:2.2rem;height:2.2rem;border-radius:.75rem;background:var(--surface-alt);color:var(--fg-muted);display:grid;place-items:center") }><Icon name="lock" size={15}/></span><div><h2 style={css("margin:0;font-size:var(--text-lg);font-weight:500")}>This stage is handled by the studio</h2><p style={css("margin:.3rem 0 0;max-width:32rem;font-size:var(--text-2xs);line-height:1.5;color:var(--fg-muted)")}>You will see the reviewed output here after it is approved. Feedback and approval requests stay in Approvals.</p></div><button type="button" onClick={() => actions.setView("review")} className="pt-softbtn" style={css("min-height:2.2rem;padding:0 .85rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg);font-size:var(--text-2xs);font-weight:500;cursor:pointer")}>Open Approvals</button></div></Panel> : <>
-        {activeStageSections.length > 1 && <div role="tablist" aria-label={`${activeStage.label} views`} style={css("display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;padding:.35rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill);background:var(--surface);align-self:flex-start") }>{activeStageSections.map(sectionId => { const section = SECTIONS.find(item => item.id === sectionId)!; const selected = activeSection === sectionId; return <button key={sectionId} type="button" role="tab" aria-selected={selected} onClick={() => setActiveSection(sectionId)} style={css("height:1.9rem;padding:0 .72rem;border:none;border-radius:999px;background:" + (selected ? "var(--accent-soft)" : "transparent") + ";color:" + (selected ? "var(--accent)" : "var(--fg-muted)") + ";font-size:var(--text-2xs);font-weight:" + (selected ? "500" : "400") + ";cursor:pointer;display:inline-flex;align-items:center;gap:.35rem") }><Icon name={section.icon} size={12}/>{section.label}</button>; })}</div>}
-        {(displaySection === "sources" || displaySection === "inventory") && (processingType ? <Panel style="padding:2.4rem 1.5rem"><GuidedLoadingState accent="var(--accent)" heading={processingType === "Sitemap crawl" ? "Crawling the site" : "Reading the SEO crawl"} description="Building the findings and action plan." steps={SEO_ANALYSIS_STEPS} tick={processingTick} finalMessages={SEO_ANALYSIS_FINAL_MESSAGES} estimatedDuration="About 1–2 minutes"/></Panel> : <div style={css("display:flex;flex-direction:column;gap:.85rem") }><SourcesView sourceType={sourceType} sourceName={sourceName} rows={rows} importedAt={importedAt} dragging={dragging} sitemapUrl={sitemapUrl} sitemapError={sitemapError} sitemapLoading={sitemapLoading} onSitemapUrl={value => { setSitemapUrl(value); setSitemapError(""); }} onSitemap={() => void crawlSitemap()} onSource={value => { setSourceType(value); setSitemapError(""); }} onBrowse={() => fileInput.current?.click()} onDrop={event => { event.preventDefault(); setDragging(false); void importFile(event.dataTransfer.files[0]); }} onDrag={setDragging} onContinue={() => setActiveSection("overview")} /><InventoryView rows={filteredRows} allRows={rows} query={query} onQuery={setQuery} /></div>)}
-        {displaySection === "overview" && <OverviewView rows={rows} stats={stats} onGo={setActiveSection} mobile={state.isMobile} readiness={readiness} ai={readinessAiMap} />}
-        {displaySection === "audit-report" && <AuditReportView client={selectedClient} rows={rows} stats={stats} clientView={clientReport} mobile={state.isMobile} state={state} actions={actions} onContinue={() => actions.showToast(`SEO plan ready to share with ${selectedClient.name}`)}/>}
+        {activeStageSections.length > 1 && <div role="tablist" aria-label={`${activeStage.label} views`} style={css("display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;padding:.35rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill);background:var(--surface);align-self:flex-start") }>{activeStageSections.map(sectionId => { const section = SECTIONS.find(item => item.id === sectionId)!; const selected = activeSection === sectionId; return <button key={sectionId} type="button" role="tab" aria-selected={selected} onClick={() => goToSection(sectionId)} style={css("height:1.9rem;padding:0 .72rem;border:none;border-radius:999px;background:" + (selected ? "var(--accent-soft)" : "transparent") + ";color:" + (selected ? "var(--accent)" : "var(--fg-muted)") + ";font-size:var(--text-2xs);font-weight:" + (selected ? "500" : "400") + ";cursor:pointer;display:inline-flex;align-items:center;gap:.35rem") }><Icon name={section.icon} size={12}/>{section.label}</button>; })}</div>}
+        {(displaySection === "sources" || displaySection === "inventory") && (processingType ? <Panel style="padding:2.4rem 1.5rem"><GuidedLoadingState accent="var(--accent)" heading={processingType === "Sitemap crawl" ? "Crawling the site" : "Reading the SEO crawl"} description="Building the findings and action plan." steps={SEO_ANALYSIS_STEPS} tick={processingTick} finalMessages={SEO_ANALYSIS_FINAL_MESSAGES} estimatedDuration="About 1–2 minutes"/></Panel> : <div style={css("display:flex;flex-direction:column;gap:.85rem") }><SourcesView sourceType={sourceType} sourceName={sourceName} rows={rows} importedAt={importedAt} dragging={dragging} sitemapUrl={sitemapUrl} sitemapError={sitemapError} sitemapLoading={sitemapLoading} onSitemapUrl={value => { setSitemapUrl(value); setSitemapError(""); }} onSitemap={() => void crawlSitemap()} onSource={value => { setSourceType(value); setSitemapError(""); }} onBrowse={() => fileInput.current?.click()} onDrop={event => { event.preventDefault(); setDragging(false); void importFile(event.dataTransfer.files[0]); }} onDrag={setDragging} onContinue={() => goToSection("overview")} /><InventoryView rows={filteredRows} allRows={rows} query={query} onQuery={setQuery} /></div>)}
+        {displaySection === "overview" && <OverviewView rows={rows} stats={stats} onGo={goToSection} mobile={state.isMobile} readiness={readiness} ai={readinessAiMap} />}
+        {displaySection === "audit-report" && <AuditReportView client={selectedClient} rows={rows} stats={stats} clientView={clientReport} mobile={state.isMobile} state={state} actions={actions} onContinue={() => {
+          goToSection("roadmap");
+          actions.showToast(`SEO action plan ready for ${selectedClient.name}`);
+        }}/>}
         {displaySection === "keywords" && <KeywordPagePlanView rows={rows} mobile={state.isMobile} />}
         {displaySection === "metadata" && <MetadataView rows={rows} />}
         {displaySection === "architecture" && <ArchitectureView rows={rows} />}
-        {displaySection === "roadmap" && <RoadmapView actions={actions} client={selectedClient} rows={rows} mobile={state.isMobile} />}
+        {displaySection === "roadmap" && <RoadmapView actions={actions} client={selectedClient} rows={rows} mobile={state.isMobile} complete={seoWork?.status === "complete"} onComplete={completeSeoAudit} />}
         </>}
       </main>
     </div>
@@ -1400,7 +1475,7 @@ function RoadmapSummaryView({ mobile = false }: { mobile?: boolean }) {
   </Panel>)}</div>;
 }
 
-function RoadmapView({ actions, client, rows = [], mobile = false }: { actions: PortalActions; client: StudioClient; rows?: CrawlRow[]; mobile?: boolean }) {
+function RoadmapView({ actions, client, rows = [], mobile = false, complete = false, onComplete }: { actions: PortalActions; client: StudioClient; rows?: CrawlRow[]; mobile?: boolean; complete?: boolean; onComplete: () => void }) {
   const pageActions = rows.map(row => ({ row, decision: pageDecisionFor(row) })).filter(item => item.decision.action !== "Keep");
   const keywords = keywordPlanFor(rows);
   const pageMap = pageMapFor(rows);
@@ -1450,7 +1525,7 @@ function RoadmapView({ actions, client, rows = [], mobile = false }: { actions: 
     </Panel>
     <RoadmapSummaryView mobile={mobile}/>
     <Panel style="overflow:hidden"><div style={css("padding:.9rem 1rem;border-bottom:1px solid var(--border-soft);display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;flex-wrap:wrap") }><SectionTitle title="Complete SEO plan register" sub="Every proposed action is listed with its page, phase, owner, and status."/><Pill tone="accent">{planItems.length} items</Pill></div><DataTable headers={["Workstream", "Planned action", "Page / scope", "Phase", "Owner", "Status"]} rows={planItems.map(item => [item.workstream, item.item, item.page, <Pill key="phase" tone={item.phase === "Now" ? "danger" : item.phase === "Next" ? "warn" : "success"}>{item.phase}</Pill>, item.owner, item.status])}/></Panel>
-    <Panel style="padding:.9rem"><div style={css("display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap") }><div><h3 style={css("margin:0;font-size:var(--text-sm);font-weight:500")}>Ready to turn the complete plan into delivery?</h3><p style={css("margin:.25rem 0 0;font-size:var(--text-2xs);color:var(--fg-faint)")}>Create all {planItems.length} listed actions in the studio to-do board.</p></div><button type="button" onClick={() => actions.bulkImportTasks(taskDrafts)} style={css("height:2.2rem;padding:0 .85rem;border:none;border-radius:999px;background:var(--accent);color:#fff;font-size:var(--text-2xs);font-weight:500;cursor:pointer")}>Create all delivery tasks</button></div></Panel>
+    <Panel style="padding:.9rem"><div style={css("display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap") }><div><h3 style={css("margin:0;font-size:var(--text-sm);font-weight:500")}>{complete ? "SEO checkup complete" : "Ready to turn the complete plan into delivery?"}</h3><p style={css("margin:.25rem 0 0;font-size:var(--text-2xs);color:var(--fg-faint)")}>{complete ? "The reviewed report and action plan are ready for handoff." : `Create all ${planItems.length} listed actions in the studio to-do board.`}</p></div><div style={css("display:flex;align-items:center;gap:.45rem;flex-wrap:wrap") }><button type="button" onClick={() => actions.bulkImportTasks(taskDrafts)} className="pt-softbtn" style={css("height:2.2rem;padding:0 .85rem;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--fg);font-size:var(--text-2xs);font-weight:500;cursor:pointer")}>Create delivery tasks</button><button type="button" disabled={complete} onClick={onComplete} style={css("height:2.2rem;padding:0 .85rem;border:none;border-radius:999px;background:" + (complete ? "var(--success-soft)" : "var(--accent)") + ";color:" + (complete ? "var(--success)" : "#fff") + ";font-size:var(--text-2xs);font-weight:500;cursor:" + (complete ? "default" : "pointer"))}>{complete ? "Complete" : "Mark checkup complete"}</button></div></div></Panel>
   </div>;
 }
 

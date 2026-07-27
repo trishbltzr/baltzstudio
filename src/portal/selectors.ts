@@ -2,7 +2,7 @@
 import { ALL_PROJECTS, MY_CLIENTS } from "./data";
 import { clientsVisibleToRole } from "./clients";
 import { clientJourneyMessaging, journeyStageSummary } from "./helpers";
-import { mergePortalClientWorkspace, type PortalApprovalRecord, type PortalClientWorkspace, type PortalEngineWorkKey, type PortalEngineWorkRecord } from "../lib/portalWorkspacePersistence";
+import { mergePortalClientWorkspace, portalWorkspaceClientRefs, resolvePortalClientId, type PortalApprovalRecord, type PortalClientWorkspace, type PortalEngineWorkKey, type PortalEngineWorkRecord, type PortalWorkspaceClientRef } from "../lib/portalWorkspacePersistence";
 import { syncPortalProcessRun, type PortalProcessRun } from "../lib/portalProcessRuns";
 import { portalProcessReadiness } from "../lib/portalProcessTransitions";
 import { clientHasEngineAccess, type PortalAccessState } from "./access";
@@ -45,6 +45,25 @@ export interface ProcessTrackerItem {
   dueLabel: string;
   target: View;
   updatedAt: string;
+}
+
+function visibleWorkspaceClients(
+  state: Pick<PortalState, "role" | "clientName" | "clientWorkspaces">,
+): PortalWorkspaceClientRef[] {
+  const clients = [...new Map(
+    portalWorkspaceClientRefs(state.clientWorkspaces).map(client => {
+      const resolvedId = resolvePortalClientId(client.name, state.clientWorkspaces);
+      return [resolvedId, { id: resolvedId, name: client.name }] as const;
+    }),
+  ).values()];
+  if (state.role === "client") {
+    return clients.filter(client => client.name === state.clientName);
+  }
+  if (state.role === "dev") {
+    const assignedStaticIds = new Set(clientsVisibleToRole("dev", state.clientName).map(client => client.id));
+    return clients.filter(client => assignedStaticIds.has(client.id) || !!state.clientWorkspaces[client.id]);
+  }
+  return clients;
 }
 
 const PROCESS_OWNER_LABEL: Record<ProcessOwner, string> = {
@@ -153,7 +172,7 @@ function processTarget(processId: ProcessId, role: PortalState["role"]): View {
 }
 
 export function processTrackerItems(state: Pick<PortalState, "role" | "clientName" | "clientWorkspaces" | "projectOverrides">): ProcessTrackerItem[] {
-  const visibleClients = clientsVisibleToRole(state.role, state.clientName);
+  const visibleClients = visibleWorkspaceClients(state);
   const items = visibleClients.flatMap(client => {
     const workspace = mergePortalClientWorkspace(client.id, state.clientWorkspaces[client.id]);
     const canUseLiveLabs = clientHasEngineAccess(state as PortalAccessState, "labs");
@@ -241,14 +260,14 @@ export function inboxUnread(state: InboxUnreadState): number {
   return state.threads.filter(t => (state.role === "admin" || MY_CLIENTS.includes(t.clientName)) && t.unread).length;
 }
 
-export type ApprovalScopeState = Pick<PortalState, "role" | "clientName">;
+export type ApprovalScopeState = Pick<PortalState, "role" | "clientName" | "clientWorkspaces">;
 
 export function pendingApprovalsForRole(
   state: ApprovalScopeState,
   workspaceForClient: (clientName: string) => PortalClientWorkspace,
 ): PortalApprovalRecord[] {
   if (state.role === "client") return [];
-  return clientsVisibleToRole(state.role, state.clientName)
+  return visibleWorkspaceClients(state)
     .flatMap(client => workspaceForClient(client.name).approvals)
     .filter(approval => !approval.sent);
 }
@@ -273,7 +292,7 @@ export function studioReviewQueueItems(
   workspaceForClient: (clientName: string) => PortalClientWorkspace,
 ): StudioReviewQueueItem[] {
   if (state.role === "client") return [];
-  const visibleClients = clientsVisibleToRole(state.role, state.clientName);
+  const visibleClients = visibleWorkspaceClients(state);
   const visibleNames = new Set(visibleClients.map(client => client.name));
   const items: StudioReviewQueueItem[] = [];
 

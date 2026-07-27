@@ -18,13 +18,16 @@ import {
   applyPortalServiceLifecyclePolicy,
   emptyPortalClientWorkspace,
   emptyPortalServiceLifecycle,
+  mergePersistedPortalWorkspaceStateForClient,
   mergePortalClientWorkspace,
   normalizePortalNotificationPreferences,
   normalizePortalServiceLifecycle,
   appendPortalClientAuditRecord,
   portalClientId,
+  portalWorkspaceClientRefs,
   portalAuditExportModeAllowed,
   projectPersistedPortalWorkspaceStateForClient,
+  resolvePortalClientId,
   validatePortalServiceLifecycleUpdate,
   type PersistedPortalWorkspaceState,
 } from "../src/lib/portalWorkspacePersistence";
@@ -439,6 +442,79 @@ assert.equal(projectedClientWorkspace.serviceLifecycle.cocoonPackageLabel, "Coco
 assert.equal(projectedClientWorkspace.serviceLifecycle.wiawPaymentState, "not_required");
 assert.deepEqual(projectedClientWorkspace.serviceEvents.map(event => event.id), ["safe-event"]);
 assert.equal(projectedClientWorkspace.serviceEvents[0]?.assignee, undefined);
+const creatorIqWorkspace = {
+  ...emptyPortalClientWorkspace("creator-iq"),
+  approvals: [{
+    id: "creator-iq-review",
+    clientId: "creator-iq",
+    clientName: "CreatorIQ",
+    title: "CreatorIQ audit review",
+    thumb: "CIQ",
+    sent: false,
+  }],
+};
+assert.equal(
+  portalWorkspaceClientRefs({ "creator-iq": creatorIqWorkspace }).find(client => client.id === "creator-iq")?.name,
+  "CreatorIQ",
+);
+assert.equal(resolvePortalClientId("CreatorIQ", { "creator-iq": creatorIqWorkspace }), "creator-iq");
+assert.equal(resolvePortalClientId("CreatorIQ", {
+  creatoriq: emptyPortalClientWorkspace("creatoriq"),
+  "creator-iq": creatorIqWorkspace,
+}), "creator-iq");
+const creatorIqAliasState = {
+  ...fullWorkspaceState,
+  clientWorkspaces: {
+    creatoriq: emptyPortalClientWorkspace("creatoriq"),
+    "creator-iq": creatorIqWorkspace,
+  },
+};
+const projectedCreatorIq = projectPersistedPortalWorkspaceStateForClient(
+  creatorIqAliasState,
+  "creatoriq",
+  "CreatorIQ",
+);
+assert.deepEqual(Object.keys(projectedCreatorIq.clientWorkspaces), ["creator-iq"]);
+
+const clientUpdate = {
+  ...projectedWorkspace,
+  tasks: [{ id: "blue-task", project: "Blue Ribbon", status: "done" }],
+  clientWorkspaces: {
+    "blue-ribbon": {
+      ...projectedClientWorkspace,
+      approvals: [],
+      engineWork: {
+        ...projectedClientWorkspace.engineWork,
+        websiteAudit: {
+          status: "complete" as const,
+          progress: 100,
+          updatedAt: "2026-07-27T08:00:00.000Z",
+        },
+      },
+    },
+  },
+};
+const mergedClientUpdate = mergePersistedPortalWorkspaceStateForClient(
+  fullWorkspaceState,
+  clientUpdate,
+  "blue-ribbon",
+  "Blue Ribbon",
+);
+assert.equal(mergedClientUpdate.clientWorkspaces["blue-ribbon"].engineWork.websiteAudit?.progress, 100);
+assert.deepEqual(
+  mergedClientUpdate.clientWorkspaces["blue-ribbon"].approvals.map(approval => approval.id),
+  privateWorkspace.approvals.map(approval => approval.id),
+  "client updates must not replace studio approvals",
+);
+assert.deepEqual(
+  (mergedClientUpdate.tasks as Array<{ id: string; status?: string }>).find(task => task.id === "blue-task")?.status,
+  "done",
+);
+assert.equal(
+  (mergedClientUpdate.tasks as Array<{ id: string }>).some(task => task.id === "other-task"),
+  true,
+  "client updates must retain other clients' records",
+);
 const sentPaymentProjection = projectPersistedPortalWorkspaceStateForClient({
   ...fullWorkspaceState,
   clientWorkspaces: {

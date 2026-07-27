@@ -391,7 +391,11 @@ export type PersistedPortalWorkspaceState = {
 };
 
 export const DEFAULT_PORTAL_APPROVALS: PortalApprovalRecord[] = [];
-const RETIRED_SEEDED_APPROVAL_IDS = new Set(["seed-blue-ribbon-seo-report", "seed-nature-brand-kit"]);
+const RETIRED_SEEDED_APPROVAL_IDS = new Set([
+  "seed-blue-ribbon-seo-report",
+  "seed-nature-brand-kit",
+  "creator-iq-demo-approval",
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -660,6 +664,75 @@ export function portalClientId(name: string) {
   return studioClient?.id || slugify(name) || "client";
 }
 
+export type PortalWorkspaceClientRef = {
+  id: string;
+  name: string;
+};
+
+function workspaceClientName(clientId: string, workspace: PortalClientWorkspace): string {
+  const staticClient = STUDIO_CLIENTS.find(client => client.id === clientId);
+  if (staticClient) return staticClient.name;
+
+  const approvalName = workspace.approvals.find(approval => approval.clientName.trim())?.clientName;
+  if (approvalName) return approvalName;
+
+  const funnelName = workspace.funnelPlans.find(plan => plan.clientName.trim())?.clientName;
+  if (funnelName) return funnelName;
+
+  const brandName = workspace.brandAudit?.session?.data?.name;
+  if (typeof brandName === "string" && brandName.trim()) return brandName.trim();
+
+  const processName = Object.values(workspace.engineWork)
+    .map(record => record?.processRun?.clientName)
+    .find((name): name is string => typeof name === "string" && !!name.trim());
+  if (processName) return processName.trim();
+
+  return clientId
+    .split("-")
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+export function portalWorkspaceClientRefs(
+  clientWorkspaces: Record<string, PortalClientWorkspace>,
+): PortalWorkspaceClientRef[] {
+  const byId = new Map<string, PortalWorkspaceClientRef>(
+    STUDIO_CLIENTS.map(client => [client.id, { id: client.id, name: client.name }]),
+  );
+  Object.entries(clientWorkspaces).forEach(([clientId, workspace]) => {
+    byId.set(clientId, { id: clientId, name: workspaceClientName(clientId, workspace) });
+  });
+  return [...byId.values()];
+}
+
+export function resolvePortalClientId(
+  clientName: string,
+  clientWorkspaces: Record<string, PortalClientWorkspace>,
+) {
+  const directId = portalClientId(clientName);
+  const trimmedName = clientName.trim();
+  const normalizedName = trimmedName.toLocaleLowerCase();
+  const matches = portalWorkspaceClientRefs(clientWorkspaces).filter(client => (
+    client.name.trim().toLocaleLowerCase() === normalizedName
+  ));
+  const workspaceWeight = (clientId: string) => {
+    const workspace = clientWorkspaces[clientId];
+    if (!workspace) return 0;
+    return Object.values(workspace.engineWork).filter(Boolean).length * 10
+      + workspace.approvals.length * 5
+      + workspace.funnelPlans.length * 3
+      + (workspace.brandAudit ? 2 : 0)
+      + workspace.notes.length;
+  };
+  const bestMatch = matches
+    .filter(client => client.name.trim() === trimmedName)
+    .sort((left, right) => workspaceWeight(right.id) - workspaceWeight(left.id))[0];
+  if (bestMatch) return bestMatch.id;
+  if (clientWorkspaces[directId]) return directId;
+  return matches[0]?.id || directId;
+}
+
 export function defaultPortalAuditExportProfile(clientName: string): PortalAuditExportProfile {
   return {
     version: 1,
@@ -813,16 +886,29 @@ function belongsToClient(value: string | undefined, clientId: string, clientName
 function clientSafeWorkspace(clientId: string, workspace: PortalClientWorkspace): PortalClientWorkspace {
   const lifecycle = workspace.serviceLifecycle;
   const engineWork = Object.fromEntries(
-    Object.entries(workspace.engineWork).map(([key, record]) => [
-      key,
-      record
-        ? {
-          status: record.status,
-          progress: record.progress,
-          updatedAt: record.updatedAt,
-        }
-        : record,
-    ]),
+    Object.entries(workspace.engineWork).map(([key, record]) => {
+      const seoProject = key === "seoAudit"
+        ? (record?.payload as { project?: unknown } | undefined)?.project
+        : undefined;
+      return [
+        key,
+        record
+          ? {
+            status: record.status,
+            progress: record.progress,
+            updatedAt: record.updatedAt,
+            processRun: record.processRun
+              ? {
+                ...record.processRun,
+                events: [],
+                exceptions: [],
+              }
+              : undefined,
+            payload: seoProject ? { project: seoProject } : undefined,
+          }
+          : record,
+      ];
+    }),
   ) as PortalClientWorkspace["engineWork"];
 
   return {
@@ -841,7 +927,33 @@ function clientSafeWorkspace(clientId: string, workspace: PortalClientWorkspace)
     funnelPlans: [],
     notes: [],
     brandSystem: workspace.brandSystem,
-    brandAudit: null,
+    brandAudit: workspace.brandAudit
+      ? {
+        status: workspace.brandAudit.status,
+        progress: workspace.brandAudit.progress,
+        updatedAt: workspace.brandAudit.updatedAt,
+        session: {
+          entered: false,
+          introReveal: 0,
+          data: {},
+          qIdx: 0,
+          questionTotal: 0,
+          draft: "",
+          stage: 0,
+          approved: {},
+          proposal: false,
+          memoryResolved: true,
+          aiResults: {},
+          processRun: workspace.brandAudit.session.processRun
+            ? {
+              ...workspace.brandAudit.session.processRun,
+              events: [],
+              exceptions: [],
+            }
+            : undefined,
+        },
+      }
+      : null,
     auditExport: workspace.auditExport && (workspace.auditExport.status === "ready" || workspace.auditExport.status === "sent")
       ? { ...workspace.auditExport, history: [] }
       : null,
@@ -916,8 +1028,12 @@ export function projectPersistedPortalWorkspaceStateForClient(
   const resolvedName = clientName
     || STUDIO_CLIENTS.find(client => client.id === clientId)?.name
     || clientId;
-  const workspace = mergePortalClientWorkspace(clientId, state.clientWorkspaces[clientId]);
-  const threads = (state.threads as Thread[]).filter(thread => belongsToClient(thread.clientName, clientId, resolvedName));
+  const workspaceClientId = resolvePortalClientId(resolvedName, state.clientWorkspaces);
+  const workspace = mergePortalClientWorkspace(workspaceClientId, state.clientWorkspaces[workspaceClientId]);
+  const threads = (state.threads as Thread[]).filter(thread => (
+    belongsToClient(thread.clientName, clientId, resolvedName)
+    || belongsToClient(thread.clientName, workspaceClientId, resolvedName)
+  ));
   const threadIds = new Set(threads.map(thread => thread.id));
 
   return {
@@ -928,7 +1044,7 @@ export function projectPersistedPortalWorkspaceStateForClient(
     escalations: (state.escalations as Escalation[]).filter(escalation => belongsToClient(escalation.client, clientId, resolvedName)),
     ticketSeq: state.ticketSeq,
     clientWorkspaces: {
-      [clientId]: clientSafeWorkspace(clientId, workspace),
+      [workspaceClientId]: clientSafeWorkspace(workspaceClientId, workspace),
     },
     progressChatSessions: [],
     activeProgressChatId: null,
@@ -940,5 +1056,86 @@ export function projectPersistedPortalWorkspaceStateForClient(
     ),
     notificationReadIds: [],
     notificationPreferences: normalizePortalNotificationPreferences(null),
+  };
+}
+
+function replaceClientScopedRecords<T extends { id: string }>(
+  current: T[],
+  incoming: T[],
+  belongs: (record: T) => boolean,
+) {
+  const retained = current.filter(record => !belongs(record));
+  const uniqueIncoming = [...new Map(incoming.map(record => [record.id, record])).values()];
+  return [...retained, ...uniqueIncoming];
+}
+
+/**
+ * Merges the limited snapshot returned to a real client back into the shared
+ * workspace without allowing that client to replace studio-only audit data,
+ * approvals, lifecycle controls, or another client's records.
+ */
+export function mergePersistedPortalWorkspaceStateForClient(
+  current: PersistedPortalWorkspaceState,
+  incoming: PersistedPortalWorkspaceState,
+  clientId: string,
+  clientName?: string,
+): PersistedPortalWorkspaceState {
+  const resolvedName = clientName
+    || STUDIO_CLIENTS.find(client => client.id === clientId)?.name
+    || clientId;
+  const currentWorkspaceClientId = resolvePortalClientId(resolvedName, current.clientWorkspaces);
+  const incomingWorkspaceClientId = resolvePortalClientId(resolvedName, incoming.clientWorkspaces);
+  const currentWorkspace = mergePortalClientWorkspace(currentWorkspaceClientId, current.clientWorkspaces[currentWorkspaceClientId]);
+  const incomingWorkspace = mergePortalClientWorkspace(incomingWorkspaceClientId, incoming.clientWorkspaces[incomingWorkspaceClientId]);
+  const engineWork = { ...currentWorkspace.engineWork };
+
+  (Object.entries(incomingWorkspace.engineWork) as Array<[PortalEngineWorkKey, PortalEngineWorkRecord]>)
+    .forEach(([key, record]) => {
+      if (!record) return;
+      const existing = engineWork[key];
+      const preserveCompleted = existing?.status === "complete"
+        || existing?.processRun?.status === "complete";
+      const preserveProgress = (existing?.progress || 0) > record.progress;
+      engineWork[key] = {
+        ...(existing || {}),
+        status: preserveCompleted ? "complete" : preserveProgress ? existing!.status : record.status,
+        progress: preserveCompleted ? 100 : Math.max(existing?.progress || 0, record.progress),
+        updatedAt: preserveCompleted || preserveProgress ? existing?.updatedAt || record.updatedAt : record.updatedAt,
+      };
+    });
+
+  const clientTasks = incoming.tasks as Task[];
+  const clientThreads = incoming.threads as Thread[];
+  const clientEscalations = incoming.escalations as Escalation[];
+
+  return {
+    ...current,
+    tasks: replaceClientScopedRecords(
+      current.tasks as Task[],
+      clientTasks,
+      task => belongsToClient(task.project, clientId, resolvedName),
+    ),
+    threads: replaceClientScopedRecords(
+      current.threads as Thread[],
+      clientThreads,
+      thread => belongsToClient(thread.clientName, clientId, resolvedName),
+    ),
+    escalations: replaceClientScopedRecords(
+      current.escalations as Escalation[],
+      clientEscalations,
+      escalation => belongsToClient(escalation.client, clientId, resolvedName),
+    ),
+    ticketSeq: Math.max(current.ticketSeq, incoming.ticketSeq),
+    clientWorkspaces: {
+      ...current.clientWorkspaces,
+      [currentWorkspaceClientId]: {
+        ...currentWorkspace,
+        engineWork,
+      },
+    },
+    projectOverrides: {
+      ...current.projectOverrides,
+      ...incoming.projectOverrides,
+    },
   };
 }

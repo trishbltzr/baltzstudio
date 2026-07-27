@@ -64,7 +64,8 @@ export async function GET(request: Request) {
     );
   const shouldIncludeCreatorIq = access.role === "client"
     ? access.clientId === CREATOR_IQ_CLIENT_ID
-    : clientId === CREATOR_IQ_CLIENT_ID
+    : (!clientId && !runId)
+      || clientId === CREATOR_IQ_CLIENT_ID
       || runId === "creator-iq-website-checkup";
 
   if (shouldIncludeCreatorIq) {

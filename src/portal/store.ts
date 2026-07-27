@@ -15,6 +15,7 @@ import {
   validatePortalServiceLifecycleUpdate,
   appendPortalClientAuditRecord,
   portalClientId,
+  resolvePortalClientId,
   type PortalApprovalRecord,
   type PortalAuditExportMode,
   type PortalAuditExportStatus,
@@ -377,7 +378,7 @@ export function applyTaskWorkflowEffects(state: PortalState, tasks: Task[]): Por
     }
 
     if (effects.lifecycle) {
-      const clientId = portalClientId(task.project);
+      const clientId = resolvePortalClientId(task.project, nextState.clientWorkspaces);
       const now = new Date().toISOString();
       nextState = {
         ...nextState,
@@ -697,13 +698,9 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
       const serialized = pendingSnapshotSerializedRef.current;
       if (!snapshot || !serialized || serialized === lastSavedSnapshotSerializedRef.current) return;
       persistPortalSnapshot(snapshot, storageKey, serialized);
-      if (isActualClient) {
-        lastSavedSnapshotSerializedRef.current = serialized;
-        return;
-      }
       try {
         const response = await fetch("/api/portal-workspace-state", {
-          method: "PUT",
+          method: isActualClient ? "PATCH" : "PUT",
           headers: { "content-type": "application/json", ...workspaceHeaders },
           body: `{"state":${serialized}}`,
         });
@@ -742,12 +739,8 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
       const serialized = pendingSnapshotSerializedRef.current;
       if (!snapshot || !serialized || serialized === lastSavedSnapshotSerializedRef.current) return;
       persistPortalSnapshot(snapshot, storageKey, serialized);
-      if (isActualClient) {
-        lastSavedSnapshotSerializedRef.current = serialized;
-        return;
-      }
       void fetch("/api/portal-workspace-state", {
-        method: "PUT",
+        method: isActualClient ? "PATCH" : "PUT",
         headers: { "content-type": "application/json", ...workspaceHeaders },
         body: `{"state":${serialized}}`,
         keepalive: true,
@@ -802,7 +795,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
     const actorShort = (role: Role) => actorName(role).split(" ")[0];
     const displayDate = () => new Date().toLocaleDateString("en-US", { month: "long", day: "numeric" });
     const workspaceForClient = (clientName: string, clientWorkspaces: Record<string, PortalClientWorkspace>) => {
-      const clientId = portalClientId(clientName);
+      const clientId = resolvePortalClientId(clientName, clientWorkspaces);
       return mergePortalClientWorkspace(clientId, clientWorkspaces[clientId]);
     };
     const nextThreadId = (prefix: string, value: number) => `${prefix}${value}`;
@@ -886,7 +879,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
       addClientNote: (clientName, text) => {
         const clean = text.trim();
         if (!clean) return;
-        const clientId = portalClientId(clientName);
+        const clientId = resolvePortalClientId(clientName, stateRef.current.clientWorkspaces);
         const note: PortalClientNoteRecord = {
           id: `${clientId}-note-${Date.now()}`,
           text: clean,
@@ -903,7 +896,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
         showToast("Note saved for " + clientName);
       },
       deleteClientNote: (clientName, noteId) => {
-        const clientId = portalClientId(clientName);
+        const clientId = resolvePortalClientId(clientName, stateRef.current.clientWorkspaces);
         setState(s => ({
           ...s,
           clientWorkspaces: withClientWorkspace(s, clientId, workspace => ({
@@ -914,7 +907,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
         showToast("Note removed");
       },
       updateClientBrandSystem: (clientName, update) => {
-        const clientId = portalClientId(clientName);
+        const clientId = resolvePortalClientId(clientName, stateRef.current.clientWorkspaces);
         setState(s => ({
           ...s,
           clientWorkspaces: withClientWorkspace(s, clientId, workspace => {
@@ -936,14 +929,14 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
         }));
       },
       saveClientBrandAudit: (clientName, audit) => {
-        const clientId = portalClientId(clientName);
+        const clientId = resolvePortalClientId(clientName, stateRef.current.clientWorkspaces);
         setState(s => ({
           ...s,
           clientWorkspaces: withClientWorkspace(s, clientId, workspace => ({ ...workspace, brandAudit: audit })),
         }));
       },
       updateClientServiceLifecycle: (clientName, update) => {
-        const clientId = portalClientId(clientName);
+        const clientId = resolvePortalClientId(clientName, stateRef.current.clientWorkspaces);
         setState(s => {
           const workspace = mergePortalClientWorkspace(clientId, s.clientWorkspaces[clientId]);
           if (update.consultState === "link_sent"
@@ -1006,7 +999,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
         });
       },
       recordClientServiceEvent: (clientName, type, reviewed = false) => {
-        const clientId = portalClientId(clientName);
+        const clientId = resolvePortalClientId(clientName, stateRef.current.clientWorkspaces);
         const occurredAt = new Date().toISOString();
         setState(s => ({
           ...s,
@@ -1028,7 +1021,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
         showToast("Workflow event recorded");
       },
       resolveClientServiceEvent: (clientName, eventId) => {
-        const clientId = portalClientId(clientName);
+        const clientId = resolvePortalClientId(clientName, stateRef.current.clientWorkspaces);
         setState(s => {
           const resolvedAt = new Date().toISOString();
           return {
@@ -1049,7 +1042,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
           showToast("Add the client-safe preview before recording the draft");
           return;
         }
-        const clientId = portalClientId(clientName);
+        const clientId = resolvePortalClientId(clientName, stateRef.current.clientWorkspaces);
         const createdAt = new Date().toISOString();
         setState(s => ({
           ...s,
@@ -1072,7 +1065,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
         showToast("AI draft added to the review queue");
       },
       reviewClientAiAction: (clientName, actionId, status) => {
-        const clientId = portalClientId(clientName);
+        const clientId = resolvePortalClientId(clientName, stateRef.current.clientWorkspaces);
         const reviewedAt = new Date().toISOString();
         setState(s => ({
           ...s,
@@ -1092,7 +1085,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
         showToast(status === "approved" ? "AI draft approved" : "AI draft rejected");
       },
       saveAuditExportProfile: (clientName, update) => {
-        const clientId = portalClientId(clientName);
+        const clientId = resolvePortalClientId(clientName, stateRef.current.clientWorkspaces);
         const savedAt = new Date().toISOString();
         const savedBy = actorName(stateRef.current.role);
         const policyWorkspace = mergePortalClientWorkspace(
@@ -1686,7 +1679,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
       },
       shareFinalOutput: payload => {
         setState(s => {
-          const clientId = portalClientId(payload.clientName);
+          const clientId = resolvePortalClientId(payload.clientName, s.clientWorkspaces);
           const approvalId = `${clientId}-${payload.outputType}-${payload.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
           const approval: PortalApprovalRecord = {
             id: approvalId,
@@ -1718,7 +1711,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
             category: "Proposal",
             assignee: "Trish Baltazar",
           });
-          const clientId = portalClientId(clientName);
+          const clientId = resolvePortalClientId(clientName, s.clientWorkspaces);
           return {
             ...s,
             ticketSeq: threadUpdate.ticketSeq,
@@ -1743,7 +1736,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
         showToast("Proposal sent to " + clientName);
       },
       inviteCollaborator: (clientName, collaborator) => {
-        const clientId = portalClientId(clientName);
+        const clientId = resolvePortalClientId(clientName, stateRef.current.clientWorkspaces);
         const name = collaborator.name.trim();
         const email = collaborator.email.trim().toLowerCase();
         if (!name || !email) return;
@@ -1768,7 +1761,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
       uploadPortalFiles: async payload => {
         const files = Array.isArray(payload.files) ? payload.files : Array.from(payload.files);
         if (files.length === 0) return;
-        const clientId = portalClientId(payload.clientName);
+        const clientId = resolvePortalClientId(payload.clientName, stateRef.current.clientWorkspaces);
         const form = new FormData();
         form.set("clientId", clientId);
         form.set("folder", payload.folder);
@@ -1802,7 +1795,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
       },
       escalateDecision: payload => {
         setState(s => {
-          const clientId = portalClientId(payload.clientName);
+          const clientId = resolvePortalClientId(payload.clientName, s.clientWorkspaces);
           const existing = s.escalations.find(item => !item.resolved && item.title === payload.title && item.client === payload.clientName);
           if (existing) return s;
           const nextEscalation: Escalation = {

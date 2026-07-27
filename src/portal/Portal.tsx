@@ -13,7 +13,7 @@ import { Placeholder } from "./views/Placeholder";
 import { Icon } from "./icons";
 import { PortalViewLoader } from "./components/PortalViewLoader";
 import { clientEngineAccessDecision, clientHasEngineAccess } from "./access";
-import { mergePortalClientWorkspace, portalClientId } from "@/lib/portalWorkspacePersistence";
+import { mergePortalClientWorkspace, resolvePortalClientId } from "@/lib/portalWorkspacePersistence";
 
 const Audits = dynamic(() => import("./audits/Audits").then(module => module.Audits), { loading: () => <PortalViewLoader /> });
 const Builders = dynamic(() => import("./builders/Builders").then(module => module.Builders), { loading: () => <PortalViewLoader /> });
@@ -91,8 +91,9 @@ export function Portal({ seedRole, clientName, userEmail, canSwitchRoles, onLogo
   const handleCollapse = useCallback(() => {
     actions.update(current => ({ sidebarCollapsed: !current.sidebarCollapsed }));
   }, [actions]);
+  const clientWorkspaceId = resolvePortalClientId(state.clientName, state.clientWorkspaces);
   const clientWorkspace = state.role === "client"
-    ? mergePortalClientWorkspace(portalClientId(state.clientName), state.clientWorkspaces[portalClientId(state.clientName)])
+    ? mergePortalClientWorkspace(clientWorkspaceId, state.clientWorkspaces[clientWorkspaceId])
     : null;
   const clientPortalClosed = state.hydrated
     && state.role === "client"

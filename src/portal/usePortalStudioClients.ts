@@ -18,8 +18,10 @@ type PortalClientPayload = {
 
 function studioClientFromPortal(client: PortalClientPayload): StudioClient {
   const source = client.sources?.[0];
+  const normalizedName = client.name.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const clientId = normalizedName === "creatoriq" ? "creator-iq" : client.slug;
   return {
-    id: client.slug,
+    id: clientId,
     name: client.name,
     owner: "Studio team",
     audited: false,
@@ -33,7 +35,7 @@ function studioClientFromPortal(client: PortalClientPayload): StudioClient {
     },
     cocoonLink: { status: "not_sent" },
     audit: {
-      id: `audit-${client.slug}`,
+      id: `audit-${clientId}`,
       subtitle: "",
       statusLabel: "Not started",
       statusTone: "muted",
@@ -58,9 +60,10 @@ export function usePortalStudioClients() {
       })
       .then(payload => {
         if (!active) return;
-        setClients((payload.clients || [])
+        const visibleClients = (payload.clients || [])
           .filter(client => client.status !== "archived" && client.source_kind !== "demo" && !/^demo(?:-|$)/i.test(client.slug))
-          .map(studioClientFromPortal));
+          .map(studioClientFromPortal);
+        setClients([...new Map(visibleClients.map(client => [client.id, client])).values()]);
       })
       .catch(error => {
         console.error("Unable to load portal clients.", error);
