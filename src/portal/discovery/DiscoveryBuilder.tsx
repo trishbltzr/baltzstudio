@@ -172,7 +172,7 @@ function readGuidedSession(sessionKey: string | undefined, serverSession: Guided
     const parsed = JSON.parse(raw) as GuidedAuditSession;
     if (!parsed || typeof parsed !== "object" || typeof parsed.qIdx !== "number") return serverSession;
     // A completed persisted output is authoritative over an older local intake
-    // snapshot, which may otherwise make a ready demo or saved result look empty.
+    // snapshot, which may otherwise make a saved result look empty.
     if (serverSession?.proposal && !parsed.proposal) return serverSession;
     return parsed;
   } catch {
@@ -184,7 +184,7 @@ type Act =
   | { t: "enter" } | { t: "introReveal"; n: number } | { t: "typing"; v: boolean }
   | { t: "draft"; v: string } | { t: "single"; k: string; v: string } | { t: "toggle"; k: string; v: string }
   | { t: "sendText"; k: string; v?: string } | { t: "next" } | { t: "skip" } | { t: "back" }
-  | { t: "restart" } | { t: "fill"; data: Ans; qIdx: number }
+  | { t: "restart" }
   | { t: "ingest"; data: Ans }
   | { t: "replaceIngest"; data: Ans }
   | { t: "beginBuild" } | { t: "gotoStage"; i: number } | { t: "setStage"; i: number }
@@ -207,7 +207,6 @@ function reducer(s: DState, a: Act): DState {
     case "skip": return { ...s, qIdx: s.qIdx + 1, draft: "" };
     case "back": return { ...s, qIdx: Math.max(0, s.qIdx - 1), draft: "", typing: false };
     case "restart": return { ...init, entered: true, introReveal: 0, typing: true };
-    case "fill": return { ...s, entered: true, introReveal: 2, data: a.data, qIdx: a.qIdx, draft: "", typing: false };
     case "ingest": return { ...s, data: { ...s.data, ...a.data } };
     case "replaceIngest": return { ...s, data: a.data, qIdx: 0, draft: "", stage: 0, approved: {}, proposal: false };
     case "beginBuild": return { ...s, approved: { ...s.approved, discovery: true }, stage: 1, proposal: false };
@@ -222,10 +221,11 @@ function reducer(s: DState, a: Act): DState {
 export function DiscoveryBuilder({
   accent, title, clientName, intro, wizard, stages, introSteps, startLabel = "Start discovery →",
   completeTitle = "Discovery complete", completeMsg, completeCta = "See the result →", progressLabel = "discovery",
-  completeExtra, stageExtra, demo, demoAction = "complete", onExit, onComplete, mobile, pipeline, showToast,
+  completeExtra, stageExtra, onExit, onComplete, mobile, pipeline, showToast,
   prefill, prefillSources, prefillNotes, quickStartMode, onIngest, onPipelineComplete,
   sessionKey, initialSession, onSessionChange, generationMode, quickStartClientId, onImportTasks, onShareFinal, onStartOverRequest,
   processId, processClientId, processRunId, processDueAt, processSourceHandoffId, evidenceServiceRunId, accessState, onOpenApprovals, exportProfile,
+  onAuditCheckStatusChange,
 }: {
   accent: string;
   title: string;
@@ -241,8 +241,6 @@ export function DiscoveryBuilder({
   completeExtra?: ReactNode;
   stageExtra?: (stageKey: string) => ReactNode;
   progressLabel?: string;
-  demo?: Ans;
-  demoAction?: "complete" | "result";
   onExit: () => void;
   onComplete: (data: Ans) => void;
   onPipelineComplete?: (data: Ans, aiResults: Record<string, GeneratedStageResult>) => void | Promise<void>;
@@ -271,6 +269,7 @@ export function DiscoveryBuilder({
   accessState?: PortalAccessState;
   onOpenApprovals?: () => void;
   exportProfile?: PortalAuditExportProfile | null;
+  onAuditCheckStatusChange?: StageRenderCtx["onAuditCheckStatusChange"];
 }) {
   const restoredSession = useMemo(() => readGuidedSession(sessionKey, initialSession), [sessionKey, initialSession]);
   const effectiveGenerationMode = generationMode || quickStartMode;
@@ -446,25 +445,6 @@ export function DiscoveryBuilder({
     if (!g) { g = { topic: q.topic, icon: q.icon, items: [] }; groups.push(g); }
     g.items.push({ label: q.label, answer: ans, skipped: !ans, list: !!q.list });
   });
-
-  const runFill = () => {
-    if (!demo) return;
-    const data: Ans = {};
-    flat.forEach(q => {
-      const saved = prefill?.[q.key];
-      if (saved !== undefined && saved !== "" && !(Array.isArray(saved) && saved.length === 0)) data[q.key] = saved;
-      else if (demo[q.key] !== undefined) data[q.key] = demo[q.key];
-      else if (q.kind === "single") data[q.key] = q.opts?.[0] || "Yes";
-      else if (q.kind === "multi") data[q.key] = (q.opts || []).slice(0, 2);
-      else data[q.key] = "";
-    });
-    const merged = { ...(prefill || {}), ...data };
-    if (demoAction === "result" || !pipeline) {
-      onComplete(merged);
-      return;
-    }
-    dispatch({ t: "fill", data: merged, qIdx: flat.length });
-  };
 
   // ── pipeline orchestration ──
   const stageKeys = stages.map(st => st.key);
@@ -948,8 +928,24 @@ export function DiscoveryBuilder({
               const ok = await printReportNode(document.querySelector(`[data-pipeline-stage="${curKey}"]`), `${clientName} · ${curStage.label}`, exportProfile);
               toast(ok ? "Choose Print or Save as PDF" : "The print dialog could not be opened");
             },
-            onShare: () => toast("Share link copied — send it to your client"),
-            onCopy: () => toast("Copied to clipboard"),
+            onShare: async () => {
+              try {
+                await navigator.clipboard.writeText(window.location.href);
+                toast("Share link copied");
+              } catch {
+                toast("Copy the link from your address bar");
+              }
+            },
+            onCopy: async () => {
+              const text = document.querySelector(`[data-pipeline-stage="${curKey}"]`)?.textContent?.trim() || "";
+              try {
+                await navigator.clipboard.writeText(text);
+                toast("Stage content copied");
+              } catch {
+                toast("The stage content could not be copied");
+              }
+            },
+            onAuditCheckStatusChange,
           })}
           {genDone && !isGenerating && !stageApproved && canOperateStage && (
             <div style={css("margin-top:1.15rem;padding-top:1rem;border-top:1px solid var(--border-soft);display:flex;align-items:center;justify-content:flex-end;gap:0.6rem")}>

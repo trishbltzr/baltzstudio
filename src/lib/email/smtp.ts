@@ -9,6 +9,15 @@ type PortalAccessRequestEmail = {
   note?: string;
 };
 
+type PortalInvoiceEmail = {
+  to: string;
+  clientName: string;
+  invoiceNumber: string;
+  amount: string;
+  dueDate?: string;
+  paymentLink?: string;
+};
+
 type SmtpConfig = {
   host: string;
   port: number;
@@ -97,6 +106,46 @@ export async function sendPortalAccessRequestEmail(request: PortalAccessRequestE
       `<p><strong>Email:</strong> ${safeEmail}</p>`,
       `<p><strong>Business:</strong> ${safeBusiness}</p>`,
       `<p><strong>Note:</strong><br />${safeNote}</p>`,
+    ].join(""),
+  });
+
+  return { sent: true as const, messageId: result.messageId };
+}
+
+export async function sendPortalInvoiceEmail(invoice: PortalInvoiceEmail) {
+  const config = readSmtpConfig();
+  if (!config) return { sent: false as const, reason: "not_configured" as const };
+
+  const safeClientName = escapeHtml(invoice.clientName);
+  const safeNumber = escapeHtml(invoice.invoiceNumber);
+  const safeAmount = escapeHtml(invoice.amount);
+  const safeDueDate = escapeHtml(invoice.dueDate || "the due date shown");
+  const safePaymentLink = invoice.paymentLink?.trim();
+  const paymentText = safePaymentLink ? `Pay securely: ${safePaymentLink}` : "Payment instructions are included in your invoice.";
+  const paymentHtml = safePaymentLink
+    ? `<p><a href="${escapeHtml(safePaymentLink)}">Pay securely</a></p>`
+    : "<p>Payment instructions are included in your invoice.</p>";
+
+  const result = await getTransport(config).sendMail({
+    from: config.from,
+    to: invoice.to,
+    subject: `${invoice.invoiceNumber} from Baltazar Studio`,
+    text: [
+      `Hi ${invoice.clientName},`,
+      "",
+      `Invoice ${invoice.invoiceNumber} for ${invoice.amount} is ready.`,
+      `Due: ${invoice.dueDate || "See invoice"}`,
+      "",
+      paymentText,
+      "",
+      "Baltazar Studio",
+    ].join("\n"),
+    html: [
+      `<p>Hi ${safeClientName},</p>`,
+      `<p>Invoice <strong>${safeNumber}</strong> for <strong>${safeAmount}</strong> is ready.</p>`,
+      `<p>Due: ${safeDueDate}</p>`,
+      paymentHtml,
+      "<p>Baltazar Studio</p>",
     ].join(""),
   });
 

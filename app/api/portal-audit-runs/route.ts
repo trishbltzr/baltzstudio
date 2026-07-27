@@ -1,28 +1,18 @@
 import { NextResponse } from "next/server";
 import { PORTAL_WORKSPACE_FALLBACK_RUN_ID } from "@/lib/portalWorkspacePersistence";
-import { coercePersistedAuditDrafts, normalizePersistedAuditDraft, projectPersistedAuditDraftForClient } from "@/lib/portalAuditPersistence";
+import { coercePersistedAuditDrafts, normalizePersistedAuditDraft, projectPersistedAuditDraftForClient, projectPersistedAuditDraftForIndex } from "@/lib/portalAuditPersistence";
 import { resolvePortalRequestAccess } from "@/lib/portalRequestAccess";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabasePrivilegedServerClient } from "@/lib/supabase/privileged";
 import type { Json } from "@/lib/supabase/types";
-import { CREATOR_IQ_CLIENT_ID, createCreatorIqWebsiteAuditDraft } from "@/lib/creatorIqDemoWorkspace";
 
-async function softDeleteAuditRuns(supabase: Awaited<ReturnType<typeof createSupabasePrivilegedServerClient>>, runIds: string[]) {
-  const { data, error } = await supabase
-    .from("portal_audit_runs")
-    .update({ client_id: "__deleted__", updated_at: new Date().toISOString() })
-    .in("run_id", runIds)
-    .select("run_id");
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({
-    ok: true,
-    deletedIds: (data ?? []).map(row => row.run_id),
-    recoverable: true,
-  });
+function requestedAuditRunIds(body: unknown) {
+  const requestedRunIds: unknown[] = Array.isArray((body as { runIds?: unknown[] } | null)?.runIds)
+    ? (body as { runIds: unknown[] }).runIds
+    : [];
+  return requestedRunIds.length
+    ? Array.from(new Set(requestedRunIds.filter((value): value is string => typeof value === "string" && !!value.trim()).map(value => value.trim()))).slice(0, 50)
+    : [];
 }
 
 export async function GET(request: Request) {
@@ -31,22 +21,27 @@ export async function GET(request: Request) {
   const clientId = /^[a-z0-9-]{1,80}$/.test(requestedClientId) ? requestedClientId : null;
   const requestedRunId = searchParams.get("runId")?.trim() || "";
   const runId = /^[a-z0-9_-]{1,120}$/i.test(requestedRunId) ? requestedRunId : null;
-  const explicitDemo = searchParams.get("includeDemo") === CREATOR_IQ_CLIENT_ID;
+  const archivedMode = searchParams.get("archived");
+  const summaryOnly = searchParams.get("mode") === "summary";
   const authClient = await createSupabaseServerClient();
   const access = await resolvePortalRequestAccess(request, authClient);
   if (!access) return NextResponse.json({ error: "Sign in to load portal audits." }, { status: 401 });
   const supabase = await createSupabasePrivilegedServerClient();
   let query = supabase
     .from("portal_audit_runs")
-    .select("run_id, run, state, updated_at")
-    .neq("client_id", "__deleted__");
+    .select("run_id, run, state, updated_at, archived_at")
+    .neq("client_id", "__deleted__")
+    .neq("client_id", "creator-iq")
+    .neq("source_kind", "demo");
+
+  if (archivedMode === "only") query = query.not("archived_at", "is", null);
+  else if (archivedMode !== "include") query = query.is("archived_at", null);
 
   if (access.role === "client") {
     query = query.eq("client_id", access.clientId);
     if (runId) query = query.eq("run_id", runId);
   } else if (runId) query = query.eq("run_id", runId);
   else if (clientId) query = query.eq("client_id", clientId);
-  else if (!explicitDemo) query = query.neq("client_id", CREATOR_IQ_CLIENT_ID);
 
   const { data, error } = await query.order("updated_at", { ascending: false });
 
@@ -63,36 +58,9 @@ export async function GET(request: Request) {
           updatedAt: row.updated_at,
         })),
     );
-  // Demo output is opt-in. An unfiltered production request must never acquire
-  // CreatorIQ facts simply because the database has no persisted audit yet.
-  const shouldIncludeCreatorIq = access.role === "client"
-    ? access.clientId === CREATOR_IQ_CLIENT_ID
-    : clientId === CREATOR_IQ_CLIENT_ID || explicitDemo || runId === "audit-creator-iq-demo";
-  if (shouldIncludeCreatorIq) {
-    const actualDemo = createCreatorIqWebsiteAuditDraft();
-    if (explicitDemo || runId === actualDemo.run.id) {
-      const savedExact = drafts.find(draft => draft.run.id === actualDemo.run.id);
-      const keepHumanEdits = savedExact
-        ? Date.parse(savedExact.updatedAt || "") > Date.parse(actualDemo.updatedAt || "")
-        : false;
-      const staleDemoIndexes = drafts
-        .map((draft, index) => draft.run.clientId === CREATOR_IQ_CLIENT_ID && (!keepHumanEdits || draft.run.id !== actualDemo.run.id) ? index : -1)
-        .filter(index => index >= 0)
-        .reverse();
-      staleDemoIndexes.forEach(index => drafts.splice(index, 1));
-      if (keepHumanEdits && savedExact) {
-        const savedIndex = drafts.findIndex(draft => draft.run.id === savedExact.run.id);
-        if (savedIndex > 0) drafts.unshift(...drafts.splice(savedIndex, 1));
-      } else {
-        drafts.unshift(actualDemo);
-      }
-    } else if (!drafts.some(draft => draft.run.clientId === CREATOR_IQ_CLIENT_ID)) {
-      drafts.unshift(actualDemo);
-    }
-  }
-
+  const visibleDrafts = access.role === "client" ? drafts.map(projectPersistedAuditDraftForClient) : drafts;
   return NextResponse.json({
-    drafts: access.role === "client" ? drafts.map(projectPersistedAuditDraftForClient) : drafts,
+    drafts: summaryOnly ? visibleDrafts.map(projectPersistedAuditDraftForIndex) : visibleDrafts,
     scope: access.role === "client" ? { role: "client", clientId: access.clientId } : { role: "staff" },
   });
 }
@@ -120,6 +88,7 @@ export async function PUT(request: Request) {
       client_id: draft.run.clientId,
       run: draft.run as unknown as Json,
       state: draft.state as unknown as Json,
+      source_kind: "production",
       updated_at: updatedAt,
     }, { onConflict: "run_id" });
 
@@ -139,21 +108,12 @@ export async function DELETE(request: Request) {
   }
   const supabase = await createSupabasePrivilegedServerClient();
   const body = await request.json().catch(() => null);
-  const requestedRunIds: unknown[] = Array.isArray(body?.runIds) ? body.runIds : [];
-  const runIds: string[] = requestedRunIds.length
-    ? Array.from(new Set(requestedRunIds.filter((value): value is string => typeof value === "string" && !!value.trim()).map(value => value.trim()))).slice(0, 50)
-    : [];
+  const runIds = requestedAuditRunIds(body);
 
   if (!runIds.length || runIds.includes(PORTAL_WORKSPACE_FALLBACK_RUN_ID)) {
     return NextResponse.json({ error: "Expected one or more valid audit run IDs." }, { status: 400 });
   }
 
-  const { data: auth, error: authError } = await authClient.auth.getUser();
-  if (authError || !auth.user) {
-    // Local quick-login identities intentionally do not create a Supabase
-    // session. Their already-authorized staff delete remains recoverable.
-    return softDeleteAuditRuns(supabase, runIds);
-  }
   const { data, error } = await supabase
     .from("portal_audit_runs")
     .delete()
@@ -165,5 +125,59 @@ export async function DELETE(request: Request) {
   }
 
   const deletedIds = (data ?? []).map(row => row.run_id);
+  if (deletedIds.length !== runIds.length) {
+    const missingIds = runIds.filter(runId => !deletedIds.includes(runId));
+    return NextResponse.json({
+      error: "One or more audit records were not deleted.",
+      deletedIds,
+      missingIds,
+    }, { status: 409 });
+  }
+
   return NextResponse.json({ ok: true, deletedIds });
+}
+
+export async function PATCH(request: Request) {
+  const authClient = await createSupabaseServerClient();
+  const access = await resolvePortalRequestAccess(request, authClient);
+  if (!access) return NextResponse.json({ error: "Sign in before archiving an audit." }, { status: 401 });
+  if (access.role === "client") {
+    return NextResponse.json({ error: "Client accounts cannot archive audit records." }, { status: 403 });
+  }
+
+  const body = await request.json().catch(() => null);
+  const runIds = requestedAuditRunIds(body);
+  const action = body?.action === "restore" ? "restore" : body?.action === "archive" ? "archive" : null;
+  if (!runIds.length || runIds.includes(PORTAL_WORKSPACE_FALLBACK_RUN_ID) || !action) {
+    return NextResponse.json({ error: "Expected valid audit run IDs and an archive or restore action." }, { status: 400 });
+  }
+
+  const supabase = await createSupabasePrivilegedServerClient();
+  const archivedAt = action === "archive" ? new Date().toISOString() : null;
+  const { data, error } = await supabase
+    .from("portal_audit_runs")
+    .update({ archived_at: archivedAt, updated_at: new Date().toISOString() })
+    .in("run_id", runIds)
+    .select("run_id");
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const updatedIds = (data ?? []).map(row => row.run_id);
+  if (updatedIds.length !== runIds.length) {
+    const missingIds = runIds.filter(runId => !updatedIds.includes(runId));
+    return NextResponse.json({
+      error: `One or more audit records were not ${action === "archive" ? "archived" : "restored"}.`,
+      updatedIds,
+      missingIds,
+    }, { status: 409 });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    action,
+    updatedIds,
+    archivedAt,
+  });
 }

@@ -3,21 +3,20 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Icon } from "../icons";
 import { css } from "../helpers";
-import { ALL_PROJECTS, SVC_META } from "../data";
+import { SVC_META } from "../data";
 import {
   PB_SEED, SVC_ORDER, governedPlaybook, ownerMeta, genMd, pbMeta, parseProcess, readerBody,
   type PlaybookLifecycle, type PlaybookSeed,
 } from "../playbooks";
 import type { PortalActions, PortalState } from "../store";
 import type { Service } from "../types";
-import { STUDIO_CLIENTS } from "../clients";
+import { usePortalStudioClients } from "../usePortalStudioClients";
 import { workspaceProcessRuns } from "../selectors";
 import { mergePortalClientWorkspace } from "@/lib/portalWorkspacePersistence";
 import { portalOperationalMetrics } from "@/lib/portalProcessRuns";
 
 const NEW_TEMPLATE = "# New function\n\n## Summary\nDescribe what this playbook covers and when it runs.\n\n## Process\n1. **Admin** — First step\n2. **Studio** — Second step\n3. **Client** — Client action\n\n## Outputs\n- What this produces\n\n## Notes\nAnything else worth flagging.";
 
-const activeClients = (svc: Service) => ALL_PROJECTS.filter(p => p.service === svc).length;
 const PLAYBOOK_STORAGE_KEY = "baltz.playbooks.governed.v1";
 const ROLE_LABEL: Record<string, string> = { admin: "Admin", studio: "Studio", client: "Client", assistant: "Assistant", shared: "Studio + client" };
 const formatMinutes = (minutes: number | null) => minutes == null ? "Not measured" : minutes < 60 ? `${minutes}m` : minutes < 1440 ? `${Math.round(minutes / 60)}h` : `${Math.round(minutes / 1440)}d`;
@@ -137,6 +136,9 @@ export function Playbooks({ state, actions }: { state: PortalState; actions: Por
   const [extra, setExtra] = useState<PlaybookSeed[]>([]);
   const [extraLoaded, setExtraLoaded] = useState(false);
   const [previewMode, setPreviewMode] = useState<"roles" | "sample" | null>(null);
+  const [libraryMode, setLibraryMode] = useState<"playbooks" | "agents">("playbooks");
+  const [editorIntent, setEditorIntent] = useState<"playbook" | "agent">("playbook");
+  const { clients: rosterClients } = usePortalStudioClients();
 
   useEffect(() => {
     try {
@@ -153,14 +155,24 @@ export function Playbooks({ state, actions }: { state: PortalState; actions: Por
 
   const all = useMemo(() => [...PB_SEED, ...extra], [extra]);
   const groups = useMemo(() => SVC_ORDER.map(svc => ({ svc, docs: all.filter(d => d.svc === svc) })).filter(g => g.docs.length), [all]);
+  const agentDocs = useMemo(() => all
+    .map(playbook => ({ playbook, governance: governedPlaybook(playbook) }))
+    .filter(item => item.governance.agent.enabled), [all]);
   const selected = pbDoc ? all.find(d => d.id === pbDoc) || null : null;
-  const processRuns = useMemo(() => Object.entries(state.clientWorkspaces).flatMap(([clientId, saved]) => {
-    const clientName = STUDIO_CLIENTS.find(client => client.id === clientId)?.name || clientId;
+  const processRuns = useMemo(() => {
+    const visibleIds = new Set(rosterClients.map(client => client.id));
+    return Object.entries(state.clientWorkspaces).filter(([clientId]) => visibleIds.has(clientId)).flatMap(([clientId, saved]) => {
+    const clientName = rosterClients.find(client => client.id === clientId)?.name || clientId;
     return workspaceProcessRuns(clientId, clientName, mergePortalClientWorkspace(clientId, saved));
-  }), [state.clientWorkspaces]);
+    });
+  }, [rosterClients, state.clientWorkspaces]);
 
   function open(id: string) { setPbDoc(id); setPbRaw(false); setPreviewMode(null); }
-  function startNew() { setForm(NEW_FORM); setPbEditing(true); }
+  function startNew(intent: "playbook" | "agent" = "playbook") {
+    setEditorIntent(intent);
+    setForm(NEW_FORM);
+    setPbEditing(true);
+  }
   function copyMd(md: string) { try { void navigator.clipboard?.writeText(md); } catch { /* ignore */ } actions.showToast("Markdown copied"); }
   function save() {
     const meta = pbMeta(form.md);
@@ -186,7 +198,7 @@ export function Playbooks({ state, actions }: { state: PortalState; actions: Por
       <div style={css("display:flex;flex-direction:column;gap:0.85rem" + (mobile ? ";padding-bottom:1.25rem" : ""))}>
         <button onClick={() => setPbEditing(false)} className="pt-iconbtn" style={css(backBtn)}><Icon name="chevleft" size={14} />Cancel</button>
         <div>
-          <div style={css("font-size:var(--text-2xs);font-weight:500;letter-spacing:0.02em;color:var(--fg-faint)")}>New Playbook</div>
+          <div style={css("font-size:var(--text-2xs);font-weight:500;letter-spacing:0.02em;color:var(--fg-faint)")}>{editorIntent === "agent" ? "New Agent" : "New Playbook"}</div>
           <h2 style={css("margin:0.2rem 0 0;font-size:" + (mobile ? "1.15rem" : "1.3rem") + ";font-weight:500")}>{meta.fn}</h2>
         </div>
 
@@ -236,7 +248,7 @@ export function Playbooks({ state, actions }: { state: PortalState; actions: Por
 
         <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:var(--space-2)")}>
           <button onClick={() => setPbEditing(false)} className="pt-iconbtn" style={css("height:2.1rem;padding:0 1rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-sm);font-weight:500;cursor:pointer")}>Cancel</button>
-          <button onClick={save} disabled={!canSave} style={css("height:2.1rem;padding:0 1.15rem;border:none;border-radius:var(--radius-pill);font-size:var(--text-sm);font-weight:500;cursor:" + (canSave ? "pointer" : "not-allowed") + ";background:" + (canSave ? "var(--accent)" : "var(--border-soft)") + ";color:" + (canSave ? "#fff" : "var(--fg-faint)"))}>Save playbook</button>
+          <button onClick={save} disabled={!canSave} style={css("height:2.1rem;padding:0 1.15rem;border:none;border-radius:var(--radius-pill);font-size:var(--text-sm);font-weight:500;cursor:" + (canSave ? "pointer" : "not-allowed") + ";background:" + (canSave ? "var(--accent)" : "var(--border-soft)") + ";color:" + (canSave ? "#fff" : "var(--fg-faint)"))}>{editorIntent === "agent" ? "Save agent" : "Save playbook"}</button>
         </div>
       </div>
     );
@@ -248,7 +260,6 @@ export function Playbooks({ state, actions }: { state: PortalState; actions: Por
     const governance = governedPlaybook(d);
     const md = d.md || genMd(d);
     const steps = parseProcess(md);
-    const active = activeClients(d.svc);
     const runs = d.processId ? processRuns.filter(run => run.processId === d.processId) : [];
     const activeRuns = runs.filter(run => run.status !== "complete");
     const runMetrics = runs.map(portalOperationalMetrics);
@@ -417,15 +428,53 @@ export function Playbooks({ state, actions }: { state: PortalState; actions: Por
   // ── LIBRARY ────────────────────────────────────────────────────────────────
   return (
     <div style={css("display:flex;flex-direction:column;gap:1.1rem" + (mobile ? ";padding-bottom:1.25rem" : ""))}>
-      <section style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);padding:.85rem 1rem")}>
+      <section style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);padding:.8rem 1rem;display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);flex-wrap:wrap")}>
+        <div>
+          <div style={css("font-size:var(--text-md);font-weight:500")}>{libraryMode === "agents" ? "Playbook agents" : "Playbook library"}</div>
+          <div style={css("margin-top:.12rem;font-size:var(--text-xs);color:var(--fg-muted)")}>{libraryMode === "agents" ? "Versioned agents governed by their linked Playbook." : "Reusable internal delivery systems organized by service."}</div>
+        </div>
+        <div style={css("display:flex;align-items:center;gap:.45rem;flex-wrap:wrap")}>
+          <div role="tablist" aria-label="Playbooks sections" style={css("display:inline-flex;align-items:center;padding:.2rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill);background:var(--surface-alt)")}>
+            {(["playbooks", "agents"] as const).map(mode => <button key={mode} role="tab" aria-selected={libraryMode === mode} onClick={() => setLibraryMode(mode)} style={css("height:1.85rem;padding:0 .8rem;border:0;border-radius:var(--radius-pill);background:" + (libraryMode === mode ? "var(--surface)" : "transparent") + ";box-shadow:" + (libraryMode === mode ? "var(--shadow-xs)" : "none") + ";color:" + (libraryMode === mode ? "var(--fg)" : "var(--fg-muted)") + ";font-size:var(--text-xs);font-weight:500;cursor:pointer;text-transform:capitalize")}>{mode}</button>)}
+          </div>
+          <button onClick={() => startNew(libraryMode === "agents" ? "agent" : "playbook")} className="pt-softbtn" style={css("height:2.25rem;display:inline-flex;align-items:center;gap:.35rem;padding:0 .85rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill);background:var(--surface);color:var(--accent);font-size:var(--text-xs);font-weight:500;cursor:pointer")}><Icon name="plus" size={14} />New {libraryMode === "agents" ? "agent" : "playbook"}</button>
+        </div>
+      </section>
+
+      {libraryMode === "playbooks" && <section style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);padding:.85rem 1rem")}>
         <div style={css("font-size:var(--text-2xs);font-weight:500;letter-spacing:.02em;color:var(--fg-faint);margin-bottom:.55rem")}>Shared terminology</div>
         <div style={{ display: "grid", gridTemplateColumns: mobile ? "minmax(0,1fr)" : "repeat(5,minmax(0,1fr))", gap: ".45rem" }}>{[
           ["Checkup", "Diagnostic client service"], ["Lab", "Planning or build workspace"], ["Playbook", "Internal reusable template"], ["Approval", "Client decision surface"], ["Journey", "Client progress and milestones"],
         ].map(([term, meaning]) => <div key={term} style={css("border:1px solid var(--border-soft);border-radius:var(--radius-sm);padding:.55rem .65rem;background:var(--surface-alt);min-width:0")}><strong style={css("display:block;font-size:var(--text-xs);font-weight:500")}>{term}</strong><span style={css("display:block;margin-top:.14rem;font-size:var(--text-2xs);line-height:1.35;color:var(--fg-muted)")}>{meaning}</span></div>)}</div>
-      </section>
-      {groups.map(g => {
+      </section>}
+
+      {libraryMode === "agents" && <div style={{ display: "grid", gridTemplateColumns: mobile ? "minmax(0,1fr)" : "repeat(3,minmax(0,1fr))", gap: ".75rem", alignItems: "stretch" }}>
+        {agentDocs.map(({ playbook, governance }) => {
+          const agent = governance.agent;
+          const sm = SVC_META[playbook.svc];
+          return <button key={agent.definitionKey} onClick={() => open(playbook.id)} className="pt-card-soft" style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);padding:1rem 1.05rem;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:.72rem;min-width:0")}>
+            <div style={css("display:flex;align-items:flex-start;gap:.65rem")}>
+              <span style={css("width:1.9rem;height:1.9rem;border-radius:var(--radius-sm);display:grid;place-items:center;flex-shrink:0;background:color-mix(in srgb," + sm.color + " 13%,var(--surface));color:" + sm.color)}><Icon name="sparkle" size={15} /></span>
+              <div style={css("min-width:0;flex:1")}>
+                <div style={css("font-size:var(--text-base);font-weight:500;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{playbook.fn}</div>
+                <div style={css("font-size:var(--text-2xs);color:var(--fg-faint);margin-top:.12rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{agent.definitionKey} · v{agent.version}</div>
+              </div>
+              <span style={css("flex-shrink:0;padding:.14rem .42rem;border-radius:var(--radius-pill);font-size:var(--text-2xs);font-weight:500;background:" + (agent.evalStatus === "passing" ? "var(--success-soft)" : agent.evalStatus === "failing" ? "var(--danger-soft)" : "var(--surface-alt)") + ";color:" + (agent.evalStatus === "passing" ? "var(--success)" : agent.evalStatus === "failing" ? "var(--danger)" : "var(--fg-muted)"))}>{agent.evalStatus === "not_run" ? "Not evaluated" : agent.evalStatus}</span>
+            </div>
+            <p style={css("margin:0;font-size:var(--text-xs);line-height:1.5;color:var(--fg-muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden")}>{agent.instructions}</p>
+            <div style={css("display:flex;flex-wrap:wrap;gap:.32rem")}>{agent.allowedTools.slice(0, 3).map(tool => <span key={tool} style={css("max-width:100%;padding:.16rem .42rem;border:1px solid var(--border-soft);border-radius:var(--radius-pill);font-size:var(--text-2xs);color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{tool}</span>)}</div>
+            <div style={css("margin-top:auto;padding-top:.6rem;border-top:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);font-size:var(--text-2xs);color:var(--fg-faint)")}>
+              <span>{sm.label} · {agent.lifecycle}</span>
+              <span>{agent.approvalGates.length} approval gate{agent.approvalGates.length === 1 ? "" : "s"}</span>
+            </div>
+          </button>;
+        })}
+      </div>}
+
+      {libraryMode === "playbooks" && groups.map(g => {
         const sm = SVC_META[g.svc];
-        const active = activeClients(g.svc);
+        const processIds = new Set(g.docs.map(doc => doc.processId).filter(Boolean));
+        const active = new Set(processRuns.filter(run => processIds.has(run.processId) && run.status !== "complete").map(run => run.clientId)).size;
         return (
           <div key={g.svc} style={css("display:flex;flex-direction:column;gap:0.7rem")}>
             <div style={css("display:flex;align-items:center;gap:var(--space-2)")}>
@@ -466,7 +515,7 @@ export function Playbooks({ state, actions }: { state: PortalState; actions: Por
         );
       })}
 
-      <button onClick={startNew} className="pt-softbtn" style={css("width:100%;display:inline-flex;align-items:center;justify-content:center;gap:0.4rem;height:2.6rem;border:1px dashed color-mix(in srgb,var(--accent) 45%,var(--border));border-radius:var(--radius-panel);background:transparent;color:var(--accent);font-size:var(--text-sm);font-weight:500;cursor:pointer")}><Icon name="plus" size={15} />New playbook</button>
+      {libraryMode === "playbooks" && <button onClick={() => startNew("playbook")} className="pt-softbtn" style={css("width:100%;display:inline-flex;align-items:center;justify-content:center;gap:0.4rem;height:2.6rem;border:1px dashed color-mix(in srgb,var(--accent) 45%,var(--border));border-radius:var(--radius-panel);background:transparent;color:var(--accent);font-size:var(--text-sm);font-weight:500;cursor:pointer")}><Icon name="plus" size={15} />New playbook</button>}
     </div>
   );
 }

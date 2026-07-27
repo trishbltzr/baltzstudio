@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../icons";
 import { css, milestoneStatusFromGate, statusPill } from "../helpers";
-import { MILESTONES, seedJourneyGates } from "../data";
+import { MILESTONES } from "../data";
 import type { PortalActions, PortalState } from "../store";
 import type { JourneyGate, JourneyRequest } from "../types";
 
@@ -47,7 +47,7 @@ export function Journey({ state, actions }: { state: PortalState; actions: Porta
   const [requestNote, setRequestNote] = useState("");
   const [requestTags, setRequestTags] = useState<string[]>([]);
   const [requestSeverity, setRequestSeverity] = useState<JourneyRequest["severity"]>("blocking");
-  const gates = Array.isArray(state.journeyGates) && state.journeyGates.length ? state.journeyGates : seedJourneyGates();
+  const gates = state.journeyGates;
 
   useEffect(() => {
     let changed = false;

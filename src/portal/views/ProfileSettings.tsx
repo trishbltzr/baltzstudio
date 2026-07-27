@@ -35,6 +35,7 @@ export function ProfileSettings({
             Display name
             <input
               defaultValue={state.role === "admin" ? "Trish Baltazar" : state.role === "dev" ? "Studio team" : "Client"}
+              readOnly
               className="pt-input"
               style={css("border:1px solid var(--border);border-radius:var(--radius);padding:0.62rem 0.75rem;font-size:var(--text-base);background:var(--surface-alt);color:var(--fg)")}
             />
@@ -42,7 +43,8 @@ export function ProfileSettings({
           <label style={css("display:flex;flex-direction:column;gap:0.3rem;font-size:var(--text-xs);font-weight:500;color:var(--fg-muted)")}>
             Contact email
             <input
-              defaultValue={state.role === "admin" ? "trish@baltazar.studio" : state.role === "dev" ? "studio@baltazar.studio" : "flora@floraandco.com"}
+              defaultValue={state.role === "admin" ? "trisha@baltz.studio" : state.role === "dev" ? "studio@baltz.studio" : ""}
+              readOnly
               className="pt-input"
               style={css("border:1px solid var(--border);border-radius:var(--radius);padding:0.62rem 0.75rem;font-size:var(--text-base);background:var(--surface-alt);color:var(--fg)")}
             />
@@ -112,9 +114,8 @@ export function ProfileSettings({
           </div>
         ) : null}
 
-        <div style={css("display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap;margin-top:1rem")}>
-          <button onClick={() => actions.showToast((mode === "profile" ? "Profile" : "Settings") + " saved")} className="pt-op" style={css("height:2.2rem;padding:0 1rem;border:none;border-radius:var(--radius-pill);background:var(--accent);color:#fff;font-size:var(--text-sm);font-weight:500;cursor:pointer")}>Save changes</button>
-          <button onClick={() => actions.showToast("Invite link copied")} style={css("height:2.2rem;padding:0 0.95rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-sm);font-weight:500;cursor:pointer")}>Share access</button>
+        <div style={css("margin-top:1rem;font-size:var(--text-xs);color:var(--fg-muted)")}>
+          Preference changes save automatically. Account identity and access are managed from Team.
         </div>
       </div>
 

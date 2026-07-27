@@ -92,6 +92,7 @@ export type PortalFunnelPlanRecord = {
   generatedAt: string;
   updatedAt: string;
   content: unknown;
+  session?: GuidedAuditSession;
   processRun?: PortalProcessRun;
 };
 
@@ -389,36 +390,8 @@ export type PersistedPortalWorkspaceState = {
   notificationPreferences: PortalNotificationPreferences;
 };
 
-export const DEFAULT_PORTAL_APPROVALS: PortalApprovalRecord[] = [
-  {
-    id: "seed-blue-ribbon-seo-report",
-    clientId: "blue-ribbon",
-    clientName: "Blue Ribbon",
-    title: "SEO audit report",
-    thumb: "var(--success-soft)",
-    sent: false,
-    outputType: "audit",
-    summary: "Homepage and three key pages are healthy; two redirect chains and one missing meta description are the priorities before growth work.",
-    sections: [
-      { heading: "What's working", body: "Core pages are healthy and indexable.", bullets: ["Homepage and 3 key pages return 200 and are indexable", "Titles and headings are present and unique"] },
-      { heading: "Fix first", body: "A short, high-impact list before growth work.", bullets: ["Resolve 2 redirect chains on product URLs", "Add the missing meta description on the pricing page"] },
-    ],
-  },
-  {
-    id: "seed-nature-brand-kit",
-    clientId: "nature-s-best-organic",
-    clientName: "Nature's Best Organic",
-    title: "Brand kit — colours, type & voice",
-    thumb: "var(--accent-soft)",
-    sent: false,
-    outputType: "builder",
-    summary: "The consolidated brand system is ready to share — palette, typography, and voice captured from the brand audit.",
-    sections: [
-      { heading: "Palette", body: "Verified colours from the site.", bullets: ["Forest Green #2E5D3B", "Harvest Gold #C8A24B", "Cream #F3EFE4"] },
-      { heading: "Voice", body: "Approved tone traits.", bullets: ["Wholesome", "Trustworthy", "Warm", "Avoid: hype and jargon"] },
-    ],
-  },
-];
+export const DEFAULT_PORTAL_APPROVALS: PortalApprovalRecord[] = [];
+const RETIRED_SEEDED_APPROVAL_IDS = new Set(["seed-blue-ribbon-seo-report", "seed-nature-brand-kit"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -750,10 +723,11 @@ export function appendPortalClientAuditRecord(
 
 export function mergePortalApprovals(clientId: string, approvals: PortalApprovalRecord[]) {
   const defaults = DEFAULT_PORTAL_APPROVALS.filter(approval => approval.clientId === clientId);
-  const byId = new Map(approvals.map(approval => [approval.id, approval]));
+  const productionApprovals = approvals.filter(approval => !RETIRED_SEEDED_APPROVAL_IDS.has(approval.id));
+  const byId = new Map(productionApprovals.map(approval => [approval.id, approval]));
   const mergedDefaults = defaults.map(approval => ({ ...approval, ...(byId.get(approval.id) || {}) }));
   const defaultIds = new Set(defaults.map(approval => approval.id));
-  return [...mergedDefaults, ...approvals.filter(approval => !defaultIds.has(approval.id))];
+  return [...mergedDefaults, ...productionApprovals.filter(approval => !defaultIds.has(approval.id))];
 }
 
 export function mergePortalClientWorkspace(clientId: string, workspace?: Partial<PortalClientWorkspace> | null): PortalClientWorkspace {

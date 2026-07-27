@@ -211,7 +211,7 @@ const PARTNER_ENGINE_ACCESS_POLICY = `## Client delivery and access
 
 export const PB_SEED: PlaybookSeed[] = [
   { id: "cc-brand-audit", processId: "brand-audit", svc: "cocoon", fn: "Brand Audit", icon: "palette", dur: "2–3 days", tag: "Diagnostic",
-    purpose: "Audit the brand foundation, positioning, voice, visual identity, system, and improvement priorities.", sourceDocId: "cocoon-brand-audit",
+    purpose: "Review the brand foundation, positioning, voice, and visual identity.", sourceDocId: "cocoon-brand-audit",
     md: `# Brand Audit
 
 **Service:** Cocoon Consult  ·  **Timing:** 2–3 days  ·  **Type:** Diagnostic

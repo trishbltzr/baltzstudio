@@ -2,12 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../icons";
-import { css, healthMap, initials } from "../helpers";
-import { ALL_PROJECTS, SVC_META, seedTasks } from "../data";
-import { STUDIO_CLIENTS } from "../clients";
+import { css, initials } from "../helpers";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { PortalActions, PortalState } from "../store";
-import type { Health } from "../types";
+import { usePortalStudioClients } from "../usePortalStudioClients";
 
 interface Member { name: string; access: string; load: number; prod: number; invited?: boolean; oversight?: boolean }
 interface DirectoryUser { name: string; email: string; access: string; workspace: string; status: "Active" | "Invited" | "Pending" }
@@ -21,8 +19,6 @@ function workband(load: number): [string, string] {
   if (load >= 55) return ["At capacity", "var(--warn)"];
   return ["Healthy", "var(--success)"];
 }
-const healthColor = (h: Health) => ({ on_track: "var(--success)", at_risk: "var(--warn)", delayed: "var(--danger)" }[h]);
-
 export function Users({ state, actions }: { state: PortalState; actions: PortalActions }) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteName, setInviteName] = useState("");
@@ -31,7 +27,7 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
   const [inviteSending, setInviteSending] = useState(false);
   const [resettingEmail, setResettingEmail] = useState<string | null>(null);
   const inviteNameRef = useRef<HTMLInputElement>(null);
-  const tasks = seedTasks();
+  const { clients: portalClients } = usePortalStudioClients();
   const studioMembers = TEAM.filter(member => member.name !== "Kier Mangibin");
   const allMembers: Member[] = [
     ...studioMembers,
@@ -48,19 +44,7 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
       if (key && !users.has(key)) users.set(key, user);
     };
 
-    addUser({ name: "Trisha Baltazar", email: "trisha@baltazarstudio.co", access: "Admin", workspace: "Baltazar Studio", status: "Active" });
-    STUDIO_CLIENTS.forEach(client => {
-      addUser({ name: client.name, email: `${client.id}@client.baltazarstudio.co`, access: "Client", workspace: client.name, status: "Active" });
-      actions.workspaceForClient(client.name).collaborators.forEach(collaborator => {
-        addUser({
-          name: collaborator.name,
-          email: collaborator.email,
-          access: collaborator.access,
-          workspace: client.name,
-          status: collaborator.status === "pending" ? "Pending" : "Invited",
-        });
-      });
-    });
+    addUser({ name: "Trisha Baltazar", email: "trisha@baltz.studio", access: "Admin", workspace: "Baltazar Studio", status: "Active" });
     state.teamInvites.forEach(invite => {
       addUser({ name: invite.name, email: invite.email, access: invite.access, workspace: "Baltazar Studio", status: "Invited" });
     });
@@ -83,19 +67,19 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
       return;
     }
     setInviteSending(true);
-    const response = await fetch("/api/invite-request", {
+    const response = await fetch("/api/team-invitations", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         name,
         email,
-        businessName: "Baltazar Studio",
-        note: "Portal access: " + inviteAccess,
+        role: inviteAccess === "Admin" ? "admin" : "manager",
       }),
     }).catch(() => null);
     if (!response?.ok) {
+      const payload = await response?.json().catch(() => null);
       setInviteSending(false);
-      actions.showToast("Unable to save the portal invite — please try again");
+      actions.showToast(typeof payload?.error === "string" ? payload.error : "Unable to send the portal invitation");
       return;
     }
     actions.update(s => ({
@@ -133,16 +117,13 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
   const stats = [
     { label: "Studio team", value: String(allMembers.length), sub: "active & invited", valColor: "var(--fg)" },
     { label: "At capacity", value: String(atCap), sub: overworked.length ? overworked.map(m => m.name.split(" ")[0]).join(", ") + " overworked" : "balanced", valColor: atCap ? "var(--warn)" : "var(--success)" },
-    { label: "Active clients", value: String(ALL_PROJECTS.length), sub: "across the studio", valColor: "var(--fg)" },
+    { label: "Active clients", value: String(portalClients.length), sub: "across the studio", valColor: "var(--fg)" },
     { label: "Avg productivity", value: Math.round(activeMembers.reduce((a, m) => a + m.prod, 0) / Math.max(1, activeMembers.length)) + "%", sub: "last 30 days", valColor: "var(--success)" },
   ];
 
   const members = allMembers.map(m => {
-    const projs = m.oversight
-      ? ALL_PROJECTS.filter(p => p.health !== "on_track")
-      : ALL_PROJECTS.filter(p => p.dev === m.name);
     const [wkLabel, wkColor] = workband(m.load);
-    return { ...m, init: initials(m.name), clients: m.oversight ? ALL_PROJECTS.length : projs.length, activeTasks: tasks.filter(t => t.assignee === m.name && t.status !== "done").length, wkLabel, wkColor, projs };
+    return { ...m, init: initials(m.name), clients: m.oversight ? portalClients.length : 0, activeTasks: 0, wkLabel, wkColor };
   });
   const teamCols = state.isMobile ? "minmax(0,1fr)" : "repeat(2,minmax(0,1fr))";
   const directoryCols = state.isMobile
@@ -154,7 +135,7 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
       <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);flex-wrap:wrap")}>
         <div>
           <div style={css("font-size:var(--text-lg);font-weight:500;color:var(--fg)")}>Team access</div>
-          <div style={css("margin-top:0.15rem;font-size:var(--text-xs);color:var(--fg-muted)")}>Invite studio members and clients to the portal.</div>
+          <div style={css("margin-top:0.15rem;font-size:var(--text-xs);color:var(--fg-muted)")}>Invite studio members to the portal.</div>
         </div>
         <button type="button" onClick={() => { setInviteOpen(true); requestAnimationFrame(() => inviteNameRef.current?.focus()); }} className="pt-op" style={css("height:2.2rem;padding:0 0.9rem;border:none;border-radius:var(--radius-pill);background:var(--accent);color:#fff;font-size:var(--text-xs);font-weight:500;display:inline-flex;align-items:center;gap:0.4rem;cursor:pointer")}>
           <Icon name="user" size={15} /> Invite user
@@ -176,7 +157,6 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
             <select value={inviteAccess} onChange={event => setInviteAccess(event.target.value)} style={css("height:2.25rem;border:1px solid var(--border);border-radius:var(--radius);padding:0 0.7rem;background:var(--surface);color:var(--fg);font-size:var(--text-sm)")}>
               <option>Member</option>
               <option>Admin</option>
-              <option>Client</option>
             </select>
           </label>
           <div style={css("display:flex;align-items:center;gap:0.45rem;justify-content:flex-end")}>
@@ -278,29 +258,9 @@ export function Users({ state, actions }: { state: PortalState; actions: PortalA
                 <div style={css("display:flex;justify-content:space-between;font-size:var(--text-2xs);color:var(--fg-muted);margin-bottom:0.1rem")}><span>Workload</span><span>{p.load}%</span></div>
                 <div style={css("height:0.4rem;border-radius:999px;background:oklch(0.94 0.006 50);overflow:hidden")}><div style={css("width:" + p.load + "%;height:100%;border-radius:999px;background:" + p.wkColor)} /></div>
               </div>
-              {p.invited ? (
-                <div style={css("font-size:var(--text-sm);color:var(--fg-faint);font-style:italic")}>Client intake — no projects assigned yet.</div>
-              ) : (
-                <div style={css("display:flex;flex-direction:column;gap:0.4rem")}>
-                  {p.projs.map(pr => {
-                    const hm = healthMap(pr.health);
-                    const stageLabel = pr.stage.split(" · ").slice(-1)[0];
-                    return (
-                      <div key={pr.id} style={css("display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:0.6rem;padding:0.5rem 0.7rem;border-radius:var(--radius-sm);background:var(--surface-alt)")}>
-                        <div style={css("display:flex;align-items:center;gap:0.6rem;min-width:0")}>
-                          <span style={css("width:0.5rem;height:0.5rem;border-radius:50%;flex-shrink:0;background:" + SVC_META[pr.service].color)} />
-                          <span style={css("font-weight:500;font-size:var(--text-base);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{pr.client}</span>
-                        </div>
-                        <div style={css("display:flex;align-items:center;justify-content:flex-end;gap:0.45rem;flex-wrap:wrap")}>
-                          <span style={css("display:inline-flex;align-items:center;padding:0.16rem 0.48rem;border-radius:999px;background:oklch(0.96 0.006 50);color:var(--fg-muted);font-size:var(--text-2xs);font-weight:500;white-space:nowrap")}>{stageLabel}</span>
-                          <span style={css("display:inline-flex;align-items:center;padding:0.16rem 0.48rem;border-radius:999px;background:color-mix(in srgb," + healthColor(pr.health) + " 10%,white 90%);color:" + healthColor(pr.health) + ";font-size:var(--text-2xs);font-weight:500;white-space:nowrap")}>{hm[1]}</span>
-                          <span style={css("font-size:var(--text-2xs);color:var(--fg-faint);min-width:2.9rem;text-align:right;white-space:nowrap")}>{pr.due}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              <div style={css("font-size:var(--text-sm);color:var(--fg-faint);font-style:italic")}>
+                {p.invited ? "Invitation sent — no work assigned yet." : "No assigned work recorded."}
+              </div>
             </div>
           </div>
         ))}

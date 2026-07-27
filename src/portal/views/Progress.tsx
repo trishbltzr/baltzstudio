@@ -269,7 +269,7 @@ function ProgressHeader({
 
       <div style={css("margin-top:1.25rem;text-align:left;display:flex;flex-direction:column;gap:0.55rem")}>
         {state.role === "admin"
-          ? <><AdminStats actions={actions} /><AdminPipeline state={state} actions={actions} /></>
+          ? <><AdminStats state={state} actions={actions} /><AdminPipeline state={state} actions={actions} /></>
           : state.role === "dev"
             ? <><ManagerStats state={state} actions={actions} /><ManagerPipeline state={state} actions={actions} /></>
             : <><ClientStats state={state} actions={actions} /><ClientPipeline state={state} actions={actions} /></>}

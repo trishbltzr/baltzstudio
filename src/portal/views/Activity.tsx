@@ -6,6 +6,7 @@ import { css } from "../helpers";
 import type { PortalState } from "../store";
 import { WorkflowGovernancePanel } from "../components/WorkflowGovernancePanel";
 import { FULL_REFRESH_TRIGGERS } from "@/lib/serviceRunGovernance";
+import { portalHref, readPortalLocationParams } from "../routes";
 
 const ACT_ICON: Record<string, string> = { gate: "flag", file: "file", wise: "wallet", task: "check", msg: "msg", audit: "search", access: "users" };
 const ACT_LANE: Record<string, string> = { gate: "var(--lane-gate)", file: "var(--fg-muted)", wise: "var(--lane-ai)", task: "var(--lane-studio)", msg: "var(--lane-client)", audit: "var(--cocoon)", access: "var(--accent)" };
@@ -144,7 +145,7 @@ function freshnessLabel(value: string | null) {
 }
 
 function serviceRoute(run: OperationalRun) {
-  return `/dashboard?view=audits&serviceRunId=${run.id}&auditType=${run.serviceKind}`;
+  return portalHref({ view: "audits", serviceRunId: run.id, auditType: run.serviceKind });
 }
 
 function nextStepLabel(run: OperationalRun) {
@@ -252,7 +253,7 @@ export function Activity({ state }: { state?: PortalState }) {
     () => {
       const requestedRunId = typeof window === "undefined"
         ? null
-        : new URLSearchParams(window.location.search).get("serviceRunId");
+        : readPortalLocationParams().get("serviceRunId");
       const sorted = [...operationalRuns].sort((left, right) => {
         if (left.id === requestedRunId) return -1;
         if (right.id === requestedRunId) return 1;
@@ -272,7 +273,7 @@ export function Activity({ state }: { state?: PortalState }) {
 
   useEffect(() => {
     if (runLoadState !== "ready") return;
-    const requestedRunId = new URLSearchParams(window.location.search).get("serviceRunId");
+    const requestedRunId = readPortalLocationParams().get("serviceRunId");
     if (!requestedRunId) return;
     document.querySelector(`[data-service-run-id="${CSS.escape(requestedRunId)}"]`)?.scrollIntoView({
       behavior: "smooth",
@@ -288,7 +289,7 @@ export function Activity({ state }: { state?: PortalState }) {
             <h3>Last checkup</h3>
             {featuredRun && <span className={`pt-run-state is-${featuredRun.state}`}>{RUN_STATE_LABEL[featuredRun.state] ?? featuredRun.state}</span>}
           </div>
-          <a className="pt-activity-outline-button" href="/dashboard?view=audits">All checkups</a>
+          <a className="pt-activity-outline-button" href={portalHref({ view: "audits" })}>All checkups</a>
         </header>
         {runLoadState === "loading" && <div style={css("padding:1.2rem 1rem;color:var(--fg-muted);font-size:var(--text-sm)")}>Loading run activity…</div>}
         {runLoadState === "error" && <div style={css("padding:1.2rem 1rem;color:var(--danger);font-size:var(--text-sm)")}>Run activity could not be loaded. Existing workspace activity is still available below.</div>}
@@ -304,28 +305,27 @@ export function Activity({ state }: { state?: PortalState }) {
           const selectedFullRefresh = FULL_REFRESH_TRIGGERS[fullRefreshTrigger[run.id] as keyof typeof FULL_REFRESH_TRIGGERS];
           return (
             <article data-service-run-id={run.id} className="pt-activity-status-body">
-              <div className="pt-activity-status-column">
-                <p><span>Status:</span><strong>{RUN_STATE_LABEL[run.state] ?? run.state}</strong></p>
-                <p><span>Updated:</span><strong>{formatTime(run.updatedAt)}</strong></p>
-                <p><span>Client:</span><strong>{run.clientName}</strong></p>
+              <div className="pt-activity-status-summary">
+                <section className="pt-activity-status-primary">
+                  <span>{serviceLabel(run)}</span>
+                  <h4>{nextStepLabel(run)}</h4>
+                  <p>{runSummary(run)}</p>
+                  {run.state !== "cancelled" && (
+                    <div className="pt-activity-progress">
+                      <div><span>{checkedLabel(run)}</span><strong>{progress}%</strong></div>
+                      <span><i style={{ width: `${progress}%`, background: blocked ? "var(--warn)" : "var(--success)" }} /></span>
+                      {estimate && <small>About {estimate}</small>}
+                    </div>
+                  )}
+                  <a className="pt-activity-inline-link" href={serviceRoute(run)}>View checkup <Icon name="arrow" size={12} /></a>
+                </section>
+                <dl className="pt-activity-status-facts">
+                  <div><dt>Client</dt><dd>{run.clientName}</dd></div>
+                  <div><dt>Updated</dt><dd>{formatTime(run.updatedAt)}</dd></div>
+                  <div><dt>Evidence</dt><dd>{evidenceLabel(run)}</dd></div>
+                  <div><dt>Items checked</dt><dd>{checkedLabel(run)}</dd></div>
+                </dl>
               </div>
-              <div className="pt-activity-status-column">
-                <p><span>Checkup:</span><strong>{serviceLabel(run)}</strong></p>
-                <p><span>Evidence:</span><strong>{evidenceLabel(run)}</strong></p>
-                <p><span>Items:</span><strong>{checkedLabel(run)}</strong></p>
-              </div>
-              <div className="pt-activity-status-column">
-                <p><span>Result:</span><strong>{runSummary(run)}</strong></p>
-                <p><span>Next step:</span><strong>{nextStepLabel(run)}</strong></p>
-                <a className="pt-activity-inline-link" href={serviceRoute(run)}>View checkup <Icon name="arrow" size={12} /></a>
-              </div>
-              {run.state !== "cancelled" && (
-                <div className="pt-activity-progress">
-                  <div><span>{checkedLabel(run)}</span><strong>{progress}%</strong></div>
-                  <span><i style={{ width: `${progress}%`, background: blocked ? "var(--warn)" : "var(--success)" }} /></span>
-                  {estimate && <small>About {estimate}</small>}
-                </div>
-              )}
               {blocked && run.blocker && <div className="pt-operational-run-blocker"><Icon name="alert" size={13} /><span><strong>{run.blockerOwner ? `${run.blockerOwner}: ` : ""}</strong>{run.blocker}{run.recoveryAction ? ` — ${run.recoveryAction}` : ""}</span>{resumable && state?.role !== "client" && <button type="button" disabled={recoverBusy === run.id} onClick={() => void resumeRun(run)}>{recoverBusy === run.id ? "Resuming…" : "Resume checkup"}</button>}</div>}
               <details className="pt-activity-more">
                 <summary>More details</summary>

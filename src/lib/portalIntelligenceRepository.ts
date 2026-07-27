@@ -52,6 +52,7 @@ export async function listPortalClients(
     .select("*")
     .eq("tenant_id", context.tenantId)
     .neq("status", "archived")
+    .neq("source_kind", "demo")
     .order("name");
 
   if (context.clientId) clientQuery = clientQuery.eq("id", context.clientId);

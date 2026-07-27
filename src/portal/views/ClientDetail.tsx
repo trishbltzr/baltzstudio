@@ -5,8 +5,8 @@ import { Icon } from "../icons";
 import { SectionHeader } from "../components/SectionHeader";
 import { css, displayPortalIdentity, initials, svcBadge } from "../helpers";
 import { formatDashboardDate } from "@/lib/dateDisplay";
-import { ALL_PROJECTS, BRAND_SYSTEMS, DETAIL_BIRTHDAYS, DETAIL_CITIES, DETAIL_NOTES, DETAIL_SINCE, SVC_META, emailSlug } from "../data";
-import { STUDIO_CLIENTS } from "../clients";
+import { BRAND_SYSTEMS, SVC_META } from "../data";
+import { usePortalStudioClients } from "../usePortalStudioClients";
 import type { PortalActions, PortalState } from "../store";
 import type { ClientProject } from "../types";
 import type {
@@ -34,17 +34,6 @@ import type {
 import { CLIENT_VISIBLE_SERVICE_EVENT_TYPES } from "@/lib/portalWorkspacePersistence";
 
 interface AccessUser { name: string; email: string; access: string; studio: boolean }
-
-function accessUsers(clientName: string, i: number, dev: string): AccessUser[] {
-  const slug = emailSlug(clientName);
-  const visibleStudioMember = displayPortalIdentity(dev);
-  const users: AccessUser[] = [
-    { name: clientName.replace(/\s*(&|and)\s*Co\.?$/i, "") + " (owner)", email: "hello@" + slug + ".com", access: "Client", studio: false },
-  ];
-  if (i % 2 === 0) users.push({ name: "Client collaborator", email: "team@" + slug + ".com", access: "Client", studio: false });
-  users.push({ name: visibleStudioMember, email: "studio@baltazar.studio", access: "Studio", studio: true });
-  return users;
-}
 
 const FOLDERS = [["Design Files", 0], ["Brand Assets", 0], ["Deliverables", 0], ["Audits", 0]] as const;
 const SERVICE_EVENT_LABELS: Record<PortalServiceOperationalEventType, string> = {
@@ -114,21 +103,36 @@ export function ClientDetail({ state, actions }: { state: PortalState; actions: 
   const [inviteAccess, setInviteAccess] = useState("Client");
   const [serviceEventType, setServiceEventType] = useState<PortalServiceOperationalEventType>("lead_signup_submitted");
   const [serviceEventReviewed, setServiceEventReviewed] = useState(false);
+  const { clients: rosterClients, loaded: rosterLoaded } = usePortalStudioClients();
   const name = state.clientDetail;
-  const rosterClient = STUDIO_CLIENTS.find(client => client.name === name);
-  const existingProject = ALL_PROJECTS.find(p => p.client === name);
-  if (!name || !rosterClient) return null;
-  const pr: ClientProject = existingProject || { id: `client-${rosterClient.id}`, client: name, name: "Client workspace", service: "cocoon", stage: "Not started", progress: 0, dev: rosterClient.owner, health: "on_track", due: "—", amount: "—", wise: "awaiting" };
-  const i = existingProject ? ALL_PROJECTS.indexOf(existingProject) : STUDIO_CLIENTS.indexOf(rosterClient);
-  const slug = emailSlug(name);
-  const city = DETAIL_CITIES[i % DETAIL_CITIES.length];
-  const fields = [
-    ["Client owner", displayPortalIdentity(pr.dev)], ["Service · stage", pr.stage], ["Client since", DETAIL_SINCE[i % DETAIL_SINCE.length]],
-    ["Birthday", DETAIL_BIRTHDAYS[i % DETAIL_BIRTHDAYS.length]], ["Email", "hello@" + slug + ".com"], ["Phone", "+44 20 7" + (100 + (i * 37) % 900) + " " + (2040 + (i * 53) % 9000)],
-    ["Location", city[0]], ["Timezone", city[1]],
-  ].filter(([, value]) => Boolean(value));
-  const users = accessUsers(name, i, pr.dev);
+  const rosterClient = rosterClients.find(client => client.name === name);
+  if (!name || (!rosterClient && rosterLoaded)) return null;
+  if (!rosterClient) return <div style={css("padding:1.5rem;text-align:center;color:var(--fg-muted)")}>Loading client…</div>;
   const workspace = actions.workspaceForClient(name);
+  const lifecycle = workspace.serviceLifecycle;
+  const progress = lifecycle.auditState === "shared" ? 100
+    : lifecycle.auditState === "approved" ? 90
+      : lifecycle.auditState === "review_ready" ? 75
+        : lifecycle.auditState === "generated" ? 55
+          : lifecycle.auditState === "collecting" ? 25
+            : 0;
+  const pr: ClientProject = { id: `client-${rosterClient.id}`, client: name, name: "Client workspace", service: "cocoon", stage: lifecycle.currentDevelopmentStage || "Not started", progress, dev: rosterClient.owner, health: lifecycle.nextRequiredAction ? "at_risk" : "on_track", due: "—", amount: "—", wise: "awaiting" };
+  const fields = [
+    ["Client owner", displayPortalIdentity(pr.dev)],
+    ["Service · stage", pr.stage],
+    ["Email", rosterClient.lead.email],
+    ["Phone", rosterClient.lead.phone],
+    ["Website", rosterClient.lead.website],
+  ].filter(([, value]) => Boolean(value));
+  const users: AccessUser[] = [
+    ...(rosterClient.lead.email ? [{
+      name: rosterClient.lead.contactName || name,
+      email: rosterClient.lead.email,
+      access: "Client",
+      studio: false,
+    }] : []),
+    { name: displayPortalIdentity(pr.dev), email: "studio@baltz.studio", access: "Studio", studio: true },
+  ];
   const usersWithCollaborators = [
     ...workspace.collaborators.map(collaborator => ({
       name: collaborator.name,
@@ -138,7 +142,6 @@ export function ClientDetail({ state, actions }: { state: PortalState; actions: 
     })),
     ...users,
   ];
-  const notes = DETAIL_NOTES[i % DETAIL_NOTES.length];
   const allFiles = [
     ...workspace.files.map(file => ({ name: file.name, ext: file.ext, project: file.folder, size: file.sizeLabel, by: file.by, updated: formatDashboardDate(file.updated, file.updated), status: file.status })),
     ...FILES,
@@ -155,7 +158,6 @@ export function ClientDetail({ state, actions }: { state: PortalState; actions: 
   const toneTraits = sys.tone.traits.length ? sys.tone.traits : auditToneTraits;
   const auditToneAvoid = typeof auditData?.avoid === "string" ? auditData.avoid.trim() : "";
   const toneAvoid = sys.tone.avoid?.trim() || auditToneAvoid;
-  const lifecycle = workspace.serviceLifecycle;
   const cocoonLinkMeta = lifecycle.consultState === "audit_ready" || lifecycle.consultState === "intake_completed"
     ? { label: lifecycle.consultState === "audit_ready" ? "Results ready" : "Intake completed", tone: "var(--success)", soft: "var(--success-soft)" }
     : lifecycle.consultState === "link_sent" || lifecycle.consultState === "intake_started"
@@ -329,10 +331,6 @@ export function ClientDetail({ state, actions }: { state: PortalState; actions: 
               <div style={css("font-size:var(--text-base);color:var(--fg)")}>{value}</div>
             </div>
           ))}
-          {notes && <div style={css("grid-column:1/-1;background:var(--surface-alt);border:1px solid var(--border-soft);border-radius:var(--radius);padding:0.7rem 0.85rem")}>
-            <div style={css("font-size:var(--text-2xs);letter-spacing:0;color:var(--fg-faint);font-weight:500;margin-bottom:0.28rem")}>Notes</div>
-            <div style={css("font-size:var(--text-base);color:var(--fg);line-height:1.5")}>{notes}</div>
-          </div>}
           {(toneTraits.length > 0 || toneAvoid) && <div style={css("grid-column:1/-1;background:var(--surface-alt);border:1px solid var(--border-soft);border-radius:var(--radius);padding:0.75rem 0.85rem")}>
             <div style={css("font-size:var(--text-2xs);letter-spacing:0;color:var(--fg-faint);font-weight:500;margin-bottom:0.45rem")}>Voice &amp; Tone</div>
             {toneTraits.length > 0 && <div style={css("display:flex;flex-wrap:wrap;gap:0.38rem")}>{toneTraits.map(trait => <span key={trait} style={css("font-size:var(--text-2xs);font-weight:500;padding:0.28rem 0.65rem;border-radius:999px;border:1px solid color-mix(in srgb," + secondary + " 38%,var(--border-soft));background:color-mix(in srgb," + secondary + " 10%,var(--surface));color:var(--fg)")}>{trait}</span>)}</div>}

@@ -31,7 +31,7 @@ export const FUNNEL_WIZARD: DiscoveryTopic[] = [
     { key: "awareness", label: "Awareness level", hint: "How much they already know — we build content for each rung.", kind: "single", opts: ["Unaware", "Problem-aware", "Solution-aware", "Product-aware", "Most aware"] },
   ] },
   { id: "pages", num: "05", title: "Funnel flow", icon: "funnel", qs: [
-    { key: "pages", label: "Pages in this funnel", hint: "Pick every step. Order is handled for you.", kind: "multi", opts: ["Opt-in / landing", "Sales page", "VSL page", "Application form", "Booking / calendar", "Checkout", "Order bump", "Upsell (OTO)", "Downsell", "Thank-you"] },
+    { key: "pages", label: "Pages in this funnel", hint: "Pick every step. Order is handled for you — value first, capture last.", kind: "multi", opts: ["POV / manifesto", "Content hub / home", "Resource / pillar page", "Comparison / proof", "High-intent CTA", "Newsletter / community", "Thank-you / next value"] },
     { key: "emails", label: "Follow-up & nurture", hint: "How you stay useful after they engage — nurture by value, not by pitching.", kind: "single", opts: ["None", "Value newsletter", "Content nurture (educate, don’t pitch)", "In-market signal → sales reaches out"] },
   ] },
   { id: "assets", num: "06", title: "Brand & assets", icon: "palette", qs: [
@@ -101,6 +101,3 @@ export const AUDIT_INTRO_STEPS: DiscoveryIntroStep[] = [
   { title: "Visual consistency", tag: "Page-to-page design", icon: "palette" },
   { title: "Site positioning", tag: "Why choose this brand", icon: "grid" },
 ];
-
-export const FUNNEL_DEMO: Record<string, string | string[]> = {};
-export const AUDIT_DEMO: Record<string, string | string[]> = {};

@@ -5,6 +5,7 @@ import { css } from "../helpers";
 import { Icon } from "../icons";
 import { processTrackerItems } from "../selectors";
 import type { PortalActions, PortalState } from "../store";
+import { usePortalStudioClients } from "../usePortalStudioClients";
 
 const STATUS_TONE: Record<string, { color: string; background: string; icon: string }> = {
   Blocked: { color: "var(--danger)", background: "var(--danger-soft)", icon: "alert" },
@@ -15,7 +16,11 @@ const STATUS_TONE: Record<string, { color: string; background: string; icon: str
 };
 
 export function ProcessTracker({ state, actions }: { state: PortalState; actions: PortalActions }) {
-  const items = processTrackerItems(state).slice(0, state.role === "client" ? 4 : 6);
+  const { clients } = usePortalStudioClients();
+  const visibleClientIds = new Set((state.role === "client" ? clients.filter(client => client.name === state.clientName) : clients).map(client => client.id));
+  const items = processTrackerItems(state)
+    .filter(item => visibleClientIds.has(item.clientId))
+    .slice(0, state.role === "client" ? 4 : 6);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scroll = (direction: number) => {
     const el = scrollRef.current;

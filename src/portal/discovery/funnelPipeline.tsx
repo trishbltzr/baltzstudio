@@ -5,25 +5,12 @@ import { css } from "../helpers";
 import { Icon } from "../icons";
 import type { Ans, Pipeline, StageRenderCtx, ProposalRenderCtx } from "./DiscoveryBuilder";
 import { isAiStageResult, isFunnelCopyResult, type FunnelCopyResult, type FunnelCopySection } from "@/lib/aiStageGeneration";
+import { FUNNEL_COPY_BUDGETS } from "@/lib/copywritingAgent";
 import { BuilderTaskPanel } from "../builders/BuilderTaskPanel";
 import type { TaskImportDraft } from "../types";
 
 // ── docs model (ported from Funnel Builder fbDocs) ─────────────────────────────
 const cap = (s: string) => { s = (s || "").trim(); return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; };
-
-function conciseHeroCopy(value: unknown, maxWords: number, maxCharacters: number): string {
-  const normalized = String(value || "").replace(/\s+/g, " ").trim();
-  if (!normalized) return "";
-  const words = normalized.split(" ");
-  if (words.length <= maxWords && normalized.length <= maxCharacters) return normalized;
-  const kept: string[] = [];
-  for (const word of words) {
-    const next = [...kept, word].join(" ");
-    if (kept.length >= maxWords || next.length > maxCharacters) break;
-    kept.push(word);
-  }
-  return `${kept.join(" ").replace(/[,:;.!?–—-]+$/, "")}…`;
-}
 
 export interface UploadedLandingCopy {
   sourceName: string;
@@ -53,16 +40,16 @@ function parseUploadedLandingCopy(value: Ans[string]): UploadedLandingCopy | und
   } catch { return undefined; }
 }
 
-const PAGE_ORDER = ["Opt-in / landing", "VSL page", "Sales page", "Application form", "Booking / calendar", "Checkout", "Order bump", "Upsell (OTO)", "Downsell", "Thank-you"];
-const PAGE_ICON: Record<string, string> = { "Opt-in / landing": "inbox", "VSL page": "eye", "Sales page": "file", "Application form": "checklist", "Booking / calendar": "history", "Checkout": "wallet", "Order bump": "plus", "Upsell (OTO)": "chart", "Downsell": "chev", "Thank-you": "check" };
+const PAGE_ORDER = ["POV / manifesto", "Content hub / home", "Resource / pillar page", "Comparison / proof", "High-intent CTA", "Newsletter / community", "Thank-you / next value"];
+const PAGE_ICON: Record<string, string> = { "POV / manifesto": "eye", "Content hub / home": "inbox", "Resource / pillar page": "file", "Comparison / proof": "chart", "High-intent CTA": "checklist", "Newsletter / community": "history", "Thank-you / next value": "check" };
 const PAGE_STAGE: Record<string, { label: string; title: string; tag: string }> = {
-  "Opt-in / landing": { label: "LANDING PAGE", title: "Deliver the value", tag: "visitor → audience" },
-  "VSL page": { label: "VSL PAGE", title: "Show it in action", tag: "watched" },
-  "Sales page": { label: "SALES PAGE", title: "Make the offer", tag: "considering" },
-  "Application form": { label: "APPLICATION", title: "Qualify the fit", tag: "qualified" },
-  "Booking / calendar": { label: "BOOKING / CALL", title: "Show a booking calendar", tag: "high intent" },
-  "Checkout": { label: "CHECKOUT", title: "Take the payment", tag: "purchased" },
-  "Thank-you": { label: "THANK-YOU", title: "Confirm & deliver", tag: "converted" },
+  "POV / manifesto": { label: "POINT OF VIEW", title: "Publish what you stand for", tag: "reach" },
+  "Content hub / home": { label: "CONTENT HUB", title: "Lead with value", tag: "visitor → audience" },
+  "Resource / pillar page": { label: "RESOURCE", title: "Give it away, ungated", tag: "engaged" },
+  "Comparison / proof": { label: "PROOF", title: "Earn the ready buyer’s trust", tag: "considering" },
+  "High-intent CTA": { label: "HIGH-INTENT CTA", title: "One clear action", tag: "high intent" },
+  "Newsletter / community": { label: "NURTURE", title: "Stay useful over time", tag: "nurtured" },
+  "Thank-you / next value": { label: "THANK-YOU", title: "Deliver & point to more", tag: "returning" },
 };
 const NEED_FOLDER: Record<string, string> = { "Logo & brand kit": "01 · Brand kit", "Product photos": "02 · Photography", "Headshots / team": "03 · Headshots", "POV / thesis doc": "04 · Point of view", "Video / content clips": "05 · Content", "Testimonials": "06 · Testimonials", "Ungated resources": "07 · Resources", "Legal / policy pages": "08 · Legal" };
 
@@ -134,7 +121,7 @@ export function buildFunnelDocs(data: Ans): FunnelDocs {
     offerBlock: { h: "Choose the right feed for your animals", b: cap(offer) + (salesPrice !== "Final price to approve" ? "  ·  " + salesPrice : "") },
   };
 
-  const flowPages = (pagesSel.length ? pagesSel : ["Opt-in / landing", "Thank-you"]).slice().sort((a, b) => PAGE_ORDER.indexOf(a) - PAGE_ORDER.indexOf(b));
+  const flowPages = (pagesSel.length ? pagesSel : ["Content hub / home", "Thank-you / next value"]).slice().sort((a, b) => PAGE_ORDER.indexOf(a) - PAGE_ORDER.indexOf(b));
   const flow = flowPages.map((p, i) => ({ label: p, icon: PAGE_ICON[p] || "file", step: "Step " + (i + 1) }));
   const hasEmail = emails && emails !== "None";
 
@@ -169,13 +156,14 @@ export function buildFunnelDocs(data: Ans): FunnelDocs {
   ];
 
   // funnel diagram rows
-  const coreOrder = ["Opt-in / landing", "VSL page", "Sales page", "Application form", "Booking / calendar", "Checkout", "Thank-you"];
-  let corePages = flowPages.filter(p => coreOrder.includes(p)); if (!corePages.length) corePages = ["Opt-in / landing"];
+  const coreOrder = ["POV / manifesto", "Content hub / home", "Resource / pillar page", "Comparison / proof", "High-intent CTA", "Newsletter / community", "Thank-you / next value"];
+  let corePages = flowPages.filter(p => coreOrder.includes(p)); if (!corePages.length) corePages = ["Content hub / home"];
   const trafficLabel = traffic.length ? traffic.slice(0, 2).join(", ") : "LinkedIn, Newsletter";
-  const awMap: Record<string, string> = { "Unaware": "cold audience", "Problem-aware": "cold audience", "Solution-aware": "warm audience", "Product-aware": "warm audience", "Most aware": "hot audience" };
-  const funnel: { label: string; title: string; tag: string; goal?: boolean }[] = [{ label: "TRAFFIC", title: trafficLabel, tag: awMap[awareness] || "cold audience" }];
-  corePages.forEach(p => { const st = PAGE_STAGE[p]; if (st) { funnel.push({ label: st.label, title: st.title, tag: st.tag }); if (p === "Opt-in / landing" && hasEmail) funnel.push({ label: "VALUE + NURTURE", title: "Keep delivering value", tag: "engaged" }); } });
-  const goalTitle = (action && action.toLowerCase() !== "take the next step") ? cap(action) : "Booked strategy call";
+  const awMap: Record<string, string> = { "Unaware": "not in-market yet", "Problem-aware": "not in-market yet", "Solution-aware": "warming audience", "Product-aware": "warming audience", "Most aware": "in-market now" };
+  const funnel: { label: string; title: string; tag: string; goal?: boolean }[] = [{ label: "DISTRIBUTION", title: trafficLabel, tag: awMap[awareness] || "create demand" }];
+  const hasNurturePage = corePages.includes("Newsletter / community");
+  corePages.forEach(p => { const st = PAGE_STAGE[p]; if (st) { funnel.push({ label: st.label, title: st.title, tag: st.tag }); if (p === "Content hub / home" && hasEmail && !hasNurturePage) funnel.push({ label: "NURTURE", title: "Keep delivering value", tag: "engaged" }); } });
+  const goalTitle = (action && action.toLowerCase() !== "take the next step") ? cap(action) : "High-intent action";
   funnel.push({ label: "GOAL", title: goalTitle, tag: "", goal: true });
   const fnN = funnel.length;
   const funnelRows = funnel.map((row, i) => {
@@ -333,103 +321,28 @@ export function FunnelFlowHero({
 const WIREFRAME_SECTION_KEYS = ["promoTop", "hero", "stakes", "benefits", "audience", "details", "promoMid", "process", "testimonial", "offer", "price", "faq", "finalCta"] as const;
 type WireframeSectionKey = typeof WIREFRAME_SECTION_KEYS[number];
 type WireframeRecipe = Record<WireframeSectionKey, number>;
-const WIREFRAME_VARIANT_COUNTS: WireframeRecipe = { promoTop: 3, hero: 4, stakes: 3, benefits: 3, audience: 3, details: 3, promoMid: 3, process: 3, testimonial: 3, offer: 3, price: 3, faq: 3, finalCta: 3 };
-
-function seededRecipe(bp: any): WireframeRecipe {
-  let seed = Array.from(`${bp?.nav?.brand || ""}:${bp?.hero?.title || ""}`).reduce((total, character) => total + character.charCodeAt(0), 0) || 1;
-  return Object.fromEntries(WIREFRAME_SECTION_KEYS.map(key => {
-    seed = (seed * 9301 + 49297) % 233280;
-    return [key, seed % WIREFRAME_VARIANT_COUNTS[key]];
-  })) as WireframeRecipe;
-}
-
-function shuffledRecipe(current: WireframeRecipe): WireframeRecipe {
-  return Object.fromEntries(WIREFRAME_SECTION_KEYS.map(key => {
-    const count = WIREFRAME_VARIANT_COUNTS[key];
-    return [key, (current[key] + 1 + Math.floor(Math.random() * (count - 1))) % count];
-  })) as WireframeRecipe;
-}
+// Five rich, distinct landing-page design languages. One shared render honours
+// the copy slots; the style config recomposes the whole page (hero treatment,
+// card style, colour bands, alignment, type scale, density) — not just a swap.
+type WireframeStyle = {
+  label: string;
+  heroKind: "split" | "editorial" | "dark" | "compact" | "airy";
+  cards: "card" | "plain" | "row";
+  band: boolean; dense: boolean; roomy: boolean; center: boolean; minimal: boolean;
+  heroScale: string; pad: string; heroPad: string;
+};
+const WIREFRAME_STYLES: WireframeStyle[] = [
+  { label: "Classic split",       heroKind: "split",     cards: "card",  band: false, dense: false, roomy: false, center: false, minimal: false, heroScale: "2.2rem", pad: "2.4rem 1.7rem", heroPad: "3rem 1.7rem" },
+  { label: "Centered editorial",  heroKind: "editorial", cards: "plain", band: false, dense: false, roomy: false, center: true,  minimal: true,  heroScale: "3.1rem", pad: "2.6rem 1.9rem", heroPad: "3.8rem 1.9rem" },
+  { label: "Bold bands",          heroKind: "dark",      cards: "card",  band: true,  dense: false, roomy: false, center: true,  minimal: false, heroScale: "2.9rem", pad: "2.2rem 1.7rem", heroPad: "3.4rem 1.7rem" },
+  { label: "Compact / dense",     heroKind: "compact",   cards: "row",   band: false, dense: true,  roomy: false, center: false, minimal: true,  heroScale: "1.5rem", pad: "1.3rem 1.2rem", heroPad: "1.5rem 1.2rem" },
+  { label: "Spacious & calm",     heroKind: "airy",      cards: "plain", band: false, dense: false, roomy: true,  center: true,  minimal: true,  heroScale: "2.5rem", pad: "3.8rem 2.4rem", heroPad: "5rem 2.4rem" },
+];
 
 function briefValue(docs: FunnelDocs, label: string, fallback = ""): string {
   return docs.brief.find(item => item.label === label)?.value || fallback;
 }
 
-function salesPageBlueprint(docs: FunnelDocs, raw: any): any {
-  const legacy = raw?.features?.items?.some((item: any) => ["Fast to launch", "Mobile-perfect", "Built-in tracking", "On-brand design"].includes(item?.h))
-    || raw?.testimonials?.author === "A happy customer"
-    || raw?.pricing?.plans?.some((plan: any) => plan?.name === "Starter" || plan?.name === "Pro");
-  if (!legacy) return raw;
-
-  const offer = String(raw?.offer?.body || raw?.benefits?.items?.[1]?.b || "the approved offer").split(/\s+·\s+/)[0].trim();
-  const offerName = offer.replace(/^\d+\s*(?:lb\.?|kg|oz\.?)\s*(?:bags?|packs?)?\s+of\s+/i, "").replace(/[.]$/, "");
-  const audience = briefValue(docs, "Audience", "the right-fit buyer");
-  const action = briefValue(docs, "Primary action", raw?.hero?.cta || "Get started");
-  const problem = String(raw?.problem?.body || "").replace(/[.]$/, "");
-  const isFeedOffer = /feed|poultry|livestock/i.test(`${offer} ${problem}`);
-  const cta = isFeedOffer ? "Shop Feed" : /cart|checkout|buy|purchase|order/i.test(action) ? `Shop ${cap(offerName)}` : cap(action);
-  const rawPrice = raw?.pricing?.plans?.map((plan: any) => String(plan?.price || "")).find((value: string) => value && !/^\$?0$|^free$/i.test(value)) || "";
-  const selectedPrice = rawPrice && !/^(under|from|starting|budget|range)/i.test(rawPrice.trim()) ? rawPrice : "Final price to approve";
-  const benefits = isFeedOffer ? [
-    { h: "Know what you’re feeding", b: "See the approved Non-GMO product details in one place, so you know exactly what you’re choosing." },
-    { h: "Choose the right feed", b: "Compare poultry and livestock options and find the feed that matches the animals in your care." },
-    { h: "Order without the runaround", b: "Go from product details to checkout through one clear, direct order path." },
-  ] : [
-    { h: "See the value clearly", b: `Show exactly how ${offerName} helps the buyer move toward ${docs.objective.toLowerCase()}.` },
-    { h: "Know what to expect", b: "Put the offer, delivery details, and decision-making information in one clear place." },
-    { h: "Take the next step", b: `Make “${cta}” the single, unmistakable action throughout the page.` },
-  ];
-  const features = isFeedOffer ? [
-    { h: "40 lb. bag format", b: "Available in 40 lb. bags, with the size shown clearly before checkout." },
-    { h: "Non-GMO feed", b: "A clearly labeled Non-GMO option for buyers who care about what goes into every bag." },
-    { h: "Poultry and livestock options", b: "Feed choices organized around the animals you care for." },
-    { h: "Clear product guidance", b: "Find ingredients, feeding guidance, and storage information in one place." },
-    { h: "Straightforward ordering", b: `Choose “${cta}” whenever you’re ready to order.` },
-    { h: "Fulfilment details", b: "See availability and fulfilment expectations before checkout." },
-  ] : [
-    { h: "The offer", b: cap(offer) }, { h: "The right fit", b: cap(audience) }, { h: "The promised outcome", b: cap(docs.objective) },
-    { h: "What is included", b: "List the approved product, service, or deliverable details." }, { h: "How it is delivered", b: "State the approved delivery, fulfilment, or access details." }, { h: "The next step", b: cta },
-  ];
-
-  return {
-    ...raw,
-    nav: { ...raw.nav, links: ["Why it works", "What you get", "Reviews", "FAQ"], cta },
-    hero: {
-      eyebrow: isFeedOffer ? "NON-GMO FEED FOR BACKYARD FLOCKS & SMALL FARMS" : "A CLEARER WAY TO CHOOSE",
-      title: isFeedOffer ? `Feed with confidence. Choose dependable ${offerName}.` : `A clearer way to get ${offerName}.`,
-      subhead: isFeedOffer ? `${cap(offer)} for backyard flocks, homesteads, and small farms.` : `${cap(offer)} for ${audience.toLowerCase()}, with the details and reassurance needed to make a confident decision.`,
-      cta,
-      note: selectedPrice === "Final price to approve" ? "Final price and fulfilment details confirmed before checkout" : `${selectedPrice} · Fulfilment details confirmed before checkout`,
-    },
-    promotions: isFeedOffer ? [
-      { eyebrow: "Featured feed", heading: "Non-GMO feed for flocks, homesteads, and small farms.", body: "Compare the approved options and choose the right feed.", cta },
-      { eyebrow: "Ready to order", heading: "Choose the right feed and check out with confidence.", body: "Review the product and fulfilment details before you buy.", cta },
-    ] : [
-      { eyebrow: "Featured offer", heading: `A clearer path to ${docs.objective.toLowerCase()}.`, body: `See what is included in ${offerName} and decide with confidence.`, cta },
-      { eyebrow: "Your next step", heading: `Ready to ${action.toLowerCase()}?`, body: "Review the offer details, get your remaining questions answered, and move forward.", cta },
-    ],
-    problem: { heading: isFeedOffer ? "Your animals depend on what goes into every bag." : "Choosing the right offer should not feel this complicated.", body: problem ? `${cap(problem)}. Get the clarity you need to choose with confidence.` : isFeedOffer ? "When quality, sourcing, or fit is unclear, choosing the right bag can feel like a gamble. Get straightforward details before you stock up." : "Get the offer details, proof, and reassurance you need before you commit." },
-    benefits: { heading: isFeedOffer ? "A more confident way to buy feed" : "Why buyers choose this offer", items: benefits },
-    forwho: { heading: isFeedOffer ? "For flocks, homesteads, and small farms" : "Who this is for", items: [
-      { h: isFeedOffer ? "Backyard flock keepers" : "Has the problem now", b: problem ? cap(problem) : isFeedOffer ? "Wants dependable feed details without the guesswork." : `Wants to ${docs.objective.toLowerCase()} without more delay.` },
-      { h: isFeedOffer ? "Homesteads and small farms" : "Needs the details", b: isFeedOffer ? `Needs clear information about ${offerName}, availability, and fulfilment.` : `Wants to understand ${offerName}, what is included, and whether it fits.` },
-      { h: isFeedOffer ? "Poultry and livestock owners" : "Is ready for a clear next step", b: isFeedOffer ? "Is ready to compare the approved options and order the right feed." : `Needs one direct path to ${action.toLowerCase()}.` },
-    ] },
-    features: { heading: isFeedOffer ? "Everything you need to choose the right feed" : "What the buyer gets", items: features },
-    process: { heading: isFeedOffer ? "How to order" : "How ordering works", items: [
-      { h: isFeedOffer ? "Find your feed" : "Choose the right option", b: `Review the product details for ${offerName}.` },
-      { h: isFeedOffer ? "Check the details" : "Order with confidence", b: isFeedOffer ? "Compare the information that matters for your animals and your routine." : `Use “${cta}” when the offer fits what you need.` },
-      { h: isFeedOffer ? "Add to cart and check out" : "Know what happens next", b: isFeedOffer ? "Choose your option, add it to cart, and complete checkout." : "See the confirmed fulfilment, access, or delivery expectations before checkout." },
-    ] },
-    offer: { heading: isFeedOffer ? "Choose the right feed for your animals" : "Choose your offer", body: `${cap(offer)}${selectedPrice !== "Final price to approve" ? ` · ${selectedPrice}` : ""}`, bullets: [cap(offer), cap(audience), selectedPrice] },
-    testimonials: { heading: "Let customers make the claim", quote: "Add one approved customer quote that names the specific problem, product experience, and result.", author: "Verified customer name required", metric: "Source and permission required" },
-    pricing: { heading: "The offer", plans: [{ name: cap(offerName), price: selectedPrice, highlight: true, cta, lines: 4 }] },
-    faq: { heading: "Questions buyers ask before they order", items: [
-      { q: "What am I buying?", a: `${cap(offer)}.` }, { q: "Who is this for?", a: `${cap(audience)}.` }, { q: "How much does it cost?", a: selectedPrice === "Final price to approve" ? "Confirm the final price before launch." : `${selectedPrice}.` },
-      { q: "What should I know before ordering?", a: "Add the approved product, delivery, support, and policy details needed to remove last-minute uncertainty." }, { q: "How do I get started?", a: `Choose “${cta},” review the final details, and complete the approved checkout path.` },
-    ] },
-    finalCta: { heading: isFeedOffer ? "Ready to choose feed with confidence?" : `Ready to ${action.toLowerCase()}?`, body: isFeedOffer ? "Review the approved feed details, choose the right option, and complete your order." : `Review the offer, get the remaining questions answered, and move toward ${docs.objective.toLowerCase()}.`, cta },
-  };
-}
 
 function salesPageRecommendations(docs: FunnelDocs): FunnelDocs["recommendations"] {
   const primaryAction = briefValue(docs, "Primary action", "take the next step");
@@ -450,8 +363,6 @@ function salesPageRecommendations(docs: FunnelDocs): FunnelDocs["recommendations
   });
 }
 
-type PromotionCopy = { eyebrow: string; heading: string; body: string; cta: string };
-
 const COPY_ROLE_LABEL: Record<FunnelCopySection["role"], string> = {
   hero: "Hero",
   problem: "Problem",
@@ -464,22 +375,54 @@ const COPY_ROLE_LABEL: Record<FunnelCopySection["role"], string> = {
   cta: "CTA",
 };
 
+function fitCopyText(value: string, maxWords: number): string {
+  const normalized = value
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/([.!?])\1+/g, "$1")
+    .trim();
+  if (!normalized || maxWords <= 0) return "";
+  const words = normalized.split(" ");
+  if (words.length <= maxWords) return normalized;
+  const clipped = words.slice(0, maxWords).join(" ").replace(/[,:;.!?–—-]+$/, "");
+  return `${clipped}…`;
+}
+
+function layoutFitCopySection(section: FunnelCopySection): FunnelCopySection {
+  const budget = FUNNEL_COPY_BUDGETS[section.role];
+  return {
+    ...section,
+    eyebrow: fitCopyText(section.eyebrow, 5),
+    heading: fitCopyText(section.heading, budget.headingWords),
+    body: fitCopyText(section.body, budget.bodyWords),
+    bullets: section.bullets
+      .slice(0, budget.bulletCount)
+      .map(bullet => fitCopyText(bullet, budget.bulletWords)),
+    cta: section.cta ? fitCopyText(section.cta, budget.ctaWords) : null,
+  };
+}
+
 function CopyDraftDocument({ result, brandName, mobile }: { result: FunnelCopyResult; brandName: string; mobile: boolean }) {
+  const fittedSections = result.sections.map(layoutFitCopySection);
   return (
-    <article data-funnel-copy-source="ai-result" style={css("max-width:48rem;margin:0 auto;display:flex;flex-direction:column;gap:var(--space-3)")}>
+    <article data-funnel-copy-source="ai-result" data-copy-presentation="layout-fit" style={css("max-width:58rem;margin:0 auto;display:flex;flex-direction:column;gap:var(--space-3)")}>
       <header style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);padding:" + (mobile ? "1.15rem" : "1.45rem 1.6rem"))}>
         <div style={css("display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap")}>
           <div>
             <div style={css("font-size:var(--text-label);letter-spacing:.08em;text-transform:uppercase;color:" + ACCENT)}>Copy draft</div>
             <h2 style={css("margin:.35rem 0 0;font-size:var(--text-2xl);line-height:1.2;font-weight:500;text-wrap:balance")}>{result.title}</h2>
           </div>
-          <span style={css("border:1px solid color-mix(in srgb,var(--accent) 24%,var(--border) 76%);border-radius:999px;background:var(--accent-soft);color:var(--accent);padding:.3rem .7rem;font-size:var(--text-xs);font-weight:500")}>{result.rewriteDepth}</span>
+          <div style={css("display:flex;align-items:center;gap:.4rem;flex-wrap:wrap")}>
+            <span style={css("border:1px solid var(--border-soft);border-radius:999px;background:var(--surface-alt);color:var(--fg-muted);padding:.3rem .7rem;font-size:var(--text-xs);font-weight:500")}>Layout-fit edit</span>
+            <span style={css("border:1px solid color-mix(in srgb,var(--accent) 24%,var(--border) 76%);border-radius:999px;background:var(--accent-soft);color:var(--accent);padding:.3rem .7rem;font-size:var(--text-xs);font-weight:500")}>{result.rewriteDepth}</span>
+          </div>
         </div>
-        <p style={css("margin:.65rem 0 0;max-width:42rem;font-size:var(--text-sm);line-height:1.55;color:var(--fg-muted)")}>{result.summary}</p>
-        <div style={css("margin-top:.6rem;font-size:var(--text-2xs);color:var(--fg-faint)")}>Prepared for {brandName} · Fixed customer journey · Agent {result.agentVersion}</div>
+        <p style={css("margin:.65rem 0 0;max-width:42rem;font-size:var(--text-sm);line-height:1.55;color:var(--fg-muted)")}>{fitCopyText(result.summary, 24)}</p>
+        <div style={css("margin-top:.6rem;font-size:var(--text-2xs);color:var(--fg-faint)")}>Prepared for {brandName} · Generated result, edited to the approved component budgets · Agent {result.agentVersion}</div>
       </header>
-      {result.sections.map(section => (
-        <section key={section.role} data-copy-role={section.role} style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);padding:" + (mobile ? "1.05rem" : "1.25rem 1.4rem"))}>
+      <div style={css("display:grid;grid-template-columns:" + (mobile ? "minmax(0,1fr)" : "repeat(2,minmax(0,1fr))") + ";gap:var(--space-3);align-items:stretch")}>
+      {fittedSections.map(section => (
+        <section key={section.role} data-copy-role={section.role} style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);padding:" + (mobile ? "1.05rem" : "1.2rem 1.3rem") + ";display:flex;flex-direction:column;min-height:" + (section.role === "hero" || section.role === "cta" ? "auto" : "15rem") + (section.role === "hero" || section.role === "cta" ? ";grid-column:1/-1" : ""))}>
           <div style={css("display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap")}>
             <span style={css("font-size:var(--text-label);letter-spacing:.08em;text-transform:uppercase;color:" + ACCENT)}>{COPY_ROLE_LABEL[section.role]}</span>
             <span style={css("font-size:var(--text-2xs);color:" + (section.sourceStatus === "needs_approval" ? "var(--warning)" : "var(--fg-faint)"))}>{section.sourceStatus === "needs_approval" ? "Needs approval" : section.sourceStatus === "sourced" ? "Source-backed" : "Positioning"}</span>
@@ -492,195 +435,432 @@ function CopyDraftDocument({ result, brandName, mobile }: { result: FunnelCopyRe
               {section.bullets.map(bullet => <li key={bullet} style={css("font-size:var(--text-sm);line-height:1.5;color:var(--fg-muted)")}>{bullet}</li>)}
             </ul>
           )}
-          {section.cta && <span style={css("display:inline-flex;margin-top:.85rem;border-radius:999px;background:" + ACCENT + ";color:#fff;padding:.5rem .9rem;font-size:var(--text-sm);font-weight:500")}>{section.cta}</span>}
+          {section.cta && <span style={css("display:inline-flex;align-self:flex-start;margin-top:auto;border-radius:999px;background:" + ACCENT + ";color:#fff;padding:.5rem .9rem;font-size:var(--text-sm);font-weight:500")}>{section.cta}</span>}
         </section>
       ))}
+      </div>
     </article>
   );
 }
 
-function CanonicalWireframeDoc({ result, brandName, mobile }: { result: FunnelCopyResult; brandName: string; mobile: boolean }) {
-  const sectionFor = (role: FunnelCopySection["role"]) => result.sections.find(section => section.role === role)!;
-  const hero = sectionFor("hero");
-  const finalCta = sectionFor("cta");
-  const polished = result.rewriteDepth === "Polish";
-  const rebuilt = result.rewriteDepth === "Rebuild";
+
+// ── Wireframe ────────────────────────────────────────────────────────────────
+// A usable, build-ready wireframe: the approved copy mapped into the page
+// structure. The AI Copy stage's output is overlaid by role; the blueprint copy
+// is the always-present fallback, so the wireframe is never empty placeholders.
+// Layout is recipe-driven ("Shuffle layout" recomposes it) and fully responsive:
+// the strategy rail sits beside each section on desktop and stacks below on
+// mobile. The only page colour is the primary CTA — the one action to make obvious.
+const SK_MEDIA = "color-mix(in srgb,var(--fg) 6%,var(--surface) 94%)";
+const STAGE_META: Record<string, { color: string; label: string }> = {
+  create: { color: "var(--warn)", label: "Create demand" },
+  capture: { color: ACCENT, label: "Capture" },
+  expand: { color: "var(--success)", label: "Expand" },
+};
+type WireStage = keyof typeof STAGE_META;
+
+function WChip({ children }: { children: ReactNode }) {
+  return <span style={css("align-self:flex-start;font-size:var(--text-label);font-weight:600;letter-spacing:0.09em;text-transform:uppercase;color:var(--fg-faint);background:var(--surface-alt);border:1px solid var(--border-soft);border-radius:6px;padding:0.1rem 0.4rem")}>{children}</span>;
+}
+function WEyebrow({ children, light = false }: { children: ReactNode; light?: boolean }) {
+  return <div style={css("font-size:var(--text-label);letter-spacing:0.09em;text-transform:uppercase;font-weight:600;color:" + (light ? "rgba(255,255,255,.72)" : ACCENT))}>{children}</div>;
+}
+function WHead({ children, size = "var(--text-xl)", light = false }: { children: ReactNode; size?: string; light?: boolean }) {
+  return <div style={css("font-size:" + size + ";font-weight:500;line-height:1.18;letter-spacing:-0.015em;color:" + (light ? "#fff" : "var(--fg)") + ";text-wrap:balance")}>{children}</div>;
+}
+function WBody({ children, light = false, max = "34rem" }: { children: ReactNode; light?: boolean; max?: string }) {
+  return <div style={css("font-size:var(--text-sm);line-height:1.55;color:" + (light ? "rgba(255,255,255,.82)" : "var(--fg-muted)") + ";max-width:" + max + ";text-wrap:pretty")}>{children}</div>;
+}
+function WCta({ label, light = false, big = false }: { label: string; light?: boolean; big?: boolean }) {
+  return <span style={css("display:inline-flex;align-items:center;align-self:flex-start;border-radius:999px;background:" + (light ? "#fff" : ACCENT) + ";color:" + (light ? ACCENT : "#fff") + ";padding:" + (big ? "0.62rem 1.4rem" : "0.5rem 1rem") + ";font-size:var(--text-sm);font-weight:500;white-space:nowrap")}>{label}</span>;
+}
+function WMedia({ h, label = "Image / media" }: { h: string; label?: string }) {
+  return <div style={css("width:100%;height:" + h + ";background:" + SK_MEDIA + ";border:1px dashed var(--border);border-radius:14px;display:flex;align-items:flex-end;padding:0.7rem;color:var(--fg-faint);font-size:var(--text-2xs);font-weight:500")}>{label}</div>;
+}
+function WGallery({ mobile }: { mobile: boolean }) {
+  const tiles = ["Primary story", "Detail", "In use", "Proof", "Behind the scenes"];
   return (
-    <div data-wireframe-copy-source="ai-result" data-rewrite-depth={result.rewriteDepth} style={css("width:100%;border:1px solid var(--border);border-radius:20px;overflow:hidden;background:var(--surface);box-shadow:0 18px 50px color-mix(in srgb,var(--fg) 7%,transparent)")}>
-      <nav style={css("display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.8rem " + (mobile ? ".9rem" : "1.35rem") + ";border-bottom:1px solid var(--border-soft)")}>
-        <strong style={css("min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--text-md);font-weight:500")}>{brandName}</strong>
-        <span style={css("flex-shrink:0;border-radius:999px;background:" + ACCENT + ";color:#fff;padding:.42rem .8rem;font-size:var(--text-xs);font-weight:500")}>{hero.cta || finalCta.cta || "Get started"}</span>
-      </nav>
-      {result.sections.map(section => {
-        const isHero = section.role === "hero";
-        const isFinal = section.role === "cta";
-        const isEmphasis = section.role === "benefit" || section.role === "proof";
-        const sectionBackground = isFinal
-          ? "var(--accent)"
-          : polished
-            ? "var(--surface)"
-            : rebuilt && isHero
-              ? "var(--fg)"
-              : isEmphasis
-                ? "var(--surface-alt)"
-                : "var(--surface)";
-        const lightOnDark = isFinal || rebuilt && isHero;
-        return (
-          <section
-            key={section.role}
-            data-wireframe-section={section.role}
-            style={css(
-              "padding:" + (isHero ? (mobile ? "2.2rem 1.1rem" : "3.8rem 2.6rem") : mobile ? "1.35rem 1.1rem" : "2rem 2.2rem")
-              + ";border-bottom:" + (isFinal ? "0" : "1px solid var(--border-soft)")
-              + ";text-align:" + (isHero || isFinal ? rebuilt && !mobile ? "left" : "center" : "left")
-              + ";background:" + sectionBackground
-              + ";color:" + (lightOnDark ? "#fff" : "var(--fg)")
-            )}
-          >
-            <div style={css("max-width:" + (isHero ? "46rem" : "42rem") + ";margin:0 auto")}>
-              <div style={css("font-size:var(--text-label);letter-spacing:.09em;text-transform:uppercase;color:" + (lightOnDark ? "rgba(255,255,255,.72)" : ACCENT))}>{section.eyebrow || COPY_ROLE_LABEL[section.role]}</div>
-              <h3 style={css("margin:.45rem 0 0;font-size:" + (isHero ? (mobile ? "var(--text-3xl)" : "2.55rem") : isFinal ? "var(--text-2xl)" : "var(--text-xl)") + ";line-height:1.12;font-weight:500;letter-spacing:-.015em;text-wrap:balance")}>{section.heading}</h3>
-              <p style={css("margin:.65rem " + (rebuilt && isHero && !mobile ? "0" : "auto") + " 0;max-width:38rem;font-size:" + (isHero ? "var(--text-md)" : "var(--text-sm)") + ";line-height:1.55;color:" + (lightOnDark ? "rgba(255,255,255,.82)" : "var(--fg-muted)") + ";text-wrap:pretty")}>{section.body}</p>
-              {section.bullets.length > 0 && (
-                <div style={css("display:grid;grid-template-columns:" + (mobile || polished || section.bullets.length < 3 ? "1fr" : rebuilt ? "repeat(2,minmax(0,1fr))" : "repeat(3,minmax(0,1fr))") + ";gap:.65rem;margin-top:1rem;text-align:left")}>
-                  {section.bullets.map(bullet => <div key={bullet} style={css("border:1px solid " + (lightOnDark ? "rgba(255,255,255,.22)" : "var(--border-soft)") + ";border-radius:" + (rebuilt ? "18px 8px 18px 8px" : "12px") + ";padding:.75rem .8rem;background:" + (lightOnDark ? "rgba(255,255,255,.08)" : "var(--surface)") + ";font-size:var(--text-xs);line-height:1.45")}>{bullet}</div>)}
-                </div>
-              )}
-              {section.cta && <span style={css("display:inline-flex;margin-top:1rem;border-radius:999px;background:" + (lightOnDark ? "#fff" : ACCENT) + ";color:" + (lightOnDark ? ACCENT : "#fff") + ";padding:.58rem 1rem;font-size:var(--text-sm);font-weight:500")}>{section.cta}</span>}
-            </div>
-          </section>
-        );
-      })}
+    <div data-wireframe-gallery style={css("width:100%;display:grid;grid-template-columns:" + (mobile ? "repeat(2,minmax(0,1fr))" : "1.35fr repeat(2,minmax(0,.65fr))") + ";grid-template-rows:" + (mobile ? "repeat(3,7rem)" : "repeat(2,8rem)") + ";gap:.65rem")}>
+      {tiles.map((label, index) => (
+        <div key={label} style={css("min-width:0;border:1px dashed var(--border);border-radius:14px;background:" + (index === 0 ? "color-mix(in srgb,var(--accent-soft) 36%,var(--surface) 64%)" : SK_MEDIA) + ";display:flex;align-items:flex-end;padding:.72rem;color:var(--fg-faint);font-size:var(--text-2xs);font-weight:500;" + (index === 0 ? (mobile ? "grid-column:1/-1" : "grid-row:1/3") : ""))}>{label}</div>
+      ))}
+    </div>
+  );
+}
+function WItems({ items, cols, mobile, tone }: { items: { h: string; b?: string }[]; cols: string; mobile: boolean; tone?: (i: number) => string }) {
+  return (
+    <div style={css("width:100%;display:grid;grid-template-columns:" + (mobile ? "1fr" : cols) + ";grid-auto-rows:1fr;gap:0.7rem;margin-top:0.5rem")}>
+      {items.map((it, i) => (
+        <div key={i} data-wireframe-card style={css("height:100%;border:1px solid var(--border-soft);border-radius:12px;padding:0.85rem;text-align:left;min-width:0;background:" + (tone ? tone(i) : "var(--surface)"))}>
+          <div style={css("font-size:var(--text-md);font-weight:500;line-height:1.3")}>{it.h}</div>
+          {it.b ? <div style={css("font-size:var(--text-xs);color:var(--fg-muted);line-height:1.5;margin-top:0.25rem")}>{it.b}</div> : null}
+        </div>
+      ))}
     </div>
   );
 }
 
-function PromotionBanner({ promotion, variant, mobile, position }: { promotion: PromotionCopy; variant: number; mobile: boolean; position: "promoTop" | "promoMid" }) {
-  const dark = variant === 1;
-  const filled = variant === 0;
-  const background = dark
-    ? "var(--fg)"
-    : filled
-      ? "var(--accent)"
-      : "var(--accent-soft)";
-  const foreground = dark || filled ? "#fff" : "var(--fg)";
-  const muted = dark || filled ? "rgba(255,255,255,.74)" : "var(--fg-muted)";
+function WRow({ label, layout, stage, noteTitle, note, mobile, tone, pad, center = false, copyRole, children }: {
+  label: string; layout: string; stage: WireStage; noteTitle: string; note: ReactNode;
+  mobile: boolean; tone?: string; pad?: string; center?: boolean; copyRole?: FunnelCopySection["role"]; children: ReactNode;
+}) {
+  const meta = STAGE_META[stage];
+  const padding = pad || (mobile ? "1.3rem 1.1rem" : "1.6rem 1.6rem");
+  const [showRationale, setShowRationale] = useState(false);
   return (
-    <section
-      data-report-wireframe-block
-      data-promotional-banner={position}
-      data-section-layout={`${position}-${variant}`}
-      style={css("display:grid;grid-template-columns:" + (mobile || variant === 2 ? "1fr" : "minmax(0,1fr) auto") + ";align-items:center;gap:" + (mobile ? ".8rem" : "1.2rem") + ";padding:" + (position === "promoTop" ? (mobile ? ".85rem 1rem" : ".8rem 1.5rem") : (mobile ? "1.2rem 1.1rem" : "1.35rem 1.7rem")) + ";border-bottom:1px solid " + (dark || filled ? "rgba(255,255,255,.12)" : "var(--border-soft)") + ";background:" + background + ";color:" + foreground + ";text-align:" + (variant === 2 ? "center" : "left"))}
-    >
-      <div style={css("min-width:0;display:flex;flex-direction:column;align-items:" + (variant === 2 ? "center" : "flex-start") + ";gap:.2rem")}>
-        <span style={css("font-size:var(--text-label);font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:" + muted)}>{promotion.eyebrow}</span>
-        <strong style={css("font-size:" + (position === "promoTop" ? ".86rem" : "1.02rem") + ";line-height:1.3;font-weight:500;text-wrap:balance")}>{promotion.heading}</strong>
-        {position === "promoMid" && <span style={css("font-size:var(--text-2xs);line-height:1.45;color:" + muted + ";max-width:34rem")}>{promotion.body}</span>}
+    <div data-report-wireframe-block data-section-layout={layout} data-copy-role={copyRole} style={css("border-bottom:1px solid var(--border-soft)")}>
+      <div style={css("display:flex;flex-direction:column;gap:0.6rem;padding:" + padding + ";min-width:0;background:" + (tone || "var(--surface)") + (center && !mobile ? ";align-items:center;text-align:center" : ""))}>
+        <div style={css("width:100%;display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap")}>
+          <WChip>{label}</WChip>
+          <div data-wireframe-rationale style={css("position:relative;text-align:left")}>
+            <button type="button" aria-label={`Why this section: ${label}`} aria-expanded={showRationale} onClick={() => setShowRationale(open => !open)} style={css("width:1.55rem;height:1.55rem;display:grid;place-items:center;cursor:pointer;font:inherit;font-size:var(--text-2xs);font-weight:600;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 38%,var(--border) 62%);border-radius:50%;background:var(--accent-soft);padding:0;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent-soft) 38%,transparent)")}>i</button>
+            {showRationale && <div role="note" aria-label={`Why ${label} is included`} style={css("position:absolute;z-index:12;right:0;top:calc(100% + .45rem);width:min(18rem,70vw);border:1px solid var(--border-soft);border-radius:12px;background:var(--surface);box-shadow:var(--shadow-lg);padding:.7rem .75rem")}>
+              <span style={css("display:inline-flex;align-items:center;gap:.34rem;font-size:var(--text-label);font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-faint)")}><span style={css("width:.45rem;height:.45rem;border-radius:50%;background:" + meta.color)} />{meta.label}</span>
+              <div style={css("margin-top:.3rem;font-size:var(--text-sm);font-weight:600")}>{noteTitle}</div>
+              <div style={css("margin-top:.18rem;font-size:var(--text-2xs);line-height:1.5;color:var(--fg-muted)")}>{note}</div>
+            </div>}
+          </div>
+        </div>
+        {children}
       </div>
-      <span style={css("justify-self:" + (mobile || variant === 2 ? "center" : "end") + ";display:inline-flex;align-items:center;justify-content:center;min-height:2.05rem;border:1px solid " + (dark || filled ? "rgba(255,255,255,.28)" : "color-mix(in srgb,var(--accent) 32%,var(--border) 68%)") + ";border-radius:999px;background:" + (dark || filled ? "#fff" : "var(--surface)") + ";color:" + (dark || filled ? ACCENT : "var(--accent)") + ";padding:0 .9rem;font-size:var(--text-label);font-weight:600;white-space:nowrap")}>{promotion.cta}</span>
-    </section>
+    </div>
   );
 }
 
-function WireframeDoc({ bp: rawBlueprint, docs, mobile = false, compact = false }: { bp: any; docs: FunnelDocs; mobile?: boolean; compact?: boolean }) {
-  const sourceBlueprint = salesPageBlueprint(docs, rawBlueprint);
-  const sourceHeroTitle = String(sourceBlueprint.hero?.title || "");
-  const compactFeedTitle = /non-gmo/i.test(sourceHeroTitle) && /feed|poultry|livestock/i.test(sourceHeroTitle)
-    ? "Feed with confidence. Choose dependable Non-GMO feed."
-    : sourceHeroTitle;
-  const bp = {
-    ...sourceBlueprint,
-    hero: {
-      ...sourceBlueprint.hero,
-      title: conciseHeroCopy(compactFeedTitle, 9, 64),
-      subhead: conciseHeroCopy(sourceBlueprint.hero?.subhead, 22, 132),
-    },
+// ── Rich landing-page furniture (shared across all five styles) ──────────────
+function WFrame({ h, label }: { h: string; label: string }) {
+  return (
+    <div style={css("width:100%;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:" + SK_MEDIA + ";box-shadow:0 10px 30px color-mix(in srgb,var(--fg) 8%,transparent)")}>
+      <div style={css("display:flex;align-items:center;gap:.35rem;padding:.45rem .65rem;border-bottom:1px solid var(--border-soft);background:var(--surface-alt)")}>
+        <span style={css("width:.5rem;height:.5rem;border-radius:50%;background:var(--border)")} /><span style={css("width:.5rem;height:.5rem;border-radius:50%;background:var(--border)")} /><span style={css("width:.5rem;height:.5rem;border-radius:50%;background:var(--border)")} />
+        <span style={css("margin-left:.4rem;font-size:var(--text-label);color:var(--fg-faint)")}>{label}</span>
+      </div>
+      <div style={css("padding:.7rem;display:flex;flex-direction:column;gap:.45rem;min-height:" + h)}>
+        <div style={css("display:flex;gap:.45rem")}><div style={css("height:.55rem;width:35%;border-radius:4px;background:color-mix(in srgb,var(--fg) 9%,transparent)")} /><div style={css("height:.55rem;width:18%;border-radius:4px;margin-left:auto;background:color-mix(in srgb,var(--accent) 40%,transparent)")} /></div>
+        <div style={css("display:flex;gap:.45rem;flex:1")}><div style={css("flex:1;border-radius:6px;background:color-mix(in srgb,var(--fg) 6%,transparent)")} /><div style={css("flex:0 0 32%;display:flex;flex-direction:column;gap:.4rem")}><div style={css("height:.5rem;border-radius:4px;background:color-mix(in srgb,var(--fg) 8%,transparent)")} /><div style={css("height:.5rem;width:70%;border-radius:4px;background:color-mix(in srgb,var(--fg) 8%,transparent)")} /><div style={css("height:.5rem;width:84%;border-radius:4px;background:color-mix(in srgb,var(--fg) 8%,transparent)")} /></div></div>
+      </div>
+    </div>
+  );
+}
+function WLogoStrip({ mobile }: { mobile?: boolean }) {
+  return (
+    <div style={css("width:100%;margin-top:1.4rem;text-align:center")}>
+      <div style={css("font-size:var(--text-label);letter-spacing:.06em;color:var(--fg-faint);text-transform:uppercase")}>Trusted by teams like yours</div>
+      <div style={css("display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;margin-top:.7rem")}>
+        {Array.from({ length: mobile ? 4 : 6 }).map((_, i) => <span key={i} style={css("height:1.7rem;min-width:5rem;border-radius:7px;background:color-mix(in srgb,var(--fg) 6%,transparent);display:grid;place-items:center;font-size:var(--text-label);color:var(--fg-faint)")}>Logo</span>)}
+      </div>
+    </div>
+  );
+}
+function WStats({ mobile }: { mobile?: boolean }) {
+  const items = [{ n: "—", l: "customers" }, { n: "—", l: "rating" }, { n: "—", l: "result metric" }, { n: "—", l: "time to value" }];
+  return (
+    <div style={css("width:100%;display:grid;grid-template-columns:repeat(" + (mobile ? 2 : 4) + ",1fr);gap:1rem;margin-top:1.3rem;max-width:44rem;margin-inline:auto")}>
+      {items.map((s, i) => <div key={i} style={css("text-align:center")}><div style={css("font-size:var(--text-2xl);font-weight:700;letter-spacing:-.02em")}>{s.n}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-muted);margin-top:.1rem")}>{s.l}</div></div>)}
+    </div>
+  );
+}
+function WCompare({ brand, rows }: { brand: string; rows: string[] }) {
+  const use = rows.length ? rows : ["The key capability", "Another advantage", "A third differentiator", "The support model"];
+  return (
+    <div style={css("width:100%;border:1px solid var(--border-soft);border-radius:14px;overflow:hidden;margin-top:1rem;font-size:var(--text-xs);text-align:left")}>
+      <div style={css("display:grid;grid-template-columns:1.4fr 1fr 1fr")}>
+        <div style={css("padding:.6rem .8rem;background:var(--surface-alt)")} />
+        <div style={css("padding:.6rem .8rem;background:var(--surface-alt);font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;font-size:var(--text-label)")}>{brand}</div>
+        <div style={css("padding:.6rem .8rem;background:var(--surface-alt);font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:var(--text-label);color:var(--fg-muted)")}>The alternative</div>
+      </div>
+      {use.slice(0, 4).map((r, i) => <div key={i} style={css("display:grid;grid-template-columns:1.4fr 1fr 1fr;border-top:1px solid var(--border-soft)")}><div style={css("padding:.6rem .8rem;font-weight:600")}>{r}</div><div style={css("padding:.6rem .8rem;text-align:center;color:var(--accent);font-weight:700")}>✓</div><div style={css("padding:.6rem .8rem;text-align:center;color:var(--fg-faint)")}>✕</div></div>)}
+    </div>
+  );
+}
+function WQuote({ quote, author, metric, big }: { quote: string; author: string; metric?: string; big?: boolean }) {
+  return (
+    <div style={css("border:1px " + (big ? "dashed color-mix(in srgb,var(--accent) 42%,var(--border) 58%)" : "solid var(--border-soft)") + ";border-radius:16px;padding:1.1rem;background:" + (big ? "color-mix(in srgb,var(--accent-soft) 22%,var(--surface) 78%)" : "var(--surface)") + ";text-align:left")}>
+      <div style={css("font-size:" + (big ? "var(--text-lg)" : "var(--text-md)") + ";line-height:1.5")}>{quote}</div>
+      <div style={css("display:flex;align-items:center;gap:.55rem;margin-top:.8rem")}>
+        <span style={css("width:2.1rem;height:2.1rem;border-radius:50%;background:linear-gradient(135deg,var(--accent-soft)," + SK_MEDIA + ");border:1px solid var(--border-soft);flex-shrink:0")} />
+        <div style={css("min-width:0")}><div style={css("font-size:var(--text-2xs);font-weight:600")}>{author}</div>{metric && <div style={css("font-size:var(--text-label);color:var(--fg-muted)")}>{metric}</div>}</div>
+      </div>
+    </div>
+  );
+}
+function WCards({ items, S, mobile, cols }: { items: { h: string; b?: string }[]; S: WireframeStyle; mobile: boolean; cols?: string }) {
+  if (S.cards === "row") return (
+    <div style={css("width:100%;display:flex;flex-direction:column;margin-top:.6rem")}>
+      {items.map((it, i) => <div key={i} data-wireframe-card style={css("display:grid;grid-template-columns:" + (mobile ? "1fr" : "12rem 1fr") + ";gap:.8rem;padding:.6rem 0;border-bottom:" + (i === items.length - 1 ? "0" : "1px solid var(--border-soft)"))}><div style={css("font-size:var(--text-md);font-weight:600;line-height:1.3")}>{it.h}</div>{it.b ? <div style={css("font-size:var(--text-xs);color:var(--fg-muted);line-height:1.5")}>{it.b}</div> : null}</div>)}
+    </div>
+  );
+  if (S.cards === "plain") return (
+    <div style={css("width:100%;max-width:34rem;margin:.8rem auto 0;display:flex;flex-direction:column;gap:1.1rem;text-align:left")}>
+      {items.map((it, i) => <div key={i} data-wireframe-card>{i > 0 && <div style={css("height:1px;background:var(--border-soft);margin-bottom:1.1rem")} />}<div style={css("font-size:var(--text-lg);font-weight:600")}>{it.h}</div>{it.b ? <div style={css("font-size:var(--text-sm);color:var(--fg-muted);margin-top:.25rem;line-height:1.55")}>{it.b}</div> : null}</div>)}
+    </div>
+  );
+  return (
+    <div style={css("width:100%;display:grid;grid-template-columns:" + (mobile ? "1fr" : cols || "repeat(3,1fr)") + ";grid-auto-rows:1fr;gap:.7rem;margin-top:.7rem;text-align:left")}>
+      {items.map((it, i) => <div key={i} data-wireframe-card style={css("border:1px solid var(--border-soft);border-radius:14px;padding:1rem;background:" + (i === 0 ? "color-mix(in srgb,var(--accent-soft) 32%,var(--surface) 68%)" : "var(--surface)"))}><div style={css("width:2rem;height:2rem;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:var(--text-md);margin-bottom:.5rem")}>◎</div><div style={css("font-size:var(--text-md);font-weight:600;line-height:1.3")}>{it.h}</div>{it.b ? <div style={css("font-size:var(--text-xs);color:var(--fg-muted);margin-top:.28rem;line-height:1.55")}>{it.b}</div> : null}</div>)}
+    </div>
+  );
+}
+function WGhost({ label, light }: { label: string; light?: boolean }) {
+  return <span style={css("display:inline-flex;align-items:center;gap:.35rem;border-radius:999px;padding:.55rem 1rem;font-size:var(--text-sm);font-weight:500;border:1px solid " + (light ? "rgba(255,255,255,.28)" : "var(--border)") + ";color:" + (light ? "#fff" : "var(--fg)"))}>{label}</span>;
+}
+function WPill({ children }: { children: ReactNode }) {
+  return <span style={css("display:inline-flex;align-items:center;gap:.35rem;border:1px solid var(--accent-dim);border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:var(--text-2xs);font-weight:600;padding:.22rem .6rem")}>{children}</span>;
+}
+
+function WireframeDoc({ bp: rawBp, copy, mobile = false, compact = false }: { bp?: any; docs?: FunnelDocs; copy?: FunnelCopyResult | null; mobile?: boolean; compact?: boolean }) {
+  const bp = rawBp || {};
+  const [layoutVersion, setLayoutVersion] = useState(0);
+  const S = WIREFRAME_STYLES[layoutVersion];
+
+  // Merge: overlay the AI copy (by role) onto the always-present blueprint copy.
+  const ai = (role: FunnelCopySection["role"]) => {
+    const section = copy?.sections.find(item => item.role === role);
+    return section ? layoutFitCopySection(section) : null;
   };
-  const [recipe, setRecipe] = useState<WireframeRecipe>(() => seededRecipe(bp));
-  const navCta = (bp.nav.cta && bp.nav.cta.length <= 16) ? bp.nav.cta : "Get started";
-  const promotionIsFeed = /feed|poultry|livestock/i.test(`${docs.name} ${bp.hero.title} ${bp.hero.subhead}`);
-  const defaultPromotions: PromotionCopy[] = promotionIsFeed ? [
-    { eyebrow: "Featured feed", heading: "Non-GMO feed for flocks, homesteads, and small farms.", body: "Compare the approved options and choose the right feed.", cta: bp.hero.cta || navCta },
-    { eyebrow: "Ready to order", heading: "Choose the right feed and check out with confidence.", body: "Review the product and fulfilment details before you buy.", cta: bp.finalCta?.cta || navCta },
-  ] : [
-    { eyebrow: "Featured offer", heading: "See the complete offer in one clear place.", body: bp.hero.subhead, cta: bp.hero.cta || navCta },
-    { eyebrow: "Your next step", heading: bp.finalCta?.heading || "Ready to move forward?", body: bp.finalCta?.body || "Review the offer and take the next step.", cta: bp.finalCta?.cta || navCta },
-  ];
-  const promotions: PromotionCopy[] = Array.isArray(bp.promotions) && bp.promotions.length >= 2 ? bp.promotions.slice(0, 2) : defaultPromotions;
-  const problem = bp.problem || { heading: "The problem we are solving", body: "Clarify the visitor's current challenge and why it matters now." };
-  const features = bp.features || { heading: "The solution", items: bp.benefits?.items || [] };
-  const process = bp.process || { heading: "How it works", items: [{ h: "Start", b: "Take the first clear step." }, { h: "Move forward", b: "Follow the approved conversion path." }, { h: "Reach the outcome", b: "Complete the primary action." }] };
-  const offer = bp.offer || { heading: "The offer", body: "Confirm the offer contents and delivery details.", bullets: ["Core offer details", "Delivery and access", "Support or next steps"] };
-  const faq = bp.faq || { heading: "FAQ", items: [{ q: "What happens next?", a: "Confirm the final delivery and next-step details before launch." }] };
-  const finalCta = bp.finalCta || { heading: "Ready to take the next step?", body: "Use the approved primary action to continue.", cta: navCta };
-  const footer = bp.footer || { brand: bp.nav.brand, tagline: "Footer copy to approve." };
-  const split = recipe.hero === 1 && !mobile;
-  const editorial = recipe.hero === 2;
-  const immersive = recipe.hero === 3;
-  const shuffle = () => setRecipe(shuffledRecipe);
+  const heroAi = ai("hero"), problemAi = ai("problem"), benefitAi = ai("benefit"), solutionAi = ai("solution"), diffAi = ai("differentiation"), proofAi = ai("proof"), objectionsAi = ai("objections"), faqAi = ai("faq"), ctaAi = ai("cta");
+  const toItems = (bullets: string[] | undefined, fallback: any[]) => (bullets && bullets.length ? bullets.map(b => ({ h: b, b: "" })) : (fallback || [])).map((v: any) => ({ h: v.h ?? v, b: v.b ?? "" }));
+  const navCta = heroAi?.cta || bp.nav?.cta || bp.hero?.cta || "Get started";
+  const fitH = (value: string, role: keyof typeof FUNNEL_COPY_BUDGETS) => fitCopyText(value, FUNNEL_COPY_BUDGETS[role].headingWords);
+  const fitB = (value: string, role: keyof typeof FUNNEL_COPY_BUDGETS) => fitCopyText(value, FUNNEL_COPY_BUDGETS[role].bodyWords);
+  const C = {
+    brand: bp.nav?.brand || bp.footer?.brand || "Brand",
+    navLinks: (bp.nav?.links || ["Why it works", "What you get", "Reviews", "FAQ"]).slice(0, 4),
+    navCta,
+    promoTop: bp.promotions?.[0] || { eyebrow: "Featured", heading: bp.hero?.subhead || "See the full offer in one place.", cta: navCta },
+    hero: {
+      eyebrow: fitCopyText(heroAi?.eyebrow || bp.hero?.eyebrow || "A CLEARER WAY TO CHOOSE", 5),
+      title: fitH(heroAi?.heading || bp.hero?.title || "Your headline goes here", "hero"),
+      subhead: fitB(heroAi?.body || bp.hero?.subhead || "The supporting subhead that frames the offer for the right buyer.", "hero"),
+      cta: heroAi?.cta || bp.hero?.cta || navCta,
+      note: bp.hero?.note || "",
+    },
+    stakes: { heading: fitH(problemAi?.heading || bp.problem?.heading || "The stakes", "problem"), body: fitB(problemAi?.body || bp.problem?.body || "Name what's at risk if they don't act.", "problem") },
+    benefits: { heading: fitH(benefitAi?.heading || bp.benefits?.heading || "Why buyers choose this", "benefit"), items: toItems(benefitAi?.bullets, bp.benefits?.items).slice(0, 3) },
+    solution: { heading: fitH(solutionAi?.heading || bp.offer?.heading || "The solution", "solution"), body: fitB(solutionAi?.body || bp.offer?.body || "Show the clearest path from problem to outcome.", "solution"), items: toItems(solutionAi?.bullets, bp.offer?.bullets).slice(0, 3) },
+    differentiation: { heading: fitH(diffAi?.heading || bp.features?.heading || "Why this approach", "differentiation"), body: fitB(diffAi?.body || "Explain what makes the offer meaningfully different.", "differentiation"), items: toItems(diffAi?.bullets, bp.features?.items).slice(0, 4) },
+    proof: { heading: fitH(proofAi?.heading || bp.testimonials?.heading || "Proof", "proof"), quote: fitB(proofAi?.body || bp.testimonials?.quote || "Add one approved customer quote naming the problem, experience, and result.", "proof"), author: bp.testimonials?.author || "Verified customer", metric: bp.testimonials?.metric || "Source required" },
+    objections: { heading: fitH(objectionsAi?.heading || "What buyers need to know", "objections"), body: fitB(objectionsAi?.body || "Answer the last practical questions before asking for action.", "objections"), items: toItems(objectionsAi?.bullets, []).slice(0, 4) },
+    faq: { heading: fitH(faqAi?.heading || bp.faq?.heading || "Questions buyers ask", "faq"), items: (faqAi?.bullets?.length ? faqAi.bullets.map(b => ({ q: b, a: "" })) : (bp.faq?.items || [])).slice(0, 6) },
+    finalCta: { heading: fitH(ctaAi?.heading || bp.finalCta?.heading || "Ready to take the next step?", "cta"), body: fitB(ctaAi?.body || bp.finalCta?.body || "Use the primary action to continue.", "cta"), cta: ctaAi?.cta || bp.finalCta?.cta || navCta },
+    footer: { brand: bp.footer?.brand || bp.nav?.brand || "Brand", tagline: bp.footer?.tagline || "" },
+  };
+  const aiSourced = !!copy;
+  const ink = "var(--ink,oklch(0.23 0.02 30))";
+  const heroDark = S.heroKind === "dark";
+  const heroSplit = S.heroKind === "split" && !mobile;
+  const navCentered = S.heroKind === "editorial" || S.heroKind === "airy";
+  const showLogos = S.heroKind === "split" || S.heroKind === "dark";
+  // Per-style tokens threaded through EVERY section so each version recomposes the
+  // whole page — not just the hero. Type scale, alignment, and a tone rhythm.
+  const H2 = S.dense ? "var(--text-xl)" : S.roomy ? "var(--text-3xl)" : "var(--text-2xl)";
+  const H3 = S.dense ? "var(--text-lg)" : S.roomy ? "var(--text-2xl)" : "var(--text-xl)";
+  const ctr = S.center && !mobile;                 // centre body sections in centred/calm styles
+  // alternating band tones: Bold bands paints dramatic dark/accent blocks; others stay quiet.
+  const toneA = S.band ? "var(--accent-soft)" : "var(--surface-alt)";   // light band
+  const toneDark = S.band ? ink : "var(--surface-alt)";                 // dark/quiet band
+  const onDark = S.band;                                                // light text on dark bands
+
+  const legend = (
+    <div style={css("display:flex;align-items:center;gap:0.7rem;flex-wrap:wrap")}>
+      {(["create", "capture", "expand"] as WireStage[]).map(s => (
+        <span key={s} style={css("display:inline-flex;align-items:center;gap:0.32rem;font-size:var(--text-label);font-weight:500;text-transform:uppercase;letter-spacing:0.05em;color:var(--fg-muted)")}>
+          <span style={css("width:0.5rem;height:0.5rem;border-radius:50%;background:" + STAGE_META[s].color)} />{STAGE_META[s].label}
+        </span>
+      ))}
+    </div>
+  );
+
   return (
     <div style={css("width:100%;display:flex;flex-direction:column;gap:0.7rem")}>
-      <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.7rem;flex-wrap:wrap;border:1px solid var(--border-soft);border-radius:12px;background:var(--surface-alt);padding:0.65rem 0.75rem")}>
-        <div><div style={css("font-size:var(--text-xs);font-weight:500")}>Page formatting</div><div style={css("font-size:var(--text-2xs);color:var(--fg-muted);margin-top:0.1rem")}>{compact ? "Every section has its own layout. Shuffle to recompose the full page." : "The hero, promotional banners, benefits, offer, FAQ, and every other section format independently."}</div></div>
-        <button type="button" onClick={shuffle} aria-label="Shuffle page formatting" style={css("min-height:2rem;display:inline-flex;align-items:center;gap:0.38rem;border:1px solid var(--accent);border-radius:999px;background:color-mix(in srgb,var(--accent) 10%,white 90%);color:var(--accent);padding:0 0.8rem;font:inherit;font-size:var(--text-2xs);font-weight:500;cursor:pointer")}><Icon name="replay" size={12} /> Shuffle page layout</button>
-      </div>
-      <div data-wireframe-layout="mixed" data-wireframe-recipe={WIREFRAME_SECTION_KEYS.map(key => recipe[key]).join("-")} style={css("width:100%;border:1px solid var(--border);border-radius:20px;overflow:hidden;background:var(--surface);box-shadow:0 18px 50px color-mix(in srgb,var(--fg) 7%,transparent)")}>
-      <PromotionBanner promotion={promotions[0]} variant={recipe.promoTop} mobile={mobile} position="promoTop" />
-      <div data-report-wireframe-block style={css("display:flex;align-items:center;justify-content:space-between;gap:0.7rem;padding:" + (mobile ? "0.75rem 0.85rem" : "0.85rem 1.5rem") + ";border-bottom:1px solid var(--border-soft);min-width:0")}>
-        <div style={css("display:flex;align-items:center;gap:0.55rem;flex:1;min-width:0")}><div style={css("width:1.5rem;height:1.5rem;border-radius:7px;background:var(--fg);flex-shrink:0")} /><span style={css("font-size:var(--text-md);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{bp.nav.brand}</span></div>
-        {!mobile && !editorial && <div style={css("display:flex;gap:var(--space-3);align-items:center;max-width:34%;overflow:hidden;flex-shrink:1")}>{bp.nav.links.map((l: string) => <span key={l} style={css("font-size:var(--text-xs);color:var(--fg-muted);white-space:nowrap")}>{l}</span>)}</div>}
-        <span style={css("background:" + ACCENT + ";color:#fff;font-size:var(--text-xs);font-weight:500;padding:0.42rem 0.95rem;border-radius:999px;flex-shrink:0;white-space:nowrap")}>{navCta}</span>
-      </div>
-      <div data-report-wireframe-block data-section-layout={`hero-${recipe.hero}`} style={css("padding:" + (mobile ? "1.8rem 1.1rem" : immersive ? "4rem 2.6rem" : editorial ? "3.2rem 2.3rem" : "2.8rem 2rem") + ";text-align:" + (split || editorial ? "left" : "center") + ";display:grid;grid-template-columns:" + (split ? "1.08fr 0.92fr" : "1fr") + ";align-items:center;gap:" + (split ? "2rem" : "0.8rem") + ";border-bottom:1px solid var(--border-soft);background:" + (immersive ? "var(--fg);color:#fff" : editorial ? "var(--accent-soft)" : "var(--surface)"))}>
-        <div style={css("display:flex;flex-direction:column;align-items:" + (split || editorial ? "flex-start" : "center") + ";gap:0.65rem") }>
-          <span style={css("font-size:var(--text-label);text-transform:uppercase;letter-spacing:.11em;color:" + (immersive ? "rgba(255,255,255,.72)" : ACCENT) + ";font-weight:600")}>{bp.hero.eyebrow || "THE OFFER"}</span>
-          <div data-hero-title style={css("font-size:" + ((editorial || split) && !mobile ? "2.15rem" : "1.8rem") + ";font-weight:500;max-width:" + (editorial ? "31rem" : "34rem") + ";letter-spacing:-.025em;line-height:1.08;text-wrap:balance")}>{bp.hero.title}</div>
-          <div data-hero-subhead style={css("font-size:var(--text-lg);color:" + (immersive ? "rgba(255,255,255,.78)" : "var(--fg-muted)") + ";max-width:29rem;line-height:1.48;text-wrap:pretty")}>{bp.hero.subhead}</div>
-          <span style={css("margin-top:0.45rem;background:" + ACCENT + ";color:#fff;font-size:var(--text-md);font-weight:500;padding:0.62rem 1.6rem;border-radius:999px")}>{bp.hero.cta}</span>
-          {bp.hero.note && <span style={css("font-size:var(--text-2xs);color:" + (immersive ? "rgba(255,255,255,.62)" : "var(--fg-faint)"))}>{bp.hero.note}</span>}
+      <div style={css("display:flex;flex-direction:column;gap:0.6rem;border:1px solid var(--border-soft);border-radius:12px;background:var(--surface-alt);padding:0.7rem 0.8rem")}>
+        <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:0.7rem;flex-wrap:wrap")}>
+          <div style={css("min-width:0")}>
+            <div style={css("display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap")}><span style={css("font-size:var(--text-sm);font-weight:600")}>Wireframe — 5 design directions</span><span style={css("font-size:var(--text-label);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:" + (aiSourced ? ACCENT : "var(--fg-faint)") + ";border:1px solid " + (aiSourced ? "color-mix(in srgb,var(--accent) 30%,var(--border) 70%)" : "var(--border-soft)") + ";border-radius:999px;padding:0.06rem 0.4rem")}>{aiSourced ? "AI copy" : "Draft copy"}</span></div>
+            <div style={css("font-size:var(--text-2xs);color:var(--fg-muted);margin-top:0.15rem")}>{compact ? "Pick a design. Copy is the only editable layer; frames, gallery and stats are placeholders for client assets." : "Pick a design below — click to compare. Copy is the only editable layer; the greyscale frames, gallery and stat tiles are reserved for the client's real assets."}</div>
+          </div>
+          {!mobile && legend}
         </div>
-        <div style={css("margin:" + (split ? "0" : "1.2rem auto 0") + ";width:100%;max-width:" + (editorial ? "48rem" : "40rem") + ";height:" + (immersive ? "14rem" : editorial ? "8rem" : "11rem") + ";border:1px solid color-mix(in srgb,var(--accent) 24%,var(--border-soft) 76%);border-radius:" + (immersive ? "28px" : editorial ? "999px 22px 22px 999px" : "18px") + ";background:color-mix(in srgb,var(--accent-soft) 72%,var(--surface) 28%);display:flex;align-items:flex-end;justify-content:flex-start;padding:var(--space-4);color:var(--fg-muted);font-size:var(--text-2xs);font-weight:500")}>Approved product or lifestyle image</div>
-      </div>
-      <section data-report-wireframe-block data-section-layout={`stakes-${recipe.stakes}`} style={css("display:grid;grid-template-columns:" + (mobile || recipe.stakes === 1 ? "1fr" : recipe.stakes === 2 ? ".85fr 1.15fr" : "1.15fr .85fr") + ";gap:1.4rem;padding:2.4rem 2rem;border-bottom:1px solid var(--border-soft);align-items:center;text-align:" + (recipe.stakes === 1 ? "center" : "left")) }><div style={{ order: recipe.stakes === 2 && !mobile ? 2 : 1 }}><div style={css("font-size:var(--text-label);text-transform:uppercase;letter-spacing:.08em;color:" + ACCENT)}>The stakes</div><h3 style={css("margin:.4rem 0 0;font-size:var(--text-3xl);line-height:1.18;letter-spacing:-.015em;font-weight:500")}>{problem.heading}</h3><p style={css("margin:.65rem 0 0;font-size:var(--text-sm);line-height:1.6;color:var(--fg-muted)")}>{problem.body}</p></div><aside style={{ ...css("border-radius:" + (recipe.stakes === 2 ? "26px 10px 26px 10px" : "18px") + ";background:var(--surface-alt);border:1px solid var(--border-soft);padding:var(--space-5);text-align:left"), order: recipe.stakes === 2 && !mobile ? 1 : 2 }}><div style={css("font-size:var(--text-label);text-transform:uppercase;letter-spacing:.08em;color:var(--fg-faint)")}>The decision</div><div style={css("font-size:var(--text-xl);line-height:1.35;font-weight:500;margin-top:.45rem")}>“Why should I choose this—and why now?”</div><div style={css("font-size:var(--text-2xs);line-height:1.5;color:var(--fg-muted);margin-top:.55rem")}>Because the right choice should feel clear before you buy.</div></aside></section>
-      <div data-report-wireframe-block data-section-layout={`benefits-${recipe.benefits}`} style={css("padding:1.7rem 1.5rem;text-align:" + (recipe.benefits === 1 ? "left" : "center") + ";border-bottom:1px solid var(--border-soft)")}>
-        <div style={css("font-size:var(--text-xl);font-weight:500")}>{bp.benefits.heading}</div>
-        <div style={css("display:grid;grid-template-columns:" + (mobile || recipe.benefits === 2 ? "1fr" : recipe.benefits === 1 ? "1.2fr .9fr .9fr" : "repeat(3,1fr)") + ";gap:1.1rem;margin-top:1.15rem")}>
-          {bp.benefits.items.map((v: any, index: number) => <div key={v.h} style={css("display:flex;flex-direction:" + (recipe.benefits === 2 ? "row" : "column") + ";align-items:" + (recipe.benefits === 2 ? "flex-start" : "stretch") + ";gap:.45rem;text-align:left;padding:var(--space-4);border:1px solid var(--border-soft);border-radius:" + (recipe.benefits === 1 && index === 0 ? "20px 8px 20px 8px" : "14px") + ";background:" + (index === 0 ? "color-mix(in srgb,var(--accent-soft) 38%,var(--surface) 62%)" : "var(--surface)"))}><span style={css("font-size:var(--text-2xs);color:" + ACCENT + ";font-weight:600")}>0{index + 1}</span><div style={css("flex:1")}><div style={css("font-size:var(--text-md);font-weight:500")}>{v.h}</div><div style={css("font-size:var(--text-xs);color:var(--fg-muted);line-height:1.5;margin-top:.25rem")}>{v.b}</div></div></div>)}
+        <div role="tablist" aria-label="Wireframe design" style={css("display:flex;gap:0.4rem;flex-wrap:wrap")}>
+          {WIREFRAME_STYLES.map((style, index) => {
+            const active = index === layoutVersion;
+            return <button key={style.label} type="button" role="tab" aria-selected={active} onClick={() => setLayoutVersion(index)} style={css("display:inline-flex;align-items:center;gap:0.4rem;border-radius:999px;cursor:pointer;font:inherit;font-size:var(--text-2xs);font-weight:600;padding:0.36rem 0.75rem;white-space:nowrap;border:1px solid " + (active ? "var(--accent)" : "var(--border-soft)") + ";background:" + (active ? "var(--accent)" : "var(--surface)") + ";color:" + (active ? "#fff" : "var(--fg-muted)"))}><span style={css("display:grid;place-items:center;width:1.15rem;height:1.15rem;border-radius:50%;font-size:var(--text-label);font-weight:700;background:" + (active ? "rgba(255,255,255,.22)" : "var(--surface-alt)") + ";color:" + (active ? "#fff" : "var(--fg-faint)"))}>{index + 1}</span>{style.label}</button>;
+          })}
         </div>
       </div>
-      <div data-report-wireframe-block data-section-layout={`audience-${recipe.audience}`} style={css("padding:1.7rem 1.5rem;text-align:" + (recipe.audience === 1 ? "left" : "center") + ";border-bottom:1px solid var(--border-soft);background:" + (recipe.audience === 2 ? "var(--surface-alt)" : "var(--surface)"))}>
-        <div style={css("font-size:var(--text-xl);font-weight:500")}>{bp.forwho.heading}</div>
-        <div style={css("display:grid;grid-template-columns:" + (mobile || recipe.audience === 1 ? "1fr" : recipe.audience === 2 ? "1.15fr .85fr 1.15fr" : "repeat(3,1fr)") + ";justify-content:center;gap:0.9rem;margin-top:1.15rem")}>
-          {bp.forwho.items.map((v: any, index: number) => <div key={v.h} style={css("flex:1;border:" + (recipe.audience === 1 ? "1px solid var(--border-soft)" : "0") + ";border-top:" + (recipe.audience === 1 ? "1px solid var(--border-soft)" : "2px solid " + ACCENT) + ";border-radius:" + (recipe.audience === 1 ? "14px" : "0") + ";padding:" + (recipe.audience === 1 ? ".9rem 1rem" : "1rem .4rem .2rem") + ";display:grid;grid-template-columns:" + (recipe.audience === 1 && !mobile ? "2.2rem minmax(0,1fr)" : "1fr") + ";gap:" + (recipe.audience === 1 ? ".2rem .7rem" : ".35rem") + ";text-align:left;background:" + (recipe.audience === 1 && index === 0 ? "color-mix(in srgb,var(--accent-soft) 34%,var(--surface) 66%)" : "transparent"))}><span style={css("display:" + (recipe.audience === 1 ? "grid" : "none") + ";grid-row:1 / span 2;width:2rem;height:2rem;border-radius:50%;place-items:center;background:var(--accent-soft);color:" + ACCENT + ";font-size:var(--text-2xs);font-weight:600")}>0{index + 1}</span><div style={css("font-size:var(--text-base);font-weight:500")}>{v.h}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.5")}>{v.b}</div></div>)}
-        </div>
-      </div>
-      <section data-report-wireframe-block data-section-layout={`details-${recipe.details}`} style={css("padding:1.7rem 1.5rem;border-bottom:1px solid var(--border-soft)") }><div style={css("font-size:var(--text-xl);font-weight:500;text-align:" + (recipe.details === 2 ? "left" : "center"))}>{features.heading}</div><div style={css("display:grid;grid-template-columns:" + (mobile || recipe.details === 2 ? "1fr" : recipe.details === 1 ? "repeat(3,minmax(0,1fr))" : "repeat(2,minmax(0,1fr))") + ";gap:.7rem;margin-top:1rem")}>{features.items.map((item: any, index: number) => <div key={item.h} style={css("border:1px solid var(--border-soft);border-radius:" + (recipe.details === 1 && index % 3 === 0 ? "18px" : "10px") + ";padding:.85rem;background:" + (recipe.details === 1 && index % 2 === 0 ? "var(--surface-alt)" : "var(--surface)") + ";display:" + (recipe.details === 2 ? "grid" : "block") + ";grid-template-columns:minmax(9rem,.6fr) 1.4fr;gap:.8rem;align-items:start") }><div style={css("font-size:var(--text-base);font-weight:500")}>{item.h}</div><div style={css("font-size:var(--text-2xs);line-height:1.45;color:var(--fg-muted);margin-top:" + (recipe.details === 2 ? "0" : ".25rem"))}>{item.b}</div></div>)}</div></section>
-      <PromotionBanner promotion={promotions[1]} variant={recipe.promoMid} mobile={mobile} position="promoMid" />
-      <section data-report-wireframe-block data-section-layout={`process-${recipe.process}`} style={css("padding:1.7rem 1.5rem;border-bottom:1px solid var(--border-soft);text-align:" + (recipe.process === 1 ? "left" : "center") + ";background:" + (recipe.process === 1 ? "var(--surface-alt)" : "var(--surface)")) }><div style={css("font-size:var(--text-xl);font-weight:500")}>{process.heading}</div><div style={css("display:grid;grid-template-columns:" + (mobile || recipe.process === 1 ? "1fr" : recipe.process === 2 ? "1fr 1.2fr 1fr" : "repeat(3,1fr)") + ";gap:.8rem;margin-top:1rem")}>{process.items.map((item: any, index: number) => <div key={item.h} style={css("border:1px solid " + (recipe.process === 2 && index === 1 ? ACCENT : "var(--border-soft)") + ";border-left:" + (recipe.process === 1 ? "3px solid " + ACCENT : "1px solid " + (recipe.process === 2 && index === 1 ? ACCENT : "var(--border-soft)")) + ";border-radius:" + (recipe.process === 1 ? "14px" : "12px") + ";padding:" + (recipe.process === 1 ? ".85rem 1rem" : "1rem") + ";text-align:left;background:" + (recipe.process === 2 && index === 1 ? "var(--accent-soft)" : "var(--surface)")) }><span style={css("font-size:var(--text-2xs);color:" + ACCENT + ";font-weight:600")}>0{index + 1}</span><div style={css("font-size:var(--text-base);font-weight:500;margin-top:.25rem")}>{item.h}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.45;margin-top:.2rem")}>{item.b}</div></div>)}</div></section>
-      <div data-report-wireframe-block data-section-layout={`testimonial-${recipe.testimonial}`} style={css("padding:2.1rem 1.8rem;border-bottom:1px solid var(--border-soft);text-align:" + (recipe.testimonial === 2 ? "left" : "center") + ";background:" + (recipe.testimonial === 2 ? "var(--surface-alt)" : "var(--surface)"))}>
-        <div style={css("font-size:var(--text-xl);font-weight:500;text-align:center")}>{bp.testimonials.heading}</div>
-        <div style={css("margin:1.15rem auto 0;max-width:" + (recipe.testimonial === 2 ? "100%" : "42rem") + ";border:1px dashed color-mix(in srgb,var(--accent) 42%,var(--border) 58%);border-radius:" + (recipe.testimonial === 1 ? "28px" : "18px") + ";padding:1.4rem;display:flex;flex-direction:" + (recipe.testimonial === 1 ? "column" : "row") + ";gap:1.1rem;align-items:center;background:color-mix(in srgb,var(--accent-soft) 25%,var(--surface) 75%)")}>
-          <div style={css("width:3.4rem;height:3.4rem;border-radius:50%;border:1px dashed var(--accent);background:var(--surface);flex-shrink:0")} />
-          <div style={css("flex:1;text-align:" + (recipe.testimonial === 1 ? "center" : "left"))}><div style={css("font-size:var(--text-lg);color:var(--fg);line-height:1.5")}>{bp.testimonials.quote}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-muted);margin-top:0.55rem")}>{bp.testimonials.author} · {bp.testimonials.metric}</div></div>
-        </div>
-      </div>
-      <section data-report-wireframe-block data-section-layout={`offer-${recipe.offer}`} style={css("padding:2.2rem 1.8rem;border-bottom:1px solid var(--border-soft);background:" + (recipe.offer === 2 ? "var(--accent-soft)" : "var(--fg)") + ";color:" + (recipe.offer === 2 ? "var(--fg)" : "#fff") + ";text-align:" + (recipe.offer === 1 ? "left" : "center")) }><div style={css("font-size:var(--text-label);text-transform:uppercase;letter-spacing:.09em;color:" + (recipe.offer === 2 ? ACCENT : "color-mix(in srgb,var(--accent) 75%,white 25%)"))}>Everything needed to decide</div><div style={css("font-size:var(--text-2xl);font-weight:500;margin-top:.45rem")}>{offer.heading}</div><p style={css("font-size:var(--text-sm);color:" + (recipe.offer === 2 ? "var(--fg-muted)" : "rgba(255,255,255,.7)") + ";margin:.5rem " + (recipe.offer === 1 ? "0" : "auto") + " 0;max-width:34rem;line-height:1.55")}>{offer.body}</p><div style={css("display:flex;justify-content:" + (recipe.offer === 1 ? "flex-start" : "center") + ";gap:.45rem;flex-wrap:wrap;margin-top:1rem")}>{offer.bullets.map((item: string) => <span key={item} style={css("border:1px solid " + (recipe.offer === 2 ? "var(--border)" : "rgba(255,255,255,.18)") + ";border-radius:999px;background:" + (recipe.offer === 2 ? "var(--surface)" : "rgba(255,255,255,.07)") + ";padding:.4rem .7rem;font-size:var(--text-2xs);color:" + (recipe.offer === 2 ? "var(--fg-muted)" : "rgba(255,255,255,.82)"))}>{item}</span>)}</div></section>
-      <div data-report-wireframe-block data-section-layout={`price-${recipe.price}`} style={css("padding:2.2rem 1.5rem;text-align:" + (recipe.price === 1 ? "left" : "center") + ";background:" + (recipe.price === 2 ? "var(--surface-alt)" : "var(--surface)"))}>
-        <div style={css("font-size:var(--text-xl);font-weight:500")}>{bp.pricing.heading}</div>
-        <div style={css("display:grid;grid-template-columns:1fr;gap:0.9rem;margin:1.15rem " + (recipe.price === 1 ? "0" : "auto") + " 0;max-width:" + (recipe.price === 1 ? "100%" : "28rem"))}>
-          {bp.pricing.plans.map((p: any) => (
-            <div key={p.name} style={css("flex:1;min-width:0;border:1px solid " + (p.highlight ? ACCENT : "var(--border)") + ";border-radius:" + (recipe.price === 2 ? "28px 10px 28px 10px" : "18px") + ";padding:1.2rem 1.25rem;background:" + (p.highlight ? "color-mix(in srgb,var(--accent) 9%,white 91%)" : "var(--surface)") + ";text-align:left;box-shadow:0 12px 30px color-mix(in srgb,var(--accent) 10%,transparent)")}>
-              <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:" + (p.highlight ? ACCENT : "var(--fg-muted)"))}>{p.name}</div>
-              <div style={css("font-size:var(--text-3xl);font-weight:500;line-height:1.1;margin-top:0.15rem")}>{p.price}</div>
-              <span style={css("margin-top:0.7rem;display:block;text-align:center;border-radius:var(--radius-pill);padding:0.42rem 0;font-size:var(--text-xs);font-weight:500;" + (p.highlight ? "background:var(--accent);color:#fff" : "background:var(--surface-alt);color:var(--fg)"))}>{p.cta}</span>
+
+      <div data-wireframe-layout="mixed" data-wireframe-copy-source={aiSourced ? "ai-result" : "blueprint"} data-wireframe-style={S.label} style={css("width:100%;border:1px solid var(--border);border-radius:20px;overflow:hidden;background:var(--surface);box-shadow:0 18px 50px color-mix(in srgb,var(--fg) 7%,transparent)")}>
+
+        {/* Announcement */}
+        <WRow label="Announcement" layout="promoTop" stage="create" mobile={mobile} tone={S.band ? ink : "var(--surface-alt)"} pad={mobile ? "0.7rem 1.1rem" : "0.7rem 1.6rem"} noteTitle="Lead with value" note="Surface the newest point of view or an ungated resource — not a hard sell.">
+          <div style={css("width:100%;display:flex;align-items:center;justify-content:center;gap:0.6rem;flex-wrap:wrap")}>
+            <span style={css("font-size:var(--text-label);color:var(--gold,oklch(0.78 0.11 75))")}>★ NEW</span>
+            <span style={css("font-size:var(--text-xs);font-weight:500;color:" + (S.band ? "rgba(255,255,255,.9)" : "var(--fg)"))}>{C.promoTop.heading}</span>
+            <span style={css("font-size:var(--text-xs);font-weight:600;color:" + (S.band ? "#fff" : "var(--accent)"))}>{C.promoTop.cta || "Read more"} →</span>
+          </div>
+        </WRow>
+
+        {/* Nav */}
+        <WRow label="Nav" layout="nav" stage="capture" mobile={mobile} pad={mobile ? "0.75rem 1.1rem" : "0.85rem 1.6rem"} noteTitle="One emphasis only" note="Keep the nav quiet — the primary action is the single highlighted element.">
+          <div style={css("width:100%;display:flex;align-items:center;justify-content:" + (navCentered ? "center" : "space-between") + ";gap:1rem")}>
+            <div style={css("display:flex;align-items:center;gap:0.5rem;min-width:0")}><div style={css("width:1.5rem;height:1.5rem;border-radius:7px;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:var(--text-2xs);font-weight:700;flex-shrink:0")}>{C.brand.charAt(0)}</div><span style={css("font-size:var(--text-md);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{C.brand}</span></div>
+            {!navCentered && !mobile && <div style={css("display:flex;gap:0.9rem;min-width:0;overflow:hidden")}>{C.navLinks.map((l: string) => <span key={l} style={css("font-size:var(--text-xs);color:var(--fg-muted);white-space:nowrap")}>{l}</span>)}</div>}
+            {!navCentered && <div style={css("display:flex;align-items:center;gap:0.6rem")}>{!mobile && <span style={css("font-size:var(--text-xs);color:var(--fg-muted)")}>Log in</span>}<WCta label={C.navCta} /></div>}
+          </div>
+        </WRow>
+
+        {/* Hero */}
+        <WRow label="Hero" copyRole="hero" layout={"hero-" + S.heroKind} stage="create" mobile={mobile} tone={heroDark ? ink : "var(--surface)"} pad={mobile ? "1.8rem 1.1rem" : S.heroPad} center={S.heroKind !== "split" && S.heroKind !== "compact"} noteTitle="Point of view + outcome" note="Earn attention with the idea you're known for and the result — before any pitch.">
+          {heroSplit ? (
+            /* CLASSIC — copy left, product shot right, logo strip below */
+            <div style={css("width:100%")}>
+              <div style={css("display:grid;grid-template-columns:1.05fr 0.95fr;gap:2rem;align-items:center")}>
+                <div style={css("display:flex;flex-direction:column;gap:0.7rem;max-width:28rem")}>
+                  <WPill>★★★★★ &nbsp;Loved by clients</WPill>
+                  <WHead size={S.heroScale}>{C.hero.title}</WHead>
+                  <WBody max="26rem">{C.hero.subhead}</WBody>
+                  <div style={css("display:flex;gap:0.55rem;flex-wrap:wrap;margin-top:0.4rem")}><WCta label={C.hero.cta} big /><WGhost label="▸ Watch tour" /></div>
+                </div>
+                <WFrame h="11rem" label={"app." + C.brand.toLowerCase().replace(/[^a-z0-9]/g, "") + ".com"} />
+              </div>
+              <WLogoStrip mobile={mobile} />
             </div>
-          ))}
+          ) : S.heroKind === "compact" ? (
+            /* COMPACT — dense, left, twin CTAs, inline metric row, no big image */
+            <div style={css("width:100%;max-width:42rem;display:flex;flex-direction:column;gap:0.45rem")}>
+              <WEyebrow>{C.hero.eyebrow}</WEyebrow>
+              <WHead size={mobile ? "1.5rem" : S.heroScale}>{C.hero.title}</WHead>
+              <WBody max="34rem">{C.hero.subhead}</WBody>
+              <div style={css("display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.35rem")}><WCta label={C.hero.cta} /><WGhost label="See how it works" /></div>
+              <div style={css("display:flex;gap:1.6rem;flex-wrap:wrap;margin-top:0.7rem;padding-top:0.7rem;border-top:1px solid var(--border-soft)")}>{[0, 1, 2].map(i => <div key={i}><span style={css("font-size:var(--text-lg);font-weight:700")}>—</span> <span style={css("font-size:var(--text-2xs);color:var(--fg-muted)")}>proof metric</span></div>)}</div>
+            </div>
+          ) : S.heroKind === "editorial" ? (
+            /* EDITORIAL — centred magazine, giant type, hairline rules, no image, single CTA */
+            <div style={css("width:100%;display:flex;flex-direction:column;align-items:center;text-align:center;gap:0.7rem;max-width:38rem")}>
+              <span style={css("width:2.4rem;height:2px;border-radius:2px;background:var(--accent)")} />
+              <WEyebrow>{C.hero.eyebrow}</WEyebrow>
+              <WHead size={mobile ? "2rem" : S.heroScale}>{C.hero.title}</WHead>
+              <WBody max="30rem">{C.hero.subhead}</WBody>
+              <div style={css("margin-top:0.5rem")}><WCta label={C.hero.cta} big /></div>
+              <div style={css("width:100%;max-width:24rem;height:1px;background:var(--border-soft);margin-top:1rem")} />
+            </div>
+          ) : S.heroKind === "airy" ? (
+            /* SPACIOUS — centred, enormous whitespace, minimal, single CTA */
+            <div style={css("width:100%;display:flex;flex-direction:column;align-items:center;text-align:center;gap:1.1rem;max-width:30rem")}>
+              <WEyebrow>{C.hero.eyebrow}</WEyebrow>
+              <WHead size={mobile ? "1.9rem" : S.heroScale}>{C.hero.title}</WHead>
+              <WBody max="26rem">{C.hero.subhead}</WBody>
+              <div style={css("margin-top:1rem")}><WCta label={C.hero.cta} big /></div>
+            </div>
+          ) : (
+            /* BOLD — dark band, big white type, centred, dual CTA */
+            <div style={css("width:100%;display:flex;flex-direction:column;align-items:center;text-align:center;gap:0.7rem;max-width:34rem")}>
+              <WPill>★★★★★ &nbsp;Loved by clients</WPill>
+              <WHead size={mobile ? "1.9rem" : S.heroScale} light>{C.hero.title}</WHead>
+              <WBody max="30rem" light>{C.hero.subhead}</WBody>
+              <div style={css("display:flex;gap:0.55rem;flex-wrap:wrap;justify-content:center;margin-top:0.4rem")}><WCta label={C.hero.cta} big light /><WGhost label="▸ Watch tour" light /></div>
+            </div>
+          )}
+        </WRow>
+
+        {/* Problem */}
+        <WRow label="Problem" copyRole="problem" layout="stakes" stage="capture" mobile={mobile} tone={toneA} pad={mobile ? "1.5rem 1.1rem" : S.pad} noteTitle="Name the stakes" note="Make the in-market buyer feel understood — the real cost of waiting.">
+          <div style={css("width:100%;display:grid;grid-template-columns:" + (mobile ? "1fr" : "1.1fr 0.9fr") + ";gap:1.3rem;align-items:center")}>
+            <div style={css("display:flex;flex-direction:column;gap:0.45rem")}><WEyebrow>The stakes</WEyebrow><WHead size={H2}>{C.stakes.heading}</WHead><WBody>{C.stakes.body}</WBody></div>
+            <div style={css("border:1px solid var(--border-soft);border-radius:14px;background:var(--surface);padding:1.1rem;text-align:left")}>
+              <div style={css("font-size:var(--text-2xl);font-weight:700;color:var(--accent);letter-spacing:-.02em")}>—</div>
+              <div style={css("font-size:var(--text-2xs);color:var(--fg-muted);margin-top:.1rem")}>the cost of the status quo (add a number)</div>
+              <div style={css("height:1px;background:var(--border-soft);margin:.8rem 0")} />
+              <div style={css("font-size:var(--text-sm);font-weight:600")}>&ldquo;Why this, and why now?&rdquo;</div>
+            </div>
+          </div>
+        </WRow>
+
+        {/* Benefit */}
+        <WRow label="Benefit" copyRole="benefit" layout="benefit" stage="create" mobile={mobile} pad={mobile ? "1.5rem 1.1rem" : S.pad} center={ctr} noteTitle="Turn POV into gains" note="Concrete benefits that make the thesis tangible and repeatable.">
+          <WEyebrow>Why it matters</WEyebrow>
+          <WHead size={H3}>{C.benefits.heading}</WHead>
+          <WCards items={C.benefits.items} S={S} mobile={mobile} />
+        </WRow>
+
+        {/* Solution */}
+        <WRow label="Solution" copyRole="solution" layout="solution" stage="capture" mobile={mobile} tone={S.band ? "var(--accent-soft)" : "var(--surface)"} pad={mobile ? "1.5rem 1.1rem" : S.pad} center={ctr} noteTitle="Present the path" note="Show how the offer solves the stated problem without repeating the hero.">
+          <WEyebrow>How it works</WEyebrow>
+          <WHead size={H2}>{C.solution.heading}</WHead>
+          <WBody max="34rem">{C.solution.body}</WBody>
+          {S.cards !== "card" || mobile ? (
+            <WCards items={C.solution.items} S={S} mobile={mobile} />
+          ) : (
+            <div style={css("width:100%;display:flex;flex-direction:column;gap:1.2rem;margin-top:1rem;text-align:left")}>
+              {C.solution.items.slice(0, 3).map((it, i) => (
+                <div key={i} style={css("display:grid;grid-template-columns:" + (i % 2 ? "1fr 1.05fr" : "1.05fr 1fr") + ";gap:1.2rem;align-items:center")}>
+                  <div style={css("order:" + (i % 2 ? 2 : 1) + ";display:flex;flex-direction:column;gap:.35rem")}><WPill>{"0" + (i + 1)}</WPill><div style={css("font-size:var(--text-lg);font-weight:600")}>{it.h}</div>{it.b && <div style={css("font-size:var(--text-sm);color:var(--fg-muted);line-height:1.55")}>{it.b}</div>}</div>
+                  <div style={css("order:" + (i % 2 ? 1 : 2))}><WFrame h="5.5rem" label={it.h} /></div>
+                </div>
+              ))}
+            </div>
+          )}
+        </WRow>
+
+        {/* Differentiation */}
+        <WRow label="Differentiation" copyRole="differentiation" layout="differentiation" stage="create" mobile={mobile} tone={toneA} pad={mobile ? "1.5rem 1.1rem" : S.pad} center={ctr} noteTitle="Make the choice clear" note="Give the buyer concrete reasons to choose this approach over the familiar alternative.">
+          <WEyebrow>Why this, not that</WEyebrow>
+          <WHead size={H3}>{C.differentiation.heading}</WHead>
+          <WCompare brand={C.brand} rows={C.differentiation.items.map(it => it.h).filter(Boolean)} />
+        </WRow>
+
+        {/* Gallery */}
+        <WRow label="Gallery" layout="gallery-mosaic" stage="expand" mobile={mobile} tone={S.band ? "var(--surface)" : "var(--surface)"} pad={mobile ? "1.5rem 1.1rem" : S.pad} center={ctr} noteTitle="Show, do not over-explain" note="A flexible media grid for product, process, people, proof, or campaign imagery supplied by the client.">
+          <WEyebrow>See it in context</WEyebrow>
+          <WHead size={H2}>The whole story, at a glance</WHead>
+          <div style={css("margin-top:1rem;width:100%")}><WGallery mobile={mobile} /></div>
+        </WRow>
+
+        {/* Proof */}
+        <WRow label="Proof" copyRole="proof" layout="proof" stage="capture" mobile={mobile} tone={S.band ? ink : "var(--surface-alt)"} pad={mobile ? "1.5rem 1.1rem" : S.pad} center={ctr} noteTitle="Let customers claim it" note="An honest comparison and real stories that earn the ready buyer's trust.">
+          <WEyebrow light={S.band}>Proof</WEyebrow>
+          <WHead size={H3} light={S.band}>{C.proof.heading}</WHead>
+          {!S.band && !S.minimal && <WStats mobile={mobile} />}
+          <div style={css("width:100%;max-width:40rem;margin:1.2rem auto 0")}><WQuote quote={C.proof.quote} author={C.proof.author} metric={C.proof.metric} big /></div>
+        </WRow>
+
+        {/* Objections */}
+        <WRow label="Objections" copyRole="objections" layout="objections" stage="capture" mobile={mobile} tone="color-mix(in srgb,var(--accent-soft) 26%,var(--surface) 74%)" pad={mobile ? "1.5rem 1.1rem" : S.pad} noteTitle="Remove the last friction" note="Address the practical concern that can still stop a ready buyer.">
+          <div style={css("width:100%;display:grid;grid-template-columns:" + (mobile ? "1fr" : "0.85fr 1.15fr") + ";gap:1.3rem;align-items:start")}>
+            <div style={css("display:flex;flex-direction:column;gap:.45rem")}><WEyebrow>Before you decide</WEyebrow><WHead size={H3}>{C.objections.heading}</WHead><WBody max="24rem">{C.objections.body}</WBody><div style={css("margin-top:.4rem")}><WGhost label="Book a no-pressure demo" /></div></div>
+            <div style={css("display:flex;flex-direction:column;gap:.6rem")}>{(C.objections.items.length ? C.objections.items : [{ h: "A common concern", b: "" }, { h: "Another worry", b: "" }, { h: "The last hesitation", b: "" }]).slice(0, 4).map((it, i) => <div key={i} style={css("border:1px solid var(--border-soft);border-radius:12px;background:var(--surface);padding:.8rem .9rem")}><div style={css("font-size:var(--text-sm);font-weight:600")}>{it.h}</div>{it.b && <div style={css("font-size:var(--text-2xs);color:var(--fg-muted);margin-top:.24rem;line-height:1.55")}>{it.b}</div>}</div>)}</div>
+          </div>
+        </WRow>
+
+        {/* FAQ */}
+        <WRow label="FAQ" copyRole="faq" layout="faq" stage="capture" mobile={mobile} tone={toneA} pad={mobile ? "1.5rem 1.1rem" : S.pad} center={ctr} noteTitle="Clear the last doubts" note="Answer the buying questions that sit between interest and the final action.">
+          <WEyebrow>Good to know</WEyebrow>
+          <WHead size={H3}>{C.faq.heading}</WHead>
+          <div style={css("width:100%;max-width:44rem;display:grid;grid-template-columns:" + (mobile ? "1fr" : "1fr 1fr") + ";gap:0.6rem;margin:1rem auto 0;text-align:left")}>
+            {C.faq.items.map((q: any, i: number) => <div key={i} style={css("border:1px solid var(--border-soft);border-radius:12px;padding:0.8rem 0.9rem;background:var(--surface)")}><div style={css("font-size:var(--text-sm);font-weight:600;line-height:1.35")}>{q.q}</div>{q.a && <div style={css("font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.5;margin-top:0.2rem")}>{q.a}</div>}</div>)}
+          </div>
+        </WRow>
+
+        {/* Final CTA */}
+        <WRow label="CTA" copyRole="cta" layout="finalCta" stage="capture" mobile={mobile} tone={ink} pad={mobile ? "2rem 1.1rem" : S.heroPad} center noteTitle="One high-intent action" note="The single next step for buyers ready now — repeated, never competing.">
+          <WEyebrow light>Ready when you are</WEyebrow>
+          <WHead size="var(--text-3xl)" light>{C.finalCta.heading}</WHead>
+          <WBody max="30rem" light>{C.finalCta.body}</WBody>
+          <div style={css("display:flex;gap:0.55rem;flex-wrap:wrap;justify-content:center;margin-top:0.6rem")}><WCta label={C.finalCta.cta} big light /><WGhost label="▸ Watch the tour" light /></div>
+        </WRow>
+
+        {/* Footer */}
+        <div data-report-wireframe-block style={css("padding:" + (mobile ? "1.4rem 1.1rem" : "1.8rem 1.6rem") + ";background:var(--surface-alt)")}>
+          <div style={css("width:100%;display:grid;grid-template-columns:" + (mobile ? "1fr 1fr" : "1.5fr 1fr 1fr 1fr") + ";gap:1.2rem")}>
+            <div><div style={css("display:flex;align-items:center;gap:0.5rem;font-weight:600")}><span style={css("width:1.4rem;height:1.4rem;border-radius:6px;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:var(--text-label)")}>{C.brand.charAt(0)}</span>{C.footer.brand}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-muted);margin-top:0.5rem;max-width:14rem")}>{C.footer.tagline || "One clear system for the work that matters."}</div></div>
+            {[["Product", ["Overview", "Features", "Pricing"]], ["Company", ["About", "Stories", "Contact"]], ["Resources", ["Guides", "Help", "Status"]]].map(([h, links]) => (
+              <div key={h as string}><div style={css("font-size:var(--text-label);text-transform:uppercase;letter-spacing:0.06em;color:var(--fg-faint);margin-bottom:0.5rem")}>{h as string}</div>{(links as string[]).map(l => <div key={l} style={css("font-size:var(--text-2xs);color:var(--fg-muted);margin-bottom:0.3rem")}>{l}</div>)}</div>
+            ))}
+          </div>
+          <div style={css("display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding-top:0.9rem;margin-top:0.9rem;border-top:1px solid var(--border-soft);font-size:var(--text-label);color:var(--fg-muted)")}><span>© {C.footer.brand}</span><span>Privacy · Terms · Contact</span></div>
         </div>
+
       </div>
-      <section data-report-wireframe-block data-section-layout={`faq-${recipe.faq}`} style={css("padding:1.7rem 1.5rem;border-top:1px solid var(--border-soft);background:" + (recipe.faq === 2 ? "var(--surface-alt)" : "var(--surface)")) }><div style={css("font-size:var(--text-xl);font-weight:500;text-align:" + (recipe.faq === 2 ? "left" : "center"))}>{faq.heading}</div><div style={css("max-width:" + (recipe.faq === 1 ? "100%" : "38rem") + ";margin:1rem auto 0;display:grid;grid-template-columns:" + (!mobile && recipe.faq === 1 ? "repeat(2,1fr)" : "1fr") + ";gap:.6rem")}>{faq.items.map((item: any, index: number) => <div key={item.q} style={css("border:1px solid var(--border-soft);border-radius:" + (recipe.faq === 2 ? "16px" : "10px") + ";padding:" + (recipe.faq === 2 ? ".9rem 1rem" : ".75rem .85rem") + ";background:" + (recipe.faq === 2 ? (index === 0 ? "color-mix(in srgb,var(--accent-soft) 30%,var(--surface) 70%)" : "var(--surface)") : "var(--surface)")) }><div style={css("font-size:var(--text-sm);font-weight:500")}>{item.q}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.45;margin-top:.22rem")}>{item.a}</div></div>)}</div></section>
-      <section data-report-wireframe-block data-section-layout={`finalCta-${recipe.finalCta}`} style={css("padding:2rem 1.5rem;text-align:" + (recipe.finalCta === 1 ? "left" : "center") + ";background:" + (recipe.finalCta === 2 ? "var(--accent);color:#fff" : recipe.finalCta === 1 ? "var(--surface)" : "var(--accent-soft)")) }><div style={css("font-size:var(--text-2xl);font-weight:500")}>{finalCta.heading}</div><p style={css("font-size:var(--text-xs);margin:.35rem " + (recipe.finalCta === 1 ? "0" : "auto") + " 0;max-width:30rem;color:" + (recipe.finalCta === 2 ? "rgba(255,255,255,.78)" : "var(--fg-muted)"))}>{finalCta.body}</p><span style={css("display:inline-flex;margin-top:.85rem;border-radius:999px;background:" + (recipe.finalCta === 2 ? "#fff" : ACCENT) + ";color:" + (recipe.finalCta === 2 ? ACCENT : "#fff") + ";padding:.55rem 1rem;font-size:var(--text-xs);font-weight:500")}>{finalCta.cta}</span></section>
-      <footer data-report-wireframe-block style={css("display:flex;justify-content:space-between;gap:.8rem;flex-wrap:wrap;padding:1rem 1.5rem;border-top:1px solid var(--border-soft);font-size:var(--text-2xs);color:var(--fg-muted)") }><strong style={css("color:var(--fg);font-weight:500")}>{footer.brand}</strong><span>{footer.tagline}</span><span>Privacy · Terms · Contact</span></footer>
-    </div>
     </div>
   );
 }
@@ -798,9 +978,7 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
   if (stageKey === "wireframe") {
     const approvedCopy = isFunnelCopyResult(ctx.aiResults.copy) ? ctx.aiResults.copy : null;
     return sec(reveal, 1)
-      ? approvedCopy
-        ? <CanonicalWireframeDoc result={approvedCopy} brandName={briefValue(d, "Brand", d.name)} mobile={ctx.mobile} />
-        : <WireframeDoc bp={bp} docs={d} mobile={ctx.mobile} />
+      ? <WireframeDoc bp={bp} docs={d} copy={approvedCopy} mobile={ctx.mobile} />
       : <div style={css("padding:var(--space-8);text-align:center;color:var(--fg-faint);font-size:var(--text-base)")}>Drafting the wireframe…</div>;
   }
 
@@ -850,9 +1028,7 @@ function renderStage(ctx: StageRenderCtx): ReactNode {
         <div data-report-section="wireframe" style={css("border-top:1px solid var(--border-soft);padding-top:1.3rem")}>
           <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:" + ACCENT)}>01 · Final Design</div>
           <div style={css("margin-top:0.85rem")}>
-            {isFunnelCopyResult(ctx.aiResults.copy)
-              ? <CanonicalWireframeDoc result={ctx.aiResults.copy} brandName={briefValue(d, "Brand", d.name)} mobile={ctx.mobile} />
-              : <WireframeDoc bp={bp} docs={d} mobile={ctx.mobile} compact />}
+            <WireframeDoc bp={bp} docs={d} copy={isFunnelCopyResult(ctx.aiResults.copy) ? ctx.aiResults.copy : null} mobile={ctx.mobile} compact />
           </div>
         </div>
       )}

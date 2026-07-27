@@ -14,10 +14,10 @@ const JOURNEY_STEPS = [
 // login path in the interface.
 const GOOGLE_SIGN_IN_VISIBLE = false;
 
-const DEVELOPMENT_LOGIN_OPTIONS = process.env.NODE_ENV === "production" ? [] : [
-  { label: "Admin", email: "trisha@baltazarstudio.co", password: "studio123" },
-  { label: "Manager", email: "kier@baltazarstudio.co", password: "member123" },
-  { label: "CreatorIQ client", email: "creator-iq@client.baltazarstudio.co", password: "client123" },
+const EASY_LOGIN_OPTIONS = process.env.NODE_ENV === "production" ? [] : [
+  { label: "Admin", email: "hello@baltz.studio", password: "admin123" },
+  { label: "Manager", email: "projects@baltz.studio", password: "manager123" },
+  { label: "Client", email: "client@baltz.studio", password: "client123" },
 ] as const;
 
 export function LoginPage({
@@ -77,12 +77,6 @@ export function LoginPage({
     });
 
     if (error || !data.user) {
-      const developmentUser = await tryDevelopmentLogin(email, password);
-      if (developmentUser) {
-        onLogin(developmentUser, rememberMe);
-        return;
-      }
-
       setMessage({ tone: "error", text: error?.message || "Invalid email or password. Please try again." });
       setLoading(false);
       return;
@@ -444,17 +438,17 @@ export function LoginPage({
             ) : null}
           </form>
 
-          {!isForgotMode && DEVELOPMENT_LOGIN_OPTIONS.length > 0 ? (
-            <section className="login-development-logins" aria-labelledby="local-development-logins-title">
+          {!isForgotMode && EASY_LOGIN_OPTIONS.length > 0 ? (
+            <section className="login-development-logins" aria-labelledby="easy-role-logins-title">
               <div className="login-development-logins-header">
                 <div>
-                  <strong id="local-development-logins-title">Local development logins</strong>
-                  <span>Choose an account to fill the form.</span>
+                  <strong id="easy-role-logins-title">Easy role logins</strong>
+                  <span>Choose a role to fill the real sign-in form.</span>
                 </div>
                 <span className="login-development-badge">Local only</span>
               </div>
               <div className="login-development-login-list">
-                {DEVELOPMENT_LOGIN_OPTIONS.map(option => (
+                {EASY_LOGIN_OPTIONS.map(option => (
                   <button
                     key={option.email}
                     type="button"
@@ -593,20 +587,6 @@ type LoginFeedback = {
   tone: "error" | "info" | "success";
   text: string;
 };
-
-async function tryDevelopmentLogin(email: string, password: string) {
-  if (process.env.NODE_ENV !== "development") return null;
-
-  const response = await fetch("/api/dev-login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  if (!response.ok) return null;
-
-  const payload = await response.json().catch(() => null) as { user?: LoginUser } | null;
-  return payload?.user ?? null;
-}
 
 function buildAuthRedirectUrl(callbackPath: string, nextPath: string) {
   const origin = window.location.origin;

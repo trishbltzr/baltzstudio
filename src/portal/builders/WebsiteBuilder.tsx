@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { isAiStageResult } from "@/lib/aiStageGeneration";
 import { css } from "../helpers";
 import { Icon } from "../icons";
-import { clientsVisibleToRole, type StudioClient } from "../clients";
+import type { StudioClient } from "../clients";
+import { usePortalStudioClients } from "../usePortalStudioClients";
 import type { PortalActions, PortalState } from "../store";
 import { GuidedIntakeSelector } from "../components/GuidedIntakeSelector";
 import { EngineIndexControls } from "../components/EngineIndexControls";
@@ -120,7 +121,11 @@ export function WebsiteBuilder({ state, actions }: { state: PortalState; actions
   const [sourceHandoffId, setSourceHandoffId] = useState<string | null>(null);
   const [activeHandoff, setActiveHandoff] = useState<PortalProcessHandoff | null>(null);
   const [activityByClient, setActivityByClient] = useState<Record<string, WebsiteBuilderActivity>>({});
-  const availableClients = useMemo(() => clientsVisibleToRole(state.role, state.clientName), [state.clientName, state.role]);
+  const { clients: rosterClients } = usePortalStudioClients();
+  const availableClients = useMemo(
+    () => state.role === "client" ? rosterClients.filter(item => item.name === state.clientName) : rosterClients,
+    [rosterClients, state.clientName, state.role],
+  );
   const workingClients = useMemo(() => clientsForEngineWork(state.role, availableClients), [availableClients, state.role]);
   useEffect(() => {
     setActivityByClient(Object.fromEntries(availableClients.flatMap(item => {

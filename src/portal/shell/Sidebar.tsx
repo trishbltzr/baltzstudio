@@ -165,7 +165,12 @@ function SidebarComponent({ state, actions, rail, onLogout }: { state: SidebarSh
             <div style={css(eyebrowStyle("var(--accent)"))}>Need Access?</div>
             <div style={css("font-size:var(--text-base);font-weight:500;color:var(--fg);line-height:1.25;margin-top:0.15rem;padding-right:1rem")}>Escalate</div>
             <p style={css("font-size:var(--text-2xs);color:var(--fg-muted);line-height:1.42;margin-top:0.3rem")}>For billing, roles or out-of-scope calls.</p>
-            <button onClick={() => actions.showToast("Decision escalated to Trish (Admin)")} className="pt-op" style={css("margin-top:0.6rem;width:100%;height:2rem;border-radius:var(--radius-pill);background:var(--accent);color:#fff;border:none;font-size:var(--text-sm);font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center")}>Escalate</button>
+            <button onClick={() => actions.escalateDecision({
+              clientName: state.clientName || "Studio workspace",
+              title: "Access request",
+              reason: "Billing, role, or out-of-scope access needs an admin decision.",
+              by: meta.name,
+            })} className="pt-op" style={css("margin-top:0.6rem;width:100%;height:2rem;border-radius:var(--radius-pill);background:var(--accent);color:#fff;border:none;font-size:var(--text-sm);font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center")}>Escalate</button>
           </div>
         )}
 

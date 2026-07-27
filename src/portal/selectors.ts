@@ -6,7 +6,7 @@ import { mergePortalClientWorkspace, type PortalApprovalRecord, type PortalClien
 import { syncPortalProcessRun, type PortalProcessRun } from "../lib/portalProcessRuns";
 import { portalProcessReadiness } from "../lib/portalProcessTransitions";
 import { clientHasEngineAccess, type PortalAccessState } from "./access";
-import type { ProcessId, ProcessOwner } from "./processDefinitions";
+import { getProcessDefinition, type ProcessId, type ProcessOwner } from "./processDefinitions";
 import type { PortalState } from "./store";
 import {
   DEFAULT_PORTAL_NOTIFICATION_PREFERENCES,
@@ -161,6 +161,7 @@ export function processTrackerItems(state: Pick<PortalState, "role" | "clientNam
       .filter(run => state.role !== "client" || canUseLiveLabs || run.template.category === "checkup")
       .map(run => {
       const stage = run.template.stages.find(item => item.id === run.currentStageId) || run.template.stages[0];
+      const liveStage = getProcessDefinition(run.processId).stages.find(item => item.id === stage?.id);
       const currentStageIndex = Math.max(0, run.template.stages.findIndex(item => item.id === stage?.id));
       const nextVisibleStage = run.template.stages
         .slice(currentStageIndex + 1)
@@ -186,7 +187,7 @@ export function processTrackerItems(state: Pick<PortalState, "role" | "clientNam
         statusLabel: run.status === "complete" ? "Complete" : run.status === "blocked" ? "Blocked" : awaitingApproval ? "Approval needed" : run.status === "not_started" ? "Not started" : "In progress",
         progress,
         ownerLabel: run.status === "complete" ? "Complete" : activeException ? PROCESS_OWNER_LABEL[activeException.owner] : clientSafeInternal ? "Studio" : awaitingApproval ? approvers : PROCESS_OWNER_LABEL[stage?.owner || "studio"],
-        nextAction: run.status === "complete" ? `Final output · ${run.template.finalOutput}` : clientSafeInternal ? "The studio is reviewing this stage before sharing the client-safe output." : stage?.nextAction || "Confirm the next step.",
+        nextAction: run.status === "complete" ? `Final output · ${run.template.finalOutput}` : clientSafeInternal ? "The studio is reviewing this stage before sharing the client-safe output." : liveStage?.nextAction || stage?.nextAction || "Confirm the next step.",
         blocker: compactProcessBlocker(run, blockerDetail, awaitingApproval),
         blockerDetail,
         dueLabel: run.dueAt ? `Due ${run.dueAt}` : "No due date",

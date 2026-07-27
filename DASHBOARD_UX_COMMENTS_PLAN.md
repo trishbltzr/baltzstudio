@@ -2031,6 +2031,27 @@ Target: Website and SEO Checkup indexes on `http://localhost:3412/dashboard`.
   - [x] Run TypeScript, diff check, and the production build.
   - [x] Verify the Website and SEO index routes in the live authenticated browser; retain the existing single-column container fallback for constrained widths.
 
+## Active Batch: Checkup Card Copy and Activity Summary
+
+Source: two browser comments captured July 27, 2026.
+
+Target: Website Checkup index and selected Activity run on `http://localhost:3412/dashboard`.
+
+- [x] **59. Remove the internal normalized-client subtitle**
+  - [x] Remove `Production client · normalized` from durable Checkup cards.
+  - [x] Remove the same internal label from the Clients surface.
+  - [x] Verify client names and status badges remain aligned without the subtitle.
+
+- [x] **60. Simplify the selected Activity checkup design**
+  - [x] Make the result and next action the primary visual hierarchy.
+  - [x] Consolidate client, update, evidence, and item counts into a compact facts area.
+  - [x] Keep progress, advanced details, recheck controls, and admin operations available without competing with the summary.
+  - [x] Verify the selected run on desktop and retain the existing narrow-container stack without horizontal overflow.
+
+- [x] **61. Complete focused regression verification**
+  - [x] Run TypeScript and `git diff --check`.
+  - [x] Verify the exact Website and Activity routes in the authenticated browser.
+
 ### Verification Checklist
 
 - [x] `tsc --noEmit` passes.
@@ -2039,6 +2060,114 @@ Target: Website and SEO Checkup indexes on `http://localhost:3412/dashboard`.
 - [x] Phase detail modal header shows five circles and sorted/collapsed completed items.
 - [x] Notification dropdown avatars are consistent across rows.
 - [x] Soon and Awaiting Client status badges use distinct icons.
+
+## Active Batch: Audit Score Labels, Mock Logins, and Playbook Agents
+
+Source: three browser comments and two implementation requests captured July 27, 2026.
+
+Target: Website and SEO Checkup indexes, local login identities, and `Playbooks` on `http://localhost:3412/dashboard`.
+
+- [x] **62. Simplify projected score presentation**
+  - [x] Remove the `Projected after Winged in a Week` Website card caption.
+  - [x] Remove the `After recommendations` SEO card caption.
+  - [x] Vertically center the projected-score information control on both card types.
+  - [x] Verify the explanation remains available by hover, focus, and click.
+
+- [x] **63. Standardize development login identities**
+  - [x] Move every local mock login shown to users onto the `@baltz.studio` domain.
+  - [x] Keep admin, manager, and client role resolution working with the new addresses.
+  - [x] Verify the login page and development-login endpoint use the same credentials.
+
+- [x] **64. Add governed agents under Playbooks**
+  - [x] Add a clear Playbooks/Agents switch inside the Playbooks view.
+  - [x] List enabled Playbook agents with lifecycle, version, evaluation, tools, and approval-gate context.
+  - [x] Provide an agent creation entry point that uses the existing governed Playbook editor.
+  - [x] Verify existing Playbook browsing and creation remain available.
+
+- [x] **65. Complete focused regression verification**
+  - [x] Run TypeScript and `git diff --check`.
+  - [x] Verify the exact Website, SEO, Login, and Playbooks routes in the authenticated browser.
+
+## Active Batch: Funnel Copy Fit and Final-Design Layout
+
+Source: direct Funnel Builder review captured July 27, 2026.
+
+Target: `http://localhost:3412/dashboard?view=funnels&serviceRunId=eedbe43d-4cea-40e6-a6d2-d6fdd6f9164e&builderType=funnel`.
+
+- [x] **66. Replace the permanent annotation rail**
+  - [x] Remove the always-visible strategy column from every final-design section.
+  - [x] Preserve useful rationale as compact wireframe pointers that open popovers.
+  - [x] Let the actual page design use the full available width.
+
+- [x] **67. Enforce concise, layout-fit Funnel copy**
+  - [x] Add role-specific headline, body, bullet, and CTA budgets to the shared Copywriting Agent.
+  - [x] Tighten the Funnel generation contract and bump its governed agent version.
+  - [x] Present the current generated result in a concise editorial layout without replacing it with canned copy.
+  - [x] Keep the fixed order: Hero, Problem, Benefit, Solution, Differentiation, Proof, Objections, FAQ, CTA.
+
+- [x] **68. Add visual section structures**
+  - [x] Add a real gallery or media-grid mock structure to the final design.
+  - [x] Vary section composition so the page is not a vertical stack of text cards.
+  - [x] Keep repeated cards equal-height through copy budgets and grid geometry.
+  - [x] Verify the design remains readable at the existing narrow-container breakpoint.
+
+- [x] **69. Complete focused Funnel verification**
+  - [x] Run the Funnel contract check, TypeScript, `git diff --check`, and the webpack build.
+  - [x] Verify the exact Funnel route, generated-copy provenance, section order, gallery structure, pointer popover treatment, equal-card geometry, and overflow in the authenticated browser.
+
+- [x] **70. Lock the approved Funnel wireframe composition**
+  - [x] Remove the Shuffle layout control and its random recipe mutation.
+  - [x] Use one preloaded, approved composition for every Funnel result.
+  - [x] Allow generated copy to change without recomposing the wireframe.
+  - [x] Verify the fixed recipe, AI-result provenance, section order, pointer popover, and zero overflow on the exact Funnel route.
+
+## Active Batch: Shared Files Upload Placement
+
+Source: browser comment captured July 27, 2026.
+
+Target: `http://localhost:3412/dashboard?view=files&serviceRunId=eedbe43d-4cea-40e6-a6d2-d6fdd6f9164e`.
+
+- [x] **71. Move upload out of the file-list footer**
+  - [x] Remove the full-width upload strip below the file list.
+  - [x] Add a compact upload action beside the active folder summary.
+  - [x] Keep folder-aware multi-file upload behavior unchanged.
+  - [x] Update the empty-state guidance so it points to the new action.
+  - [x] Verify the exact Files route at desktop and narrow viewport widths.
+
+## Active Batch: Semantic Dashboard URLs
+
+Source: direct dashboard routing request captured July 27, 2026.
+
+Target: all dashboard views and deep links under `http://localhost:3412/dashboard`.
+
+- [x] **72. Replace internal query-state URLs with semantic paths**
+  - [x] Add one shared parser and builder for dashboard paths.
+  - [x] Support clean Checkup, Lab, Activity, Files, and standard view URLs.
+  - [x] Keep legacy query-string links backward compatible and canonicalize them after load.
+  - [x] Preserve run, report, demo, proposal, approval, and integration context across refreshes.
+  - [x] Verify navigation, refresh restoration, browser history, and the production build.
+
+## Active Batch: SEO Visuals and Concise Dashboard Copy
+
+Source: six browser comments captured July 27, 2026.
+
+Targets: `/dashboard/checkups/seo`, `/dashboard/playbooks`, and `/dashboard`.
+
+- [x] **73. Clarify SEO findings visuals**
+  - [x] Present crawl-depth distribution as an unmistakable graph with readable axes and interactive values.
+  - [x] Remove the Discovery readiness description.
+  - [x] Recompose the Discovery readiness heading, badge, and score into a compact aligned header.
+  - [x] Verify the SEO findings at desktop and narrow viewport widths.
+
+- [x] **74. Tighten Playbook and Snapshot card copy**
+  - [x] Shorten the Brand Audit Playbook description.
+  - [x] Shorten the Website Checkup next action.
+  - [x] Shorten the Brand Checkup next action.
+  - [x] Verify the cards remain understandable and balanced in Admin and Client views.
+
+- [x] **75. Complete focused regression verification**
+  - [x] Run TypeScript, `git diff --check`, and the production build.
+  - [x] Verify the exact SEO, Playbooks, and Snapshot routes in the authenticated browser.
 - [x] Audit subcategory toggles use 20px radius and connector lines stay inside the branch.
 - [x] Notification rows alternate softly and show no duplicate side line.
 - [x] Phase modal task lists use consistent rows, no separators, and collapsed completed checks.

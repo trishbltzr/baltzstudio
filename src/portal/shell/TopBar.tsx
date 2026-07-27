@@ -8,6 +8,7 @@ import { portalNotificationSummary } from "../selectors";
 import type { PortalActions } from "../store";
 import type { View } from "../types";
 import type { TopBarShellState } from "./types";
+import { portalHref } from "../routes";
 
 const ROLE_SWITCH_OPTIONS: Array<{ id: "admin" | "dev" | "client"; label: string }> = [
   { id: "admin", label: "Admin" },
@@ -35,7 +36,7 @@ function TopBarComponent({ state, actions, onCollapse }: { state: TopBarShellSta
   const openNotification = (item: (typeof visibleNotificationItems)[number]) => {
     actions.markNotificationRead(item.id);
     if (item.deepLink.serviceRunId) {
-      window.location.assign(`/dashboard?view=activity&serviceRunId=${encodeURIComponent(item.deepLink.serviceRunId)}`);
+      window.location.assign(portalHref({ view: "activity", serviceRunId: item.deepLink.serviceRunId }));
       return;
     }
     if (item.deepLink.taskId) actions.patch({ taskModal: item.deepLink.taskId });

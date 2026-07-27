@@ -16,7 +16,6 @@ interface AuditCardScoreSkeletonProps {
   scored?: boolean;
   cats?: CatBar[];
   emptyLabels?: string[];
-  projectionLabel?: string;
   unscoredProgress?: number;
   unscoredDetail?: string;
   unscoredStatus?: string;
@@ -29,7 +28,6 @@ export function AuditCardScoreSkeleton({
   scored = true,
   cats,
   emptyLabels,
-  projectionLabel = "Projected after Winged in a Week",
   unscoredProgress = 0,
   unscoredDetail = "Not scored yet",
   unscoredStatus = "Pending",
@@ -80,12 +78,11 @@ export function AuditCardScoreSkeleton({
 
   return (
     <div className="pt-audit-card-score" data-score-state={scored ? "scored" : "empty"} style={css("border:1px solid var(--border-soft);border-radius:0.9rem;background:linear-gradient(180deg,color-mix(in srgb,var(--success) 5%,var(--surface) 95%),var(--surface));padding:0.82rem 0.88rem;display:flex;flex-direction:column;gap:0.62rem")}>
-      <div style={css("display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-3)")}>
+      <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-3)")}>
         <div style={css("min-width:0")}>
-          <div style={css("font-size:var(--text-2xs);color:var(--fg-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{projectionLabel}</div>
-          <div style={css("display:flex;align-items:baseline;gap:0.4rem;margin-top:0.15rem;flex-wrap:wrap")}>
+          <div style={css("display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap")}>
             <span className="pt-audit-score-number" style={css("font-weight:500;color:" + (scored || unscoredProgress ? "var(--fg)" : "var(--fg-faint)") + ";font-variant-numeric:tabular-nums")}>{scored ? summary.overall : unscoredProgress ? `${unscoredProgress}%` : "—"}</span>
-            <span style={css("display:inline-flex;align-items:baseline;gap:0.28rem;color:var(--fg-muted)")}>
+            <span style={css("display:inline-flex;align-items:center;gap:0.28rem;color:var(--fg-muted)")}>
               {scored ? <><span className="pt-audit-score-arrow">↗</span><strong className="pt-audit-score-number" style={css("font-weight:500;color:var(--success);font-variant-numeric:tabular-nums")}>{summary.projected}</strong></> : <span style={css("font-size:var(--text-sm)")}>{unscoredDetail}</span>}
             </span>
             {scored && <span className="pt-score-info">

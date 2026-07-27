@@ -10,8 +10,10 @@ export function StartOverDialog({
   subject,
   detail,
   busy = false,
+  busyAction = null,
   error,
   onCancel,
+  onArchive,
   onConfirm,
 }: {
   open: boolean;
@@ -19,18 +21,21 @@ export function StartOverDialog({
   subject: string;
   detail?: string;
   busy?: boolean;
+  busyAction?: "archive" | "delete" | null;
   error?: string | null;
   onCancel: () => void;
+  onArchive?: () => void | Promise<void>;
   onConfirm: () => void | Promise<void>;
 }) {
+  const isBusy = busy || busyAction !== null;
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !busy) onCancel();
+      if (event.key === "Escape" && !isBusy) onCancel();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [busy, onCancel, open]);
+  }, [isBusy, onCancel, open]);
 
   if (!open) return null;
 
@@ -40,7 +45,7 @@ export function StartOverDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
-      onClick={() => { if (!busy) onCancel(); }}
+      onClick={() => { if (!isBusy) onCancel(); }}
       style={css("position:fixed;inset:0;z-index:125;background:rgba(35,25,18,.46);padding:var(--space-4);display:grid;place-items:center")}
     >
       <section
@@ -52,16 +57,19 @@ export function StartOverDialog({
             <Icon name="replay" size={15}/>
           </span>
           <div style={{ minWidth: 0 }}>
-            <h3 id={titleId} style={css("margin:0;font-size:var(--text-lg);font-weight:500")}>Delete this {auditLabel.toLowerCase()} and start over?</h3>
+            <h3 id={titleId} style={css("margin:0;font-size:var(--text-lg);font-weight:500")}>{onArchive ? "Archive or delete" : "Delete permanently"} this {auditLabel.toLowerCase()}?</h3>
             <p style={css("margin:.35rem 0 0;font-size:var(--text-2xs);line-height:1.5;color:var(--fg-muted)")}>
-              This will permanently delete {subject}&apos;s saved {detail || "intake, report, and action plan"}. You can create a new audit afterward.
+              {onArchive
+                ? <>Archive keeps {subject}&apos;s saved {detail || "intake, report, and action plan"} so it can be restored later. Delete permanently removes it and cannot be undone.</>
+                : <>This permanently removes {subject}&apos;s saved {detail || "intake, report, and action plan"} and cannot be undone.</>}
             </p>
             {error && <p role="alert" style={css("margin:.55rem 0 0;font-size:var(--text-2xs);line-height:1.45;color:var(--danger)")}>{error}</p>}
           </div>
         </div>
         <div style={css("display:flex;justify-content:flex-end;gap:.55rem;flex-wrap:wrap;margin-top:1.1rem")}>
-          <button type="button" disabled={busy} onClick={onCancel} className="pt-softbtn" style={css("min-height:2.3rem;padding:0 .9rem;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--fg-muted);font-size:var(--text-2xs);font-weight:500;cursor:" + (busy ? "not-allowed" : "pointer") + ";opacity:" + (busy ? ".6" : "1"))}>Cancel</button>
-          <button type="button" disabled={busy} onClick={() => void onConfirm()} className="pt-op" style={css("min-height:2.3rem;padding:0 1rem;border:none;border-radius:999px;background:var(--danger);color:#fff;font-size:var(--text-2xs);font-weight:500;cursor:" + (busy ? "wait" : "pointer") + ";opacity:" + (busy ? ".72" : "1"))}>{busy ? "Deleting…" : "Delete audit"}</button>
+          <button type="button" disabled={isBusy} onClick={onCancel} className="pt-softbtn" style={css("min-height:2.3rem;padding:0 .9rem;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--fg-muted);font-size:var(--text-2xs);font-weight:500;cursor:" + (isBusy ? "not-allowed" : "pointer") + ";opacity:" + (isBusy ? ".6" : "1"))}>Cancel</button>
+          {onArchive && <button type="button" disabled={isBusy} onClick={() => void onArchive()} className="pt-softbtn" style={css("min-height:2.3rem;padding:0 1rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-alt);color:var(--fg);font-size:var(--text-2xs);font-weight:500;cursor:" + (isBusy ? "wait" : "pointer") + ";opacity:" + (isBusy ? ".72" : "1"))}>{busyAction === "archive" ? "Archiving…" : "Archive for now"}</button>}
+          <button type="button" disabled={isBusy} onClick={() => void onConfirm()} className="pt-op" style={css("min-height:2.3rem;padding:0 1rem;border:none;border-radius:999px;background:var(--danger);color:#fff;font-size:var(--text-2xs);font-weight:500;cursor:" + (isBusy ? "wait" : "pointer") + ";opacity:" + (isBusy ? ".72" : "1"))}>{busyAction === "delete" || (busy && !busyAction) ? "Deleting…" : "Delete permanently"}</button>
         </div>
       </section>
     </div>

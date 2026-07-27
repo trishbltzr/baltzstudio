@@ -148,6 +148,7 @@ export function Inbox({ state, actions }: { state: PortalState; actions: PortalA
   const [mobileThreadOpen, setMobileThreadOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const composerRef = useRef<HTMLInputElement>(null);
+  const attachmentRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (state.quickActionIntent !== "new_message") return;
@@ -371,7 +372,23 @@ export function Inbox({ state, actions }: { state: PortalState; actions: PortalA
 
         <div style={css("padding:" + (mobile ? "0.62rem 0.75rem 0.75rem" : "0.75rem 0.9rem 0.9rem") + ";background:var(--surface)")}>
           <div className="pt-composer" style={css("display:flex;align-items:center;gap:0.35rem;border:1px solid var(--border);border-radius:var(--radius-pill);padding:0.25rem 0.35rem 0.25rem 0.5rem;background:var(--surface)")}>
-            <button onClick={() => actions.showToast("Attach a file")} title="Attach a file" className="pt-softbtn" style={css("width:2rem;height:2rem;border-radius:50%;border:none;background:transparent;color:var(--fg-faint);display:grid;place-items:center;cursor:pointer;flex-shrink:0")}><Icon name="clip" size={16} /></button>
+            <button onClick={() => attachmentRef.current?.click()} title="Attach a file" className="pt-softbtn" style={css("width:2rem;height:2rem;border-radius:50%;border:none;background:transparent;color:var(--fg-faint);display:grid;place-items:center;cursor:pointer;flex-shrink:0")}><Icon name="clip" size={16} /></button>
+            <input
+              ref={attachmentRef}
+              type="file"
+              multiple
+              hidden
+              onChange={event => {
+                if (!active || !event.currentTarget.files?.length) return;
+                void actions.uploadPortalFiles({
+                  clientName: active.clientName,
+                  folder: "deliverables",
+                  files: event.currentTarget.files,
+                  threadId: active.id,
+                });
+                event.currentTarget.value = "";
+              }}
+            />
             <input ref={composerRef} value={state.draft} onChange={e => actions.patch({ draft: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); actions.sendMsg(); } }} placeholder={mobile ? "Write a message..." : "Write a message…  ⏎ to send"} style={css("flex:1;border:none;background:transparent;padding:0.35rem 0.15rem;font-size:var(--text-base);color:var(--fg);min-width:0")} />
             <button onClick={actions.sendMsg} title="Send" className="pt-op" style={css("display:inline-flex;align-items:center;gap:0.35rem;height:2rem;padding:0 " + (mobile ? "0.72rem" : "0.9rem") + ";border-radius:var(--radius-pill);border:none;background:var(--accent);color:#fff;font-size:var(--text-xs);font-weight:500;cursor:pointer;flex-shrink:0")}><Icon name="arrowup" size={16} />Send</button>
           </div>

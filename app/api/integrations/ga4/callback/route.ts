@@ -6,7 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
-  const returnUrl = new URL("/dashboard?view=audits&auditType=seo", request.nextUrl.origin);
+  const returnUrl = new URL("/dashboard/checkups/seo", request.nextUrl.origin);
   try {
     const access = await resolvePortalRequestAccess(request, await createSupabaseServerClient());
     if (!access) throw new Error("Sign in before completing the GA4 connection.");

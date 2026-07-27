@@ -301,11 +301,11 @@ Source: User review on 25 July 2026 that the generated hero is wordy, generic, g
   - [ ] Make the value recognizable to the intended audience without relying on the client name.
   - [ ] Reject copy that could be reused unchanged for an unrelated audience.
 
-- [ ] **2. Enforce a concise hero hierarchy**
-  - [ ] Give the hero one job, one core promise, and one primary CTA.
-  - [ ] Default to an H1 of roughly 6–12 words, a supporting statement of roughly 12–28 words, and a CTA of roughly 2–5 words; exceed these only when the approved strategy genuinely requires it.
-  - [ ] Put the primary benefit or buyer outcome in the H1 or its immediate supporting line.
-  - [ ] Remove introductory throat-clearing, repeated promises, stacked qualifiers, and explanations of the business before the value is clear.
+- [x] **2. Enforce a concise hero hierarchy**
+  - [x] Give the hero one job, one core promise, and one primary CTA.
+  - [x] Default to an H1 of no more than 8 words, a supporting statement of no more than 18 words, and a CTA of 2–4 words.
+  - [x] Put the primary benefit or buyer outcome in the H1 or its immediate supporting line.
+  - [x] Remove introductory throat-clearing, repeated promises, stacked qualifiers, and explanations of the business before the value is clear.
 
 - [ ] **3. Translate the brief instead of copying it**
   - [ ] Extract the strategic meaning of the brief: audience, tension, desired outcome, differentiator, proof, objection, and action.
@@ -337,16 +337,22 @@ Source: User review on 25 July 2026 that the generated hero is wordy, generic, g
 
 ### Content-to-Layout Contract
 
-- [ ] **7. Define copy budgets in the component schema**
-  - [ ] Give each component field a preferred word range, maximum line count, and mobile constraint.
-  - [ ] Pass those constraints to the Copywriting Agent before drafting rather than trimming after generation.
+- [x] **Use one approved Funnel layout**
+  - [x] Preload the Funnel wireframe composition instead of asking reviewers to shuffle it.
+  - [x] Keep the layout recipe stable when copy is regenerated or reviewed.
+  - [x] Update only the generated copy fields inside the approved structure.
+  - [x] Keep section rationale available through compact info-pointer popovers.
+
+- [~] **7. Define copy budgets in the component schema**
+  - [~] Give each component field a preferred word range, maximum line count, and mobile constraint. Word budgets are live; explicit line-count exceptions remain.
+  - [x] Pass those constraints to the Copywriting Agent before drafting rather than trimming after generation.
   - [ ] Store intentional exceptions with the approved copy version.
 
-- [ ] **8. Fit copy through revision—not visual compression**
-  - [ ] Render approved draft copy in the real component at desktop and mobile widths.
-  - [ ] Detect overflow, excessive wrapping, orphan words, uneven card heights, clipped text, and CTA displacement.
+- [~] **8. Fit copy through revision—not visual compression**
+  - [x] Render approved draft copy in the real component and use the same saved result in Copy, Wireframe, and Development Plan.
+  - [~] Detect overflow, excessive wrapping, orphan words, uneven card heights, clipped text, and CTA displacement. Overflow and equal-card geometry are verified; automated orphan detection remains.
   - [ ] Send failed fields back for targeted copy revision while preserving the approved message and evidence.
-  - [ ] Do not solve copy-fit problems through tiny type, hidden overflow, silent truncation, or arbitrary layout stretching.
+  - [~] Do not solve copy-fit problems through tiny type, hidden overflow, silent truncation, or arbitrary layout stretching. The current saved draft has a labeled layout-fit presentation; targeted regeneration remains the preferred final path.
 
 - [ ] **9. Preserve strategy during fit revisions**
   - [ ] Require the revision to retain the audience, benefit, differentiator, proof boundary, and CTA intent.

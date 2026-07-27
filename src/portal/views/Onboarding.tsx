@@ -31,7 +31,7 @@ export function Onboarding({ state, actions }: { state: PortalState; actions: Po
   const [website, setWebsite] = useState("");
   const [sitemap, setSitemap] = useState("");
   const [serviceKind, setServiceKind] = useState<CheckupKind>("website");
-  const [enrollAsPilot, setEnrollAsPilot] = useState(state.role === "admin");
+  const [enrollAsPilot, setEnrollAsPilot] = useState(false);
   const [rolloutNote, setRolloutNote] = useState("First production pilot; client output remains on legacy during parity review.");
   const [status, setStatus] = useState<"idle" | "submitting" | "created">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -138,7 +138,7 @@ export function Onboarding({ state, actions }: { state: PortalState; actions: Po
       <div style={css("border:1px solid var(--border-soft);border-radius:var(--radius-panel);background:var(--surface);padding:1.15rem 1.2rem")}>
         <div style={css("font-size:var(--text-2xs);font-weight:500;letter-spacing:.03em;text-transform:uppercase;color:var(--fg-faint)")}>Production client intake</div>
         <h2 style={css("margin:.2rem 0 0;font-size:var(--text-xl);font-weight:500")}>Create a normalized client and baseline</h2>
-        <p style={css("margin:.35rem 0 0;color:var(--fg-muted);font-size:var(--text-xs);line-height:1.5")}>Use the client&apos;s real public domain. Demo fixtures and inferred domains are never promoted.</p>
+        <p style={css("margin:.35rem 0 0;color:var(--fg-muted);font-size:var(--text-xs);line-height:1.5")}>Use the client&apos;s real public domain. Test fixtures and inferred domains are never promoted.</p>
 
         <div style={css("display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:var(--space-3);margin-top:1rem")}>
           <Field label="Client name">
@@ -200,7 +200,7 @@ export function Onboarding({ state, actions }: { state: PortalState; actions: Po
           {[
             "Validates a public domain and same-domain sitemap.",
             "Creates the client, source version, and baseline idempotently.",
-            "Blocks duplicate domains, slug collisions, and demo promotion.",
+            "Blocks duplicate domains, slug collisions, and non-production records.",
             "Pilot enrollment is admin-only and leaves client output on legacy.",
           ].map(item => (
             <div key={item} style={css("display:flex;align-items:flex-start;gap:.55rem;font-size:var(--text-sm);color:var(--fg-muted);line-height:1.45")}>

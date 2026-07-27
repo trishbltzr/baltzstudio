@@ -69,6 +69,54 @@ export interface PersistedAuditDraft {
 }
 
 /**
+ * Keeps the score data needed by audit index cards while omitting page evidence,
+ * Lighthouse payloads, issues, recommendations, and generated session output.
+ * The full draft is fetched only when someone opens or resumes the audit.
+ */
+export function projectPersistedAuditDraftForIndex(draft: PersistedAuditDraft): PersistedAuditDraft {
+  const report = draft.state.report;
+  const compactReport: AuditScoreResult | undefined = report
+    ? {
+      ...report,
+      summary: "",
+      pagesReviewed: [],
+      lighthouse: [],
+      categories: report.categories.map(category => ({
+        ...category,
+        checks: category.checks.map(check => ({
+          id: check.id,
+          label: check.label,
+          status: check.status,
+          evidence: "",
+          sourceUrl: null,
+        })),
+        courseOfAction: "",
+        issues: [],
+        strengths: [],
+      })),
+      priorities: [],
+    }
+    : undefined;
+
+  return {
+    run: draft.run,
+    state: {
+      clientId: draft.state.clientId,
+      buildId: draft.state.buildId,
+      idx: draft.state.idx,
+      answers: {},
+      unsure: {},
+      confirmed: {},
+      signed: {},
+      notes: {},
+      genDone: draft.state.genDone,
+      report: compactReport,
+    },
+    updatedAt: draft.updatedAt,
+  };
+}
+
+/**
  * Keeps resumable client-entered intake data while removing studio scoring,
  * internal notes, process traces, generated findings, and review metadata.
  */

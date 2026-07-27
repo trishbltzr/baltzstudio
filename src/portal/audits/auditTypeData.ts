@@ -46,5 +46,3 @@ export const AUDIT_TYPE_INTRO: Record<"brand", DiscoveryIntroStep[]> = {
     { title: "Improvement Insights", tag: "What to fix next", icon: "target" },
   ],
 };
-
-export const AUDIT_TYPE_DEMO: Record<string, string | string[]> = {};

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { css } from "../helpers";
-import { clientsVisibleToRole, UNASSIGNED_WORK_CLIENT, type StudioClient } from "../clients";
+import { UNASSIGNED_WORK_CLIENT, type StudioClient } from "../clients";
 import type { PortalActions, PortalState } from "../store";
 import type { AuditType } from "../types";
 import { GuidedIntakeSelector } from "../components/GuidedIntakeSelector";
@@ -13,7 +13,7 @@ import { StartOverDialog } from "../components/StartOverDialog";
 import { isUnassignedEngineClient, startClientForEngine } from "../engineLifecycle";
 import { DiscoveryBuilder, type Ans } from "../discovery/DiscoveryBuilder";
 import { mergeKnow, type Know } from "../discovery/knowledge";
-import { AUDIT_TYPE_DEMO, AUDIT_TYPE_INTRO, BRAND_AUDIT_WIZARD, SHARED_AUDIT_STAGES } from "./auditTypeData";
+import { AUDIT_TYPE_INTRO, BRAND_AUDIT_WIZARD, SHARED_AUDIT_STAGES } from "./auditTypeData";
 import { createStrategyAuditPipeline } from "./strategyAuditPipeline";
 import { SeoAuditWorkspace } from "../builders/SeoProjectWorkspace";
 import { AuditReportFooter } from "../components/AuditReportFooter";
@@ -23,6 +23,8 @@ import type { GuidedAuditSession } from "@/lib/portalAuditPersistence";
 import { normalizePortalAuditExportProfile, type PortalBrandAuditRecord } from "@/lib/portalWorkspacePersistence";
 import { createPortalProcessHandoff, portalProcessHandoffRecommendations, portalProcessHandoffSender, removePortalProcessHandoffs, savePortalProcessHandoff } from "@/lib/portalProcessHandoffs";
 import { durableCheckupCard, useDurableCheckupRuns } from "./durableCheckupRuns";
+import { readPortalLocationParams } from "../routes";
+import { usePortalStudioClients } from "../usePortalStudioClients";
 
 function brandAuditRecord(session: GuidedAuditSession): PortalBrandAuditRecord {
   const complete = session.proposal || session.approved.plan === true;
@@ -121,7 +123,7 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
   const [resetClient, setResetClient] = useState<StudioClient | null>(null);
   const [typeKnow, setTypeKnow] = useState<Know>({ data: {}, sources: {} });
   const syncingCompletedAudits = useRef(new Set<string>());
-  const availableClients = useMemo(() => clientsVisibleToRole(state.role, state.clientName), [state.clientName, state.role]);
+  const { clients: availableClients } = usePortalStudioClients();
   const persistedAuditClients = useMemo(() => {
     if (state.role === "client") return [];
     const fixedIds = new Set(availableClients.map(client => client.id));
@@ -141,7 +143,7 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
   useEffect(() => {
     if (routedClientResolved.current || typeof window === "undefined" || !auditClients.length) return;
     routedClientResolved.current = true;
-    const params = new URLSearchParams(window.location.search);
+    const params = readPortalLocationParams();
     const requestedReport = params.get("auditReport")?.trim().toLowerCase();
     const requestedRun = params.get("auditReportRun")?.trim().toLowerCase();
     if (!requestedReport && !requestedRun) return;
@@ -344,7 +346,6 @@ function BrandAuditWorkspace({ state, actions }: { state: PortalState; actions: 
           onIngest={(delta, options) => setTypeKnow(current => options?.replaceSourceReview ? delta : mergeKnow(current, delta))}
           startLabel="Start audit intake →"
           progressLabel="intake"
-          demo={AUDIT_TYPE_DEMO}
           completeTitle="Intake ready"
           completeMsg="Next, build the brand system and action plan."
           completeCta="Build brand system →"

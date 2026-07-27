@@ -80,9 +80,6 @@ export default function Dashboard() {
   function handleLogout() {
     sessionStorage.removeItem("bs-user");
     void createSupabaseBrowserClient().auth.signOut();
-    if (process.env.NODE_ENV !== "production") {
-      void fetch("/api/dev-login", { method: "DELETE" });
-    }
     setCurrentUser(null);
     router.push("/login");
   }

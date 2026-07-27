@@ -6,7 +6,6 @@ import { css } from "../helpers";
 import { Icon } from "../icons";
 import { STUDIO_CLIENTS, TONE } from "../clients";
 import type { PortalActions, PortalState } from "../store";
-import { FUNNEL_DEMO } from "../discovery/discoveryData";
 import { FunnelFlowHero, FUNNEL_PIPELINE, type FunnelDocs } from "../discovery/funnelPipeline";
 import { FunnelPlanPreviewModal, type FunnelPlanPost } from "../funnels/Funnels";
 import { ClientPickerGrid } from "../components/ClientPickerGrid";
@@ -61,7 +60,6 @@ export function ClientFunnels({ state, actions }: { state: PortalState; actions:
       generatedAt,
       updatedAt: generatedAt,
       content: FUNNEL_PIPELINE.buildDocs({
-        ...FUNNEL_DEMO,
         name: client.name + " · " + funnel.subtitle,
         ftype: funnel.subtitle,
       }) as FunnelDocs,

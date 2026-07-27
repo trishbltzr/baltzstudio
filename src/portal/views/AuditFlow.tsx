@@ -71,8 +71,6 @@ const DELIVS: ADeliv[] = [
   { id: "finalplan", title: "Final Audit Plan", from: "everything approved", intro: "Every discovery checkpoint signed off and consolidated into the audit plan the team can move forward with.", terminal: true },
 ];
 
-const DEMO: Record<string, string | string[]> = {};
-
 type FlowStep =
   | { kind: "welcome" }
   | { kind: "question"; q: AQuestion; sIdx: number; withinIdx: number; sectionCount: number; lastInSection: boolean }
@@ -135,8 +133,6 @@ type Act =
   | { t: "draft"; v: string }
   | { t: "sendNote"; id: string }
   | { t: "restart" }
-  | { t: "autofill"; s: number }
-  | { t: "demoAll"; finalIdx: number }
   | { t: "gen"; active: boolean; label?: string }
   | { t: "genDone"; id: string };
 
@@ -160,20 +156,6 @@ function reducer(s: AState, a: Act): AState {
     case "draft": return { ...s, draftNote: a.v };
     case "sendNote": return { ...s, requesting: false, notes: { ...s.notes, [a.id]: s.draftNote.trim() } };
     case "restart": return { ...init };
-    case "autofill": {
-      const answers = { ...s.answers };
-      QUESTIONS.filter(q => q.s === a.s).forEach(q => { if (DEMO[q.id] !== undefined) answers[q.id] = DEMO[q.id]; });
-      return { ...s, answers, error: "" };
-    }
-    case "demoAll": {
-      const confirmed: Record<number, boolean> = {};
-      SECTIONS.forEach((_, i) => (confirmed[i] = true));
-      const signed: Record<string, boolean> = {};
-      DELIVS.forEach(d => { if (!d.terminal) signed[d.id] = true; });
-      const genDone: Record<string, boolean> = {};
-      DELIVS.forEach(d => (genDone[d.id] = true));
-      return { ...s, answers: { ...DEMO }, confirmed, signed, genDone, genActive: false, idx: a.finalIdx, requesting: false, error: "" };
-    }
     case "gen": return { ...s, genActive: a.active, genLabel: a.label ?? s.genLabel };
     case "genDone": return { ...s, genActive: false, genDone: { ...s.genDone, [a.id]: true } };
   }
@@ -290,9 +272,8 @@ export function AuditFlow({ clientName, mobile, onExit, onComplete, showPipeline
       <>
         <div style={css("font-size:var(--text-xs);font-weight:500;color:var(--success);margin-bottom:0.5rem")}>{doneN} of {total} signed off</div>
         <div style={css("height:4px;background:var(--bg);border-radius:999px;overflow:hidden")}><div style={css("height:100%;width:" + pct + "%;background:linear-gradient(90deg,oklch(0.66 0.12 155),oklch(0.54 0.11 165));transition:width .3s ease")} /></div>
-        <div style={css("display:grid;grid-template-columns:0.72fr 1fr;gap:0.45rem;margin-top:0.8rem")}>
+        <div style={css("margin-top:0.8rem")}>
           <button type="button" onClick={() => dispatch({ t: "restart" })} style={css("min-height:2.05rem;display:inline-flex;align-items:center;justify-content:center;padding:0 0.6rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;cursor:pointer")}>Restart</button>
-          <button type="button" onClick={() => { const st = flow[s.idx]; if (st.kind === "question" || st.kind === "gate") dispatch({ t: "autofill", s: (st as { sIdx: number }).sIdx }); }} style={css("min-height:2.05rem;display:inline-flex;align-items:center;justify-content:center;gap:0.3rem;padding:0 0.5rem;border:1px dashed var(--border);border-radius:var(--radius);background:transparent;color:var(--fg-muted);font-size:var(--text-2xs);font-weight:500;cursor:pointer")}><Icon name="replay" size={12} />Auto-fill step</button>
         </div>
       </>
     );
@@ -322,7 +303,7 @@ export function AuditFlow({ clientName, mobile, onExit, onComplete, showPipeline
       fullBleedBand
       footer={<ActionBar cur={cur} s={s} dispatch={dispatch} onComplete={onComplete} />}
     >
-      {cur.kind === "welcome" && <Welcome clientName={clientName} onStart={() => dispatch({ t: "go", i: 1 })} onDemo={() => dispatch({ t: "demoAll", finalIdx: flow.findIndex(f => f.kind === "deliv" && f.dId === "finalplan") })} />}
+      {cur.kind === "welcome" && <Welcome clientName={clientName} onStart={() => dispatch({ t: "go", i: 1 })} />}
       {cur.kind === "question" && <QuestionCard step={cur} s={s} dispatch={dispatch} />}
       {cur.kind === "gate" && <GateCard sIdx={cur.sIdx} s={s} fmtQ={q => fmt(q, s)} clientName={clientName} />}
       {cur.kind === "deliv" && <DelivCard dId={cur.dId} s={s} dispatch={dispatch} get={get} clientName={clientName} />}
@@ -340,7 +321,7 @@ export function AuditFlow({ clientName, mobile, onExit, onComplete, showPipeline
   );
 }
 
-function Welcome({ clientName, onStart, onDemo }: { clientName: string; onStart: () => void; onDemo: () => void }) {
+function Welcome({ clientName, onStart }: { clientName: string; onStart: () => void }) {
   const chips = ["Discovery brief", "Audience read", "Journey gaps", "Priority findings", "Next-move plan", "Audit handoff"];
   return (
     <div style={{ animation: "cocoonFade .28s ease" }}>
@@ -352,7 +333,6 @@ function Welcome({ clientName, onStart, onDemo }: { clientName: string; onStart:
       </div>
       <div style={css("display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap")}>
         <button type="button" onClick={onStart} style={css("display:inline-flex;align-items:center;gap:0.45rem;min-height:2.7rem;padding:0 1.5rem;border:0;border-radius:999px;background:" + GRAD + ";color:#fff;font-size:var(--text-lg);font-weight:500;cursor:pointer")}>Start discovery →</button>
-        <button type="button" onClick={onDemo} style={css("display:inline-flex;align-items:center;gap:0.4rem;min-height:2.7rem;padding:0 1.1rem;border:1px dashed var(--border);border-radius:999px;background:transparent;color:var(--fg-muted);font-size:var(--text-md);font-weight:500;cursor:pointer")}><Icon name="eye" size={14} />Preview the finished audit plan</button>
       </div>
     </div>
   );

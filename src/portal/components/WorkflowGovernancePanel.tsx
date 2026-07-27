@@ -417,7 +417,7 @@ export function WorkflowGovernancePanel() {
             <span>{pendingMigration.length} open</span>
           </div>
           <button type="button" className="pt-governance-primary" disabled={!!busy} onClick={() => void mutate("scan-legacy", { action: "scan_legacy" })}>Scan historical Checkups</button>
-          <p className="pt-governance-note">Scanning never promotes a demo or guesses a client. It creates review rows and preserves the original URL.</p>
+          <p className="pt-governance-note">Scanning never promotes a test record or guesses a client. It creates review rows and preserves the original URL.</p>
           <div className="pt-governance-list">
             {payload.migration.length === 0 && <p>No ambiguous legacy records are waiting.</p>}
             {payload.migration.slice(0, 8).map(item => (

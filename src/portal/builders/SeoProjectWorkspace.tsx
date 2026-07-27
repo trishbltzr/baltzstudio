@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
-import { clientsVisibleToRole, type StudioClient } from "../clients";
+import type { StudioClient } from "../clients";
 import { GuidedIntakeSelector } from "../components/GuidedIntakeSelector";
 import { EngineIndexControls } from "../components/EngineIndexControls";
 import { EngineIndexOverview } from "../components/EngineIndexOverview";
@@ -12,6 +12,7 @@ import { printReportNode } from "../printReport";
 import { AuditReportFooter } from "../components/AuditReportFooter";
 import { getProcessDefinition, processClientStages } from "../processDefinitions";
 import type { PortalActions, PortalState } from "../store";
+import type { TaskImportDraft } from "../types";
 import { CategoryBars, type CatBar } from "../components/AuditCharts";
 import { AuditCardScoreSkeleton } from "../components/AuditCardScoreSkeleton";
 import { GuidedLoadingState } from "../components/GuidedLoadingState";
@@ -20,6 +21,7 @@ import { syncPortalProcessRun } from "@/lib/portalProcessRuns";
 import { processStageAccess } from "../access";
 import { normalizePortalAuditExportProfile } from "@/lib/portalWorkspacePersistence";
 import { durableCheckupCard, useDurableCheckupRuns } from "../audits/durableCheckupRuns";
+import { usePortalStudioClients } from "../usePortalStudioClients";
 
 type SeoSection = "sources" | "overview" | "inventory" | "issues" | "readiness" | "audit-report" | "keywords" | "metadata" | "architecture" | "roadmap";
 type SourceType = "CSV upload" | "Sitemap crawl";
@@ -546,7 +548,7 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
   const [savedProjects, setSavedProjects] = useState<Record<string, SavedSeoProject>>({});
   const [resetClient, setResetClient] = useState<StudioClient | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
-  const availableClients = useMemo(() => clientsVisibleToRole(state.role, state.clientName), [state.clientName, state.role]);
+  const { clients: availableClients } = usePortalStudioClients();
   const durableSeoRuns = useDurableCheckupRuns("seo", state.role, state.clientName);
   const workingClients = useMemo(() => clientsForEngineWork(state.role, availableClients), [availableClients, state.role]);
   const persistSeoProject = (clientId: string, project: SavedSeoProject) => {
@@ -770,7 +772,7 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
       showStage: false,
       showMeta: false,
       hero: <>
-        <AuditCardScoreSkeleton summary={cardScore.summary} scored={scored} cats={cardScore.categories} projectionLabel="After recommendations" />
+        <AuditCardScoreSkeleton summary={cardScore.summary} scored={scored} cats={cardScore.categories} />
       </>,
       primaryLabel: "Open audit",
       onPrimary: () => openClient(client),
@@ -859,7 +861,7 @@ function SeoWorkspace({ state, actions }: { state: PortalState; actions: PortalA
         {displaySection === "keywords" && <KeywordPagePlanView rows={rows} mobile={state.isMobile} />}
         {displaySection === "metadata" && <MetadataView rows={rows} />}
         {displaySection === "architecture" && <ArchitectureView rows={rows} />}
-        {displaySection === "roadmap" && <RoadmapView showToast={actions.showToast} rows={rows} mobile={state.isMobile} />}
+        {displaySection === "roadmap" && <RoadmapView actions={actions} client={selectedClient} rows={rows} mobile={state.isMobile} />}
         </>}
       </main>
     </div>
@@ -1008,6 +1010,13 @@ function OverviewView({ rows, stats, onGo, mobile, readiness, ai }: { rows: Craw
   const redirectPct = rows.length ? stats.redirects.length / rows.length * 100 : 0;
   const depthGroups = Array.from({ length: Math.max(3, Math.min(6, Math.max(...rows.map(row => row.depth), 0) + 1)) }, (_, depth) => ({ depth, count: rows.filter(row => row.depth === depth).length }));
   const maxDepthCount = Math.max(1, ...depthGroups.map(item => item.count));
+  const depthPoints = depthGroups.map((item, index) => ({
+    ...item,
+    x: depthGroups.length === 1 ? 50 : 8 + index / (depthGroups.length - 1) * 84,
+    y: 82 - item.count / maxDepthCount * 66,
+  }));
+  const depthLine = depthPoints.map(point => `${point.x},${point.y}`).join(" ");
+  const depthArea = `8,88 ${depthLine} ${depthPoints.at(-1)?.x ?? 92},88`;
   const scoreLabel = stats.health >= 90 ? "Strong foundation" : stats.health >= 75 ? "Healthy with gaps" : stats.health >= 55 ? "Needs attention" : "High-risk crawl";
   const healthColor = stats.health >= 75 ? "var(--success)" : stats.health >= 55 ? "var(--warn)" : "var(--danger)";
   const brokenPct = rows.length ? stats.broken.length / rows.length * 100 : 0;
@@ -1030,8 +1039,22 @@ function OverviewView({ rows, stats, onGo, mobile, readiness, ai }: { rows: Craw
         <div style={css("display:flex;flex-direction:column;gap:.42rem;margin-top:.75rem") }>{([["Healthy 2xx", stats.active.length, "var(--success)"], ["Redirects", stats.redirects.length, "var(--warn)"], ["Broken 4xx", stats.broken.length, "var(--danger)"]] as const).map(([label, value, color]) => <div key={label} style={css("display:flex;align-items:center;justify-content:space-between;gap:.6rem") }><span style={css("display:flex;align-items:center;gap:.4rem;font-size:var(--text-2xs);color:var(--fg-muted)") }><span style={css("width:.5rem;height:.5rem;border-radius:50%;background:" + color)}/>{label}</span><span style={css("font-size:var(--text-2xs);font-variant-numeric:tabular-nums") }><strong style={css("font-weight:500")}>{value}</strong><span style={css("color:var(--fg-faint)")}> · {rows.length ? Math.round(value / rows.length * 100) : 0}%</span></span></div>)}</div>
       </Panel>
       <Panel style="padding:1rem 1.1rem;height:100%;box-sizing:border-box">
-        <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:.6rem;flex-wrap:wrap") }><SectionTitle title="Crawl depth" sub="Hover or focus a column to see the pages at that depth."/><Pill tone={depthGroups.some(item => item.depth >= 4 && item.count) ? "warn" : "success"}>{depthGroups.some(item => item.depth >= 4 && item.count) ? "Deep pages" : "Healthy depth"}</Pill></div>
-        <div style={css("display:grid;grid-template-columns:repeat(" + depthGroups.length + ",minmax(2rem,1fr));gap:.45rem;height:8rem;align-items:end;margin-top:.85rem;padding:.55rem .45rem 0;border-left:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft);background:linear-gradient(0deg,var(--surface-alt),transparent)") }>{depthGroups.map((item, index) => { const pages = rows.filter(row => row.depth === item.depth); return <DataVizDatum key={item.depth} label={`Depth ${item.depth}`} value={`${item.count} page${item.count === 1 ? "" : "s"}`} lines={pages.map(row => row.url)} align={index > depthGroups.length / 2 ? "right" : "left"} style="height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:.3rem;min-width:0"><span style={css("font-size:var(--text-2xs);color:var(--fg-muted)")}>{item.count}</span><span style={css("display:block;width:min(72%,3rem);height:" + Math.max(item.count ? 12 : 2, item.count / maxDepthCount * 82) + "%;min-height:2px;border-radius:.48rem .48rem 0 0;background:" + (item.depth <= 2 ? "var(--success)" : item.depth === 3 ? "var(--warn)" : "var(--danger)"))}/><span style={css("font-size:var(--text-2xs);color:var(--fg-faint);white-space:nowrap")}>Depth {item.depth}</span></DataVizDatum>; })}</div>
+        <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:.6rem;flex-wrap:wrap") }><SectionTitle title="Crawl depth" sub="Hover or focus a point to see its pages."/><Pill tone={depthGroups.some(item => item.depth >= 4 && item.count) ? "warn" : "success"}>{depthGroups.some(item => item.depth >= 4 && item.count) ? "Deep pages" : "Healthy depth"}</Pill></div>
+        <div role="img" aria-label={`Crawl depth graph. ${depthGroups.map(item => `Depth ${item.depth}: ${item.count} page${item.count === 1 ? "" : "s"}`).join(", ")}`} style={css("position:relative;height:9.2rem;margin-top:.75rem;padding:.35rem .45rem 1.45rem 1.75rem;border-left:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft);border-radius:0 0 .55rem 0;background:linear-gradient(0deg,var(--surface-alt),transparent);box-sizing:border-box") }>
+          <span aria-hidden="true" style={css("position:absolute;left:.35rem;top:.25rem;font-size:var(--text-2xs);color:var(--fg-faint)")}>{maxDepthCount}</span>
+          <span aria-hidden="true" style={css("position:absolute;left:.58rem;bottom:1.3rem;font-size:var(--text-2xs);color:var(--fg-faint)")}>0</span>
+          <svg aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: ".35rem .45rem 1.45rem 1.75rem", width: "calc(100% - 2.2rem)", height: "calc(100% - 1.8rem)", overflow: "visible" }}>
+            {[22, 55, 88].map(y => <line key={y} x1="8" x2="92" y1={y} y2={y} stroke="var(--border-soft)" strokeWidth="1" vectorEffect="non-scaling-stroke"/>)}
+            <polygon points={depthArea} fill="color-mix(in srgb,var(--success) 14%,transparent)" />
+            <polyline points={depthLine} fill="none" stroke="var(--success)" strokeWidth="2.25" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke"/>
+          </svg>
+          {depthPoints.map((point, index) => {
+            const pages = rows.filter(row => row.depth === point.depth);
+            const pointColor = point.depth <= 2 ? "var(--success)" : point.depth === 3 ? "var(--warn)" : "var(--danger)";
+            return <DataVizDatum key={point.depth} label={`Depth ${point.depth}`} value={`${point.count} page${point.count === 1 ? "" : "s"}`} lines={pages.map(row => row.url)} align={index > depthPoints.length / 2 ? "right" : "left"} style={`position:absolute;left:calc(1.75rem + (100% - 2.2rem) * ${point.x / 100});top:calc(.35rem + (100% - 1.8rem) * ${point.y / 100});transform:translate(-50%,-50%);z-index:2`}><span aria-hidden="true" style={css("display:block;width:.78rem;height:.78rem;border:3px solid var(--surface);border-radius:50%;background:" + pointColor + ";box-shadow:0 0 0 1px " + pointColor)}/></DataVizDatum>;
+          })}
+          <div aria-hidden="true" style={css("position:absolute;left:1.75rem;right:.45rem;bottom:.22rem;display:grid;grid-template-columns:repeat(" + depthGroups.length + ",minmax(0,1fr));text-align:center") }>{depthGroups.map(item => <span key={item.depth} style={css("font-size:var(--text-2xs);color:var(--fg-faint);white-space:nowrap")}>Depth {item.depth}</span>)}</div>
+        </div>
       </Panel>
     </div>
 
@@ -1058,7 +1081,7 @@ function AiVisibilityPanel({ rows, compact = false }: { rows: CrawlRow[]; compac
     { label: "Structured context", value: "Validate that supported structured data agrees with the visible page content.", status: ai.schemaMeasured ? `${ai.schemaReady} detected` : "Not in crawl", color: ai.schemaMeasured ? "var(--success)" : "var(--warn)" },
   ];
   return <Panel style="padding:1rem 1.1rem;background:linear-gradient(135deg,var(--surface),color-mix(in srgb,#6b5bd2 6%,var(--surface-alt) 94%))">
-    <div style={css("display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;flex-wrap:wrap") }><div style={css("display:flex;align-items:flex-start;gap:.65rem") }><span style={css("width:2.15rem;height:2.15rem;border-radius:.72rem;background:color-mix(in srgb,#6b5bd2 12%,var(--surface) 88%);color:#6b5bd2;display:grid;place-items:center;flex-shrink:0") }><Icon name="sparkle" size={16}/></span><div><div style={css("display:flex;align-items:center;gap:.45rem;flex-wrap:wrap") }><h2 style={css("margin:0;font-size:var(--text-md);font-weight:500")}>Discovery readiness</h2><Pill tone="accent">Search + answers</Pill></div><p style={css("margin:.28rem 0 0;font-size:var(--text-2xs);line-height:1.45;color:var(--fg-muted);max-width:34rem")}>Checks whether priority content can be discovered, understood, and cited across modern search and answer experiences.</p></div></div><div style={css("display:flex;align-items:baseline;gap:.22rem;padding:.5rem .65rem;border-radius:.72rem;background:var(--surface)") }><strong style={css("font-size:var(--text-2xl);font-weight:500;color:" + scoreColor)}>{ai.score}</strong><span style={css("font-size:var(--text-2xs);color:var(--fg-faint)")}>/100</span></div></div>
+    <div style={css("display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap") }><div style={css("display:flex;align-items:center;gap:.65rem;min-width:0") }><span style={css("width:2.15rem;height:2.15rem;border-radius:.72rem;background:color-mix(in srgb,#6b5bd2 12%,var(--surface) 88%);color:#6b5bd2;display:grid;place-items:center;flex-shrink:0") }><Icon name="sparkle" size={16}/></span><div style={css("display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;min-width:0") }><h2 style={css("margin:0;font-size:var(--text-md);font-weight:500;line-height:1.2")}>Discovery readiness</h2><Pill tone="accent">Search + answers</Pill></div></div><div aria-label={`Discovery readiness score ${ai.score} out of 100`} style={css("display:flex;align-items:baseline;gap:.22rem;padding:.5rem .65rem;border-radius:.72rem;background:var(--surface);flex-shrink:0") }><strong style={css("font-size:var(--text-2xl);font-weight:500;color:" + scoreColor)}>{ai.score}</strong><span style={css("font-size:var(--text-2xs);color:var(--fg-faint)")}>/100</span></div></div>
     <div style={css("display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:var(--space-2);margin-top:.8rem") }>{[["Search eligible", ai.eligible], ["Citation-ready", ai.answerReady], ["Answer gaps", ai.answerGaps]].map(([label, value]) => <div key={String(label)} style={css("padding:.62rem .68rem;border:1px solid var(--border-soft);border-radius:.7rem;background:var(--surface)") }><strong style={css("display:block;font-size:var(--text-md);font-weight:500")}>{value}</strong><span style={css("display:block;margin-top:.12rem;font-size:var(--text-2xs);color:var(--fg-faint)")}>{label}</span></div>)}</div>
     {!compact && <div style={css("display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:var(--space-2);margin-top:.65rem") }>{signals.map(signal => <div key={signal.label} style={css("display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.65rem;align-items:start;padding:.68rem .72rem;border:1px solid var(--border-soft);border-radius:.72rem;background:var(--surface)") }><div><strong style={css("display:block;font-size:var(--text-2xs);font-weight:500")}>{signal.label}</strong><span style={css("display:block;margin-top:.18rem;font-size:var(--text-2xs);line-height:1.4;color:var(--fg-faint)")}>{signal.value}</span></div><span style={css("font-size:var(--text-2xs);font-weight:500;white-space:nowrap;color:" + signal.color)}>{signal.status}</span></div>)}</div>}
   </Panel>;
@@ -1377,7 +1400,7 @@ function RoadmapSummaryView({ mobile = false }: { mobile?: boolean }) {
   </Panel>)}</div>;
 }
 
-function RoadmapView({ showToast, rows = [], mobile = false }: { showToast?: (message: string) => void; rows?: CrawlRow[]; mobile?: boolean }) {
+function RoadmapView({ actions, client, rows = [], mobile = false }: { actions: PortalActions; client: StudioClient; rows?: CrawlRow[]; mobile?: boolean }) {
   const pageActions = rows.map(row => ({ row, decision: pageDecisionFor(row) })).filter(item => item.decision.action !== "Keep");
   const keywords = keywordPlanFor(rows);
   const pageMap = pageMapFor(rows);
@@ -1398,6 +1421,18 @@ function RoadmapView({ showToast, rows = [], mobile = false }: { showToast?: (me
     { phase: "Next", color: "var(--warn)", count: planItems.filter(item => item.phase === "Next").length },
     { phase: "Later", color: "var(--success)", count: planItems.filter(item => item.phase === "Later").length },
   ];
+  const taskDrafts: TaskImportDraft[] = planItems.map((item, index) => ({
+    title: item.item,
+    description: `${item.workstream} · ${item.page}`,
+    project: client.name,
+    assignee: "Studio team",
+    owner: "studio",
+    priority: item.phase === "Now" ? "high" : item.phase === "Next" ? "med" : "low",
+    due: item.phase === "Now" ? "This week" : item.phase === "Next" ? "Next sprint" : "Backlog",
+    source: "audit",
+    sourceId: `seo-plan:${client.id}:${item.workstream.toLowerCase().replace(/[^a-z0-9]+/g, "-")}:${index + 1}`,
+    milestone: `SEO · ${item.phase}`,
+  }));
   return <div style={css("display:flex;flex-direction:column;gap:.8rem") }>
     <Panel style="padding:1rem 1.1rem">
       <SectionTitle title="Roadmap at a glance" sub={`${total} actions across 3 phases and ${workstreams.length} workstreams.`}/>
@@ -1415,7 +1450,7 @@ function RoadmapView({ showToast, rows = [], mobile = false }: { showToast?: (me
     </Panel>
     <RoadmapSummaryView mobile={mobile}/>
     <Panel style="overflow:hidden"><div style={css("padding:.9rem 1rem;border-bottom:1px solid var(--border-soft);display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;flex-wrap:wrap") }><SectionTitle title="Complete SEO plan register" sub="Every proposed action is listed with its page, phase, owner, and status."/><Pill tone="accent">{planItems.length} items</Pill></div><DataTable headers={["Workstream", "Planned action", "Page / scope", "Phase", "Owner", "Status"]} rows={planItems.map(item => [item.workstream, item.item, item.page, <Pill key="phase" tone={item.phase === "Now" ? "danger" : item.phase === "Next" ? "warn" : "success"}>{item.phase}</Pill>, item.owner, item.status])}/></Panel>
-    {showToast && <Panel style="padding:.9rem"><div style={css("display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap") }><div><h3 style={css("margin:0;font-size:var(--text-sm);font-weight:500")}>Ready to turn the complete plan into delivery?</h3><p style={css("margin:.25rem 0 0;font-size:var(--text-2xs);color:var(--fg-faint)")}>Create all {planItems.length} listed actions in the studio to-do board.</p></div><button type="button" onClick={() => showToast(`${planItems.length} SEO plan tasks prepared for import`)} style={css("height:2.2rem;padding:0 .85rem;border:none;border-radius:999px;background:var(--accent);color:#fff;font-size:var(--text-2xs);font-weight:500;cursor:pointer")}>Create all delivery tasks</button></div></Panel>}
+    <Panel style="padding:.9rem"><div style={css("display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap") }><div><h3 style={css("margin:0;font-size:var(--text-sm);font-weight:500")}>Ready to turn the complete plan into delivery?</h3><p style={css("margin:.25rem 0 0;font-size:var(--text-2xs);color:var(--fg-faint)")}>Create all {planItems.length} listed actions in the studio to-do board.</p></div><button type="button" onClick={() => actions.bulkImportTasks(taskDrafts)} style={css("height:2.2rem;padding:0 .85rem;border:none;border-radius:999px;background:var(--accent);color:#fff;font-size:var(--text-2xs);font-weight:500;cursor:pointer")}>Create all delivery tasks</button></div></Panel>
   </div>;
 }
 

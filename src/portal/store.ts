@@ -50,16 +50,14 @@ import {
   type View,
 } from "./types";
 import type { ProgressChatMessage, ProgressChatSession } from "./types";
-import { seedEscalations, seedJourneyGates, seedTasks, seedThreads } from "./data";
 import { STATUS_ORDER } from "./helpers";
 import { progressChatTranscript, summarizeProgressChatTitle } from "./progressChat";
 import { buildProgressChatContext } from "./progressChatContext";
 import { clientsVisibleToRole, DEFAULT_CLIENT_NAME, DEV_USER_NAME } from "./clients";
 import { BASE_ROLE_VIEWS, canAccessPortalView, hasApprovedHandoffToService } from "./access";
-import { CREATOR_IQ_CLIENT_ID, createCreatorIqDemoWorkspace } from "@/lib/creatorIqDemoWorkspace";
-import { normalizePortalProcessHandoff } from "@/lib/portalProcessHandoffs";
 import { applyTaskStatusLifecycle, initializeTaskLifecycle } from "@/lib/portalTaskLifecycle";
 import { DASHBOARD_USER_EMAIL_HEADER } from "@/lib/dashboardPersistence";
+import { portalUrlFromParams, readPortalLocationParams, replacePortalLocation } from "./routes";
 
 type SnapshotChatPayload = {
   reply?: string;
@@ -250,13 +248,13 @@ function canonicalPortalViewParam(view: View) {
 
 function initialRequestedView(role: Role): View | null {
   if (typeof window === "undefined") return null;
-  return normalizeRequestedView(new URLSearchParams(window.location.search).get("view"), role);
+  return normalizeRequestedView(readPortalLocationParams().get("view"), role);
 }
 
 function syncPortalViewUrl(view: View) {
   if (typeof window === "undefined") return;
 
-  const nextParams = new URLSearchParams(window.location.search);
+  const nextParams = readPortalLocationParams();
   nextParams.set("view", canonicalPortalViewParam(view));
   if (view !== "audits_new" && view !== "audit") nextParams.delete("auditType");
   if (view !== "funnels") nextParams.delete("builderType");
@@ -267,14 +265,12 @@ function syncPortalViewUrl(view: View) {
     nextParams.delete("proposal");
   }
 
-  const nextQuery = nextParams.toString();
-  const nextUrl = nextQuery ? `${window.location.pathname}?${nextQuery}` : window.location.pathname;
-  window.history.replaceState({}, "", nextUrl);
+  replacePortalLocation(nextParams);
 }
 
-function persistPortalSnapshot(snapshot: PersistedPortalState, storageKey: string) {
+function persistPortalSnapshot(snapshot: PersistedPortalState, storageKey: string, serialized = JSON.stringify(snapshot)) {
   try {
-    localStorage.setItem(storageKey, JSON.stringify(snapshot));
+    localStorage.setItem(storageKey, serialized);
   } catch { /* ignore */ }
 }
 
@@ -418,90 +414,19 @@ export function applyTaskWorkflowEffects(state: PortalState, tasks: Task[]): Por
   return nextState;
 }
 
-function withCreatorIqDemoWorkspace(workspaces: Record<string, PortalClientWorkspace> = {}) {
-  const demo = createCreatorIqDemoWorkspace();
-  const saved = workspaces[CREATOR_IQ_CLIENT_ID];
-  if (!saved) return { ...workspaces, [CREATOR_IQ_CLIENT_ID]: demo };
-  const current = mergePortalClientWorkspace(CREATOR_IQ_CLIENT_ID, saved);
-  const websitePayload = current.engineWork.websiteBuilder?.payload as { session?: { proposal?: boolean }; aiResults?: { direction?: unknown; tasks?: unknown } } | undefined;
-  const seoPayload = current.engineWork.seoAudit?.payload as { project?: { rows?: unknown[] } } | undefined;
-  const socialPayload = current.engineWork.socialBuilder?.payload as { months?: Array<{ project?: { posts?: unknown[] } }> } | undefined;
-  const engineWork = {
-    ...demo.engineWork,
-    ...current.engineWork,
-    websiteBuilder: websitePayload?.session?.proposal || websitePayload?.aiResults?.direction && websitePayload?.aiResults?.tasks
-      ? current.engineWork.websiteBuilder
-      : demo.engineWork.websiteBuilder,
-    seoAudit: seoPayload?.project?.rows?.length ? current.engineWork.seoAudit : demo.engineWork.seoAudit,
-    socialBuilder: socialPayload?.months?.some(month => month.project?.posts?.length)
-      ? current.engineWork.socialBuilder
-      : demo.engineWork.socialBuilder,
-  };
-  const handoffs = current.handoffs.length ? current.handoffs.map(savedHandoff => {
-    const normalized = normalizePortalProcessHandoff(savedHandoff);
-    const demoHandoff = demo.handoffs.find(item => item.id === normalized.id);
-    if (!demoHandoff) return normalized;
-    return {
-      ...demoHandoff,
-      ...normalized,
-      approvedScope: normalized.approvedScope.length ? normalized.approvedScope : demoHandoff.approvedScope,
-      includedRecommendations: normalized.includedRecommendations.length ? normalized.includedRecommendations : demoHandoff.includedRecommendations,
-      unresolvedItems: normalized.unresolvedItems.length ? normalized.unresolvedItems : demoHandoff.unresolvedItems,
-      sender: savedHandoff.sender || demoHandoff.sender,
-      receiver: savedHandoff.receiver || demoHandoff.receiver,
-    };
-  }) : demo.handoffs;
-  return {
-    ...workspaces,
-    [CREATOR_IQ_CLIENT_ID]: {
-      ...demo,
-      ...current,
-      approvals: current.approvals.length ? current.approvals : demo.approvals,
-      notes: current.notes.length ? current.notes : demo.notes,
-      brandSystem: current.brandSystem || demo.brandSystem,
-      brandAudit: current.brandAudit || demo.brandAudit,
-      engineWork,
-      handoffs,
-      funnelPlans: current.funnelPlans,
-      collaborators: current.collaborators,
-      files: current.files,
-      proposal: current.proposal,
-    },
-  };
-}
-
-function creatorIqDemoRequested(params: URLSearchParams, clientName: string) {
-  if (clientName === "CreatorIQ") return true;
-  if (params.get("demo") === CREATOR_IQ_CLIENT_ID) return true;
-  return ["auditReport", "auditReportRun", "auditRun"]
-    .some(key => params.get(key)?.includes(CREATOR_IQ_CLIENT_ID));
-}
-
-function withRequestedDemoWorkspace(
-  workspaces: Record<string, PortalClientWorkspace>,
-  params: URLSearchParams,
-  clientName: string,
-  allowDemo = true,
-) {
-  return allowDemo && creatorIqDemoRequested(params, clientName)
-    ? withCreatorIqDemoWorkspace(workspaces)
-    : workspaces;
-}
-
 export function initialState(role: Role, requestedView?: View | null, clientName = DEFAULT_CLIENT_NAME, canSwitchRoles = false): PortalState {
-  const clientRole = role === "client";
   return {
     role, clientName, canSwitchRoles, hydrated: false, view: requestedView ?? "progress", previewFrom: null, clientDetail: null,
     isMobile: false, navOpen: false, notifOpen: false, notificationReadIds: [], notificationPreferences: normalizePortalNotificationPreferences(DEFAULT_PORTAL_NOTIFICATION_PREFERENCES), pop: null, sidePop: null, sidebarCollapsed: false, guidedSidebarActive: false, guidedSidebarExitTick: 0, guidedTopBarInfo: null, toast: null, auditType: "website", builderType: "funnel", projectOverrides: {},
-    tasks: clientRole ? seedTasks().filter(task => task.project === clientName) : seedTasks(), taskModal: null, taskDraft: null, taskView: "board", draggingId: null, dragOverCol: null,
+    tasks: [], taskModal: null, taskDraft: null, taskView: "board", draggingId: null, dragOverCol: null,
     boardSelect: false, selTasks: [], taskChecks: {}, taskComments: {}, taskCommentDraft: "",
     taskFilter: { owner: "all", priority: "all" }, clientFilter: { service: "all", health: "all" },
     savedViews: { clients: [], tasks: [] },
     calY: 2026, calM: 6, calSel: "2026-6-2",
-    journeyGates: clientRole ? seedJourneyGates().filter(gate => !gate.request) : seedJourneyGates(),
+    journeyGates: [],
     funExpanded: null, subModal: null, playbookDoc: null,
-    threads: clientRole ? seedThreads().filter(thread => thread.clientName === clientName) : seedThreads(), selectedThreadId: "", draft: "", inboxSearch: "", inboxFilter: "all", statusMenuOpen: false, assignMenuOpen: false,
-    escalations: clientRole ? seedEscalations().filter(escalation => escalation.client === clientName) : seedEscalations(),
+    threads: [], selectedThreadId: "", draft: "", inboxSearch: "", inboxFilter: "all", statusMenuOpen: false, assignMenuOpen: false,
+    escalations: [],
     paletteOpen: false, paletteQuery: "",
     fileBrand: "all",
     chatDraft: "", progressChatSessions: [], activeProgressChatId: null, progressChatHistoryOpen: false, ticketSeq: 1042,
@@ -603,6 +528,8 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idleSaveRef = useRef<number | null>(null);
   const pendingSnapshotRef = useRef<PersistedPortalState | null>(null);
+  const pendingSnapshotSerializedRef = useRef<string | null>(null);
+  const lastSavedSnapshotSerializedRef = useRef<string | null>(null);
   const isActualClient = seedRole === "client" && !canSwitchRoles;
   const storageKey = useMemo(
     () => portalStateStorageKey(seedRole, clientName, canSwitchRoles, userEmail),
@@ -635,7 +562,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
   useEffect(() => {
     setState(s => {
       const persisted = loadPersistedPortalState(storageKey);
-      const params = new URLSearchParams(window.location.search);
+      const params = readPortalLocationParams();
       const requestedView = params.get("view");
       const requestedAuditType = params.get("auditType");
       const requestedBuilderType = params.get("builderType");
@@ -645,12 +572,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
       return {
         ...s,
         ...persisted,
-        clientWorkspaces: withRequestedDemoWorkspace(
-          persisted.clientWorkspaces || s.clientWorkspaces,
-          params,
-          s.clientName,
-          !isActualClient,
-        ),
+        clientWorkspaces: persisted.clientWorkspaces || s.clientWorkspaces,
         savedViews: loadSavedViews(),
         isMobile: window.innerWidth < 900,
         view,
@@ -667,9 +589,15 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
 
   useEffect(() => {
     if (!hasHydrated) return;
-    const requestedView = new URLSearchParams(window.location.search).get("view");
+    const params = readPortalLocationParams();
+    const requestedView = params.get("view");
     const normalizedView = normalizeRequestedView(requestedView, state.role);
-    if (requestedView && (normalizedView == null || requestedView !== canonicalPortalViewParam(normalizedView))) {
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+    if (requestedView && (
+      normalizedView == null
+      || requestedView !== canonicalPortalViewParam(normalizedView)
+      || currentUrl !== portalUrlFromParams(params)
+    )) {
       syncPortalViewUrl(state.view);
     }
   }, [hasHydrated, state.role, state.view]);
@@ -695,7 +623,6 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
         if (!response.ok) throw new Error(typeof payload?.error === "string" ? payload.error : "Unable to load the portal workspace state.");
         const persisted = normalizePersistedPortalWorkspaceState(payload?.state);
         if (!cancelled) {
-          const params = new URLSearchParams(window.location.search);
           const scopedClientName = payload?.scope?.role === "client" && typeof payload.scope.clientName === "string"
             ? payload.scope.clientName
             : null;
@@ -709,7 +636,7 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
               threads: persisted.threads as Thread[],
               escalations: persisted.escalations as Escalation[],
               ticketSeq: persisted.ticketSeq,
-              clientWorkspaces: withRequestedDemoWorkspace(persisted.clientWorkspaces, params, resolvedClientName, !isActualClient),
+              clientWorkspaces: persisted.clientWorkspaces,
               progressChatSessions: persisted.progressChatSessions as ProgressChatSession[],
               activeProgressChatId: persisted.activeProgressChatId,
               projectOverrides: persisted.projectOverrides,
@@ -718,13 +645,13 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
             }) : ({
               ...s,
               clientName: resolvedClientName,
-              tasks: isActualClient ? [] : seedTasks(),
-              journeyGates: isActualClient ? seedJourneyGates().filter(gate => !gate.request) : seedJourneyGates(),
-              threads: isActualClient ? [] : seedThreads(),
+              tasks: [],
+              journeyGates: [],
+              threads: [],
               selectedThreadId: "",
-              escalations: isActualClient ? [] : seedEscalations(),
+              escalations: [],
               ticketSeq: 1,
-              clientWorkspaces: withRequestedDemoWorkspace({}, params, resolvedClientName, !isActualClient),
+              clientWorkspaces: {},
               progressChatSessions: [],
               activeProgressChatId: null,
               projectOverrides: {},
@@ -748,7 +675,10 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
 
   useEffect(() => {
     if (!hasHydrated || !workspaceLoaded) return;
+    const serializedSnapshot = JSON.stringify(workspaceSnapshot);
+    if (serializedSnapshot === lastSavedSnapshotSerializedRef.current) return;
     pendingSnapshotRef.current = workspaceSnapshot;
+    pendingSnapshotSerializedRef.current = serializedSnapshot;
 
     if (saveTimer.current) clearTimeout(saveTimer.current);
     const idleWindow = window as typeof window & {
@@ -764,19 +694,24 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
     const saveSnapshot = async () => {
       idleSaveRef.current = null;
       const snapshot = pendingSnapshotRef.current;
-      if (!snapshot) return;
-      persistPortalSnapshot(snapshot, storageKey);
-      if (isActualClient) return;
+      const serialized = pendingSnapshotSerializedRef.current;
+      if (!snapshot || !serialized || serialized === lastSavedSnapshotSerializedRef.current) return;
+      persistPortalSnapshot(snapshot, storageKey, serialized);
+      if (isActualClient) {
+        lastSavedSnapshotSerializedRef.current = serialized;
+        return;
+      }
       try {
         const response = await fetch("/api/portal-workspace-state", {
           method: "PUT",
           headers: { "content-type": "application/json", ...workspaceHeaders },
-          body: JSON.stringify({ state: snapshot }),
+          body: `{"state":${serialized}}`,
         });
         if (!response.ok) {
           const payload = await response.json().catch(() => null);
           throw new Error(typeof payload?.error === "string" ? payload.error : "Unable to save the portal workspace state.");
         }
+        lastSavedSnapshotSerializedRef.current = serialized;
       } catch (error) {
         console.error("Unable to save the portal workspace state.", error);
       }
@@ -804,14 +739,20 @@ export function usePortal(seedRole: Role, clientName = DEFAULT_CLIENT_NAME, canS
     if (!hasHydrated || !workspaceLoaded) return;
     const flushPendingSnapshot = () => {
       const snapshot = pendingSnapshotRef.current;
-      if (!snapshot) return;
-      persistPortalSnapshot(snapshot, storageKey);
-      if (isActualClient) return;
+      const serialized = pendingSnapshotSerializedRef.current;
+      if (!snapshot || !serialized || serialized === lastSavedSnapshotSerializedRef.current) return;
+      persistPortalSnapshot(snapshot, storageKey, serialized);
+      if (isActualClient) {
+        lastSavedSnapshotSerializedRef.current = serialized;
+        return;
+      }
       void fetch("/api/portal-workspace-state", {
         method: "PUT",
         headers: { "content-type": "application/json", ...workspaceHeaders },
-        body: JSON.stringify({ state: snapshot }),
+        body: `{"state":${serialized}}`,
         keepalive: true,
+      }).then(response => {
+        if (response.ok) lastSavedSnapshotSerializedRef.current = serialized;
       }).catch(() => undefined);
     };
     const flushWhenHidden = () => {

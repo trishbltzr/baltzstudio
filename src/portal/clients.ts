@@ -41,8 +41,6 @@ export interface StudioClient {
   funnels: ClientFacet[];
 }
 
-export const FEATURED_CLIENT_NAME = "CreatorIQ";
-
 export const UNASSIGNED_WORK_CLIENT: StudioClient = {
   id: "unassigned",
   name: "Unassigned draft",
@@ -63,13 +61,11 @@ export const UNASSIGNED_WORK_CLIENT: StudioClient = {
 };
 
 const NOT_ASSIGNED_TO_KIER = new Set([
-  FEATURED_CLIENT_NAME,
   "Porky's Lechon",
   "Therapy Mobz",
 ]);
 
 export const STUDIO_CLIENTS: StudioClient[] = [
-  FEATURED_CLIENT_NAME,
   "Blue Ribbon",
   "Concertina",
   "Enterprise Growth System",
@@ -85,16 +81,14 @@ export const STUDIO_CLIENTS: StudioClient[] = [
   "Yona Signo",
   "ZODA",
 ].sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" })).map((name, index) => {
-  // Preserve CreatorIQ's existing persistence key while using the correct
-  // service name.
-  const id = name === FEATURED_CLIENT_NAME ? "creator-iq" : name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  const domain = name === FEATURED_CLIENT_NAME ? "creatoriq.com" : `${id}.com`;
-  const cocoonStatus = name === FEATURED_CLIENT_NAME ? "completed" : name === "Blue Ribbon" ? "sent" : "not_sent";
+  const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const domain = `${id}.com`;
+  const cocoonStatus = name === "Blue Ribbon" ? "sent" : "not_sent";
   return {
     id,
     name,
     owner: NOT_ASSIGNED_TO_KIER.has(name) ? "Unassigned" : "Kier Mangibin",
-    audited: name === FEATURED_CLIENT_NAME,
+    audited: false,
     lead: {
       contactName: `${name} team`,
       email: `hello@${domain}`,
@@ -105,7 +99,7 @@ export const STUDIO_CLIENTS: StudioClient[] = [
     },
     cocoonLink: {
       status: cocoonStatus,
-      ...(cocoonStatus === "not_sent" ? {} : { sentAt: name === FEATURED_CLIENT_NAME ? "Jul 21, 2026" : "Jul 09, 2026" }),
+      ...(cocoonStatus === "not_sent" ? {} : { sentAt: "Jul 09, 2026" }),
     },
     audit: {
       id: `audit-${id}`,
@@ -116,21 +110,11 @@ export const STUDIO_CLIENTS: StudioClient[] = [
       progress: 0,
       due: "—",
     },
-    funnels: name === FEATURED_CLIENT_NAME ? [{
-      id: "funnel-creator-iq-demo",
-      subtitle: "CreatorIQ Enterprise Demo Funnel",
-      statusLabel: "Complete",
-      statusTone: "success" as const,
-      stage: "Development plan · Complete",
-      progress: 100,
-      due: "Jul 21",
-    }] : [],
+    funnels: [],
   };
 });
 
-// CreatorIQ remains selectable demo data, but it must not become the implicit
-// client context for a new portal session or an arbitrary source URL.
-export const DEFAULT_CLIENT_NAME = STUDIO_CLIENTS.find(client => client.name !== FEATURED_CLIENT_NAME)?.name || FEATURED_CLIENT_NAME;
+export const DEFAULT_CLIENT_NAME = STUDIO_CLIENTS[0]?.name || "Client";
 export const DEV_USER_NAME = "Kier Mangibin";
 
 export function clientsVisibleToRole(role: "admin" | "dev" | "client", clientName = DEFAULT_CLIENT_NAME) {

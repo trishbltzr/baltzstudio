@@ -67,7 +67,7 @@ export function SubModal({ state, actions }: { state: PortalState; actions: Port
               const ot = ownerTag(t.owner);
               return (
                 <div key={i} className="pt-row" style={css("display:flex;align-items:center;gap:0.65rem;padding:0.55rem 0.6rem;border-radius:var(--radius);background:" + (t.state === "progress" ? "oklch(0.985 0.012 22)" : "transparent"))}>
-                  <button onClick={() => actions.showToast(t.state === "done" ? "Reopened: " + t.t : "Marked done: " + t.t)} style={{ ...css(radioFor(t.state)), background: "transparent", padding: 0, cursor: "pointer" }}>{t.state === "done" && <Icon name="checkmark" size={9} />}</button>
+                  <span aria-label={t.state === "done" ? "Completed" : t.state === "progress" ? "In progress" : "Not started"} style={{ ...css(radioFor(t.state)), padding: 0 }}>{t.state === "done" && <Icon name="checkmark" size={9} />}</span>
                   <span style={css("flex:1;min-width:0;font-size:var(--text-base)")}>{t.t}</span>
                   <span style={ot.style}><Icon name={ot.icon} size={11} />{ot.label}</span>
                 </div>
@@ -82,7 +82,7 @@ export function SubModal({ state, actions }: { state: PortalState; actions: Port
             )}
           </div>
         </div>
-        <div style={css("border-top:1px solid var(--border-soft);padding:0.75rem 1.5rem;display:flex;align-items:center;justify-content:space-between")}><div style={css("display:inline-flex;align-items:center;gap:0.4rem;font-weight:500;font-size:var(--text-base)")}><Icon name="chev" size={14} />Attachments</div><button onClick={() => actions.showToast("Add an attachment")} className="pt-iconbtn" style={css("width:1.75rem;height:1.75rem;border-radius:50%;border:1px solid var(--border);background:var(--surface);display:grid;place-items:center;cursor:pointer;color:var(--fg-muted)")}><Icon name="plus" size={13} /></button></div>
+        <div style={css("border-top:1px solid var(--border-soft);padding:0.75rem 1.5rem;display:flex;align-items:center;justify-content:space-between")}><div style={css("display:inline-flex;align-items:center;gap:0.4rem;font-weight:500;font-size:var(--text-base)")}><Icon name="chev" size={14} />Attachments</div><span style={css("font-size:var(--text-xs);color:var(--fg-faint)")}>No attachments</span></div>
       </div>
     </div>
   );

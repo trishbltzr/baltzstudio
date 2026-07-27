@@ -501,7 +501,7 @@
   width: 100%;
   min-width: 0;
   display: grid;
-  grid-template-columns: 6.6rem minmax(0, 1fr);
+  grid-template-columns: 5.5rem minmax(0, 1fr);
   align-items: center;
   gap: 0.65rem;
   padding: 0.5rem 0.58rem;

@@ -6,11 +6,11 @@ import { printReportHtml, reportDocumentHtml } from "../printReport";
 import { Icon } from "../icons";
 import type { PortalActions, PortalState } from "../store";
 import {
-  SECTIONS, QUESTIONS, DELIVS, DEMO, TYPE_LABEL, buildFlow,
+  SECTIONS, QUESTIONS, DELIVS, TYPE_LABEL, buildFlow,
   type FQuestion, type FlowStep,
 } from "./data";
 import { DelivBody, GRAD } from "./deliverables";
-import { clientsVisibleToRole, type ClientFacet } from "../clients";
+import type { ClientFacet } from "../clients";
 import { GuidedIntakeSelector } from "../components/GuidedIntakeSelector";
 import { EngineIndexControls } from "../components/EngineIndexControls";
 import { EngineIndexOverview } from "../components/EngineIndexOverview";
@@ -18,7 +18,7 @@ import { assignedEngineWork, clientsForEngineWork, isUnassignedEngineClient, lat
 import { GuidedIntakeShell, GuidedOptionPill, GuidedPipelinePanel, GuidedUnsureToggle } from "../components/GuidedIntakeShell";
 import { DiscoveryBuilder } from "../discovery/DiscoveryBuilder";
 import { fromClientMemory, getKnowledge, loadPersistedKnowledge, recordKnowledge, rememberKnowledge, mergeKnow, type Know } from "../discovery/knowledge";
-import { FUNNEL_WIZARD, FUNNEL_STAGES, FUNNEL_INTRO_STEPS, FUNNEL_DEMO } from "../discovery/discoveryData";
+import { FUNNEL_WIZARD, FUNNEL_STAGES, FUNNEL_INTRO_STEPS } from "../discovery/discoveryData";
 import { FUNNEL_PIPELINE, FunnelFlowHero, funnelTaskDrafts } from "../discovery/funnelPipeline";
 import type { FunnelDocs } from "../discovery/funnelPipeline";
 import { BuilderTaskPanel } from "../builders/BuilderTaskPanel";
@@ -26,9 +26,10 @@ import type { TaskImportDraft } from "../types";
 import { mergePortalClientWorkspace, type PortalFunnelPlanRecord } from "@/lib/portalWorkspacePersistence";
 import { coercePersistedAuditDrafts, type GuidedAuditSession } from "@/lib/portalAuditPersistence";
 import { ShareLinkDialog } from "../components/ShareLinkDialog";
-import { CREATOR_IQ_FUNNEL_DEMO_DATA } from "@/lib/creatorIqDemoWorkspace";
 import { aiReviewMeta, deriveAiReviewState } from "@/lib/aiReviewState";
 import { DASHBOARD_USER_EMAIL_HEADER } from "@/lib/dashboardPersistence";
+import { portalHref, readPortalLocationParams, replacePortalLocation } from "../routes";
+import { usePortalStudioClients } from "../usePortalStudioClients";
 
 // ── state ────────────────────────────────────────────────────────────────────
 type Ans = Record<string, string | string[]>;
@@ -143,7 +144,7 @@ type Act =
   | { t: "text"; id: string; v: string } | { t: "choice"; id: string; v: string } | { t: "check"; id: string; v: string }
   | { t: "unsure"; id: string } | { t: "confirmGate"; s: number } | { t: "sign"; id: string }
   | { t: "reqChanges"; note: string } | { t: "cancelReq" } | { t: "draft"; v: string } | { t: "sendNote"; id: string }
-  | { t: "restart" } | { t: "autofill"; s: number } | { t: "demoAll"; finalIdx: number }
+  | { t: "restart" }
   | { t: "gen"; active: boolean; label?: string } | { t: "genDone"; id: string };
 
 function reducer(s: FState, a: Act): FState {
@@ -167,29 +168,9 @@ function reducer(s: FState, a: Act): FState {
     case "draft": return { ...s, draftNote: a.v };
     case "sendNote": return { ...s, requesting: false, notes: { ...s.notes, [a.id]: s.draftNote.trim() } };
     case "restart": return { ...s, ...freshBuild() };
-    case "autofill": {
-      const answers = { ...s.answers };
-      QUESTIONS.filter(q => q.s === a.s).forEach(q => { if (DEMO[q.id] !== undefined) answers[q.id] = DEMO[q.id]; });
-      return { ...s, answers, error: "" };
-    }
-    case "demoAll": {
-      const confirmed: Record<number, boolean> = {}; SECTIONS.forEach((_, i) => (confirmed[i] = true));
-      const signed: Record<string, boolean> = {}; DELIVS.forEach(d => { if (!d.terminal) signed[d.id] = true; });
-      const genDone: Record<string, boolean> = {}; DELIVS.forEach(d => (genDone[d.id] = true));
-      return { ...s, answers: { ...DEMO }, confirmed, signed, genDone, genActive: false, idx: a.finalIdx, requesting: false, error: "" };
-    }
     case "gen": return { ...s, genActive: a.active, genLabel: a.label ?? s.genLabel };
     case "genDone": return { ...s, genActive: false, genDone: { ...s.genDone, [a.id]: true } };
   }
-}
-
-function seedFunnelBuilds(role: PortalState["role"], clientName: string): FunnelBuild[] {
-  return clientsVisibleToRole(role, clientName).flatMap(client => client.funnels.map(funnel => ({
-    ...funnel,
-    clientId: client.id,
-    clientName: client.name,
-    owner: client.owner,
-  })));
 }
 
 function isGenericFunnelTitle(value: string) {
@@ -261,12 +242,18 @@ function fmt(q: FQuestion, s: FState): string {
 
 export function Funnels({ state, actions, userEmail }: { state: PortalState; actions: PortalActions; userEmail: string }) {
   const flow = useMemo(() => buildFlow(), []);
-  const visibleClients = useMemo(() => clientsVisibleToRole(state.role, state.clientName), [state.clientName, state.role]);
+  const { clients: rosterClients } = usePortalStudioClients();
+  const visibleClients = useMemo(
+    () => state.role === "client"
+      ? rosterClients.filter(client => client.name === state.clientName)
+      : rosterClients,
+    [rosterClients, state.clientName, state.role],
+  );
   const workingClients = useMemo(() => clientsForEngineWork(state.role, visibleClients), [state.role, visibleClients]);
   const visibleClientIds = useMemo(() => new Set(visibleClients.map(item => item.id)), [visibleClients]);
   const workingClientIds = useMemo(() => new Set(workingClients.map(item => item.id)), [workingClients]);
   const [s, dispatch] = useReducer(reducer, init);
-  const [builds, setBuilds] = useState<FunnelBuild[]>(() => seedFunnelBuilds(state.role, state.clientName));
+  const [builds, setBuilds] = useState<FunnelBuild[]>([]);
   const [deleteBuildConfirm, setDeleteBuildConfirm] = useState(false);
   const [exitingToPicker, setExitingToPicker] = useState(false);
   const [activePlanPost, setActivePlanPost] = useState<FunnelPlanPost | null>(null);
@@ -373,11 +360,11 @@ export function Funnels({ state, actions, userEmail }: { state: PortalState; act
   useEffect(() => { setQuickKnow(s.clientId ? loadPersistedKnowledge(s.clientId) : { data: {}, sources: {} }); }, [s.clientId]);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = readPortalLocationParams();
     if (!params.has("funnelPlan")) return;
     params.delete("funnelPlan");
     params.set("view", "funnels");
-    window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+    replacePortalLocation(params);
   }, []);
 
   useEffect(() => {
@@ -448,11 +435,6 @@ export function Funnels({ state, actions, userEmail }: { state: PortalState; act
     const record = workspace.funnelPlans.find(plan => plan.buildId === item.id || plan.id === item.id);
     if (!record) return null;
     const post = coercePlanPost(record);
-    const seededPrimaryAction = post.content?.brief?.find(item => item.label === "Primary action")?.value;
-    if (item.id === "funnel-creator-iq-demo" && (!seededPrimaryAction || seededPrimaryAction === "Take the next step")) {
-      const refreshed = buildPlanPost(item, CREATOR_IQ_FUNNEL_DEMO_DATA);
-      return { ...refreshed, generatedAt: post.generatedAt || refreshed.generatedAt };
-    }
     // Heal plans persisted by an older schema (e.g. before funnel recommendations
     // existed) so the preview renders fully instead of crashing on missing fields.
     if (!Array.isArray(post.content?.recommendations)) {
@@ -460,12 +442,11 @@ export function Funnels({ state, actions, userEmail }: { state: PortalState; act
     }
     return post;
   };
-  const buildPlanPost = (item: FunnelBuild, data: Ans = FUNNEL_DEMO): FunnelPlanPost => {
-    const planData = item.id === "funnel-creator-iq-demo" ? { ...FUNNEL_DEMO, ...data, ...CREATOR_IQ_FUNNEL_DEMO_DATA } : data;
+  const buildPlanPost = (item: FunnelBuild, data: Ans = {}, session?: GuidedAuditSession): FunnelPlanPost => {
+    const planData = data;
     const title = funnelTitleFromData(planData, item.subtitle);
     const selectedType = typeof planData.ftype === "string" && planData.ftype.trim() ? planData.ftype : title;
     const content = FUNNEL_PIPELINE.buildDocs({
-      ...FUNNEL_DEMO,
       ...planData,
       name: item.clientName + " · " + title,
       ftype: selectedType,
@@ -488,6 +469,7 @@ export function Funnels({ state, actions, userEmail }: { state: PortalState; act
       generatedAt: now,
       updatedAt: now,
       content,
+      session,
     };
   };
   const persistPlanPost = (post: FunnelPlanPost) => {
@@ -512,7 +494,7 @@ export function Funnels({ state, actions, userEmail }: { state: PortalState; act
     const buildSnapshot: FunnelBuild = { ...build, ...meta, subtitle: funnelTitleFromData(session.data, build.subtitle) };
     funnelPersistTimer.current = setTimeout(() => {
       const existing = storedPlanForBuild(buildSnapshot);
-      const next = buildPlanPost(buildSnapshot, session.data);
+      const next = buildPlanPost(buildSnapshot, session.data, session);
       persistPlanPost({ ...next, generatedAt: existing?.generatedAt || next.generatedAt, processRun: session.processRun });
       funnelPersistTimer.current = null;
     }, 350);
@@ -747,9 +729,8 @@ export function Funnels({ state, actions, userEmail }: { state: PortalState; act
       <>
         <div style={css("font-size:var(--text-xs);font-weight:500;color:var(--success);margin-bottom:0.5rem")}>{doneN} of {total} signed off</div>
         <div style={css("height:4px;background:var(--bg);border-radius:999px;overflow:hidden")}><div style={css("height:100%;width:" + pct + "%;background:linear-gradient(90deg,oklch(0.66 0.12 155),oklch(0.54 0.11 165));transition:width .3s ease")} /></div>
-        <div style={css("display:grid;grid-template-columns:0.72fr 1fr;gap:0.45rem;margin-top:0.8rem")}>
+        <div style={css("margin-top:0.8rem")}>
           <button type="button" onClick={() => dispatch({ t: "restart" })} style={css("min-height:2.05rem;display:inline-flex;align-items:center;justify-content:center;padding:0 0.6rem;border:1px solid var(--border);border-radius:var(--radius-pill);background:var(--surface);color:var(--fg-muted);font-size:var(--text-xs);font-weight:500;cursor:pointer")}>Restart</button>
-          <button type="button" onClick={() => { const st = flow[s.idx]; if (st.kind === "section" || st.kind === "gate") dispatch({ t: "autofill", s: (st as { sIdx: number }).sIdx }); }} style={css("min-height:2.05rem;display:inline-flex;align-items:center;justify-content:center;gap:0.3rem;padding:0 0.5rem;border:1px dashed var(--border);border-radius:var(--radius-pill);background:transparent;color:var(--fg-muted);font-size:var(--text-2xs);font-weight:500;cursor:pointer")}><Icon name="replay" size={12} />Auto-fill step</button>
         </div>
       </>
     );
@@ -780,10 +761,15 @@ export function Funnels({ state, actions, userEmail }: { state: PortalState; act
         introSteps={FUNNEL_INTRO_STEPS}
         completeMsg="That’s everything I need. I’ll draft the funnel flow, copy, wireframe and development plan from your answers."
         completeCta="Generate the plan →"
-        demo={FUNNEL_DEMO}
         pipeline={FUNNEL_PIPELINE}
         onImportTasks={actions.bulkImportTasks}
-        onPipelineComplete={data => { if (build) persistPlanPost(buildPlanPost(build, data)); }}
+        onPipelineComplete={(data, aiResults) => {
+          if (!build) return;
+          const existing = storedPlanForBuild(build);
+          const session = existing?.session ? { ...existing.session, data, aiResults } : undefined;
+          persistPlanPost(buildPlanPost(build, data, session));
+        }}
+        initialSession={build ? storedPlanForBuild(build)?.session : undefined}
         sessionKey={build?.id}
         processId="funnel-build"
         accessState={state}
@@ -803,7 +789,10 @@ export function Funnels({ state, actions, userEmail }: { state: PortalState; act
         }}
         onExit={() => state.role === "client" ? actions.setView("progress") : exitToPicker()}
         onComplete={data => {
-          if (build) persistPlanPost(buildPlanPost(build, data));
+          if (build) {
+            const existing = storedPlanForBuild(build);
+            persistPlanPost(buildPlanPost(build, data, existing?.session));
+          }
           recordKnowledge(client.id, data, "Funnel intake");
           if (state.role === "client") actions.setView("progress");
           else exitToPicker();
@@ -855,10 +844,10 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImp
   };
   const openShare = () => {
     onShare?.();
-    const url = new URL("/dashboard", window.location.origin);
-    url.searchParams.set("view", "review");
-    url.searchParams.set("approval", `${post.clientId}-builder-funnel-builder-final-development-plan`);
-    setShareUrl(url.toString());
+    setShareUrl(new URL(portalHref({
+      view: "review",
+      approval: `${post.clientId}-builder-funnel-builder-final-development-plan`,
+    }), window.location.origin).toString());
   };
 
   return (
@@ -908,7 +897,7 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImp
           <div data-report-content style={css("padding:" + (mobile ? "1.2rem" : "1.85rem 2rem 2rem"))}>
             {FUNNEL_PIPELINE.renderStage({
               aiResult: null,
-              aiResults: {},
+              aiResults: post.session?.aiResults || {},
               stageKey: "brief",
               docs,
               reveal: Number.POSITIVE_INFINITY,
@@ -919,7 +908,7 @@ export function FunnelPlanPreviewModal({ post, mobile, onClose, showToast, onImp
               onAdvance: onClose,
               onDownload: openPrintDialog,
               onShare: openShare,
-              onCopy: () => showToast("Development plan copied"),
+              onCopy: copyAiHandover,
               afterActions: <BuilderTaskPanel embedded drafts={taskDrafts} fileName={`${post.clientId || "client"}-funnel-tasks.csv`} mobile={mobile} onImport={onImportTasks}/>,
             })}
           </div>

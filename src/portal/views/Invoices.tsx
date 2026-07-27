@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { Icon } from "../icons";
 import { css, eyebrowStyle, statusPill } from "../helpers";
-import { STUDIO_CLIENTS } from "../clients";
 import type { PortalActions, PortalState } from "../store";
 
 // ── design primitives (match the rest of the portal) ─────────────────────────
@@ -68,15 +67,7 @@ const STANDARD_NOTE = "Thank you for your business. Please pay via Wise by the d
 const DEFAULT_TERMS = "Payment is due by the date shown. Work may pause if overdue, and final files are released after full payment.";
 
 interface InvClient { id: string; name: string; company: string; email: string; phone: string; country: string; currency: string; address: string; taxId: string }
-const CLIENTS: InvClient[] = STUDIO_CLIENTS.map(c => ({
-  id: c.id, name: c.name, company: c.name,
-  email: "", phone: "", country: "", currency: "GBP", address: "", taxId: "",
-}));
-const PROJECTS = STUDIO_CLIENTS.flatMap(c => c.funnels.map(f => ({
-  id: f.id, clientId: c.id, name: c.name + " · " + f.subtitle, type: f.subtitle,
-  manager: c.owner, value: f.progress ? 6000 + f.progress * 40 : 6000, status: f.statusLabel,
-  start: "2026-05-01", target: f.due,
-})));
+interface InvProject { id: string; clientId: string; name: string; type: string; manager: string; value: number; status: string; start: string; target: string }
 
 // ── invoice model ──────────────────────────────────────────────────────────────
 interface Item { id: string; service: string; description: string; qty: number; unit: string; rate: number; discount: number; discountType: "pct" | "fixed"; taxRate: number; taxable: boolean }
@@ -220,15 +211,64 @@ export function Invoices({ state, actions }: { state: PortalState; actions: Port
   const [inv, dispatch] = useReducer(reducer, undefined, initState);
   const [modal, setModal] = useState<null | "send" | "payment" | "cancel" | "delete" | "profile" | "preview">(null);
   const [dirty, setDirty] = useState(false);
+  const [invoiceId, setInvoiceId] = useState<string | null>(null);
+  const [clients, setClients] = useState<InvClient[]>([]);
+  const [projects] = useState<InvProject[]>([]);
+  const [saving, setSaving] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
   const mobile = state.isMobile;
   const set = (v: Partial<Inv>) => { dispatch({ t: "patch", v }); setDirty(true); };
 
   const biz = BUSINESS_PROFILES.find(b => b.id === inv.businessId) || BUSINESS_PROFILES[0];
-  const client = CLIENTS.find(c => c.id === inv.clientId) || null;
-  const project = PROJECTS.find(p => p.id === inv.projectId) || null;
+  const client = clients.find(c => c.id === inv.clientId) || null;
+  const project = projects.find(p => p.id === inv.projectId) || null;
   const cur = inv.currency;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void Promise.all([
+      fetch("/api/portal-clients", { cache: "no-store", signal: controller.signal }).then(response => response.ok ? response.json() : null),
+      fetch("/api/portal-invoices", { cache: "no-store", signal: controller.signal }).then(response => response.ok ? response.json() : null),
+    ]).then(([clientPayload, invoicePayload]) => {
+      const durableClients: InvClient[] = Array.isArray(clientPayload?.clients)
+        ? clientPayload.clients
+          .filter((item: Record<string, unknown>) => !/^demo(?:-|$)/i.test(String(item.slug || "")))
+          .map((item: Record<string, unknown>) => ({
+            id: String(item.id || ""),
+            name: String(item.name || ""),
+            company: String(item.name || ""),
+            email: String(item.primary_contact_email || ""),
+            phone: "",
+            country: "",
+            currency: "GBP",
+            address: "",
+            taxId: "",
+          })).filter((item: InvClient) => item.id && item.name)
+        : [];
+      setClients(durableClients);
+      const selectedClient = state.invoiceClientName
+        ? durableClients.find(item => item.company === state.invoiceClientName)
+        : null;
+      const stored = Array.isArray(invoicePayload?.invoices)
+        ? invoicePayload.invoices.find((item: Record<string, unknown>) => {
+            if (String(item.status) !== "Draft") return false;
+            return selectedClient ? String(item.client_id) === selectedClient.id : true;
+          })
+        : null;
+      if (stored?.payload && typeof stored.payload === "object") {
+        dispatch({ t: "patch", v: stored.payload as Partial<Inv> });
+        setInvoiceId(String(stored.id));
+        setDirty(false);
+      } else if (selectedClient) {
+        dispatch({ t: "patch", v: { clientId: selectedClient.id, currency: selectedClient.currency } });
+      }
+    }).catch(error => {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      actions.showToast("Clients or saved invoices could not be loaded");
+    });
+    return () => controller.abort();
+  }, [actions, state.invoiceClientName]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -273,13 +313,13 @@ export function Invoices({ state, actions }: { state: PortalState; actions: Port
   }, [client, project, inv, calc.total]);
 
   const applyClient = (id: string) => {
-    const c = CLIENTS.find(x => x.id === id);
+    const c = clients.find(x => x.id === id);
     set({ clientId: id, currency: c?.currency || cur, instructions: biz.instructions });
   };
   const applyProject = (id: string) => {
-    const p = PROJECTS.find(x => x.id === id);
+    const p = projects.find(x => x.id === id);
     if (!p) { set({ projectId: "" }); return; }
-    const c = CLIENTS.find(x => x.id === p.clientId);
+    const c = clients.find(x => x.id === p.clientId);
     set({ projectId: id, clientId: p.clientId, currency: c?.currency || cur, contractRef: p.name + " · SOW", deposit: { ...inv.deposit, projectValue: p.value }, terms: inv.terms || DEFAULT_TERMS });
     actions.showToast("Client, currency & agreed pricing suggested from " + p.name);
   };
@@ -287,12 +327,39 @@ export function Invoices({ state, actions }: { state: PortalState; actions: Port
     const b = BUSINESS_PROFILES.find(x => x.id === id) || biz;
     set({ businessId: id, currency: b.currency, instructions: b.instructions, footer: "Thank you for partnering with " + b.name + "." });
   };
-  useEffect(() => {
-    if (!state.invoiceClientName || inv.clientId) return;
-    const selectedClient = CLIENTS.find(item => item.company === state.invoiceClientName);
-    if (selectedClient) applyClient(selectedClient.id);
-  }, [state.invoiceClientName, inv.clientId]);
-  const doSave = (label: string) => { setDirty(false); actions.showToast(label); };
+  const persistInvoice = async (next: Inv, action: "save" | "send" = "save") => {
+    const selectedClient = clients.find(item => item.id === next.clientId) || null;
+    setSaving(true);
+    try {
+      const response = await fetch("/api/portal-invoices", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: invoiceId,
+          invoice: next,
+          total: calc.total,
+          action,
+          recipientEmail: selectedClient?.email || "",
+          clientName: selectedClient?.name || "",
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.invoice) {
+        throw new Error(typeof payload?.error === "string" ? payload.error : "The invoice could not be saved.");
+      }
+      setInvoiceId(String(payload.invoice.id));
+      dispatch({ t: "patch", v: payload.invoice.payload as Partial<Inv> });
+      setDirty(false);
+      actions.showToast(action === "send" ? `Invoice ${next.number} sent` : "Invoice saved as draft");
+      return true;
+    } catch (error) {
+      actions.showToast(error instanceof Error ? error.message : "The invoice could not be saved");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+  const doSave = () => { void persistInvoice({ ...inv, status: "Draft" }); };
   const send = () => { setShowErrors(true); if (errors.length) { actions.showToast("Fix " + errors.length + " issue" + (errors.length > 1 ? "s" : "") + " before sending"); return; } setModal("send"); };
 
   const showMilestones = inv.billingType === "Milestone payment";
@@ -311,8 +378,8 @@ export function Invoices({ state, actions }: { state: PortalState; actions: Port
         <div style={css("display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;flex-shrink:0")}>
           <button type="button" onClick={() => { actions.patch({ invoiceClientName: null }); actions.setView("billing"); }} style={css(BTN_GHOST)}><Icon name="chevleft" size={14} />Back to billing</button>
           {!mobile && <button type="button" onClick={() => setShowPreview(v => !v)} style={css(BTN_GHOST)}><Icon name="eye" size={14} />{showPreview ? "Hide Preview" : "Show Preview"}</button>}
-          <button type="button" onClick={() => doSave("Invoice saved as draft")} style={css(BTN_GHOST)}><Icon name="file" size={14} />Save as Draft</button>
-          <button type="button" onClick={send} style={css(BTN_PRIMARY)}><Icon name="send" size={14} />Send Invoice</button>
+          <button type="button" onClick={doSave} disabled={saving} style={css(BTN_GHOST + ";opacity:" + (saving ? ".6" : "1"))}><Icon name="file" size={14} />{saving ? "Saving…" : "Save as Draft"}</button>
+          <button type="button" onClick={send} disabled={saving} style={css(BTN_PRIMARY + ";opacity:" + (saving ? ".6" : "1"))}><Icon name="send" size={14} />Send Invoice</button>
         </div>
       </div>
 
@@ -330,7 +397,7 @@ export function Invoices({ state, actions }: { state: PortalState; actions: Port
           <FormBody inv={inv} set={set} dispatch={dispatch} setDirty={setDirty} biz={biz} client={client} project={project}
             applyClient={applyClient} applyProject={applyProject} applyBiz={applyBiz} calc={calc} money={(n: number) => money(n, cur)}
             lineAmount={lineAmount} expenseAmount={expenseAmount} mobile={mobile}
-            openProfile={() => setModal("profile")} actions={actions}
+            clients={clients} projects={projects} actions={actions}
             flags={{ showMilestones, showTime, showRetainer, showDeposit, showRecurring }} />
         </div>
         {(mobile || showPreview) && <div id="inv-preview" style={css("min-width:0;position:" + (mobile ? "static" : "sticky") + ";top:4.5rem")}>
@@ -338,10 +405,28 @@ export function Invoices({ state, actions }: { state: PortalState; actions: Port
         </div>}
       </div>
 
-      {modal === "send" && <SendModal inv={inv} client={client} project={project} calc={calc} money={(n: number) => money(n, cur)} onClose={() => setModal(null)} onSend={() => { setModal(null); set({ status: "Sent" }); setDirty(false); actions.showToast("Invoice " + inv.number + " sent to " + (client?.email || "client")); }} />}
-      {modal === "payment" && <PaymentModal inv={inv} calc={calc} money={(n: number) => money(n, cur)} onClose={() => setModal(null)} onRecord={(amt) => { const paid = (inv.amountPaid || 0) + amt; set({ amountPaid: paid, status: paid >= calc.total ? "Paid" : "Partially Paid" }); setModal(null); actions.showToast("Payment of " + money(amt, cur) + " recorded"); }} />}
-      {(modal === "cancel" || modal === "delete") && <ConfirmModal kind={modal} number={inv.number} onClose={() => setModal(null)} onConfirm={() => { set({ status: modal === "cancel" ? "Cancelled" : "Draft" }); setModal(null); actions.showToast("Invoice " + (modal === "cancel" ? "cancelled" : "deleted")); }} />}
-      {modal === "profile" && <ProfileModal biz={biz} onClose={() => setModal(null)} onSave={() => { setModal(null); actions.showToast("Business profile saved"); }} />}
+      {modal === "send" && <SendModal inv={inv} client={client} project={project} calc={calc} money={(n: number) => money(n, cur)} onClose={() => setModal(null)} onSend={async () => { if (await persistInvoice({ ...inv, status: "Sent" }, "send")) setModal(null); }} />}
+      {modal === "payment" && <PaymentModal inv={inv} calc={calc} money={(n: number) => money(n, cur)} onClose={() => setModal(null)} onRecord={(amt) => { const paid = (inv.amountPaid || 0) + amt; const next = { ...inv, amountPaid: paid, status: paid >= calc.total ? "Paid" : "Partially Paid" }; dispatch({ t: "patch", v: next }); setModal(null); void persistInvoice(next); }} />}
+      {(modal === "cancel" || modal === "delete") && <ConfirmModal kind={modal} number={inv.number} onClose={() => setModal(null)} onConfirm={() => {
+        if (modal === "delete") {
+          void (async () => {
+            if (invoiceId) {
+              const response = await fetch(`/api/portal-invoices?id=${encodeURIComponent(invoiceId)}`, { method: "DELETE" });
+              if (!response.ok) { actions.showToast("The invoice could not be deleted"); return; }
+            }
+            setInvoiceId(null);
+            dispatch({ t: "patch", v: initState() });
+            setDirty(false);
+            setModal(null);
+            actions.showToast("Invoice deleted");
+          })();
+          return;
+        }
+        const next = { ...inv, status: "Cancelled" };
+        dispatch({ t: "patch", v: next });
+        setModal(null);
+        void persistInvoice(next);
+      }} />}
       {modal === "preview" && (
         <Shell label="Invoice preview" onClose={() => setModal(null)} wide>
           <ModalHead title="Invoice preview" onClose={() => setModal(null)} />
@@ -358,13 +443,13 @@ export function Invoices({ state, actions }: { state: PortalState; actions: Port
 type Flags = { showMilestones: boolean; showTime: boolean; showRetainer: boolean; showDeposit: boolean; showRecurring: boolean };
 function FormBody(p: {
   inv: Inv; set: (v: Partial<Inv>) => void; dispatch: React.Dispatch<Action>; setDirty: (v: boolean) => void;
-  biz: BizProfile; client: InvClient | null; project: typeof PROJECTS[number] | null;
+  biz: BizProfile; client: InvClient | null; project: InvProject | null;
   applyClient: (id: string) => void; applyProject: (id: string) => void; applyBiz: (id: string) => void;
   calc: Record<string, number>; money: (n: number) => string;
   lineAmount: (i: Item) => number; expenseAmount: (e: Expense) => number; mobile: boolean;
-  openProfile: () => void; actions: PortalActions; flags: Flags;
+  clients: InvClient[]; projects: InvProject[]; actions: PortalActions; flags: Flags;
 }) {
-  const { inv, set, dispatch, biz, client, project, applyClient, applyProject, applyBiz, calc, money, lineAmount, mobile, flags, actions } = p;
+  const { inv, set, dispatch, biz, client, project, applyClient, applyProject, applyBiz, calc, money, lineAmount, mobile, flags, actions, clients, projects } = p;
   const [lineOptionsId, setLineOptionsId] = useState<string | null>(null);
   const grid2 = "display:grid;grid-template-columns:" + (mobile ? "minmax(0,1fr)" : "minmax(0,1fr) minmax(0,1fr)") + ";gap:0.6rem";
   const grid3 = "display:grid;grid-template-columns:" + (mobile ? "minmax(0,1fr)" : "repeat(3,minmax(0,1fr))") + ";gap:0.6rem";
@@ -381,9 +466,9 @@ function FormBody(p: {
           <div style={css("display:flex;gap:0.4rem;width:" + (mobile ? "100%" : "14rem") + ";max-width:100%")}>
             <select className="pt-input" aria-label="Client" value={inv.clientId} onChange={e => applyClient(e.target.value)} style={css(INPUT + ";cursor:pointer;background:var(--surface)")}>
               <option value="">Select a client…</option>
-              {CLIENTS.map(c => <option key={c.id} value={c.id}>{c.company}</option>)}
+              {clients.map(c => <option key={c.id} value={c.id}>{c.company}</option>)}
             </select>
-            <button type="button" aria-label="Add client" title="Add client" onClick={() => actions.showToast("New client form opened inline")} className="pt-iconbtn" style={css("width:2.25rem;flex-shrink:0;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--fg-muted);display:grid;place-items:center;cursor:pointer")}><Icon name="plus" size={14} /></button>
+            <button type="button" aria-label="Add client" title="Add client" onClick={() => actions.setView("clients")} className="pt-iconbtn" style={css("width:2.25rem;flex-shrink:0;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--fg-muted);display:grid;place-items:center;cursor:pointer")}><Icon name="plus" size={14} /></button>
           </div>
         </div>
         <div style={css(grid2)}>
@@ -397,7 +482,7 @@ function FormBody(p: {
           <Field label="Project (optional)">
             <select className="pt-input" aria-label="Project" value={inv.projectId} onChange={e => applyProject(e.target.value)} style={css(INPUT + ";cursor:pointer")}>
               <option value="">No project — standalone invoice</option>
-              {PROJECTS.filter(pr => !inv.clientId || pr.clientId === inv.clientId).map(pr => <option key={pr.id} value={pr.id}>{pr.name}</option>)}
+              {projects.filter(pr => !inv.clientId || pr.clientId === inv.clientId).map(pr => <option key={pr.id} value={pr.id}>{pr.name}</option>)}
             </select>
           </Field>
           <Field label="Payment terms">{sel(inv.paymentTerms, ["Due on receipt", "Net 7", "Net 14", "Net 30", "Net 45"], v => set({ paymentTerms: v }))}</Field>
@@ -410,7 +495,7 @@ function FormBody(p: {
             <Field label="Contract / proposal ref">{txt(inv.contractRef, v => set({ contractRef: v }), { ph: "Optional" })}</Field>
             <Field label="Numbering format">{sel(inv.numberFormat, NUMBER_FORMATS, v => set({ numberFormat: v, number: v.replace("YYYY", "2026").replace("MM", "07").replace(/0+1$/, "001") }))}</Field>
             <Field label="Billed by"><select className="pt-input" value={inv.businessId} onChange={e => applyBiz(e.target.value)} style={css(INPUT + ";cursor:pointer")}>{BUSINESS_PROFILES.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></Field>
-            <div style={css("display:flex;align-items:end")}><button type="button" onClick={p.openProfile} style={css(BTN_GHOST + ";width:100%;justify-content:center")}><Icon name="edit" size={12} />Edit business profile</button></div>
+            <div style={css("display:flex;align-items:end;font-size:var(--text-2xs);color:var(--fg-faint)")}>Business identity is managed in workspace settings.</div>
           </div>
         </div>
 
@@ -549,7 +634,6 @@ function FormBody(p: {
                 <input className="pt-input" type="number" value={e.markup} onChange={ev => dispatch({ t: "expense", op: "update", id: e.id, v: { markup: +ev.target.value } })} style={css(INPUT + ";padding:0.35rem 0.4rem;font-size:var(--text-xs)")} />
                 <span style={css("font-size:var(--text-sm);font-weight:500;text-align:right;white-space:nowrap")}>{money(p.expenseAmount(e))}</span>
                 <div style={css("display:flex;gap:0.15rem")}>
-                  <button type="button" title="Attach receipt" onClick={() => actions.showToast("Receipt attached")} className="pt-iconbtn" style={css("width:1.5rem;height:1.5rem;border:1px solid var(--border-soft);border-radius:0.4rem;background:transparent;color:var(--fg-muted);display:grid;place-items:center;cursor:pointer")}><Icon name="clip" size={12} /></button>
                   <button type="button" onClick={() => dispatch({ t: "expense", op: "remove", id: e.id })} className="pt-iconbtn" style={css("width:1.5rem;height:1.5rem;border:1px solid var(--border-soft);border-radius:0.4rem;background:transparent;color:var(--danger);display:grid;place-items:center;cursor:pointer")}><Icon name="x" size={12} /></button>
                 </div>
               </div>
@@ -653,7 +737,7 @@ function SavedServicePicker({ onPick }: { onPick: (s: SavedService) => void }) {
 
 // ── LIVE PREVIEW ──────────────────────────────────────────────────────────────
 function Preview({ inv, biz, client, project, calc, money, lineAmount, expenseAmount, onTemplate }: {
-  inv: Inv; biz: BizProfile; client: InvClient | null; project: typeof PROJECTS[number] | null;
+  inv: Inv; biz: BizProfile; client: InvClient | null; project: InvProject | null;
   calc: Record<string, number>; money: (n: number) => string; lineAmount: (i: Item) => number; expenseAmount: (e: Expense) => number;
   onTemplate?: (t: string) => void;
 }) {
@@ -838,7 +922,7 @@ function ModalHead({ title, onClose }: { title: string; onClose: () => void }) {
   );
 }
 
-function SendModal({ inv, client, project, calc, money, onClose, onSend }: { inv: Inv; client: InvClient | null; project: typeof PROJECTS[number] | null; calc: Record<string, number>; money: (n: number) => string; onClose: () => void; onSend: () => void }) {
+function SendModal({ inv, client, project, calc, money, onClose, onSend }: { inv: Inv; client: InvClient | null; project: InvProject | null; calc: Record<string, number>; money: (n: number) => string; onClose: () => void; onSend: () => void | Promise<void> }) {
   const [preview, setPreview] = useState(false);
   const body = "Hi " + (client?.name || "there") + ",\n\nPlease find attached invoice " + inv.number + " for " + (project?.name || "your project") + ".\n\nAmount due: " + money(calc.balance) + "\nDue date: " + inv.dueDate + "\n\nYou can pay securely via the link below. Thank you!";
   return (

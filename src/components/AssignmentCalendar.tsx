@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import type { Project, TaskAssignee, TaskStatus } from "../types";
-import { type ClientColor, clientColorFor, clientColorVars, hashId } from "../lib/projectUtils";
+import { type ClientColor, clientColorFor, clientColorVars } from "../lib/projectUtils";
 import { Panel } from "./shared";
 
 type CalendarRole = "admin" | "manager";
@@ -50,29 +50,12 @@ function dayDiff(date: Date, today: Date) {
   return Math.round((a - b) / 86400000);
 }
 
-function floraDemoDeadlineOffset(taskId: string) {
-  const demoOffsets: Record<string, number> = {
-    "m3-p1-1": 2,
-    "m3-p1-2": 5,
-    "m3-p2-1": 8,
-  };
-  return demoOffsets[taskId] ?? null;
-}
-
-// The mock data rarely carries `dueDate`, so we seed a believable one by status.
-// Deterministic per task id so the calendar is stable across renders.
-function dueDateFor(task: { id: string; dueDate?: string; status: TaskStatus }, today: Date): { date: Date; seeded: boolean } {
+function dueDateFor(task: { dueDate?: string }, today: Date): Date | null {
   if (task.dueDate) {
     const parsed = new Date(task.dueDate);
-    if (!Number.isNaN(parsed.getTime()) && dayDiff(parsed, today) > -30) return { date: parsed, seeded: false };
+    if (!Number.isNaN(parsed.getTime()) && dayDiff(parsed, today) > -30) return parsed;
   }
-  const h = hashId(task.id);
-  let offset: number;
-  // Only active human/studio work reaches this calendar, so keep it near now.
-  if (task.status === "blocked") offset = -(h % 2);
-  else if (task.status === "in_progress") offset = h % 4;
-  else offset = 1 + (h % 13);
-  return { date: addDays(new Date(today.getFullYear(), today.getMonth(), today.getDate()), offset), seeded: true };
+  return null;
 }
 
 function buildAssignments(projects: Project[], today: Date): Assignment[] {
@@ -82,7 +65,8 @@ function buildAssignments(projects: Project[], today: Date): Assignment[] {
       for (const phase of milestone.phases) {
         for (const task of phase.tasks) {
           if (task.assignee !== "human" || task.status === "complete") continue;
-          const { date } = dueDateFor(task, today);
+          const date = dueDateFor(task, today);
+          if (!date) continue;
           const clientColor = clientColorFor(project.id);
           out.push({
             id: task.id,
@@ -94,34 +78,6 @@ function buildAssignments(projects: Project[], today: Date): Assignment[] {
             milestone: `M${milestone.number} · ${milestone.title}`,
             assignee: task.assignee,
             status: task.status,
-            date,
-            clientColor,
-          });
-        }
-      }
-    }
-  }
-  for (const project of projects.filter(p => p.clientName === "Flora & Co.")) {
-    const hasOpenFloraTasks = out.some(a => a.projectId === project.id);
-    if (hasOpenFloraTasks) continue;
-    for (const milestone of project.milestones) {
-      for (const phase of milestone.phases) {
-        for (const task of phase.tasks) {
-          if (task.assignee !== "human") continue;
-          const offset = floraDemoDeadlineOffset(task.id);
-          if (offset === null) continue;
-          const date = addDays(new Date(today.getFullYear(), today.getMonth(), today.getDate()), offset);
-          const clientColor = clientColorFor(project.id);
-          out.push({
-            id: `${task.id}-flora-demo`,
-            taskId: task.id,
-            projectId: project.id,
-            title: task.title,
-            clientName: project.clientName,
-            clientInitials: project.clientInitials,
-            milestone: `M${milestone.number} · ${milestone.title}`,
-            assignee: task.assignee,
-            status: "not_started",
             date,
             clientColor,
           });

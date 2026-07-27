@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import type { LoginUser } from "@/lib/authTypes";
-import { readDevelopmentLoginEmail } from "@/lib/developmentLoginSession";
 import { resolvePortalRequestAccess } from "@/lib/portalRequestAccess";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -17,8 +16,7 @@ export async function GET(request: Request) {
   }
 
   const { data } = await supabase.auth.getUser();
-  const email = data.user?.email?.trim().toLowerCase()
-    || readDevelopmentLoginEmail(request);
+  const email = data.user?.email?.trim().toLowerCase();
   if (!email) {
     return NextResponse.json(
       { error: "Sign in to continue." },

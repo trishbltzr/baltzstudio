@@ -48,8 +48,8 @@ export async function fetchAuthenticatedDashboardUser(): Promise<LoginUser | nul
 }
 
 function inferRole(email: string): DashboardUserRole {
-  if (email === "manager@baltazarstudio.co") return "manager";
-  if (email.endsWith("@baltazarstudio.co")) return "admin";
+  if (email === "kier@baltz.studio" || email === "manager@baltz.studio") return "manager";
+  if (email === "trisha@baltz.studio" || email === "studio@baltz.studio") return "admin";
   return "client";
 }
 

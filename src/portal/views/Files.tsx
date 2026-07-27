@@ -40,9 +40,20 @@ export function Files({ state, actions }: { state: PortalState; actions: PortalA
         ))}
       </aside>
       <div style={css("display:flex;flex-direction:column;min-width:0")}>
-        <div style={css("display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);padding:1rem 1.4rem;border-bottom:1px solid var(--border-soft)")}>
+        <div style={css("display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.65rem 1rem;padding:1rem 1.4rem;border-bottom:1px solid var(--border-soft)")}>
           <span style={css("font-weight:500;font-size:var(--text-lg)")}>{active?.[1]}</span>
-          <div style={css("display:flex;gap:1.2rem;font-size:var(--text-2xs);color:var(--fg-muted)")}><span><strong style={css("color:var(--fg);font-weight:500")}>{ready}</strong> ready</span></div>
+          <div style={css("display:flex;align-items:center;gap:0.75rem;font-size:var(--text-2xs);color:var(--fg-muted)")}>
+            <span><strong style={css("color:var(--fg);font-weight:500")}>{ready}</strong> ready</span>
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              className="pt-softbtn"
+              style={css("display:inline-flex;align-items:center;justify-content:center;gap:0.4rem;min-height:2.25rem;padding:0.45rem 0.8rem;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--fg);font:inherit;font-size:var(--text-sm);font-weight:500;white-space:nowrap;cursor:pointer")}
+            >
+              <Icon name="plus" size={15} />
+              Upload files
+            </button>
+          </div>
         </div>
         <div>
           <div style={css("display:grid;grid-template-columns:2.6fr 0.7fr 0.9fr;gap:0.7rem;padding:0.55rem 1.4rem;border-bottom:1px solid var(--border-soft);font-size:var(--text-2xs);letter-spacing:0.02em;color:var(--fg-faint);font-weight:500")}>
@@ -62,13 +73,9 @@ export function Files({ state, actions }: { state: PortalState; actions: PortalA
             <div style={css("display:flex;flex-direction:column;align-items:center;text-align:center;gap:0.3rem;padding:2.4rem 1.4rem;color:var(--fg-muted)")}>
               <span style={css("width:2.6rem;height:2.6rem;border-radius:50%;background:var(--surface-alt);color:var(--fg-faint);display:grid;place-items:center;margin-bottom:0.15rem")}><Icon name="folder" size={18} /></span>
               <div style={css("font-size:var(--text-md);font-weight:500;color:var(--fg)")}>Nothing here yet</div>
-              <div style={css("font-size:var(--text-xs);color:var(--fg-faint);max-width:20rem;line-height:1.4")}>Files shared in this folder will show up here — upload one below to get started.</div>
+              <div style={css("font-size:var(--text-xs);color:var(--fg-faint);max-width:20rem;line-height:1.4")}>Files shared in this folder will show up here. Use Upload files above to get started.</div>
             </div>
           )}
-          <button type="button" onClick={() => inputRef.current?.click()} className="pt-softbtn" style={css("width:100%;border:0;text-align:left;background:transparent;color:inherit;font:inherit;display:flex;align-items:center;gap:var(--space-4);margin-top:auto;padding:1rem 1.4rem;border-top:1px solid var(--border-soft);cursor:pointer")}>
-            <span style={css("width:2.4rem;height:2.4rem;border-radius:50%;background:oklch(0.94 0.004 50);color:var(--fg-muted);display:grid;place-items:center;flex-shrink:0")}><Icon name="file" size={15} /></span>
-            <span style={css("display:block;min-width:0")}><span style={css("display:block;font-weight:500;font-size:var(--text-base)")}>Upload files or drag here</span><span style={css("display:block;font-size:var(--text-xs);color:var(--fg-faint);margin-top:0.1rem;line-height:1.4;overflow-wrap:anywhere")}>Saved to {active?.[1]} · SVG, PDF, ZIP, images, documents</span></span>
-          </button>
           <input
             ref={inputRef}
             type="file"

@@ -4,11 +4,11 @@ import { Icon } from "../icons";
 import { StatsCarousel } from "../components/StatsCarousel";
 import { SectionHeader } from "../components/SectionHeader";
 import { css, healthMap, prioColor, statusPill, STATUS_LABEL, STATUS_MAP } from "../helpers";
-import { ADMIN_STATS, ALL_PROJECTS, SVC_META, WORKLOAD } from "../data";
-import { STUDIO_CLIENTS } from "../clients";
-import { roleProjects, roleTasks } from "../selectors";
+import { SVC_META, WORKLOAD } from "../data";
+import { usePortalStudioClients } from "../usePortalStudioClients";
+import { roleTasks } from "../selectors";
 import type { PortalActions, PortalState } from "../store";
-import type { View } from "../types";
+import type { ClientProject, View } from "../types";
 
 function ov2col(mob: boolean) { return mob ? "minmax(0,1fr)" : "minmax(0,1.55fr) minmax(0,1fr)"; }
 
@@ -41,10 +41,28 @@ const MANAGER_STAT_VIEW: Record<string, View> = {
   "Inbox": "inbox",
 };
 
-const PIPELINE = (["cocoon", "wiaw", "iff"] as const).map(svc => {
-  const count = ALL_PROJECTS.filter(p => p.service === svc).length;
-  return { label: SVC_META[svc].label, color: SVC_META[svc].color, count, pct: ALL_PROJECTS.length ? Math.round((count / ALL_PROJECTS.length) * 100) : 0 };
-});
+function liveProjects(state: PortalState, clients: ReturnType<typeof usePortalStudioClients>["clients"]): ClientProject[] {
+  const visible = state.role === "client" ? clients.filter(client => client.name === state.clientName) : clients;
+  return visible.map(client => {
+    const workspace = state.clientWorkspaces[client.id];
+    const lifecycle = workspace?.serviceLifecycle;
+    const auditState = lifecycle?.auditState || "not_started";
+    const progress = auditState === "shared" ? 100 : auditState === "approved" ? 90 : auditState === "review_ready" ? 75 : auditState === "generated" ? 55 : auditState === "collecting" ? 25 : 0;
+    return {
+      id: `client-${client.id}`,
+      client: client.name,
+      name: "Client workspace",
+      service: "cocoon",
+      stage: lifecycle?.currentDevelopmentStage || (progress ? "In progress" : "Not started"),
+      progress,
+      dev: client.owner,
+      health: lifecycle?.nextRequiredAction ? "at_risk" : "on_track",
+      due: "—",
+      amount: "—",
+      wise: "awaiting",
+    };
+  });
+}
 
 const ESC_KIND: Record<string, string> = {
   danger: "background:var(--danger-soft);color:var(--danger)",
@@ -54,9 +72,22 @@ const ESC_KIND: Record<string, string> = {
 
 // Admin service-pipeline snapshot used by the Progress header.
 export function AdminPipeline({ state, actions }: { state: PortalState; actions: PortalActions }) {
+  const { clients } = usePortalStudioClients();
+  const total = clients.length;
+  const serviceCounts = {
+    cocoon: clients.filter(client => Boolean(state.clientWorkspaces[client.id]?.brandAudit)).length,
+    wiaw: clients.filter(client => (state.clientWorkspaces[client.id]?.funnelPlans.length || 0) > 0).length,
+    iff: clients.filter(client => Boolean(state.clientWorkspaces[client.id]?.engineWork.socialBuilder)).length,
+  };
+  const pipeline = (["cocoon", "wiaw", "iff"] as const).map(service => ({
+    label: SVC_META[service].label,
+    color: SVC_META[service].color,
+    count: serviceCounts[service],
+    pct: total ? Math.round((serviceCounts[service] / total) * 100) : 0,
+  }));
   return (
     <div style={css("display:grid;grid-template-columns:" + (state.isMobile ? "minmax(0,1fr)" : "repeat(3,minmax(0,1fr))") + ";gap:0.55rem")}>
-      {PIPELINE.map(pl => (
+      {pipeline.map(pl => (
         <button key={pl.label} type="button" onClick={() => actions.setView("clients")} className="pt-card-soft" style={css("width:100%;text-align:left;font-family:inherit;padding:0.85rem 1rem;border-radius:var(--radius-panel);background:var(--surface);border:1px solid var(--border-soft);cursor:pointer")}>
           <div style={css("display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem")}>
             <span style={css("display:inline-flex;align-items:center;gap:0.4rem;font-size:var(--text-base);font-weight:500")}><span style={css("width:0.6rem;height:0.6rem;border-radius:50%;background:" + pl.color)} />{pl.label}</span>
@@ -70,10 +101,18 @@ export function AdminPipeline({ state, actions }: { state: PortalState; actions:
 }
 
 // Admin snapshot stat cards used by the Progress header.
-export function AdminStats({ actions }: { actions: PortalActions }) {
+export function AdminStats({ state, actions }: { state: PortalState; actions: PortalActions }) {
+  const { clients } = usePortalStudioClients();
+  const stats = [
+    { label: "Clients", value: String(clients.length), icon: "briefcase", tint: "var(--accent-soft)", color: "var(--accent)" },
+    { label: "To-do's", value: String(state.tasks.filter(task => task.status !== "done").length), icon: "checklist", tint: "var(--lane-gate-soft)", color: "var(--lane-gate)" },
+    { label: "Checkups", value: String(clients.filter(client => Boolean(state.clientWorkspaces[client.id]?.brandAudit || state.clientWorkspaces[client.id]?.engineWork.websiteAudit || state.clientWorkspaces[client.id]?.engineWork.seoAudit)).length), icon: "audit", tint: "var(--success-soft)", color: "var(--success)" },
+    { label: "Labs", value: String(clients.filter(client => (state.clientWorkspaces[client.id]?.funnelPlans.length || 0) > 0).length), icon: "flask", tint: "var(--lane-ai-soft)", color: "var(--lane-ai)" },
+    { label: "Inbox", value: String(state.threads.filter(thread => thread.unread > 0).length), icon: "inbox", tint: "var(--danger-soft)", color: "var(--danger)" },
+  ];
   return (
     <StatsCarousel>
-      {ADMIN_STATS.map(s => (
+      {stats.map(s => (
         <button key={s.label} type="button" onClick={() => actions.setView(ADMIN_STAT_VIEW[s.label] || "clients")} className="pt-card-soft" style={css("width:100%;text-align:left;font-family:inherit;padding:0.85rem;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface);display:flex;align-items:center;gap:0.7rem;cursor:pointer")}>
           <span style={css("width:2.2rem;height:2.2rem;display:grid;place-items:center;border-radius:50%;background:" + s.tint + ";color:" + s.color + ";flex-shrink:0")}><Icon name={s.icon} size={15} /></span>
           <div style={{ minWidth: 0, flex: 1 }}>
@@ -87,13 +126,14 @@ export function AdminStats({ actions }: { actions: PortalActions }) {
 }
 
 export function AdminProgressBody({ state, actions, hideStats = false }: { state: PortalState; actions: PortalActions; hideStats?: boolean }) {
-  const projects = roleProjects(state);
+  const { clients } = usePortalStudioClients();
+  const projects = liveProjects(state, clients);
   const escOpen = state.escalations.filter(e => !e.resolved).slice(0, 3);
   const visibleWorkload = WORKLOAD.filter(member => member.name !== "Kier Mangibin");
 
   return (
     <div style={css("display:flex;flex-direction:column;gap:0.85rem")}>
-      {!hideStats && <AdminStats actions={actions} />}
+      {!hideStats && <AdminStats state={state} actions={actions} />}
       {!hideStats && <AdminPipeline state={state} actions={actions} />}
 
       {/* 2-col */}
@@ -120,15 +160,7 @@ export function AdminProgressBody({ state, actions, hideStats = false }: { state
                   </div>
                 );
               })}
-              {projects.length === 0 && STUDIO_CLIENTS.map(client => (
-                <div key={client.id} style={css("box-sizing:border-box;min-height:3.85rem;display:grid;grid-template-columns:2rem minmax(6rem,1fr) 8.5rem 6rem 4.75rem;gap:0.7rem;align-items:center;padding:0.7rem 1.1rem;border-bottom:1px solid var(--border-soft)")}>
-                  <span style={css("width:2rem;height:2rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:var(--text-xs);font-weight:500")}>{client.name[0]}</span>
-                  <div style={{ minWidth: 0 }}><div style={css("font-weight:500;font-size:var(--text-base);overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{client.name}</div><div style={css("font-size:var(--text-2xs);color:var(--fg-muted)")}>No active project</div></div>
-                  <span style={css("font-size:var(--text-sm);color:var(--fg-faint)")}>Unassigned</span>
-                  <div style={css("height:0.35rem;border-radius:999px;background:oklch(0.94 0.006 50)")} />
-                  <span style={css(statusPill("muted"))}>Not started</span>
-                </div>
-              ))}
+              {projects.length === 0 && <div style={css("padding:1.5rem 1rem;text-align:center;color:var(--fg-faint);font-size:var(--text-xs)")}>No clients yet.</div>}
             </div>
           </div>
         </div>
@@ -176,8 +208,9 @@ export function AdminProgressBody({ state, actions, hideStats = false }: { state
 
 // Dev/manager snapshot stat cards used by the Progress header.
 export function ManagerStats({ state, actions }: { state: PortalState; actions: PortalActions }) {
+  const { clients } = usePortalStudioClients();
   const myOpen = state.tasks.filter(t => t.assignee === "Kier Mangibin" && t.status !== "done").length;
-  const myClients = roleProjects(state).length;
+  const myClients = clients.length;
   const awaitingApprovals = state.tasks.filter(t => t.assignee === "Kier Mangibin" && t.status === "review").length;
   const assignedUnread = state.threads.filter(thread => thread.assignee === "Kier Mangibin" && thread.unread > 0).length;
   const mgrStats = [
@@ -205,7 +238,8 @@ export function ManagerStats({ state, actions }: { state: PortalState; actions: 
 
 // Dev pipeline — assigned clients as progress cards (mirrors AdminPipeline).
 export function ManagerPipeline({ state, actions }: { state: PortalState; actions: PortalActions }) {
-  const projects = roleProjects(state).slice(0, 3);
+  const { clients } = usePortalStudioClients();
+  const projects = liveProjects(state, clients).slice(0, 3);
   return (
     <div style={css("display:grid;grid-template-columns:" + (state.isMobile ? "minmax(0,1fr)" : "repeat(3,minmax(0,1fr))") + ";gap:0.55rem")}>
       {projects.map(p => {
@@ -225,8 +259,13 @@ export function ManagerPipeline({ state, actions }: { state: PortalState; action
 }
 
 export function ManagerProgressBody({ state, actions, hideStats = false }: { state: PortalState; actions: PortalActions; hideStats?: boolean }) {
-  const projects = roleProjects(state);
+  const { clients } = usePortalStudioClients();
+  const projects = liveProjects(state, clients);
   const myDue = roleTasks(state).filter(t => t.status !== "done").slice(0, 5);
+  const visibleClientIds = new Set(clients.map(client => client.id));
+  const pendingApprovalCount = Object.entries(state.clientWorkspaces)
+    .filter(([clientId]) => visibleClientIds.has(clientId))
+    .reduce((total, [, workspace]) => total + workspace.approvals.filter(approval => !approval.sent).length, 0);
 
   return (
     <div style={css("display:flex;flex-direction:column;gap:0.85rem")}>
@@ -270,11 +309,11 @@ export function ManagerProgressBody({ state, actions, hideStats = false }: { sta
             {projects.length === 0 && <div style={css("padding:1.5rem 1rem;text-align:center;color:var(--fg-faint);font-size:var(--text-xs)")}>No assigned clients yet.</div>}
             </div>
           </div>
-          <div style={css("position:relative;overflow:hidden;border-radius:var(--radius-panel);background:oklch(0.985 0.012 22);padding:1rem 1.1rem;box-shadow:inset 0 0 0 1px oklch(0.88 0.04 20 / 0.32)")}>
+          {pendingApprovalCount > 0 && <div style={css("position:relative;overflow:hidden;border-radius:var(--radius-panel);background:oklch(0.985 0.012 22);padding:1rem 1.1rem;box-shadow:inset 0 0 0 1px oklch(0.88 0.04 20 / 0.32)")}>
             <div style={css("display:flex;align-items:center;gap:0.45rem;color:var(--accent);margin-bottom:0.35rem")}><Icon name="clock" size={16} /><span style={css("font-weight:500;font-size:var(--text-md)")}>Awaiting Client</span></div>
-            <p style={css("margin:0 0 0.75rem;font-size:var(--text-sm);color:var(--fg-muted);line-height:1.45")}>2 approvals are sitting with clients. Nudge them or escalate to keep delivery on schedule.</p>
+            <p style={css("margin:0 0 0.75rem;font-size:var(--text-sm);color:var(--fg-muted);line-height:1.45")}>{pendingApprovalCount} approval{pendingApprovalCount === 1 ? " is" : "s are"} waiting for a client decision.</p>
             <button onClick={() => actions.setView("review")} style={css("width:100%;height:2rem;border-radius:var(--radius-pill);border:none;background:var(--accent);color:#fff;font-weight:500;font-size:var(--text-sm);cursor:pointer")}>Open approvals</button>
-          </div>
+          </div>}
         </div>
       </div>
     </div>

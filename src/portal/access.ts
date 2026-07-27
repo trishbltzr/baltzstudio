@@ -1,6 +1,5 @@
 import { getProcessDefinition, type ProcessId } from "./processDefinitions";
-import { STUDIO_CLIENTS } from "./clients";
-import { mergePortalClientWorkspace, type PortalClientWorkspace } from "../lib/portalWorkspacePersistence";
+import { mergePortalClientWorkspace, portalClientId, type PortalClientWorkspace } from "../lib/portalWorkspacePersistence";
 import type { ClientProject, Role, View } from "./types";
 
 export type ClientAccessTier = "standard" | "collaborative" | "iff";
@@ -49,9 +48,9 @@ export function clientAccessTier(state: PortalAccessState): ClientAccessTier {
 }
 
 function accessWorkspace(state: PortalAccessState): PortalClientWorkspace | null {
-  const client = STUDIO_CLIENTS.find(item => item.name === state.clientName);
-  if (!client || !state.clientWorkspaces) return null;
-  return mergePortalClientWorkspace(client.id, state.clientWorkspaces[client.id]);
+  if (!state.clientName || !state.clientWorkspaces) return null;
+  const clientId = portalClientId(state.clientName);
+  return mergePortalClientWorkspace(clientId, state.clientWorkspaces[clientId]);
 }
 
 function handoffIsInUse(workspace: PortalClientWorkspace, handoffId: string) {

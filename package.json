@@ -11,11 +11,10 @@
     "lint": "tsc --noEmit",
     "eval:agent": "NODE_OPTIONS=--conditions=react-server tsx scripts/eval-governed-agent.ts",
     "smoke:agent": "NODE_OPTIONS=--conditions=react-server tsx scripts/smoke-governed-agent.ts",
-    "smoke:engines": "node scripts/smoke-portal-engines.mjs",
-    "smoke:mobile": "node scripts/smoke-portal-mobile.mjs",
     "backup:production": "node scripts/export-production-recovery.mjs",
     "verify:production-backup": "node scripts/verify-production-recovery.mjs",
     "verify:supabase-hardening": "node scripts/verify-legacy-portal-hardening.mjs",
+    "verify:mvp": "node scripts/verify-mvp-readiness.mjs",
     "test:notifications": "tsx scripts/test-portal-notifications.ts",
     "test:workflow": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-service-workflow.ts",
     "test:shadow": "NODE_OPTIONS=--conditions=react-server tsx scripts/test-shadow-projection.ts"

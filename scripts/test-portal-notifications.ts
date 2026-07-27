@@ -32,20 +32,19 @@ import { applyTaskStatusLifecycle, initializeTaskLifecycle } from "../src/lib/po
 import { taskOwnerLabel } from "../src/portal/helpers";
 import { DEFAULT_PORTAL_NOTIFICATION_PREFERENCES, type Task } from "../src/portal/types";
 import { portalNotificationEvents, portalNotificationSummary, specificTaskCompletionEvent, type PortalNotificationState } from "../src/portal/selectors";
-import { createCreatorIqWebsiteAuditDraft } from "../src/lib/creatorIqDemoWorkspace";
-import { projectPersistedAuditDraftForClient } from "../src/lib/portalAuditPersistence";
-import { PORTAL_LIFECYCLE_DEMO_FIXTURES, PORTAL_NOTIFICATION_DEMO_TASKS } from "../src/portal/demoFixtures";
+import { projectPersistedAuditDraftForClient, type PersistedAuditDraft } from "../src/lib/portalAuditPersistence";
+import { PORTAL_LIFECYCLE_TEST_FIXTURES, PORTAL_NOTIFICATION_TEST_TASKS } from "../src/portal/testFixtures";
 
 assert.deepEqual(
-  PORTAL_LIFECYCLE_DEMO_FIXTURES.map(fixture => fixture.id),
+  PORTAL_LIFECYCLE_TEST_FIXTURES.map(fixture => fixture.id),
   ["cocoon-intake", "paid-cocoon", "wiaw-active", "iff-active", "deleted"],
 );
 assert.equal(
-  specificTaskCompletionEvent(PORTAL_NOTIFICATION_DEMO_TASKS[0], "client")?.recipientRoles.includes("client"),
+  specificTaskCompletionEvent(PORTAL_NOTIFICATION_TEST_TASKS[0], "client")?.recipientRoles.includes("client"),
   true,
 );
 assert.equal(
-  specificTaskCompletionEvent(PORTAL_NOTIFICATION_DEMO_TASKS[1], "admin")?.recipientRoles.includes("studio_admin"),
+  specificTaskCompletionEvent(PORTAL_NOTIFICATION_TEST_TASKS[1], "admin")?.recipientRoles.includes("studio_admin"),
   true,
 );
 
@@ -386,7 +385,7 @@ const fullWorkspaceState: PersistedPortalWorkspaceState = {
   dataVersion: PORTAL_WORKSPACE_DATA_VERSION,
   tasks: [
     { id: "blue-task", project: "Blue Ribbon" },
-    { id: "other-task", project: "CreatorIQ" },
+    { id: "other-task", project: "Other Client" },
   ],
   journeyGates: [
     { id: "generic-gate", title: "Shared template gate" },
@@ -395,22 +394,22 @@ const fullWorkspaceState: PersistedPortalWorkspaceState = {
   ],
   threads: [
     { id: "blue-thread", clientName: "Blue Ribbon" },
-    { id: "other-thread", clientName: "CreatorIQ" },
+    { id: "other-thread", clientName: "Other Client" },
   ],
   escalations: [
     { id: "blue-escalation", client: "Blue Ribbon" },
-    { id: "other-escalation", client: "CreatorIQ" },
+    { id: "other-escalation", client: "Other Client" },
   ],
   ticketSeq: 4,
   clientWorkspaces: {
     "blue-ribbon": privateWorkspace,
-    "creator-iq": emptyPortalClientWorkspace("creator-iq"),
+    "other-client": emptyPortalClientWorkspace("other-client"),
   },
   progressChatSessions: [{ id: "internal-chat" }],
   activeProgressChatId: "internal-chat",
   projectOverrides: {
     "Blue Ribbon": { client: "Blue Ribbon" },
-    CreatorIQ: { client: "CreatorIQ" },
+    "Other Client": { client: "Other Client" },
   },
   notificationReadIds: ["staff-notification"],
   notificationPreferences: DEFAULT_PORTAL_NOTIFICATION_PREFERENCES,
@@ -457,7 +456,48 @@ const sentPaymentProjection = projectPersistedPortalWorkspaceStateForClient({
 assert.equal(sentPaymentProjection.wisePaymentEmailSubject, "Your Cocoon Consult payment details");
 assert.equal(sentPaymentProjection.wisePaymentEmailBody?.includes("{client_name}"), true);
 assert.equal(sentPaymentProjection.paymentConfirmationReference, undefined);
-const projectedAuditDraft = projectPersistedAuditDraftForClient(createCreatorIqWebsiteAuditDraft());
+const projectedAuditDraft = projectPersistedAuditDraftForClient({
+  run: {
+    id: "audit-projection-test",
+    clientId: "blue-ribbon",
+    clientName: "Blue Ribbon",
+    owner: "Studio",
+    subtitle: "Website audit",
+    statusLabel: "Review needed",
+    statusTone: "warn",
+    stage: "Report",
+    progress: 100,
+    score: 72,
+    internalScore: 72,
+    due: "—",
+  },
+  state: {
+    clientId: "blue-ribbon",
+    buildId: "audit-projection-test",
+    idx: 0,
+    answers: {},
+    unsure: {},
+    confirmed: {},
+    signed: {},
+    notes: { internal: "Private" },
+    genDone: { report: true },
+    report: {} as PersistedAuditDraft["state"]["report"],
+    guidedSession: {
+      entered: true,
+      introReveal: 0,
+      data: {},
+      qIdx: 0,
+      questionTotal: 0,
+      draft: "",
+      stage: 0,
+      approved: {},
+      proposal: false,
+      memoryResolved: true,
+      aiResults: {},
+    },
+  },
+  updatedAt: "2026-07-24T08:00:00.000Z",
+});
 assert.equal(projectedAuditDraft.run.score, undefined);
 assert.equal(projectedAuditDraft.run.internalScore, undefined);
 assert.equal(projectedAuditDraft.state.report, undefined);

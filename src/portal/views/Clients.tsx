@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Icon } from "../icons";
 import { css, displayPortalIdentity, healthMap, initials, statusPill, svcBadge } from "../helpers";
 import { SVC_META } from "../data";
-import { clientsVisibleToRole } from "../clients";
 import { roleProjects } from "../selectors";
 import { FilterDropdown } from "../components/FilterDropdown";
 import type { PortalActions, PortalState } from "../store";
@@ -15,6 +14,7 @@ const SVC_LABELS: [string, string][] = [["all", "All Services"], ["cocoon", "Coc
 export function Clients({ state, actions }: { state: PortalState; actions: PortalActions }) {
   const [normalizedClients, setNormalizedClients] = useState<Array<{
     id: string;
+    slug: string;
     name: string;
     source_kind: string;
     status: string;
@@ -26,7 +26,7 @@ export function Clients({ state, actions }: { state: PortalState; actions: Porta
     let active = true;
     void fetch("/api/portal-clients", { cache: "no-store" })
       .then(async response => response.ok ? response.json() : null)
-      .then((result: { clients?: Array<{ id: string; name: string; source_kind: string; status: string }> } | null) => {
+      .then((result: { clients?: Array<{ id: string; slug: string; name: string; source_kind: string; status: string }> } | null) => {
         if (active && result?.clients) setNormalizedClients(result.clients);
       })
       .catch(() => undefined);
@@ -36,24 +36,15 @@ export function Clients({ state, actions }: { state: PortalState; actions: Porta
   }, []);
 
   const roster = useMemo(() => {
-    const seeded = clientsVisibleToRole(state.role, state.clientName).map(client => ({
-      id: client.id,
-      name: client.name,
-      owner: client.owner,
-      normalized: false,
-    }));
-    const existingNames = new Set(seeded.map(client => client.name.toLocaleLowerCase()));
-    const durable = normalizedClients
-      .filter(client => client.status !== "archived")
-      .filter(client => !existingNames.has(client.name.toLocaleLowerCase()))
+    return normalizedClients
+      .filter(client => client.status !== "archived" && client.source_kind !== "demo" && !/^demo(?:-|$)/i.test(client.slug))
       .map(client => ({
         id: client.id,
         name: client.name,
         owner: "Studio team",
         normalized: true,
       }));
-    return [...durable, ...seeded];
-  }, [normalizedClients, state.clientName, state.role]);
+  }, [normalizedClients]);
   const projectRows = roster
     .map(client => {
       const project = projects.find(item => item.client === client.name);
@@ -129,7 +120,7 @@ export function Clients({ state, actions }: { state: PortalState; actions: Porta
                   <span style={css("width:1.95rem;height:1.95rem;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:500;font-size:var(--text-sm);flex-shrink:0")}>{p.client[0]}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={css("font-weight:500;font-size:var(--text-md);overflow:hidden;text-overflow:ellipsis;white-space:nowrap")}>{p.client}</div>
-                    <div style={css("font-size:var(--text-2xs);color:var(--fg-muted)")}>{isNormalized ? "Production client · normalized" : p.name}</div>
+                    {!isNormalized && <div style={css("font-size:var(--text-2xs);color:var(--fg-muted)")}>{p.name}</div>}
                   </div>
                   <span style={css(statusPill(hm[0]))}>{hm[1]}</span>
                 </div>

@@ -1,7 +1,19 @@
 export const COPYWRITING_AGENT_ID = "copywriting.conversion-copywriter";
-export const COPYWRITING_AGENT_VERSION = "2026.07.25.1";
+export const COPYWRITING_AGENT_VERSION = "2026.07.27.1";
 
 export type CopywritingChannel = "funnel" | "website" | "social";
+
+export const FUNNEL_COPY_BUDGETS = {
+  hero: { headingWords: 8, bodyWords: 18, bulletCount: 0, bulletWords: 0, ctaWords: 4 },
+  problem: { headingWords: 7, bodyWords: 20, bulletCount: 2, bulletWords: 9, ctaWords: 0 },
+  benefit: { headingWords: 7, bodyWords: 18, bulletCount: 3, bulletWords: 9, ctaWords: 0 },
+  solution: { headingWords: 7, bodyWords: 20, bulletCount: 3, bulletWords: 9, ctaWords: 0 },
+  differentiation: { headingWords: 7, bodyWords: 20, bulletCount: 3, bulletWords: 9, ctaWords: 0 },
+  proof: { headingWords: 7, bodyWords: 20, bulletCount: 2, bulletWords: 10, ctaWords: 0 },
+  objections: { headingWords: 7, bodyWords: 18, bulletCount: 3, bulletWords: 10, ctaWords: 0 },
+  faq: { headingWords: 7, bodyWords: 16, bulletCount: 4, bulletWords: 10, ctaWords: 0 },
+  cta: { headingWords: 7, bodyWords: 16, bulletCount: 0, bulletWords: 0, ctaWords: 4 },
+} as const;
 
 const PROFESSIONAL_COPY_STANDARD = [
   "Write for the intended audience and lead with the useful buyer outcome.",
@@ -20,6 +32,10 @@ const CHANNEL_STANDARD: Record<CopywritingChannel, string[]> = {
     "Preserve the approved conversion journey and fixed Funnel section order.",
     "Match message depth to audience awareness and move every section toward the same primary action.",
     "Fit the copy to its component budget; revise the copy rather than hiding overflow or shrinking type.",
+    "Use these maximum word budgets: hero 8-word heading and 18-word support; every later heading 7 words; section bodies 16-20 words; bullets 9-10 words; CTA 2-4 words.",
+    "Provide exactly three cards for the benefit, solution, differentiation, and objections sections, and exactly four buyer questions for FAQ — never fewer, so card grids stay balanced with no orphaned or empty cell.",
+    "Write every card as a complete, self-contained phrase in the 7-10 word range (never a single word, sentence fragment, or trailing ellipsis), and keep the cards in a section parallel in length and grammatical shape so the row reads as an intentional set.",
+    "Give each card a distinct point that fits its section's job — benefit cards name concrete gains, differentiation cards contrast this approach with the familiar alternative, objection cards each answer one specific worry. Never reuse process-step or how-it-works phrasing inside these sections.",
   ],
   website: [
     "Keep each page specific to its approved purpose, audience question, search intent when supplied, and primary action.",

@@ -5,15 +5,16 @@ import type { PortalActions, PortalState } from "../store";
 import { Funnels } from "../funnels/Funnels";
 import { WebsiteBuilder } from "./WebsiteBuilder";
 import { SocialMediaBuilder } from "./SocialMediaBuilder";
+import { readPortalLocationParams, replacePortalLocation } from "../routes";
 
 export function Builders({ state, actions, userEmail }: { state: PortalState; actions: PortalActions; userEmail: string }) {
   useEffect(() => {
     if (!state.hydrated) return;
-    const params = new URLSearchParams(window.location.search);
+    const params = readPortalLocationParams();
     params.set("view", "funnels");
     params.set("builderType", state.builderType);
     params.delete("auditType");
-    window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+    replacePortalLocation(params);
   }, [state.builderType, state.hydrated]);
   if (state.builderType === "social") return <SocialMediaBuilder state={state} actions={actions} />;
   if (state.builderType === "website") return <WebsiteBuilder state={state} actions={actions} />;

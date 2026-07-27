@@ -5,7 +5,7 @@ import type { Role, View } from "./types";
 export interface NavItemMeta {
   label: string;
   icon: string;
-  badge?: "Demo";
+  badge?: string;
 }
 
 export interface NavSection {
@@ -18,9 +18,9 @@ export const NAV_ITEM_META = {
   clients: { label: "Clients", icon: "briefcase" },
   tasks: { label: "To-do's", icon: "checklist" },
   review: { label: "Approvals", icon: "flag" },
-  audits_new: { label: "Checkups", icon: "audit", badge: "Demo" },
-  audit: { label: "Checkups", icon: "audit", badge: "Demo" },
-  funnels: { label: "Labs", icon: "flask", badge: "Demo" },
+  audits_new: { label: "Checkups", icon: "audit" },
+  audit: { label: "Checkups", icon: "audit" },
+  funnels: { label: "Labs", icon: "flask" },
   inbox: { label: "Inbox", icon: "inbox" },
   activity: { label: "Activity", icon: "activity" },
   team: { label: "Team", icon: "users" },

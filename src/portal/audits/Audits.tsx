@@ -6,7 +6,7 @@ import { css } from "../helpers";
 import { printReportNode } from "../printReport";
 import { Icon } from "../icons";
 import type { PortalActions, PortalState } from "../store";
-import { clientsVisibleToRole, STUDIO_CLIENTS, type StudioClient } from "../clients";
+import type { StudioClient } from "../clients";
 import { GuidedIntakeSelector } from "../components/GuidedIntakeSelector";
 import { EngineIndexControls } from "../components/EngineIndexControls";
 import { EngineIndexOverview } from "../components/EngineIndexOverview";
@@ -17,7 +17,7 @@ import { DiscoveryBuilder } from "../discovery/DiscoveryBuilder";
 import { fromClientMemory, getKnowledge, loadPersistedKnowledge, recordKnowledge, rememberKnowledge, replaceKnowledge, mergeKnow, type Know } from "../discovery/knowledge";
 import { AuditReportFooter } from "../components/AuditReportFooter";
 import { portalApprovalOutput } from "@/lib/portalApprovalOutput";
-import { AUDIT_WIZARD, AUDIT_STAGES, AUDIT_INTRO_STEPS, AUDIT_DEMO } from "../discovery/discoveryData";
+import { AUDIT_WIZARD, AUDIT_STAGES, AUDIT_INTRO_STEPS } from "../discovery/discoveryData";
 import { AUDIT_PIPELINE, auditScoreToDocs } from "../discovery/auditPipeline";
 import type { CatBar } from "../components/AuditCharts";
 import { AuditCardScoreSkeleton } from "../components/AuditCardScoreSkeleton";
@@ -29,6 +29,8 @@ import { createPortalProcessHandoff, portalProcessHandoffPages, portalProcessHan
 import { clientHasEngineAccess, portalCapabilities } from "../access";
 import { normalizePortalAuditExportProfile } from "@/lib/portalWorkspacePersistence";
 import { durableCheckupCard, durableRunProgress, useDurableCheckupRuns } from "./durableCheckupRuns";
+import { readPortalLocationParams, replacePortalLocation } from "../routes";
+import { usePortalStudioClients } from "../usePortalStudioClients";
 type Ans = Record<string, string | string[]>;
 
 type AuditRun = PersistedAuditRun;
@@ -113,48 +115,49 @@ function latestCompletedRun(runs: AuditRun[]) {
     .sort((left, right) => auditRunDate(right).localeCompare(auditRunDate(left)))[0] || null;
 }
 
-async function fetchAuditDrafts(clientId: string | undefined, runId: string | undefined, userEmail: string, includeCreatorIqDemo = false) {
+const auditDraftRequests = new Map<string, Promise<PersistedAuditDraft[]>>();
+
+async function fetchAuditDrafts(
+  clientId: string | undefined,
+  runId: string | undefined,
+  userEmail: string,
+  mode: "summary" | "detail" = "detail",
+) {
   const params = new URLSearchParams();
   if (clientId) params.set("clientId", clientId);
   if (runId) params.set("runId", runId);
-  if (includeCreatorIqDemo) params.set("includeDemo", "creator-iq");
+  if (mode === "summary") params.set("mode", "summary");
   const query = params.size ? `?${params.toString()}` : "";
-  const response = await fetch(`/api/portal-audit-runs${query}`, {
-    cache: "no-store",
-    headers: { [DASHBOARD_USER_EMAIL_HEADER]: userEmail },
-  });
-  const payload = await response.json().catch(() => null);
+  const requestKey = `${userEmail.toLowerCase()}|${query}`;
+  const pending = auditDraftRequests.get(requestKey);
+  if (pending) return pending;
 
-  if (!response.ok) {
-    throw new Error(typeof payload?.error === "string" ? payload.error : "Unable to load audit drafts.");
+  const request = (async () => {
+    const response = await fetch(`/api/portal-audit-runs${query}`, {
+      cache: "no-store",
+      headers: { [DASHBOARD_USER_EMAIL_HEADER]: userEmail },
+    });
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(typeof payload?.error === "string" ? payload.error : "Unable to load audit drafts.");
+    }
+
+    return coercePersistedAuditDrafts(payload?.drafts);
+  })();
+  auditDraftRequests.set(requestKey, request);
+  try {
+    return await request;
+  } finally {
+    auditDraftRequests.delete(requestKey);
   }
-
-  return coercePersistedAuditDrafts(payload?.drafts);
-}
-
-function seedAuditRuns(): AuditRun[] {
-  return STUDIO_CLIENTS.map(client => {
-    const complete = client.audit.progress >= 100;
-    return {
-      ...client.audit,
-      clientId: client.id,
-      clientName: client.name,
-      owner: client.owner,
-      runLabel: complete ? "Baseline audit" : client.audit.progress > 0 ? "Audit in progress" : "Not started",
-      runType: "baseline",
-      sequence: 1,
-      score: undefined,
-      targetScore: undefined,
-      completedAt: complete ? client.audit.due : undefined,
-      updatedAt: client.audit.due,
-    };
-  });
 }
 
 export function Audits({ state, actions, userEmail }: { state: PortalState; actions: PortalActions; userEmail: string }) {
   const [s, dispatch] = useReducer(reducer, init);
   const [drafts, setDrafts] = useState<PersistedAuditDraft[]>([]);
   const draftsRef = useRef<PersistedAuditDraft[]>([]);
+  const detailedRunIdsRef = useRef(new Set<string>());
   const checkSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const allDraftsCacheRef = useRef<PersistedAuditDraft[] | null>(null);
   const draftsScopeRef = useRef<"all" | string>("all");
@@ -165,24 +168,23 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
   const [reportProposalOpen, setReportProposalOpen] = useState(false);
   const [proposalIffOn, setProposalIffOn] = useState(false);
   const [resetAuditClientId, setResetAuditClientId] = useState<string | null>(null);
-  const [resettingAudit, setResettingAudit] = useState(false);
+  const [resettingAuditAction, setResettingAuditAction] = useState<"archive" | "delete" | null>(null);
   const [resetAuditError, setResetAuditError] = useState<string | null>(null);
+  const resettingAudit = resettingAuditAction !== null;
   const [quickKnow, setQuickKnow] = useState<Know>({ data: {}, sources: {} });
   const durableWebsiteRuns = useDurableCheckupRuns("website", state.role, state.clientName);
+  const { clients: portalClients } = usePortalStudioClients();
   const capabilities = portalCapabilities(state);
   const canManageStudioWork = capabilities.canApproveStudioWork;
   const canOpenLabs = clientHasEngineAccess(state, "labs");
-  const creatorIqDemoMode = state.hydrated
-    && typeof window !== "undefined"
-    && new URLSearchParams(window.location.search).get("demo") === "creator-iq";
   useEffect(() => { setQuickKnow(s.clientId ? loadPersistedKnowledge(s.clientId) : { data: {}, sources: {} }); }, [s.clientId]);
-  const allClients = useMemo(() => clientsVisibleToRole(state.role, state.clientName), [state.clientName, state.role]);
+  const allClients = portalClients;
   const workingClients = useMemo(() => clientsForEngineWork(state.role, allClients), [allClients, state.role]);
   const assignedClientIds = useMemo(() => new Set(allClients.map(item => item.id)), [allClients]);
   const knownClientIds = useMemo(() => new Set(workingClients.map(item => item.id)), [workingClients]);
   const currentDrafts = useMemo(() => drafts.filter(draft => knownClientIds.has(draft.run.clientId)), [drafts, knownClientIds]);
   draftsRef.current = drafts;
-  const runs = useMemo(() => mergeAuditRuns(seedAuditRuns(), currentDrafts).filter(item => knownClientIds.has(item.clientId)), [currentDrafts, knownClientIds]);
+  const runs = useMemo(() => mergeAuditRuns([], currentDrafts).filter(item => knownClientIds.has(item.clientId)), [currentDrafts, knownClientIds]);
   const draftsByRunId = useMemo(() => new Map(currentDrafts.map(draft => [draft.run.id, draft])), [currentDrafts]);
   const initiatedRuns = useMemo(() => runs.filter(item => item.progress > 0 || draftsByRunId.has(item.id)), [draftsByRunId, runs]);
   const client = workingClients.find(c => c.id === s.clientId) || null;
@@ -241,9 +243,9 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
 
   useEffect(() => {
     if (!state.hydrated) return;
-    const params = new URLSearchParams(window.location.search);
+    const params = readPortalLocationParams();
     params.set("auditType", state.auditType);
-    window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+    replacePortalLocation(params);
   }, [state.auditType, state.hydrated]);
 
   useEffect(() => {
@@ -251,24 +253,22 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
 
     async function loadDrafts() {
       try {
-        const params = new URLSearchParams(window.location.search);
+        const params = readPortalLocationParams();
         const requestedClientId = params.get("auditReport") || undefined;
         const requestedRunId = params.get("auditReportRun") || undefined;
-        const includeCreatorIqDemo = params.get("demo") === "creator-iq";
-        const nextDrafts = await fetchAuditDrafts(requestedClientId, requestedRunId, userEmail, includeCreatorIqDemo);
+        const detailRequested = !!requestedClientId || !!requestedRunId;
+        const nextDrafts = await fetchAuditDrafts(
+          requestedClientId,
+          requestedRunId,
+          userEmail,
+          detailRequested ? "detail" : "summary",
+        );
 
         if (!cancelled) {
           draftsScopeRef.current = requestedRunId || requestedClientId || "all";
+          if (detailRequested) nextDrafts.forEach(draft => detailedRunIdsRef.current.add(draft.run.id));
           setDrafts(nextDrafts);
-          if (!requestedClientId) allDraftsCacheRef.current = nextDrafts;
-        }
-
-        if (requestedClientId) {
-          void fetchAuditDrafts(undefined, undefined, userEmail, includeCreatorIqDemo).then(allDrafts => {
-            allDraftsCacheRef.current = allDrafts;
-          }).catch(error => {
-            console.error("Unable to warm the audit index.", error);
-          });
+          if (!detailRequested) allDraftsCacheRef.current = nextDrafts;
         }
       } catch (error) {
         console.error("Unable to load persisted audit drafts.", error);
@@ -288,7 +288,7 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
     if (!draftsLoaded || restoredFromUrl.current) return;
 
     restoredFromUrl.current = true;
-    const params = new URLSearchParams(window.location.search);
+    const params = readPortalLocationParams();
     const auditRunId = params.get("auditRun");
     const auditReportClientId = params.get("auditReport");
     const auditReportRunId = params.get("auditReportRun");
@@ -336,13 +336,12 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
     const savedRun = savedDraft?.run ?? runs.find(item => item.id === auditRunId) ?? null;
 
     if (!savedRun) {
-      const nextParams = new URLSearchParams(window.location.search);
+      const nextParams = readPortalLocationParams();
       nextParams.delete("auditRun");
       nextParams.delete("auditReport");
       nextParams.delete("auditReportRun");
       nextParams.delete("proposal");
-      const nextQuery = nextParams.toString();
-      window.history.replaceState({}, "", nextQuery ? `${window.location.pathname}?${nextQuery}` : window.location.pathname);
+      replacePortalLocation(nextParams);
       return;
     }
 
@@ -356,7 +355,7 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
 
   useEffect(() => {
     if (state.role !== "client" || !draftsLoaded || s.clientId || reportClientId) return;
-    const params = new URLSearchParams(window.location.search);
+    const params = readPortalLocationParams();
     if (params.has("auditRun") || params.has("auditReport") || params.has("auditReportRun")) return;
     const ownClient = allClients[0];
     const ownRun = ownClient
@@ -389,7 +388,7 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
   }, []);
 
   function updateAuditUrl(params: { auditRunId?: string | null; auditReportClientId?: string | null; auditReportRunId?: string | null; proposal?: boolean }) {
-    const nextParams = new URLSearchParams(window.location.search);
+    const nextParams = readPortalLocationParams();
     nextParams.set("view", "audits");
 
     if (params.auditRunId) {
@@ -410,11 +409,24 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
       nextParams.delete("proposal");
     }
 
-    const nextQuery = nextParams.toString();
-    window.history.replaceState({}, "", nextQuery ? `${window.location.pathname}?${nextQuery}` : window.location.pathname);
+    replacePortalLocation(nextParams);
   }
 
-  const startAudit = (clientId: string, buildId: string) => {
+  const loadAuditDetail = async (clientId: string, runId: string) => {
+    const cached = detailedRunIdsRef.current.has(runId)
+      ? draftsRef.current.find(draft => draft.run.id === runId) || null
+      : null;
+    if (cached) return cached;
+
+    const [detail] = await fetchAuditDrafts(clientId, runId, userEmail, "detail");
+    if (!detail) throw new Error("The saved audit could not be loaded.");
+    detailedRunIdsRef.current.add(detail.run.id);
+    draftsRef.current = [detail, ...draftsRef.current.filter(draft => draft.run.id !== detail.run.id)];
+    setDrafts(draftsRef.current);
+    return detail;
+  };
+
+  const startAudit = async (clientId: string, buildId: string) => {
     setReportClientId(null);
     setReportRunId(null);
     setReportProposalOpen(false);
@@ -422,15 +434,30 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
     updateAuditUrl({ auditRunId: buildId });
     const savedDraft = draftsByRunId.get(buildId);
     if (savedDraft) {
-      dispatch({ t: "load", state: hydrateAuditState(savedDraft.state) });
+      try {
+        const detail = await loadAuditDetail(clientId, buildId);
+        dispatch({ t: "load", state: hydrateAuditState(detail.state) });
+      } catch (error) {
+        console.error("Unable to open the saved audit.", error);
+        actions.showToast("The saved audit could not be loaded");
+      }
       return;
     }
     dispatch({ t: "select", clientId, buildId });
   };
-  const previewAudit = (clientId: string, runId?: string | null) => {
+  const previewAudit = async (clientId: string, runId?: string | null) => {
     const completedRun = runId
       ? runs.find(item => item.id === runId && item.clientId === clientId && item.progress >= 100) || null
       : latestCompletedRun(runs.filter(item => item.clientId === clientId));
+    if (completedRun) {
+      try {
+        await loadAuditDetail(clientId, completedRun.id);
+      } catch (error) {
+        console.error("Unable to open the audit report.", error);
+        actions.showToast("The audit report could not be loaded");
+        return;
+      }
+    }
     const source = workingClients.find(item => item.id === clientId);
     setReportProposalOpen(false);
     setReportClientId(clientId);
@@ -495,31 +522,33 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
     setResetAuditError(null);
     setResetAuditClientId(clientId);
   };
-  const confirmStartOver = async () => {
+  const finalizeStartOver = async (action: "archive" | "delete") => {
     if (!resetAuditClientId || resettingAudit) return;
     const auditRuns = currentDrafts.filter(draft => draft.run.clientId === resetAuditClientId);
     const runIds = auditRuns.map(draft => draft.run.id);
-    setResettingAudit(true);
+    setResettingAuditAction(action);
     setResetAuditError(null);
     try {
       if (runIds.length) {
         const response = await fetch("/api/portal-audit-runs", {
-          method: "DELETE",
+          method: action === "archive" ? "PATCH" : "DELETE",
           headers: {
             "content-type": "application/json",
             [DASHBOARD_USER_EMAIL_HEADER]: userEmail,
           },
-          body: JSON.stringify({ runIds }),
+          body: JSON.stringify(action === "archive" ? { runIds, action: "archive" } : { runIds }),
         });
         const payload = await response.json().catch(() => null);
-        if (!response.ok) throw new Error(typeof payload?.error === "string" ? payload.error : "Unable to delete the saved audit.");
+        if (!response.ok) throw new Error(typeof payload?.error === "string" ? payload.error : `Unable to ${action} the saved audit.`);
       }
       if (saveTimer.current) clearTimeout(saveTimer.current);
       runIds.forEach(runId => window.localStorage.removeItem(`guided-audit:${runId}`));
-      window.localStorage.removeItem(`baltazar:builder-handoff:website:${resetAuditClientId}`);
-      actions.update(current => ({
-        clientWorkspaces: removePortalProcessHandoffs(current.clientWorkspaces, resetAuditClientId, "website-audit"),
-      }));
+      if (action === "delete") {
+        window.localStorage.removeItem(`baltazar:builder-handoff:website:${resetAuditClientId}`);
+        actions.update(current => ({
+          clientWorkspaces: removePortalProcessHandoffs(current.clientWorkspaces, resetAuditClientId, "website-audit"),
+        }));
+      }
       setDrafts(current => current.filter(draft => draft.run.clientId !== resetAuditClientId));
       if (s.clientId === resetAuditClientId) dispatch({ t: "toPicker" });
       if (reportClientId === resetAuditClientId) {
@@ -528,22 +557,33 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
         setReportProposalOpen(false);
       }
       updateAuditUrl({ auditRunId: null, auditReportClientId: null });
-      const deletedClient = workingClients.find(item => item.id === resetAuditClientId);
+      const affectedClient = workingClients.find(item => item.id === resetAuditClientId);
       setResetAuditClientId(null);
-      actions.showToast(`${deletedClient?.name || "Website"} audit deleted`);
+      actions.showToast(`${affectedClient?.name || "Website"} audit ${action === "archive" ? "archived" : "deleted permanently"}`);
     } catch (error) {
-      setResetAuditError(error instanceof Error ? error.message : "Unable to delete the saved audit.");
+      setResetAuditError(error instanceof Error ? error.message : `Unable to ${action} the saved audit.`);
     } finally {
-      setResettingAudit(false);
+      setResettingAuditAction(null);
     }
   };
+  const confirmArchive = () => finalizeStartOver("archive");
+  const confirmStartOver = () => finalizeStartOver("delete");
   useEffect(() => {
     if (state.quickActionIntent !== "new_audit") return;
     startOrResumeAudit();
     actions.patch({ quickActionIntent: null });
   }, [actions, state.quickActionIntent]);
-  const buildProposal = (clientId: string) => {
+  const buildProposal = async (clientId: string) => {
     const completedRun = latestCompletedRun(runs.filter(item => item.clientId === clientId));
+    if (completedRun) {
+      try {
+        await loadAuditDetail(clientId, completedRun.id);
+      } catch (error) {
+        console.error("Unable to load the audit for proposal creation.", error);
+        actions.showToast("The completed audit could not be loaded");
+        return;
+      }
+    }
     const source = workingClients.find(item => item.id === clientId);
     setReportClientId(clientId);
     if (source) setProposalIffOn(actions.workspaceForClient(source.name).proposal?.iffOn ?? false);
@@ -557,7 +597,7 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
       setDrafts(allDraftsCacheRef.current);
     } else if (draftsScopeRef.current !== "all") {
       setDraftsLoaded(false);
-      void fetchAuditDrafts(undefined, undefined, userEmail, creatorIqDemoMode).then(allDrafts => {
+      void fetchAuditDrafts(undefined, undefined, userEmail, "summary").then(allDrafts => {
         draftsScopeRef.current = "all";
         allDraftsCacheRef.current = allDrafts;
         setDrafts(allDrafts);
@@ -716,8 +756,8 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
     }, 450);
   };
 
-  const updateReportCheckStatus = (categoryKey: string, checkId: string, status: AuditCheckResult["status"]) => {
-    const currentDraft = draftsRef.current.find(draft => draft.run.id === reportRunId) || reportDraft;
+  const updateReportCheckStatus = (categoryKey: string, checkId: string, status: AuditCheckResult["status"], runId = reportRunId) => {
+    const currentDraft = draftsRef.current.find(draft => draft.run.id === runId) || reportDraft;
     if (!canManageStudioWork || !currentDraft || !isAuditScoreResult(currentDraft.state.report)) return;
     const now = new Date().toISOString();
     const categories = currentDraft.state.report.categories.map(category => {
@@ -796,7 +836,7 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
     return <AuditTypeWorkspace type={state.auditType} state={state} actions={actions} />;
   }
 
-  const reportRequested = state.hydrated && typeof window !== "undefined" && new URLSearchParams(window.location.search).has("auditReport");
+  const reportRequested = state.hydrated && typeof window !== "undefined" && readPortalLocationParams().has("auditReport");
 
   if (!client && !draftsLoaded) {
     return (
@@ -839,7 +879,15 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
                     const output = portalApprovalOutput(approvalResults, "The final website audit and action plan are ready.");
                     actions.shareFinalOutput({ clientName: reportClient.name, title: "Website Audit · Final report", outputType: "audit", ...output });
                   },
-                  onCopy: () => actions.showToast("Copied to clipboard"),
+                  onCopy: async () => {
+                    const text = document.querySelector("[data-audit-report-root]")?.textContent?.trim() || "";
+                    try {
+                      await navigator.clipboard.writeText(text);
+                      actions.showToast("Report content copied");
+                    } catch {
+                      actions.showToast("The report content could not be copied");
+                    }
+                  },
                   onAuditCheckStatusChange: canManageStudioWork ? updateReportCheckStatus : undefined,
                 })}
                 <AuditReportFooter
@@ -1032,8 +1080,10 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
           subject={workingClients.find(item => item.id === resetAuditClientId)?.name || "this website"}
           detail="intake, reports, scores, and action plans"
           busy={resettingAudit}
+          busyAction={resettingAuditAction}
           error={resetAuditError}
           onCancel={() => { if (!resettingAudit) setResetAuditClientId(null); }}
+          onArchive={confirmArchive}
           onConfirm={confirmStartOver}
         />
       </div>
@@ -1070,6 +1120,9 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
         initialSession={run ? draftsByRunId.get(run.id)?.state.guidedSession : undefined}
         onSessionChange={saveGuidedSession}
         onStartOverRequest={() => requestStartOver(client.id)}
+        onAuditCheckStatusChange={canManageStudioWork && run
+          ? (categoryKey, checkId, status) => updateReportCheckStatus(categoryKey, checkId, status, run.id)
+          : undefined}
         onIngest={(delta, options) => {
           if (options?.replaceSourceReview) {
             replaceKnowledge(client.id, delta);
@@ -1081,7 +1134,6 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
         }}
         startLabel="Start audit intake →"
         progressLabel="intake"
-        demo={AUDIT_DEMO}
         completeTitle="Intake ready"
         completeMsg="Next, score the site and build the action plan."
         completeCta="Build the report →"
@@ -1114,8 +1166,10 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
         subject={client.name}
         detail="intake, reports, scores, and action plans"
         busy={resettingAudit}
+        busyAction={resettingAuditAction}
         error={resetAuditError}
         onCancel={() => { if (!resettingAudit) setResetAuditClientId(null); }}
+        onArchive={confirmArchive}
         onConfirm={confirmStartOver}
       />
     </div>

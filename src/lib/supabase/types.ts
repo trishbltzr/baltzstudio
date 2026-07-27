@@ -1302,6 +1302,72 @@ export type Database = {
           },
         ]
       }
+      portal_invoices: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          due_date: string | null
+          id: string
+          invoice_number: string
+          payload: Json
+          recipient_email: string | null
+          sent_at: string | null
+          status: string
+          tenant_id: string
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          due_date?: string | null
+          id?: string
+          invoice_number: string
+          payload?: Json
+          recipient_email?: string | null
+          sent_at?: string | null
+          status?: string
+          tenant_id: string
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          due_date?: string | null
+          id?: string
+          invoice_number?: string
+          payload?: Json
+          recipient_email?: string | null
+          sent_at?: string | null
+          status?: string
+          tenant_id?: string
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "portal_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portal_access_requests: {
         Row: {
           business_name: string | null
@@ -1334,6 +1400,7 @@ export type Database = {
       }
       portal_audit_runs: {
         Row: {
+          archived_at: string | null
           client_id: string
           run: Json
           run_id: string
@@ -1342,6 +1409,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
           client_id: string
           run: Json
           run_id: string
@@ -1350,6 +1418,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
           client_id?: string
           run?: Json
           run_id?: string

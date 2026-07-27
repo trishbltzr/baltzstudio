@@ -43,41 +43,34 @@ export function derive(get: Get) {
 }
 
 const eyebrow = "text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--accent);margin-bottom:0.5rem";
-const flowRow = (w: string, bg: string, n: string, label: string, right: string) => (
-  <div style={css("width:" + w + ";border-radius:10px;background:" + bg + ";color:#fff;padding:0.8rem 1.15rem;display:flex;align-items:center;justify-content:space-between;gap:0.8rem")}>
-    <div style={{ minWidth: 0 }}><div style={css("font-size:var(--text-2xs);font-weight:500;letter-spacing:0.05em;opacity:.82")}>{n}</div><div style={css("font-size:var(--text-xs);font-weight:500")}>{label}</div></div>
-    <span style={css("font-size:var(--text-2xs);opacity:.85;white-space:nowrap")}>{right}</span>
+const em = (t: string) => <strong style={css("color:var(--fg);font-weight:500")}>{t}</strong>;
+const strategyStage = (accent: string, k: string, title: string, body: ReactNode) => (
+  <div style={css("display:flex;gap:0.7rem;padding:0.8rem 0.9rem;border:1px solid var(--border-soft);border-radius:var(--radius);background:var(--surface-alt);border-left:3px solid " + accent)}>
+    <div style={{ minWidth: 0 }}>
+      <div style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:500;letter-spacing:0.05em;color:" + accent)}>{k}</div>
+      <div style={css("font-size:var(--text-sm);font-weight:500;margin-top:0.14rem")}>{title}</div>
+      <div style={css("font-size:var(--text-xs);color:var(--fg-muted);line-height:1.5;margin-top:0.2rem")}>{body}</div>
+    </div>
   </div>
 );
-const arrow = <span style={css("color:var(--fg-faint);font-size:var(--text-2xs);line-height:1")}>▼</span>;
 
 export function DelivBody({ id, get }: { id: string; get: Get }) {
   const d = derive(get);
 
   if (id === "flow") {
+    const pov = get("mechanism", "your point of view");
+    const ungated = get("leadMagnet", "your free resource");
+    const action = get("primaryAction", "Talk to us");
     return (
-      <div style={css("display:flex;flex-direction:column;align-items:center;gap:0.4rem")}>
-        {flowRow("100%", "oklch(0.82 0.08 27)", "1 · TRAFFIC", d.flowTraffic, "cold audience")}
-        {arrow}
-        {flowRow("87%", "oklch(0.78 0.10 25)", "2 · LANDING PAGE", "Deliver the value", "visitor → audience")}
-        {arrow}
-        {flowRow("74%", "oklch(0.74 0.11 23)", "3 · VALUE + NURTURE", "Keep delivering value", "engaged")}
-        {arrow}
-        {flowRow("61%", "oklch(0.70 0.12 22)", "4 · BOOKING / CALL", d.flowAfter, "high intent")}
-        {arrow}
-        <div style={css("width:48%;border-radius:10px;background:var(--success);color:#fff;padding:0.9rem 1.15rem;text-align:center")}>
-          <div style={css("font-size:var(--text-2xs);font-weight:500;letter-spacing:0.05em;opacity:.9")}>5 · GOAL</div><div style={css("font-size:var(--text-md);font-weight:600")}>{d.flowGoal}</div>
-        </div>
-        {arrow}
-        <div style={css("width:84%;border-radius:10px;background:var(--accent-soft);border:1.5px dashed var(--accent-dim);padding:0.8rem 1rem 0.85rem")}>
-          <div style={css("display:flex;align-items:center;justify-content:space-between;gap:0.6rem;margin-bottom:0.55rem")}>
-            <span style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;display:inline-flex;align-items:center;gap:0.34rem;color:var(--accent)")}><span style={css("font-size:var(--text-lg);line-height:0.7")}>+</span>Bonus sales layer</span>
-            <span style={css("text-transform:uppercase;font-size:var(--text-label);font-weight:400;letter-spacing:0.04em;line-height:1.2;color:var(--accent);background:var(--surface);border:1px solid var(--accent-dim);border-radius:999px;padding:0.14rem 0.55rem;white-space:nowrap")}>One page · after the goal</span>
-          </div>
-          <div style={css("font-size:var(--text-sm);font-weight:600;color:var(--fg);margin-bottom:0.5rem")}>Thank-you page + one-time offer</div>
-          <div style={css("font-size:var(--text-xs);color:var(--fg-muted);line-height:1.5;margin-bottom:0.22rem")}><span style={css("color:var(--fg);font-weight:600")}>Thank-you.</span> {d.flowThankLine}</div>
-          <div style={css("font-size:var(--text-xs);color:var(--fg-muted);line-height:1.5")}><span style={css("color:var(--fg);font-weight:600")}>Next step.</span> {d.flowUpsellLine}</div>
-        </div>
+      <div style={css("display:flex;flex-direction:column;gap:0.5rem")}>
+        <div style={css("font-size:var(--text-xs);color:var(--fg-muted);line-height:1.5")}>How demand is created, then captured — the strategy behind every page and post.</div>
+        {strategyStage("var(--warn)", "Create demand", "Publish the point of view", <>Post {em("“" + pov + "”")} where your audience already is — {d.flowTraffic} — and give away {em(ungated)} openly, no email wall.</>)}
+        {strategyStage("var(--warn)", "Content hub", "A home that leads with value", <>The site hosts the value; the form stays small and late.</>)}
+        {strategyStage("var(--accent)", "Prove it", "Comparison & real stories", <>An honest comparison and proof that earn the ready buyer’s trust.</>)}
+        {strategyStage("var(--accent)", "Capture demand", "One high-intent action", <>For the ~5% ready now: {em(action)}. No cold opt-in.</>)}
+        {strategyStage("var(--accent)", "Nurture", "Be useful, not salesy", <>{d.flowAfter} → a value newsletter that educates instead of pitching.</>)}
+        {strategyStage("var(--success)", "Expand", "Customers become the engine", <>{d.flowUpsellLine} Goal: {em(d.flowGoal)}.</>)}
+        <div style={css("font-size:var(--text-xs);color:var(--fg-muted);line-height:1.5;margin-top:0.2rem")}>Measured on engaged &amp; returning audience, branded search, and qualified pipeline — not form fills.</div>
       </div>
     );
   }

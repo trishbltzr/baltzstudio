@@ -67,8 +67,6 @@ export const QUESTIONS: FQuestion[] = [
   { id: "upsellPrice", s: 4, kind: "text", prompt: "Expansion price (optional)?", placeholder: "$97" },
 ];
 
-export const DEMO: Record<string, string | string[]> = {};
-
 export const TYPE_LABEL: Record<string, string> = {
   text: "Short answer", textarea: "Long answer", choice: "Pick one", checklist: "Pick any that apply",
 };

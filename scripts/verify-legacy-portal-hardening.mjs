@@ -93,34 +93,19 @@ if (!bucketResult.error && bucketResult.data) {
   assert.equal(bucketResult.data.public, false, "portal-uploads must remain private.");
 }
 
-const loginResponse = await fetch(`${portalBaseUrl}/api/dev-login`, {
-  method: "POST",
-  headers: { "content-type": "application/json" },
-  body: JSON.stringify({
-    email: "trisha@baltazarstudio.co",
-    password: "studio123",
-  }),
-});
-assert.equal(loginResponse.status, 200, "Local staff login must succeed.");
-const cookie = loginResponse.headers.get("set-cookie")?.split(";")[0];
-assert.ok(cookie, "Local staff login must return a signed session cookie.");
+const removedLoginResponse = await fetch(`${portalBaseUrl}/api/dev-login`, { method: "POST" });
+assert.equal(removedLoginResponse.status, 404, "The local login bypass must not exist.");
 
-const workspaceResponse = await fetch(`${portalBaseUrl}/api/portal-workspace-state`, {
-  headers: { cookie },
-});
-assert.equal(
-  workspaceResponse.status,
-  200,
-  `Privileged workspace read failed after hardening: ${await workspaceResponse.text()}`,
+const workspaceResponse = await fetch(`${portalBaseUrl}/api/portal-workspace-state`);
+assert.ok(
+  workspaceResponse.status === 401 || workspaceResponse.status === 403,
+  `Unauthenticated workspace read must be denied: ${await workspaceResponse.text()}`,
 );
 
-const auditResponse = await fetch(`${portalBaseUrl}/api/portal-audit-runs`, {
-  headers: { cookie },
-});
-assert.equal(
-  auditResponse.status,
-  200,
-  `Privileged audit read failed after hardening: ${await auditResponse.text()}`,
+const auditResponse = await fetch(`${portalBaseUrl}/api/portal-audit-runs`);
+assert.ok(
+  auditResponse.status === 401 || auditResponse.status === 403,
+  `Unauthenticated audit read must be denied: ${await auditResponse.text()}`,
 );
 
 console.log(`legacy portal hardening verified (${verifiedTables.join(", ")})`);

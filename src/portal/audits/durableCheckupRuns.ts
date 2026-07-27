@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ClientCardData } from "../components/ClientPickerGrid";
+import { portalHref } from "../routes";
 
 export type DurableCheckupKind = "brand" | "website" | "seo";
 
@@ -48,7 +49,7 @@ function durableRunDate(value: string) {
 }
 
 function openDurableRun(runId: string) {
-  window.location.assign(`/dashboard?view=activity&serviceRunId=${encodeURIComponent(runId)}`);
+  window.location.assign(portalHref({ view: "activity", serviceRunId: runId }));
 }
 
 export function durableCheckupCard(run: DurableServiceRun): ClientCardData {
@@ -63,7 +64,7 @@ export function durableCheckupCard(run: DurableServiceRun): ClientCardData {
   return {
     id: `durable-${run.id}`,
     name: run.clientName,
-    subtitle: "Production client · normalized",
+    subtitle: "",
     statusLabel: status.label,
     statusTone: status.tone,
     stage,

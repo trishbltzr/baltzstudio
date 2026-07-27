@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { clientsVisibleToRole, type StudioClient } from "../clients";
+import type { StudioClient } from "../clients";
+import { usePortalStudioClients } from "../usePortalStudioClients";
 import { GuidedIntakeSelector } from "../components/GuidedIntakeSelector";
 import { EngineIndexControls } from "../components/EngineIndexControls";
 import { EngineIndexOverview } from "../components/EngineIndexOverview";
@@ -378,7 +379,11 @@ function StageShell({ stage, clientName, status, children }: { stage: Stage; cli
 export function SocialMediaBuilder({ state, actions }: { state: PortalState; actions: PortalActions }) {
   const [activeMonth, setActiveMonth] = useState<{ client: StudioClient; monthId: string } | null>(null);
   const [savedMonths, setSavedMonths] = useState<Record<string, SocialMonthRecord[]>>({});
-  const availableClients = useMemo(() => clientsVisibleToRole(state.role, state.clientName), [state.clientName, state.role]);
+  const { clients: rosterClients } = usePortalStudioClients();
+  const availableClients = useMemo(
+    () => state.role === "client" ? rosterClients.filter(item => item.name === state.clientName) : rosterClients,
+    [rosterClients, state.clientName, state.role],
+  );
   const persistMonths = (clientId: string, months: SocialMonthRecord[]) => {
     const sorted = sortSocialMonths(months);
     writeSocialMonths(clientId, sorted);
@@ -974,7 +979,7 @@ function ScheduleStage({ project, approved, exportCsv, actions, patch }: { proje
       <h2 style={css("margin:.28rem 0 0;font-size:var(--text-xl);font-weight:500")}>{project.sent ? "The month is queued and ready." : "The social plan is ready to schedule."}</h2>
       <p style={css("margin:.42rem 0 0;max-width:40rem;font-size:var(--text-2xs);line-height:1.55;color:var(--fg-muted)")}>Export the complete calendar for your scheduling tool or share this dashboard view for client review. Every caption, hashtag, date, and art format stays attached to its post.</p>
       <div style={css("display:grid;grid-template-columns:repeat(auto-fit,minmax(7rem,1fr));gap:var(--space-2);margin-top:.9rem")}>{[{ label: "Total posts", value: project.posts.length }, { label: "Approved", value: approved }, { label: "Cross-posts", value: crossPostCount }, { label: "Single channel", value: project.posts.length - crossPostCount }, { label: "Weeks", value: project.weeks }].map(item => <div key={item.label} style={css("padding:.72rem;border:1px solid var(--border-soft);border-radius:.75rem;background:var(--surface-alt)")}><strong style={css("display:block;font-size:var(--text-xl);font-weight:500;color:var(--accent)")}>{item.value}</strong><span style={css("display:block;margin-top:.18rem;font-size:var(--text-2xs);color:var(--fg-faint)")}>{item.label}</span></div>)}</div>
-      <div style={css("display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.9rem") }>{!project.sent && <button type="button" onClick={() => { patch({ sent: true }); actions.showToast(`${project.posts.length} posts queued for scheduling`); }} style={css(buttonPrimary)}><Icon name="send" size={13}/>Schedule all posts</button>}<button type="button" onClick={exportCsv} style={css(buttonSoft)}><Icon name="file" size={13}/>Export CSV</button><button type="button" onClick={async () => { try { await navigator.clipboard.writeText(window.location.href); actions.showToast("Dashboard link copied"); } catch { actions.showToast("Share link is ready in the address bar"); } }} style={css(buttonSoft)}><Icon name="send" size={13}/>Share client link</button></div>
+      <div style={css("display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.9rem") }>{!project.sent && <button type="button" onClick={() => { patch({ sent: true }); actions.showToast(`${project.posts.length} posts marked as ready for your scheduling tool`); }} style={css(buttonPrimary)}><Icon name="send" size={13}/>Mark calendar as queued</button>}<button type="button" onClick={exportCsv} style={css(buttonSoft)}><Icon name="file" size={13}/>Export CSV</button><button type="button" onClick={async () => { try { await navigator.clipboard.writeText(window.location.href); actions.showToast("Dashboard link copied"); } catch { actions.showToast("Share link is ready in the address bar"); } }} style={css(buttonSoft)}><Icon name="send" size={13}/>Share client link</button></div>
     </Panel>
     <Panel style="overflow:hidden">
       <div style={css("overflow-x:auto") }>

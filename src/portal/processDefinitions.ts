@@ -107,7 +107,7 @@ export const PROCESS_DEFINITIONS: Record<ProcessId, ProcessDefinition> = {
     stages: [
       { id: "discovery", label: "Audit intake", icon: "inbox", kind: "intake", owner: "client", access: "collaborative", requirements: ["Brand sources", "Business context", "Audience and offer"], outputs: ["Normalized brand intake", "Evidence inventory"], nextAction: "Review the supplied brand sources", gate: gate("brand-intake-ready", "Brand intake ready", ["studio"]) },
       { id: "report", label: "Audit report", icon: "chart", kind: "review", owner: "studio", access: "internal", requirements: ["Approved intake", "Verified or explicitly unverified evidence"], outputs: ["Brand system", "Findings", "Evidence status"], nextAction: "Approve the client-safe brand report", gate: gate("brand-report-approved", "Brand report approved") },
-      { id: "plan", label: "Action plan", icon: "checklist", kind: "handoff", owner: "shared", access: "client-visible", requirements: ["Approved brand report"], outputs: ["Prioritized recommendations", "Implementation handoff"], nextAction: "Share the final action plan or continue to Website Build", gate: gate("brand-plan-approved", "Brand action plan approved", ["studio", "client"]) },
+      { id: "plan", label: "Action plan", icon: "checklist", kind: "handoff", owner: "shared", access: "client-visible", requirements: ["Approved brand report"], outputs: ["Prioritized recommendations", "Implementation handoff"], nextAction: "Share the plan or start the build", gate: gate("brand-plan-approved", "Brand action plan approved", ["studio", "client"]) },
     ],
   },
   "website-audit": {
@@ -122,7 +122,7 @@ export const PROCESS_DEFINITIONS: Record<ProcessId, ProcessDefinition> = {
     handoffTarget: "website-build",
     exceptionPolicies: STANDARD_PROCESS_EXCEPTION_POLICIES,
     stages: [
-      { id: "discovery", label: "Audit intake", icon: "inbox", kind: "intake", owner: "client", access: "collaborative", requirements: ["Website URL", "Business context", "Audit scope"], outputs: ["Normalized website intake", "Evidence collection request"], nextAction: "Collect and verify website evidence", gate: gate("website-intake-ready", "Website intake ready", ["studio"]) },
+      { id: "discovery", label: "Audit intake", icon: "inbox", kind: "intake", owner: "client", access: "collaborative", requirements: ["Website URL", "Business context", "Audit scope"], outputs: ["Normalized website intake", "Evidence collection request"], nextAction: "Verify website evidence", gate: gate("website-intake-ready", "Website intake ready", ["studio"]) },
       { id: "report", label: "Audit report", icon: "chart", kind: "review", owner: "studio", access: "internal", requirements: ["Approved intake", "Checklist evidence", "Available Lighthouse evidence"], outputs: ["Evidence-backed scores", "Findings", "Pages audited"], nextAction: "Approve the client-safe website report", gate: gate("website-report-approved", "Website report approved") },
       { id: "plan", label: "Action plan", icon: "checklist", kind: "handoff", owner: "shared", access: "client-visible", requirements: ["Approved website report"], outputs: ["Prioritized recommendations", "Website Builder handoff"], nextAction: "Share the action plan or continue to Website Build", gate: gate("website-plan-approved", "Website action plan approved", ["studio", "client"]) },
     ],
