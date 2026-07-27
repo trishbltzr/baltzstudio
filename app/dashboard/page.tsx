@@ -24,17 +24,27 @@ export default function Dashboard() {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadCurrentUser() {
-      let savedUser: LoginUser | null = null;
-      const saved = sessionStorage.getItem("bs-user");
-      if (saved) {
-        try {
-          savedUser = JSON.parse(saved) as LoginUser;
-        } catch {
-          sessionStorage.removeItem("bs-user");
-        }
+    // Read the cached session so returning users can render immediately.
+    let savedUser: LoginUser | null = null;
+    const saved = sessionStorage.getItem("bs-user");
+    if (saved) {
+      try {
+        savedUser = JSON.parse(saved) as LoginUser;
+      } catch {
+        sessionStorage.removeItem("bs-user");
       }
+    }
 
+    // Optimistic paint: show the portal from the cached user right away instead
+    // of blocking first paint on the /api/auth/me round-trip. All protected data
+    // is still fetched from auth-enforcing APIs, and the background revalidation
+    // below redirects to /login if the session is actually stale.
+    if (savedUser) {
+      setCurrentUser(savedUser);
+      setUserLoaded(true);
+    }
+
+    async function revalidateCurrentUser() {
       const sessionUser = await fetchAuthenticatedDashboardUser();
       if (cancelled) return;
       const verifiedUser = sessionUser
@@ -55,7 +65,7 @@ export default function Dashboard() {
       setUserLoaded(true);
     }
 
-    void loadCurrentUser();
+    void revalidateCurrentUser();
     return () => {
       cancelled = true;
     };
