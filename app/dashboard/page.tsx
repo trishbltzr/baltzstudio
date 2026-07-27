@@ -47,14 +47,10 @@ export default function Dashboard() {
     async function revalidateCurrentUser() {
       const sessionUser = await fetchAuthenticatedDashboardUser();
       if (cancelled) return;
-      const verifiedUser = sessionUser
-        ? {
-          ...sessionUser,
-          ...(savedUser?.email.toLowerCase() === sessionUser.email.toLowerCase() && savedUser.clientName
-            ? { clientName: savedUser.clientName }
-            : {}),
-        }
-        : null;
+      // The authenticated API is the source of truth for client identity.
+      // Reusing a remembered client name here can leak a previous workspace
+      // label into the current client's portal after an account is reassigned.
+      const verifiedUser = sessionUser;
       if (verifiedUser) {
         sessionStorage.setItem("bs-user", JSON.stringify(verifiedUser));
         setCurrentUser(verifiedUser);

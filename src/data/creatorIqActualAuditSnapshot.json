@@ -1,0 +1,1775 @@
+{
+  "capturedAt": "2026-07-24T18:07:17.632Z",
+  "sourceUrl": "https://www.creatoriq.com/",
+  "sourceKind": "actual-public-checkup",
+  "discoveredPages": [
+    {
+      "url": "https://www.creatoriq.com/",
+      "selectionReason": "Homepage and primary buyer entry point",
+      "selectionRank": 15
+    },
+    {
+      "url": "https://www.creatoriq.com/influencer-marketing-solution",
+      "selectionReason": "Primary product overview linked from the homepage navigation",
+      "selectionRank": 14
+    },
+    {
+      "url": "https://www.creatoriq.com/influencer-marketing-solution/creator-search",
+      "selectionReason": "Core creator discovery capability linked from the homepage navigation",
+      "selectionRank": 13
+    },
+    {
+      "url": "https://www.creatoriq.com/influencer-marketing-solution/influencer-campaign-management",
+      "selectionReason": "Core campaign execution capability linked from the homepage navigation",
+      "selectionRank": 12
+    },
+    {
+      "url": "https://www.creatoriq.com/influencer-marketing-solution/influencer-reporting-and-insights",
+      "selectionReason": "Core measurement capability linked from the homepage navigation",
+      "selectionRank": 11
+    },
+    {
+      "url": "https://www.creatoriq.com/influencer-marketing-solution/creator-marketing-ai-approach",
+      "selectionReason": "AI platform differentiation linked from the homepage navigation",
+      "selectionRank": 10
+    },
+    {
+      "url": "https://www.creatoriq.com/brand-safety",
+      "selectionReason": "SafeIQ product story promoted on the homepage",
+      "selectionRank": 9
+    },
+    {
+      "url": "https://www.creatoriq.com/trust",
+      "selectionReason": "Enterprise trust page linked from the homepage navigation",
+      "selectionRank": 8
+    },
+    {
+      "url": "https://www.creatoriq.com/influencer-marketing-solution/governance",
+      "selectionReason": "Enterprise governance page linked from the homepage navigation",
+      "selectionRank": 7
+    },
+    {
+      "url": "https://www.creatoriq.com/best-influencer-marketing-solution",
+      "selectionReason": "Customer and enterprise proof hub linked from the homepage navigation",
+      "selectionRank": 6
+    },
+    {
+      "url": "https://www.creatoriq.com/press/releases/creativex-creatoriq-nestle-integration-unifies-creator-and-paid-media-ecosystems",
+      "selectionReason": "Nestlé proof story promoted directly on the homepage",
+      "selectionRank": 5
+    },
+    {
+      "url": "https://www.creatoriq.com/-pricing-request-page",
+      "selectionReason": "Pricing-intent conversion page linked from the homepage navigation",
+      "selectionRank": 4
+    },
+    {
+      "url": "https://www.creatoriq.com/knowledge-hub",
+      "selectionReason": "Resource hub linked from the homepage navigation",
+      "selectionRank": 3
+    },
+    {
+      "url": "https://www.creatoriq.com/contact",
+      "selectionReason": "Contact conversion page linked from the homepage navigation",
+      "selectionRank": 2
+    },
+    {
+      "url": "https://www.creatoriq.com/book-demo",
+      "selectionReason": "Primary request-a-demo conversion page linked throughout the homepage",
+      "selectionRank": 1
+    }
+  ],
+  "renderedPages": [
+    {
+      "url": "https://www.creatoriq.com/",
+      "strategy": "desktop",
+      "title": "CreatorIQ | Creator Marketing at Scale"
+    },
+    {
+      "url": "https://www.creatoriq.com/influencer-marketing-solution",
+      "strategy": "desktop",
+      "title": "CreatorIQ | All-in-One Influencer Marketing Platform"
+    },
+    {
+      "url": "https://www.creatoriq.com/influencer-marketing-solution/creator-search",
+      "strategy": "desktop",
+      "title": "Discover & Evaluate Creators | CreatorIQ"
+    },
+    {
+      "url": "https://www.creatoriq.com/influencer-marketing-solution/influencer-campaign-management",
+      "strategy": "desktop",
+      "title": "Execute & Manage Activations | CreatorIQ"
+    },
+    {
+      "url": "https://www.creatoriq.com/influencer-marketing-solution/influencer-reporting-and-insights",
+      "strategy": "desktop",
+      "title": "Report on Program Performance | CreatorIQ"
+    },
+    {
+      "url": "https://www.creatoriq.com/influencer-marketing-solution/creator-marketing-ai-approach",
+      "strategy": "desktop",
+      "title": "CreatorIQ AI"
+    },
+    {
+      "url": "https://www.creatoriq.com/brand-safety",
+      "strategy": "desktop",
+      "title": "CreatorIQ SafeIQ | Brand Safety"
+    },
+    {
+      "url": "https://www.creatoriq.com/trust",
+      "strategy": "desktop",
+      "title": "Trust at CreatorIQ"
+    },
+    {
+      "url": "https://www.creatoriq.com/influencer-marketing-solution/governance",
+      "strategy": "desktop",
+      "title": "Governance | CreatorIQ"
+    },
+    {
+      "url": "https://www.creatoriq.com/best-influencer-marketing-solution",
+      "strategy": "desktop",
+      "title": "CreatorIQ | For Mature Influencer Marketing Programs"
+    },
+    {
+      "url": "https://www.creatoriq.com/press/releases/creativex-creatoriq-nestle-integration-unifies-creator-and-paid-media-ecosystems",
+      "strategy": "desktop",
+      "title": "Industry-First CreativeX x CreatorIQ Integration Unifies Creator and Paid Media Ecosystems"
+    },
+    {
+      "url": "https://www.creatoriq.com/-pricing-request-page",
+      "strategy": "desktop",
+      "title": "CreatorIQ | Request a Demo"
+    },
+    {
+      "url": "https://www.creatoriq.com/knowledge-hub",
+      "strategy": "desktop",
+      "title": "Knowledge Hub | CreatorIQ"
+    },
+    {
+      "url": "https://www.creatoriq.com/contact",
+      "strategy": "desktop",
+      "title": "Contact Us | CreatorIQ"
+    },
+    {
+      "url": "https://www.creatoriq.com/book-demo",
+      "strategy": "desktop",
+      "title": "CreatorIQ | Request a Demo"
+    },
+    {
+      "url": "https://www.creatoriq.com/",
+      "strategy": "mobile",
+      "title": "CreatorIQ | Creator Marketing at Scale"
+    },
+    {
+      "url": "https://www.creatoriq.com/influencer-marketing-solution",
+      "strategy": "mobile",
+      "title": "CreatorIQ | All-in-One Influencer Marketing Platform"
+    },
+    {
+      "url": "https://www.creatoriq.com/influencer-marketing-solution/creator-search",
+      "strategy": "mobile",
+      "title": "Discover & Evaluate Creators | CreatorIQ"
+    },
+    {
+      "url": "https://www.creatoriq.com/influencer-marketing-solution/influencer-campaign-management",
+      "strategy": "mobile",
+      "title": "Execute & Manage Activations | CreatorIQ"
+    },
+    {
+      "url": "https://www.creatoriq.com/influencer-marketing-solution/influencer-reporting-and-insights",
+      "strategy": "mobile",
+      "title": "Report on Program Performance | CreatorIQ"
+    },
+    {
+      "url": "https://www.creatoriq.com/influencer-marketing-solution/creator-marketing-ai-approach",
+      "strategy": "mobile",
+      "title": "CreatorIQ AI"
+    },
+    {
+      "url": "https://www.creatoriq.com/brand-safety",
+      "strategy": "mobile",
+      "title": "CreatorIQ SafeIQ | Brand Safety"
+    },
+    {
+      "url": "https://www.creatoriq.com/trust",
+      "strategy": "mobile",
+      "title": "Trust at CreatorIQ"
+    },
+    {
+      "url": "https://www.creatoriq.com/influencer-marketing-solution/governance",
+      "strategy": "mobile",
+      "title": "Governance | CreatorIQ"
+    },
+    {
+      "url": "https://www.creatoriq.com/best-influencer-marketing-solution",
+      "strategy": "mobile",
+      "title": "CreatorIQ | For Mature Influencer Marketing Programs"
+    },
+    {
+      "url": "https://www.creatoriq.com/press/releases/creativex-creatoriq-nestle-integration-unifies-creator-and-paid-media-ecosystems",
+      "strategy": "mobile",
+      "title": "Industry-First CreativeX x CreatorIQ Integration Unifies Creator and Paid Media Ecosystems"
+    },
+    {
+      "url": "https://www.creatoriq.com/-pricing-request-page",
+      "strategy": "mobile",
+      "title": "CreatorIQ | Request a Demo"
+    },
+    {
+      "url": "https://www.creatoriq.com/knowledge-hub",
+      "strategy": "mobile",
+      "title": "Knowledge Hub | CreatorIQ"
+    },
+    {
+      "url": "https://www.creatoriq.com/contact",
+      "strategy": "mobile",
+      "title": "Contact Us | CreatorIQ"
+    },
+    {
+      "url": "https://www.creatoriq.com/book-demo",
+      "strategy": "mobile",
+      "title": "CreatorIQ | Request a Demo"
+    }
+  ],
+  "technical": {
+    "https": true,
+    "httpRedirectsToHttps": true,
+    "hostRedirectConsistent": true,
+    "sitemapAvailable": true,
+    "robotsAvailable": true,
+    "notFoundHelpful": true,
+    "brokenLinksChecked": 12,
+    "brokenLinks": []
+  },
+  "models": {
+    "report": "gpt-5.6-luna",
+    "plan": "gpt-5.6-luna"
+  },
+  "report": {
+    "kind": "audit_score",
+    "title": "CreatorIQ demand-generation website audit",
+    "summary": "CreatorIQ presents a clear enterprise creator-marketing proposition with repeated demo CTAs, strong content coverage, visible navigation, HTTPS, analytics, sitemap availability, and responsive layouts. The main conversion risks evidenced in the supplied render are weak form labeling, small controls, missing visible homepage-logo behavior, inconsistent heading structure, low mobile image quality, slow mobile performance, and several Lighthouse accessibility findings. SEO operations and many interaction states remain unverified.",
+    "overallScore": 70,
+    "targetScore": 75,
+    "evidenceCoverage": 69,
+    "verifiedChecks": 86,
+    "applicableChecks": 125,
+    "coverageThreshold": 75,
+    "confidence": "provisional",
+    "pagesReviewed": [
+      "https://www.creatoriq.com/",
+      "https://www.creatoriq.com/influencer-marketing-solution",
+      "https://www.creatoriq.com/influencer-marketing-solution/creator-search",
+      "https://www.creatoriq.com/influencer-marketing-solution/influencer-campaign-management",
+      "https://www.creatoriq.com/influencer-marketing-solution/influencer-reporting-and-insights",
+      "https://www.creatoriq.com/influencer-marketing-solution/creator-marketing-ai-approach",
+      "https://www.creatoriq.com/brand-safety",
+      "https://www.creatoriq.com/trust",
+      "https://www.creatoriq.com/influencer-marketing-solution/governance",
+      "https://www.creatoriq.com/best-influencer-marketing-solution",
+      "https://www.creatoriq.com/press/releases/creativex-creatoriq-nestle-integration-unifies-creator-and-paid-media-ecosystems",
+      "https://www.creatoriq.com/-pricing-request-page",
+      "https://www.creatoriq.com/knowledge-hub",
+      "https://www.creatoriq.com/contact",
+      "https://www.creatoriq.com/book-demo"
+    ],
+    "lighthouse": [
+      {
+        "strategy": "mobile",
+        "testedUrl": "https://www.creatoriq.com/",
+        "fetchedAt": "2026-07-24T18:05:52.469Z",
+        "lighthouseVersion": "13.4.0",
+        "scores": {
+          "performance": 39,
+          "accessibility": 79,
+          "bestPractices": 77,
+          "seo": 85
+        },
+        "metrics": [
+          {
+            "id": "first-contentful-paint",
+            "label": "First Contentful Paint",
+            "displayValue": "3.3 s",
+            "score": 42
+          },
+          {
+            "id": "largest-contentful-paint",
+            "label": "Largest Contentful Paint",
+            "displayValue": "24.9 s",
+            "score": 0
+          },
+          {
+            "id": "speed-index",
+            "label": "Speed Index",
+            "displayValue": "9.7 s",
+            "score": 11
+          },
+          {
+            "id": "total-blocking-time",
+            "label": "Total Blocking Time",
+            "displayValue": "120 ms",
+            "score": 97
+          },
+          {
+            "id": "cumulative-layout-shift",
+            "label": "Cumulative Layout Shift",
+            "displayValue": "0.469",
+            "score": 18
+          }
+        ],
+        "insights": [
+          {
+            "id": "third-party-cookies",
+            "title": "Uses third-party cookies",
+            "description": "Third-party cookies may be blocked in some contexts. Learn more about preparing for third-party cookie restrictions.",
+            "displayValue": "13 cookies found",
+            "score": 0,
+            "category": "bestPractices"
+          },
+          {
+            "id": "aria-hidden-focus",
+            "title": "`[aria-hidden=\"true\"]` elements contain focusable descendents",
+            "description": "Focusable descendents within an [aria-hidden=\"true\"] element prevent those interactive elements from being available to users of assistive technologies like screen readers. Learn how aria-hidden affects focusable elements.",
+            "displayValue": null,
+            "score": 0,
+            "category": "accessibility"
+          },
+          {
+            "id": "button-name",
+            "title": "Buttons do not have an accessible name",
+            "description": "When a button doesn't have an accessible name, screen readers announce it as \"button\", making it unusable for users who rely on screen readers. Learn how to make buttons more accessible.",
+            "displayValue": null,
+            "score": 0,
+            "category": "accessibility"
+          },
+          {
+            "id": "color-contrast",
+            "title": "Background and foreground colors do not have a sufficient contrast ratio.",
+            "description": "Low-contrast text is difficult or impossible for many users to read. Learn how to provide sufficient color contrast.",
+            "displayValue": null,
+            "score": 0,
+            "category": "accessibility"
+          },
+          {
+            "id": "heading-order",
+            "title": "Heading elements are not in a sequentially-descending order",
+            "description": "Properly ordered headings that do not skip levels convey the semantic structure of the page, making it easier to navigate and understand when using assistive technologies. Learn more about heading order.",
+            "displayValue": null,
+            "score": 0,
+            "category": "accessibility"
+          },
+          {
+            "id": "image-alt",
+            "title": "Image elements do not have `[alt]` attributes",
+            "description": "Informative elements should aim for short, descriptive alternate text. Decorative elements can be ignored with an empty alt attribute. Learn more about the alt attribute.",
+            "displayValue": null,
+            "score": 0,
+            "category": "seo"
+          },
+          {
+            "id": "link-name",
+            "title": "Links do not have a discernible name",
+            "description": "Link text (and alternate text for images, when used as links) that is discernible, unique, and focusable improves the navigation experience for screen reader users. Learn how to make links accessible.",
+            "displayValue": null,
+            "score": 0,
+            "category": "accessibility"
+          },
+          {
+            "id": "link-in-text-block",
+            "title": "Links rely on color to be distinguishable.",
+            "description": "Low-contrast text is difficult or impossible for many users to read. Link text that is discernible improves the experience for users with low vision. Learn how to make links distinguishable.",
+            "displayValue": null,
+            "score": 0,
+            "category": "accessibility"
+          },
+          {
+            "id": "inspector-issues",
+            "title": "Issues were logged in the `Issues` panel in Chrome Devtools",
+            "description": "Issues logged to the Issues panel in Chrome Devtools indicate unresolved problems. They can come from network request failures, insufficient security controls, and other browser concerns. Open up the Issues panel in Chrome DevTools for more details on each issue.",
+            "displayValue": null,
+            "score": 0,
+            "category": "bestPractices"
+          },
+          {
+            "id": "link-text",
+            "title": "Links do not have descriptive text",
+            "description": "Descriptive link text helps search engines understand your content. Learn how to make links more accessible.",
+            "displayValue": "5 links found",
+            "score": 0,
+            "category": "seo"
+          }
+        ]
+      },
+      {
+        "strategy": "desktop",
+        "testedUrl": "https://www.creatoriq.com/",
+        "fetchedAt": "2026-07-24T18:06:06.018Z",
+        "lighthouseVersion": "13.4.0",
+        "scores": {
+          "performance": 65,
+          "accessibility": 86,
+          "bestPractices": 77,
+          "seo": 85
+        },
+        "metrics": [
+          {
+            "id": "first-contentful-paint",
+            "label": "First Contentful Paint",
+            "displayValue": "1.2 s",
+            "score": 77
+          },
+          {
+            "id": "largest-contentful-paint",
+            "label": "Largest Contentful Paint",
+            "displayValue": "6.4 s",
+            "score": 3
+          },
+          {
+            "id": "speed-index",
+            "label": "Speed Index",
+            "displayValue": "3.1 s",
+            "score": 25
+          },
+          {
+            "id": "total-blocking-time",
+            "label": "Total Blocking Time",
+            "displayValue": "0 ms",
+            "score": 100
+          },
+          {
+            "id": "cumulative-layout-shift",
+            "label": "Cumulative Layout Shift",
+            "displayValue": "0.07",
+            "score": 96
+          }
+        ],
+        "insights": [
+          {
+            "id": "third-party-cookies",
+            "title": "Uses third-party cookies",
+            "description": "Third-party cookies may be blocked in some contexts. Learn more about preparing for third-party cookie restrictions.",
+            "displayValue": "13 cookies found",
+            "score": 0,
+            "category": "bestPractices"
+          },
+          {
+            "id": "color-contrast",
+            "title": "Background and foreground colors do not have a sufficient contrast ratio.",
+            "description": "Low-contrast text is difficult or impossible for many users to read. Learn how to provide sufficient color contrast.",
+            "displayValue": null,
+            "score": 0,
+            "category": "accessibility"
+          },
+          {
+            "id": "heading-order",
+            "title": "Heading elements are not in a sequentially-descending order",
+            "description": "Properly ordered headings that do not skip levels convey the semantic structure of the page, making it easier to navigate and understand when using assistive technologies. Learn more about heading order.",
+            "displayValue": null,
+            "score": 0,
+            "category": "accessibility"
+          },
+          {
+            "id": "image-alt",
+            "title": "Image elements do not have `[alt]` attributes",
+            "description": "Informative elements should aim for short, descriptive alternate text. Decorative elements can be ignored with an empty alt attribute. Learn more about the alt attribute.",
+            "displayValue": null,
+            "score": 0,
+            "category": "seo"
+          },
+          {
+            "id": "link-name",
+            "title": "Links do not have a discernible name",
+            "description": "Link text (and alternate text for images, when used as links) that is discernible, unique, and focusable improves the navigation experience for screen reader users. Learn how to make links accessible.",
+            "displayValue": null,
+            "score": 0,
+            "category": "accessibility"
+          },
+          {
+            "id": "link-in-text-block",
+            "title": "Links rely on color to be distinguishable.",
+            "description": "Low-contrast text is difficult or impossible for many users to read. Link text that is discernible improves the experience for users with low vision. Learn how to make links distinguishable.",
+            "displayValue": null,
+            "score": 0,
+            "category": "accessibility"
+          },
+          {
+            "id": "inspector-issues",
+            "title": "Issues were logged in the `Issues` panel in Chrome Devtools",
+            "description": "Issues logged to the Issues panel in Chrome Devtools indicate unresolved problems. They can come from network request failures, insufficient security controls, and other browser concerns. Open up the Issues panel in Chrome DevTools for more details on each issue.",
+            "displayValue": null,
+            "score": 0,
+            "category": "bestPractices"
+          },
+          {
+            "id": "link-text",
+            "title": "Links do not have descriptive text",
+            "description": "Descriptive link text helps search engines understand your content. Learn how to make links more accessible.",
+            "displayValue": "5 links found",
+            "score": 0,
+            "category": "seo"
+          }
+        ]
+      }
+    ],
+    "categories": [
+      {
+        "key": "content",
+        "label": "Content",
+        "passed": 4,
+        "failed": 3,
+        "unverified": 0,
+        "notApplicable": 0,
+        "score": 57,
+        "scoreFormula": "4 passed ÷ (4 passed + 3 failed) × 100 = 57",
+        "target": 62,
+        "checks": [
+          {
+            "id": "content-01",
+            "label": "Uses familiar words and phrases instead of technical or system terms",
+            "status": "fail",
+            "evidence": "Technical and branded terms such as AI-native, Creator Graph, EMV, SafeIQ, and API appear without consistently plain-language explanation.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "content-02",
+            "label": "Questions referring to users are concise and friendly",
+            "status": "pass",
+            "evidence": "User-facing copy uses concise, friendly prompts such as “Find Your Creators” and “How Can We Help You?”",
+            "sourceUrl": "https://www.creatoriq.com/influencer-marketing-solution/creator-search"
+          },
+          {
+            "id": "content-03",
+            "label": "Abbreviations and acronyms are explained",
+            "status": "fail",
+            "evidence": "Terms including AI, API, ROI, KPI, EMV, CRM, GDPR, CCPA, and PII are used; the supplied content does not consistently expand them.",
+            "sourceUrl": "https://www.creatoriq.com/trust"
+          },
+          {
+            "id": "content-04",
+            "label": "Calls to action and buttons are written with context in mind",
+            "status": "pass",
+            "evidence": "Primary actions are contextualized as “Request a demo,” “Schedule a demo,” “Start Your Search,” and “Download the report.”",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "content-05",
+            "label": "Messaging follows the brand tone and voice, including error messages",
+            "status": "pass",
+            "evidence": "The supplied pages use a consistent confident, enterprise-oriented, occasionally conversational CreatorIQ tone.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "content-06",
+            "label": "Information follows an F or Z pattern and is easily scannable",
+            "status": "pass",
+            "evidence": "Pages use prominent headings, short sections, cards, repeated CTAs, and resource groupings consistent with scanning patterns.",
+            "sourceUrl": "https://www.creatoriq.com/influencer-marketing-solution"
+          },
+          {
+            "id": "content-07",
+            "label": "Content uses common language and is easy to understand",
+            "status": "fail",
+            "evidence": "Some copy is dense and jargon-heavy, including “multimodal contextual content analysis,” “creator-led growth,” and “fit-for-purpose metrics.”",
+            "sourceUrl": "https://www.creatoriq.com/influencer-marketing-solution/creator-marketing-ai-approach"
+          }
+        ],
+        "courseOfAction": "Correct the verified failures in content: Uses familiar words and phrases instead of technical or system terms; Abbreviations and acronyms are explained; Content uses common language and is easy to understand.",
+        "issues": [],
+        "strengths": [
+          "Strong enterprise positioning and proof points.",
+          "Consistent use of relevant demo and resource CTAs."
+        ]
+      },
+      {
+        "key": "design",
+        "label": "Design & Typography",
+        "passed": 23,
+        "failed": 11,
+        "unverified": 15,
+        "notApplicable": 1,
+        "score": 68,
+        "scoreFormula": "23 passed ÷ (23 passed + 11 failed) × 100 = 68",
+        "target": 85,
+        "checks": [
+          {
+            "id": "design-01",
+            "label": "Form intent is communicated",
+            "status": "fail",
+            "evidence": "58% of rendered fields communicate their intent with a label or accessible name.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-02",
+            "label": "Forms are grouped by intent and context",
+            "status": "fail",
+            "evidence": "Rendered forms are 17% single-column or clearly grouped.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-03",
+            "label": "Form tap targets and spacing are large enough for mobile selection",
+            "status": "fail",
+            "evidence": "92 undersized mobile controls were detected across 15 rendered pages.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-04",
+            "label": "Responsive form controls are tall enough to click easily",
+            "status": "pass",
+            "evidence": "Median mobile control height is 40px.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-05",
+            "label": "Empty states and labels are clear and friendly",
+            "status": "unverified",
+            "evidence": "No representative empty-state interaction is supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "design-06",
+            "label": "Text fields are arranged in a clear column",
+            "status": "fail",
+            "evidence": "Rendered form single-column coverage is 17%.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-07",
+            "label": "Forms contain only the required number of fields",
+            "status": "unverified",
+            "evidence": "The supplied render does not expose the complete demo form field set.",
+            "sourceUrl": "https://www.creatoriq.com/book-demo"
+          },
+          {
+            "id": "design-08",
+            "label": "Text fields are sized for the expected input length",
+            "status": "unverified",
+            "evidence": "Input dimensions and expected-length matching are not supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "design-09",
+            "label": "Placeholders indicate the expected input",
+            "status": "fail",
+            "evidence": "Placeholder coverage is 58% across rendered inputs.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-10",
+            "label": "Complex fields such as date and time minimize clicks",
+            "status": "not_applicable",
+            "evidence": "No date or time input is evidenced in the supplied conversion flow.",
+            "sourceUrl": null
+          },
+          {
+            "id": "design-11",
+            "label": "Long dropdown fields are avoided",
+            "status": "unverified",
+            "evidence": "Dropdown contents are not supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "design-12",
+            "label": "Button sizes are consistent",
+            "status": "fail",
+            "evidence": "Median rendered control height ranges from 19px to 40px.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-13",
+            "label": "Button hierarchy is clear",
+            "status": "pass",
+            "evidence": "The rendered interface exposes up to 7 distinct button treatments.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-14",
+            "label": "Grouped buttons show which option is selected",
+            "status": "unverified",
+            "evidence": "No grouped selectable-button state is supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "design-15",
+            "label": "Radio buttons are used for single-select choices",
+            "status": "unverified",
+            "evidence": "No single-select form control is supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "design-16",
+            "label": "Checkboxes are used only for multi-select choices",
+            "status": "unverified",
+            "evidence": "No multi-select form control is supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "design-17",
+            "label": "Text links are visually distinct from body copy",
+            "status": "pass",
+            "evidence": "100% of in-content links are visually distinguished by decoration, color, or weight.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-18",
+            "label": "Font size and weight distinguish content types",
+            "status": "pass",
+            "evidence": "Rendered headings use a distinguishable size and weight hierarchy.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-19",
+            "label": "Text content uses fonts of at least 14px",
+            "status": "fail",
+            "evidence": "Smallest rendered desktop text is 0px.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-20",
+            "label": "Each page uses no more than three font styles",
+            "status": "pass",
+            "evidence": "Rendered pages use between 1 and 2 primary font styles.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-21",
+            "label": "Typography distinguishes content from controls and navigation",
+            "status": "pass",
+            "evidence": "Computed typography and control styles were compared across rendered content, headings, navigation, and actions.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-22",
+            "label": "Uppercase is limited to labels, headers, and acronyms",
+            "status": "pass",
+            "evidence": "Uppercase characters represent 9% of rendered text.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-23",
+            "label": "No more than two font families are used",
+            "status": "pass",
+            "evidence": "Rendered pages use between 1 and 2 font families.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-24",
+            "label": "Paragraph and heading line lengths are approximately 45-75 characters",
+            "status": "unverified",
+            "evidence": "No measured line-length evidence is supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "design-25",
+            "label": "Capital letters are not overused",
+            "status": "pass",
+            "evidence": "Capitalization was measured from rendered page text.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-26",
+            "label": "Type hierarchy is rhythmic and standardized across pages",
+            "status": "fail",
+            "evidence": "Heading-style count ranges from 2 to 9 across pages.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-27",
+            "label": "Type remains readable at its smallest size",
+            "status": "fail",
+            "evidence": "Smallest rendered text is 0px.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-28",
+            "label": "Visual hierarchy leads to the required action or key information",
+            "status": "pass",
+            "evidence": "The first viewport was checked for both a clear heading and an actionable control.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-29",
+            "label": "Related information is grouped clearly",
+            "status": "pass",
+            "evidence": "Rendered pages were checked for semantic main content and grouped sections.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-30",
+            "label": "Alert messages consistently use appropriate toast, snackbar, or banner patterns",
+            "status": "unverified",
+            "evidence": "No alert, toast, or snackbar state is supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "design-31",
+            "label": "Primary actions differ visually from secondary actions",
+            "status": "pass",
+            "evidence": "Primary and secondary control treatments were compared from computed styles.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-32",
+            "label": "Form submission confirmation is visually distinct",
+            "status": "unverified",
+            "evidence": "No successful form-submission state is supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "design-33",
+            "label": "Meaning is not conveyed through color alone",
+            "status": "unverified",
+            "evidence": "Rendered color data does not establish whether every meaning is duplicated with text or shape.",
+            "sourceUrl": null
+          },
+          {
+            "id": "design-34",
+            "label": "Content controls stand out from background elements",
+            "status": "pass",
+            "evidence": "Primary controls are visually prominent against white, navy, and light-gray backgrounds.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-35",
+            "label": "No more than three primary colors appear on a page",
+            "status": "fail",
+            "evidence": "The rendered palette includes black, white, navy, blue, orange, gray, teal, and multiple near-duplicates, exceeding three primary colors if counted as visible brand colors.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-36",
+            "label": "Interactive elements use familiar conventions",
+            "status": "pass",
+            "evidence": "100% of interactive controls use familiar semantic elements.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-37",
+            "label": "Related data and functions use proximity and alignment",
+            "status": "pass",
+            "evidence": "Navigation columns, content cards, and footer groups use proximity and repeated alignment.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-38",
+            "label": "Information sections have enough spacing",
+            "status": "pass",
+            "evidence": "Semantic sections and main-content grouping were inspected on every rendered page.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-39",
+            "label": "Menu parent-child relationships are visually clear",
+            "status": "pass",
+            "evidence": "Desktop navigation and menu relationships were inspected on every rendered page.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-40",
+            "label": "Relevant information is visible without excessive scrolling",
+            "status": "pass",
+            "evidence": "The first viewport of each rendered page was checked for important heading content.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-41",
+            "label": "Page information follows an F or Z pattern",
+            "status": "pass",
+            "evidence": "Headlines, CTA placement, cards, and repeated calls to action support F/Z scanning.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-42",
+            "label": "Data displays clearly communicate important information",
+            "status": "pass",
+            "evidence": "Proof metrics such as 1,300+ brands, 99.9% uptime, and 22,000 campaigns are surfaced as discrete claims.",
+            "sourceUrl": "https://www.creatoriq.com/trust"
+          },
+          {
+            "id": "design-43",
+            "label": "Images and illustrations do not contain embedded text",
+            "status": "unverified",
+            "evidence": "Image alt coverage is measured, but embedded text within image assets is not supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "design-44",
+            "label": "Icons clearly represent their associated element",
+            "status": "pass",
+            "evidence": "Image alternative-text coverage is 100%.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-45",
+            "label": "Illustrations are clear, high-resolution, and uncluttered",
+            "status": "fail",
+            "evidence": "50% of rendered images meet their displayed pixel density.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-46",
+            "label": "Images are high quality and optimized for the target platform",
+            "status": "pass",
+            "evidence": "100% of images have stable rendered dimensions.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-47",
+            "label": "The icon set is visually consistent",
+            "status": "unverified",
+            "evidence": "No direct icon inventory or visual comparison is supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "design-48",
+            "label": "Illustrations and images feel on-brand and support the intended idea",
+            "status": "pass",
+            "evidence": "The blue/orange/navy identity and creator-marketing imagery support the stated enterprise brand positioning.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "design-49",
+            "label": "Clickable elements have a visible hover state",
+            "status": "unverified",
+            "evidence": "Hover behavior is not available in the supplied rendered evidence.",
+            "sourceUrl": null
+          },
+          {
+            "id": "design-50",
+            "label": "Processes longer than three seconds show a loader or progress hint",
+            "status": "unverified",
+            "evidence": "No loading interaction or measured process duration is supplied.",
+            "sourceUrl": null
+          }
+        ],
+        "courseOfAction": "Implement the verified design & typography fixes: Add persistent, visible labels, examples, required-state text, and inline guidance.",
+        "issues": [
+          {
+            "criterion": "design-09",
+            "severity": "high",
+            "finding": "Forms rely on placeholders and lack visible labels.",
+            "evidence": "Most pages report labeledRatio 50, placeholderRatio 50, and visibleLabelsRatio 0.",
+            "sourceUrl": "https://www.creatoriq.com/book-demo",
+            "fix": "Add persistent, visible labels, examples, required-state text, and inline guidance."
+          }
+        ],
+        "strengths": [
+          "Clear visual brand system and prominent CTAs.",
+          "Strong use of proof, customer evidence, and capability grouping."
+        ]
+      },
+      {
+        "key": "navigation",
+        "label": "Navigation & Structure",
+        "passed": 7,
+        "failed": 4,
+        "unverified": 3,
+        "notApplicable": 3,
+        "score": 64,
+        "scoreFormula": "7 passed ÷ (7 passed + 4 failed) × 100 = 64",
+        "target": 70,
+        "checks": [
+          {
+            "id": "navigation-01",
+            "label": "Completed actions do not require unnecessary extra submission steps",
+            "status": "unverified",
+            "evidence": "Submission and post-conversion workflow behavior is not supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "navigation-02",
+            "label": "Navigation appears in a familiar location",
+            "status": "pass",
+            "evidence": "Navigation was rendered near the top of each desktop page.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "navigation-03",
+            "label": "The current page is clearly communicated",
+            "status": "fail",
+            "evidence": "Rendered navigation was checked for aria-current or an active-page state.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "navigation-04",
+            "label": "The company physical address is displayed when applicable",
+            "status": "not_applicable",
+            "evidence": "No location-dependent service requirement was established from the audited pages.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "navigation-05",
+            "label": "A support email or phone number is easy to find",
+            "status": "pass",
+            "evidence": "Visible support email, phone, or help navigation was checked across the audited pages.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "navigation-06",
+            "label": "The About page is easy to access",
+            "status": "fail",
+            "evidence": "The About or story route was checked in desktop navigation.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "navigation-07",
+            "label": "Menu and page names are user-friendly and conventional",
+            "status": "pass",
+            "evidence": "Labels such as Product, Customers, Industries, Resources, Contact Us, and Request Demo are conventional.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "navigation-08",
+            "label": "Navigation is consistent across pages",
+            "status": "pass",
+            "evidence": "15 of 15 desktop pages expose navigation.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "navigation-09",
+            "label": "Navigation can accommodate future items",
+            "status": "pass",
+            "evidence": "Grouped mega-navigation provides multiple product, industry, organization, and resource slots.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "navigation-10",
+            "label": "Users can move backward and forward on any page",
+            "status": "unverified",
+            "evidence": "Browser back/forward behavior is not supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "navigation-11",
+            "label": "Search is visible on every page when search is a major site feature",
+            "status": "not_applicable",
+            "evidence": "Search is not evidenced as a major site feature; no search is present in the supplied renders.",
+            "sourceUrl": null
+          },
+          {
+            "id": "navigation-12",
+            "label": "The footer contains secondary links, social links, and a complete sitemap",
+            "status": "fail",
+            "evidence": "Footer link coverage was inspected on every desktop page.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "navigation-13",
+            "label": "Multi-step workflows show visible progress and remaining steps",
+            "status": "not_applicable",
+            "evidence": "No multi-step workflow is evidenced.",
+            "sourceUrl": null
+          },
+          {
+            "id": "navigation-14",
+            "label": "Site navigation follows familiar website conventions",
+            "status": "pass",
+            "evidence": "Visible navigation landmarks were checked across desktop and mobile renders.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "navigation-15",
+            "label": "Main desktop navigation is not unnecessarily hidden behind a menu",
+            "status": "pass",
+            "evidence": "Desktop navigation remains visible and contains direct links.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "navigation-16",
+            "label": "Needed information is visible and pre-populated at the relevant point",
+            "status": "unverified",
+            "evidence": "Pre-population and contextual data transfer are not supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "navigation-17",
+            "label": "The header logo appears on every page and links to the homepage",
+            "status": "fail",
+            "evidence": "The header logo/home link relationship was checked on every rendered page.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          }
+        ],
+        "courseOfAction": "Correct the verified failures in navigation & structure: The current page is clearly communicated; The About page is easy to access; The footer contains secondary links, social links, and a complete sitemap.",
+        "issues": [],
+        "strengths": [
+          "Broad, scalable information architecture.",
+          "Consistent header and footer across the main site."
+        ]
+      },
+      {
+        "key": "accessibility",
+        "label": "Accessibility & Compliance",
+        "passed": 7,
+        "failed": 6,
+        "unverified": 12,
+        "notApplicable": 18,
+        "score": 54,
+        "scoreFormula": "7 passed ÷ (7 passed + 6 failed) × 100 = 54",
+        "target": 63,
+        "checks": [
+          {
+            "id": "accessibility-01",
+            "label": "The website is compatible with major browsers",
+            "status": "unverified",
+            "evidence": "No cross-browser test results are supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "accessibility-02",
+            "label": "Main text meets at least WCAG AA contrast",
+            "status": "fail",
+            "evidence": "Lighthouse desktop found insufficient foreground/background contrast.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-03",
+            "label": "Active and inactive controls are visually distinguishable",
+            "status": "not_applicable",
+            "evidence": "Rendered disabled-control states and explanatory attributes were inspected.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-04",
+            "label": "The website uses a valid SSL certificate",
+            "status": "pass",
+            "evidence": "The audited URL uses HTTPS.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-05",
+            "label": "Hints help users act instead of merely explaining",
+            "status": "fail",
+            "evidence": "Forms have limited visible labeling and placeholder guidance, with visibleLabelsRatio 0 on most pages.",
+            "sourceUrl": "https://www.creatoriq.com/book-demo"
+          },
+          {
+            "id": "accessibility-06",
+            "label": "Empty states clearly identify the required action",
+            "status": "unverified",
+            "evidence": "No empty-state screen is supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "accessibility-07",
+            "label": "The website formats common data such as currency, phone codes, and large numbers helpfully",
+            "status": "pass",
+            "evidence": "Rendered prices use recognizable currency formatting.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-08",
+            "label": "Disabled buttons explain why they are unavailable",
+            "status": "not_applicable",
+            "evidence": "Disabled controls were checked for titles, descriptions, or tooltips.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-09",
+            "label": "Users can skip or restart onboarding",
+            "status": "not_applicable",
+            "evidence": "No onboarding flow is evidenced.",
+            "sourceUrl": null
+          },
+          {
+            "id": "accessibility-10",
+            "label": "Dangerous actions request confirmation and explain consequences",
+            "status": "unverified",
+            "evidence": "No dangerous action is evidenced.",
+            "sourceUrl": null
+          },
+          {
+            "id": "accessibility-11",
+            "label": "Users can recover from errors without losing progress",
+            "status": "unverified",
+            "evidence": "Error recovery behavior is not supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "accessibility-12",
+            "label": "404 and 503 pages explain what to do next",
+            "status": "pass",
+            "evidence": "A non-existent route was requested and its HTTP response was inspected.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-13",
+            "label": "Alerts stand out clearly from surrounding content",
+            "status": "unverified",
+            "evidence": "No alert state is supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "accessibility-14",
+            "label": "Users can refuse cookies",
+            "status": "unverified",
+            "evidence": "Cookie consent interaction is not supplied, although third-party cookies are detected.",
+            "sourceUrl": null
+          },
+          {
+            "id": "accessibility-15",
+            "label": "Location access is requested only with permission",
+            "status": "not_applicable",
+            "evidence": "No location permission request is evidenced.",
+            "sourceUrl": null
+          },
+          {
+            "id": "accessibility-16",
+            "label": "Contact access is requested only with permission",
+            "status": "not_applicable",
+            "evidence": "No contact permission request is evidenced.",
+            "sourceUrl": null
+          },
+          {
+            "id": "accessibility-17",
+            "label": "Prices and fees are shown clearly when the website charges a fee",
+            "status": "pass",
+            "evidence": "Prices are visible on the rendered commerce pages.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-18",
+            "label": "Forms validate input in real time",
+            "status": "unverified",
+            "evidence": "Real-time validation behavior is not supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "accessibility-19",
+            "label": "Complex fields show errors before final submission",
+            "status": "unverified",
+            "evidence": "Complex-field validation before submission is not supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "accessibility-20",
+            "label": "Text fields are case-insensitive where appropriate",
+            "status": "unverified",
+            "evidence": "Case-sensitivity behavior is not supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "accessibility-21",
+            "label": "Text fields include useful default values where appropriate",
+            "status": "unverified",
+            "evidence": "Useful default values are not supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "accessibility-22",
+            "label": "Field labels are visually distinct from entered values",
+            "status": "fail",
+            "evidence": "Visible-label coverage is 18% across rendered fields.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-23",
+            "label": "Multi-field forms keep submission unavailable until required fields are complete",
+            "status": "unverified",
+            "evidence": "Required-field submission behavior is not supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "accessibility-24",
+            "label": "Forms support browser autofill",
+            "status": "fail",
+            "evidence": "Browser-autofill attribute coverage is 58%.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-25",
+            "label": "Field labels remain visible after fields are filled",
+            "status": "fail",
+            "evidence": "Persistent visible labels were measured independently from placeholder text.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-26",
+            "label": "Inputs block clearly invalid data types where appropriate",
+            "status": "pass",
+            "evidence": "100% of fields use a context-appropriate input type.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-27",
+            "label": "Social sign-in is available where appropriate",
+            "status": "not_applicable",
+            "evidence": "No login or registration screen was included in the public audited pages.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-28",
+            "label": "Login pages provide a create-account option where appropriate",
+            "status": "not_applicable",
+            "evidence": "No login or registration screen was included in the public audited pages.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-29",
+            "label": "Login or sign-in pages have a visible heading",
+            "status": "not_applicable",
+            "evidence": "No login or registration screen was included in the public audited pages.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-30",
+            "label": "Forgot-password access is present on login screens",
+            "status": "not_applicable",
+            "evidence": "No login or registration screen was included in the public audited pages.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-31",
+            "label": "Password fields provide a visibility toggle",
+            "status": "not_applicable",
+            "evidence": "No login or registration screen was included in the public audited pages.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-32",
+            "label": "Browser password generation is supported",
+            "status": "not_applicable",
+            "evidence": "No login or registration screen was included in the public audited pages.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-33",
+            "label": "The website logo appears on the login page",
+            "status": "not_applicable",
+            "evidence": "No login or registration screen was included in the public audited pages.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-34",
+            "label": "Login pages provide a remember-me option where appropriate",
+            "status": "not_applicable",
+            "evidence": "No login or registration screen was included in the public audited pages.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-35",
+            "label": "Password requirements appear before password entry",
+            "status": "not_applicable",
+            "evidence": "No login or registration screen was included in the public audited pages.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-36",
+            "label": "Registration places terms acceptance next to the registration action",
+            "status": "not_applicable",
+            "evidence": "No login or registration screen was included in the public audited pages.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-37",
+            "label": "Password confirmation shows when passwords match",
+            "status": "not_applicable",
+            "evidence": "No login or registration screen was included in the public audited pages.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-38",
+            "label": "Clickable elements are sized and spaced to prevent accidental clicks",
+            "status": "fail",
+            "evidence": "92 undersized controls were found in mobile rendering.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-39",
+            "label": "Users can tab through forms in a logical order",
+            "status": "pass",
+            "evidence": "100% of controls use keyboard-compatible semantic elements.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "accessibility-40",
+            "label": "Users can edit their personal information easily",
+            "status": "not_applicable",
+            "evidence": "No account profile workflow is supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "accessibility-41",
+            "label": "Help opens without causing users to lose their work",
+            "status": "unverified",
+            "evidence": "Help behavior is not supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "accessibility-42",
+            "label": "Account deletion or subscription cancellation is easy to find",
+            "status": "not_applicable",
+            "evidence": "No subscription or account cancellation flow is supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "accessibility-43",
+            "label": "FAQ content is categorized and searchable",
+            "status": "pass",
+            "evidence": "FAQ content is present on an audited page.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          }
+        ],
+        "courseOfAction": "Implement the verified accessibility & compliance fixes: Adjust foreground/background combinations and verify contrast for body text, links, and controls. Increase target dimensions and spacing to accessible touch-target sizes.",
+        "issues": [
+          {
+            "criterion": "accessibility-02",
+            "severity": "high",
+            "finding": "Color contrast does not consistently meet the evidenced accessibility standard.",
+            "evidence": "Lighthouse color-contrast failures appear in desktop and mobile homepage tests.",
+            "sourceUrl": "https://www.creatoriq.com/",
+            "fix": "Adjust foreground/background combinations and verify contrast for body text, links, and controls."
+          },
+          {
+            "criterion": "accessibility-38",
+            "severity": "high",
+            "finding": "Some clickable controls are too small or tightly spaced.",
+            "evidence": "Rendered metadata reports undersized controls on every supplied page family.",
+            "sourceUrl": "https://www.creatoriq.com/",
+            "fix": "Increase target dimensions and spacing to accessible touch-target sizes."
+          }
+        ],
+        "strengths": [
+          "HTTPS and helpful 404 behavior are evidenced.",
+          "Body text is generally 16px and input types are reported as useful."
+        ]
+      },
+      {
+        "key": "mobile",
+        "label": "Mobile Responsiveness",
+        "passed": 4,
+        "failed": 2,
+        "unverified": 2,
+        "notApplicable": 2,
+        "score": 67,
+        "scoreFormula": "4 passed ÷ (4 passed + 2 failed) × 100 = 67",
+        "target": 70,
+        "checks": [
+          {
+            "id": "mobile-01",
+            "label": "Main body text is at least 16px on mobile",
+            "status": "pass",
+            "evidence": "Mobile body text ranges from 16px to 16px.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "mobile-02",
+            "label": "The site responds correctly in portrait and landscape orientation",
+            "status": "pass",
+            "evidence": "0 of 15 mobile pages overflow horizontally.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "mobile-03",
+            "label": "Buttons are large enough to select on mobile",
+            "status": "fail",
+            "evidence": "92 mobile controls fall below the 40px target.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "mobile-04",
+            "label": "Clickable elements have adequate spacing",
+            "status": "fail",
+            "evidence": "Mobile control dimensions were measured across every rendered page.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "mobile-05",
+            "label": "Input fields open the appropriate mobile keyboard",
+            "status": "pass",
+            "evidence": "Appropriate mobile input-type coverage is 100%.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "mobile-06",
+            "label": "Important actions are reachable with one hand",
+            "status": "pass",
+            "evidence": "Each mobile first viewport was checked for a reachable important action.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "mobile-07",
+            "label": "Phone features are requested only in context",
+            "status": "not_applicable",
+            "evidence": "No contextual phone hardware permission flow was required on the audited public pages.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "mobile-08",
+            "label": "Gallery images support swipe gestures",
+            "status": "not_applicable",
+            "evidence": "No image gallery was found.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "mobile-09",
+            "label": "Text over images remains readable",
+            "status": "unverified",
+            "evidence": "Text-over-image contrast in all mobile image contexts is not supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "mobile-10",
+            "label": "Autocorrect is disabled for fields where it would cause errors",
+            "status": "unverified",
+            "evidence": "Autocorrect behavior is not supplied.",
+            "sourceUrl": null
+          }
+        ],
+        "courseOfAction": "Implement the verified mobile responsiveness fixes: Use at least 44–48px controls and increase spacing between adjacent actions.",
+        "issues": [
+          {
+            "criterion": "mobile-03",
+            "severity": "high",
+            "finding": "Mobile controls include undersized targets.",
+            "evidence": "Mobile control metadata reports 6–7 undersized controls; the demo page has 6.",
+            "sourceUrl": "https://www.creatoriq.com/book-demo",
+            "fix": "Use at least 44–48px controls and increase spacing between adjacent actions."
+          }
+        ],
+        "strengths": [
+          "No horizontal overflow is reported on the desktop homepage; mobile body text is 16px.",
+          "Responsive mobile renders exist for the principal conversion and product pages."
+        ]
+      },
+      {
+        "key": "seo",
+        "label": "Search Engine Optimization",
+        "passed": 15,
+        "failed": 0,
+        "unverified": 7,
+        "notApplicable": 0,
+        "score": 100,
+        "scoreFormula": "15 passed ÷ (15 passed + 0 failed) × 100 = 100",
+        "target": 100,
+        "checks": [
+          {
+            "id": "seo-01",
+            "label": "HTTP redirects to HTTPS",
+            "status": "pass",
+            "evidence": "The HTTP version was requested directly and its redirect destination was checked.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "seo-02",
+            "label": "WWW or non-WWW is used consistently with a redirect",
+            "status": "pass",
+            "evidence": "The alternate www/non-www hostname was requested and checked for canonical redirection.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "seo-03",
+            "label": "Indexing errors and warnings have been reviewed",
+            "status": "unverified",
+            "evidence": "No indexing-error or warning report is supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "seo-04",
+            "label": "Google-indexed page count has been reviewed",
+            "status": "unverified",
+            "evidence": "Google-indexed page count is not supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "seo-05",
+            "label": "Pages that should be excluded from indexing are identified",
+            "status": "unverified",
+            "evidence": "Robots metadata was inspected, but deciding which additional pages should be excluded requires a content-owner review.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "seo-06",
+            "label": "The website passes mobile-friendly checks",
+            "status": "pass",
+            "evidence": "Rendered mobile pages were checked for readable body text and horizontal overflow.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "seo-07",
+            "label": "Mobile site-speed results are recorded",
+            "status": "pass",
+            "evidence": "Lighthouse mobile performance score: 39/100.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "seo-08",
+            "label": "Desktop site-speed results are recorded",
+            "status": "pass",
+            "evidence": "Lighthouse desktop performance score: 65/100.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "seo-09",
+            "label": "PageSpeed Insights issues are recorded",
+            "status": "pass",
+            "evidence": "Lighthouse technical issues were recorded with version 13.4.0.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "seo-10",
+            "label": "404 errors have been checked",
+            "status": "pass",
+            "evidence": "A unique non-existent URL was checked for a proper 404 response.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "seo-11",
+            "label": "Broken internal links have been checked",
+            "status": "pass",
+            "evidence": "12 representative internal pages were checked; 0 returned an error.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "seo-12",
+            "label": "Backlink quantity has been reviewed",
+            "status": "unverified",
+            "evidence": "Backlink quantity is not supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "seo-13",
+            "label": "Potentially toxic backlinks have been reviewed",
+            "status": "unverified",
+            "evidence": "Toxic backlink review is not supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "seo-14",
+            "label": "Accessibility errors and warnings have been reviewed",
+            "status": "pass",
+            "evidence": "Lighthouse accessibility score: 86/100.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "seo-15",
+            "label": "Color contrast errors have been reviewed",
+            "status": "pass",
+            "evidence": "Lighthouse color-contrast audits were included in the accessibility run.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "seo-16",
+            "label": "All important pages are linked in navigation",
+            "status": "pass",
+            "evidence": "Important-page link coverage was inspected in rendered desktop navigation.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "seo-17",
+            "label": "Important pages are reachable within three clicks",
+            "status": "pass",
+            "evidence": "15 public pages were reached from the site crawl and retain visible navigation.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "seo-18",
+            "label": "The site structure can be represented clearly",
+            "status": "pass",
+            "evidence": "15 audited pages provide a concrete site-structure sample.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "seo-19",
+            "label": "The website has a sitemap",
+            "status": "pass",
+            "evidence": "The sitemap.xml endpoint is available.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "seo-20",
+            "label": "Google Analytics is configured",
+            "status": "pass",
+            "evidence": "Rendered scripts were inspected for a recognized analytics integration.",
+            "sourceUrl": "https://www.creatoriq.com/"
+          },
+          {
+            "id": "seo-21",
+            "label": "A recurring site-audit tool is configured",
+            "status": "unverified",
+            "evidence": "No recurring site-audit tool configuration is supplied.",
+            "sourceUrl": null
+          },
+          {
+            "id": "seo-22",
+            "label": "Keyword position tracking is configured for priority keywords",
+            "status": "unverified",
+            "evidence": "No priority-keyword position tracking configuration is supplied.",
+            "sourceUrl": null
+          }
+        ],
+        "courseOfAction": "No implementation change is recommended for search engine optimization until the audit records a verified failure.",
+        "issues": [],
+        "strengths": [
+          "HTTPS, host redirects, sitemap availability, analytics, and broken-link checks are evidenced.",
+          "The information architecture exposes important product and resource areas."
+        ]
+      }
+    ],
+    "priorities": [
+      {
+        "title": "Accessibility & Compliance: Main text meets at least WCAG AA contrast",
+        "why": "Color contrast does not consistently meet the evidenced accessibility standard. Evidence: Lighthouse color-contrast failures appear in desktop and mobile homepage tests.",
+        "action": "Adjust foreground/background combinations and verify contrast for body text, links, and controls."
+      },
+      {
+        "title": "Accessibility & Compliance: Clickable elements are sized and spaced to prevent accidental clicks",
+        "why": "Some clickable controls are too small or tightly spaced. Evidence: Rendered metadata reports undersized controls on every supplied page family.",
+        "action": "Increase target dimensions and spacing to accessible touch-target sizes."
+      },
+      {
+        "title": "Mobile Responsiveness: Buttons are large enough to select on mobile",
+        "why": "Mobile controls include undersized targets. Evidence: Mobile control metadata reports 6–7 undersized controls; the demo page has 6.",
+        "action": "Use at least 44–48px controls and increase spacing between adjacent actions."
+      },
+      {
+        "title": "Design & Typography: Placeholders indicate the expected input",
+        "why": "Forms rely on placeholders and lack visible labels. Evidence: Most pages report labeledRatio 50, placeholderRatio 50, and visibleLabelsRatio 0.",
+        "action": "Add persistent, visible labels, examples, required-state text, and inline guidance."
+      },
+      {
+        "title": "Accessibility & Compliance: Hints help users act instead of merely explaining",
+        "why": "The audit marked this checklist item as failed. Evidence: Forms have limited visible labeling and placeholder guidance, with visibleLabelsRatio 0 on most pages.",
+        "action": "Update the affected page so it meets this requirement: Hints help users act instead of merely explaining."
+      }
+    ]
+  },
+  "plan": {
+    "title": "CreatorIQ implementation action plan",
+    "summary": "Prioritise the demo form, mobile controls, and homepage speed to improve qualified conversion and campaign measurement reliability.",
+    "sections": [
+      {
+        "heading": "Quick wins",
+        "body": "Fix the conversion path first. These changes address verified form and mobile usability failures.",
+        "bullets": [
+          "Demo fields lack persistent visible labels.",
+          "92 mobile controls are below the target size."
+        ]
+      },
+      {
+        "heading": "Structural improvement",
+        "body": "Improve homepage loading after the conversion-path fixes. Mobile performance is severely below target.",
+        "bullets": [
+          "Mobile Lighthouse performance scored 39/100.",
+          "Mobile LCP measured 24.9 seconds."
+        ]
+      }
+    ],
+    "recommendations": [
+      {
+        "title": "Clarify demo form fields",
+        "rationale": "Only 18% of fields have visible labels, and autofill coverage is 58%. Unclear fields can reduce completed, qualified demo requests.",
+        "action": "Add persistent labels, examples, required-state text, and autocomplete attributes to every demo-form field."
+      },
+      {
+        "title": "Resize mobile controls",
+        "rationale": "The audit found 92 undersized mobile controls, including six on the demo page. Small targets can cause errors and abandoned requests.",
+        "action": "Set buttons and links to at least 44px high, with adequate spacing between adjacent controls."
+      },
+      {
+        "title": "Improve homepage mobile speed",
+        "rationale": "Mobile performance scored 39/100, with 24.9-second LCP and 0.469 layout shift. Slow loading can reduce qualified demo conversion and weaken measurement reliability.",
+        "action": "Compress and properly size homepage images, defer noncritical scripts, and reduce layout shifts on mobile."
+      }
+    ]
+  }
+}

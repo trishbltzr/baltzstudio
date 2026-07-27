@@ -90,7 +90,7 @@ function LoginRoute() {
     };
   }, [nextPath, router]);
 
-  function handleLogin(user: LoginUser, rememberProfile: boolean) {
+  function handleLogin(user: LoginUser, rememberProfile: boolean, destination?: string) {
     sessionStorage.setItem("bs-user", JSON.stringify(user));
     sessionStorage.removeItem(REMEMBER_LOGIN_AFTER_OAUTH_STORAGE_KEY);
     if (rememberProfile) {
@@ -98,7 +98,7 @@ function LoginRoute() {
     } else {
       clearRememberedProfile();
     }
-    router.push(nextPath);
+    router.push(destination || nextPath);
   }
 
   function handleForgetProfile() {

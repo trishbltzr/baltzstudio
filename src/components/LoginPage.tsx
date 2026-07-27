@@ -14,10 +14,16 @@ const JOURNEY_STEPS = [
 // login path in the interface.
 const GOOGLE_SIGN_IN_VISIBLE = false;
 
-const EASY_LOGIN_OPTIONS = process.env.NODE_ENV === "production" ? [] : [
+const EASY_LOGIN_OPTIONS = [
   { label: "Admin", email: "hello@baltz.studio", password: "admin123" },
   { label: "Manager", email: "projects@baltz.studio", password: "manager123" },
-  { label: "Client", email: "client@baltz.studio", password: "client123" },
+  {
+    label: "Client",
+    email: "client@baltz.studio",
+    password: "client123",
+    nextPath: "/dashboard/checkups/website/report/creator-iq/creator-iq-website-checkup",
+    workspace: "Opens CreatorIQ portal",
+  },
 ] as const;
 
 export function LoginPage({
@@ -27,7 +33,7 @@ export function LoginPage({
   nextPath = "/dashboard",
   initialMessage = null,
 }: {
-  onLogin: (user: LoginUser, rememberProfile: boolean) => void;
+  onLogin: (user: LoginUser, rememberProfile: boolean, nextPath?: string) => void;
   rememberedProfile?: LoginUser | null;
   onForgetProfile: () => void;
   nextPath?: string;
@@ -91,7 +97,8 @@ export function LoginPage({
       return;
     }
 
-    onLogin(nextUser, rememberMe);
+    const easyLogin = EASY_LOGIN_OPTIONS.find(option => option.email === email.trim().toLowerCase());
+    onLogin(nextUser, rememberMe, easyLogin && "nextPath" in easyLogin ? easyLogin.nextPath : undefined);
   }
 
   async function handleSSOClick() {
@@ -445,7 +452,7 @@ export function LoginPage({
                   <strong id="easy-role-logins-title">Easy role logins</strong>
                   <span>Choose a role to fill the real sign-in form.</span>
                 </div>
-                <span className="login-development-badge">Local only</span>
+                <span className="login-development-badge">Client portal</span>
               </div>
               <div className="login-development-login-list">
                 {EASY_LOGIN_OPTIONS.map(option => (
@@ -453,6 +460,7 @@ export function LoginPage({
                     key={option.email}
                     type="button"
                     className="login-development-login"
+                    title={"workspace" in option ? option.workspace : `Use the ${option.label} account`}
                     onClick={() => {
                       if (rememberedProfile) onForgetProfile();
                       setEmail(option.email);

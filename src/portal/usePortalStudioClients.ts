@@ -62,7 +62,8 @@ export function usePortalStudioClients() {
           .filter(client => client.status !== "archived" && client.source_kind !== "demo" && !/^demo(?:-|$)/i.test(client.slug))
           .map(studioClientFromPortal));
       })
-      .catch(() => {
+      .catch(error => {
+        console.error("Unable to load portal clients.", error);
         if (active) setClients([]);
       })
       .finally(() => {

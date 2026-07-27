@@ -5,6 +5,10 @@ import { resolvePortalRequestAccess } from "@/lib/portalRequestAccess";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabasePrivilegedServerClient } from "@/lib/supabase/privileged";
 import type { Json } from "@/lib/supabase/types";
+import {
+  CREATOR_IQ_CLIENT_ID,
+  createCreatorIqWebsiteAuditDraft,
+} from "@/lib/creatorIqClientWorkspace";
 
 function requestedAuditRunIds(body: unknown) {
   const requestedRunIds: unknown[] = Array.isArray((body as { runIds?: unknown[] } | null)?.runIds)
@@ -58,7 +62,32 @@ export async function GET(request: Request) {
           updatedAt: row.updated_at,
         })),
     );
-  const visibleDrafts = access.role === "client" ? drafts.map(projectPersistedAuditDraftForClient) : drafts;
+  const shouldIncludeCreatorIq = access.role === "client"
+    ? access.clientId === CREATOR_IQ_CLIENT_ID
+    : clientId === CREATOR_IQ_CLIENT_ID
+      || runId === "creator-iq-website-checkup";
+
+  if (shouldIncludeCreatorIq) {
+    const capturedResult = createCreatorIqWebsiteAuditDraft();
+    const savedResult = drafts.find(draft => draft.run.id === capturedResult.run.id);
+    const savedIsNewer = savedResult
+      ? Date.parse(savedResult.updatedAt || "") > Date.parse(capturedResult.updatedAt || "")
+      : false;
+
+    if (!savedIsNewer) {
+      const savedIndex = drafts.findIndex(draft => draft.run.id === capturedResult.run.id);
+      if (savedIndex >= 0) drafts.splice(savedIndex, 1);
+      drafts.unshift(capturedResult);
+    }
+  }
+
+  const visibleDrafts = access.role === "client"
+    ? drafts.map(draft => (
+      access.clientId === CREATOR_IQ_CLIENT_ID
+        ? draft
+        : projectPersistedAuditDraftForClient(draft)
+    ))
+    : drafts;
   return NextResponse.json({
     drafts: summaryOnly ? visibleDrafts.map(projectPersistedAuditDraftForIndex) : visibleDrafts,
     scope: access.role === "client" ? { role: "client", clientId: access.clientId } : { role: "staff" },

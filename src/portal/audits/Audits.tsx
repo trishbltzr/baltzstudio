@@ -6,7 +6,7 @@ import { css } from "../helpers";
 import { printReportNode } from "../printReport";
 import { Icon } from "../icons";
 import type { PortalActions, PortalState } from "../store";
-import type { StudioClient } from "../clients";
+import { UNASSIGNED_WORK_CLIENT, type StudioClient } from "../clients";
 import { GuidedIntakeSelector } from "../components/GuidedIntakeSelector";
 import { EngineIndexControls } from "../components/EngineIndexControls";
 import { EngineIndexOverview } from "../components/EngineIndexOverview";
@@ -173,12 +173,30 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
   const resettingAudit = resettingAuditAction !== null;
   const [quickKnow, setQuickKnow] = useState<Know>({ data: {}, sources: {} });
   const durableWebsiteRuns = useDurableCheckupRuns("website", state.role, state.clientName);
-  const { clients: portalClients } = usePortalStudioClients();
+  const { clients: portalClients, loaded: portalClientsLoaded } = usePortalStudioClients();
   const capabilities = portalCapabilities(state);
   const canManageStudioWork = capabilities.canApproveStudioWork;
   const canOpenLabs = clientHasEngineAccess(state, "labs");
   useEffect(() => { setQuickKnow(s.clientId ? loadPersistedKnowledge(s.clientId) : { data: {}, sources: {} }); }, [s.clientId]);
-  const allClients = portalClients;
+  const allClients = useMemo(() => {
+    if (portalClients.length || state.role !== "client" || !state.clientName.trim()) return portalClients;
+    const name = state.clientName.trim();
+    const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    return [{
+      ...UNASSIGNED_WORK_CLIENT,
+      id,
+      name,
+      owner: name,
+      lead: {
+        ...UNASSIGNED_WORK_CLIENT.lead,
+        businessName: name,
+      },
+      audit: {
+        ...UNASSIGNED_WORK_CLIENT.audit,
+        id: `audit-${id}`,
+      },
+    }];
+  }, [portalClients, state.clientName, state.role]);
   const workingClients = useMemo(() => clientsForEngineWork(state.role, allClients), [allClients, state.role]);
   const assignedClientIds = useMemo(() => new Set(allClients.map(item => item.id)), [allClients]);
   const knownClientIds = useMemo(() => new Set(workingClients.map(item => item.id)), [workingClients]);
@@ -287,11 +305,12 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
   useEffect(() => {
     if (!draftsLoaded || restoredFromUrl.current) return;
 
-    restoredFromUrl.current = true;
     const params = readPortalLocationParams();
     const auditRunId = params.get("auditRun");
     const auditReportClientId = params.get("auditReport");
     const auditReportRunId = params.get("auditReportRun");
+    if ((auditRunId || auditReportClientId || auditReportRunId) && !portalClientsLoaded) return;
+    restoredFromUrl.current = true;
 
     if (auditReportClientId && workingClients.some(item => item.id === auditReportClientId)) {
       setReportClientId(auditReportClientId);
@@ -351,7 +370,7 @@ export function Audits({ state, actions, userEmail }: { state: PortalState; acti
     }
 
     dispatch({ t: "select", clientId: savedRun.clientId, buildId: savedRun.id });
-  }, [allClients, draftsByRunId, draftsLoaded, runs, state.role, workingClients]);
+  }, [allClients, draftsByRunId, draftsLoaded, portalClientsLoaded, runs, state.role, workingClients]);
 
   useEffect(() => {
     if (state.role !== "client" || !draftsLoaded || s.clientId || reportClientId) return;
